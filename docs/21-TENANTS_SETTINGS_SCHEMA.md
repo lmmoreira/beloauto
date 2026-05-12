@@ -64,10 +64,11 @@ Controls booking lifecycle and rules.
 | Key | Type | Default | Min | Max | Description |
 |-----|------|---------|-----|-----|-------------|
 | `cancellation_window_hours` | integer | 48 | 0 | 720 | Hours before appointment when customer can still cancel (0 = no self-cancellation) |
-| `auto_approve_enabled` | boolean | false | — | — | Automatically approve bookings without admin review (future feature) |
+| `auto_approve_enabled` | boolean | false | — | — | **Reserved — post-MVP only. Currently ignored.** Automatically approve bookings without admin review. |
 | `min_booking_advance_hours` | integer | 0 | 0 | 8760 | Minimum hours in advance customer must book (0 = can book same day) |
 | `max_booking_advance_days` | integer | 90 | 1 | 365 | Maximum days in advance customer can book |
 | `service_buffer_minutes` | integer | 60 | 0 | 120 | Buffer time between service end and next booking (cleaning, prep time) |
+| `slot_granularity_minutes` | integer | 30 | 15 | 60 | Calendar slot unit in minutes. Valid values: 15, 30, 60. Controls granularity of available start times shown in UC-011. |
 
 **Example:**
 ```json
@@ -78,7 +79,7 @@ Controls booking lifecycle and rules.
     "min_booking_advance_hours": 0,
     "max_booking_advance_days": 90,
     "service_buffer_minutes": 60,
-    "service_buffer_minutes": 60
+    "slot_granularity_minutes": 30
   }
 }
 ```
@@ -88,6 +89,7 @@ Controls booking lifecycle and rules.
 - `min_booking_advance_hours` must be ≥ 0
 - `max_booking_advance_days` must be ≥ 1
 - `min_booking_advance_hours` / 24 must be < `max_booking_advance_days`
+- `slot_granularity_minutes` must be one of: 15, 30, 60
 
 ---
 
@@ -104,7 +106,7 @@ Defines when the car wash operates. Used for availability calculations and remin
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `timezone` | string | "UTC" | IANA timezone identifier (e.g., "America/New_York", "Europe/London", "Asia/São_Paulo") |
+| `timezone` | string | "America/Sao_Paulo" | IANA timezone identifier (e.g., "America/Sao_Paulo", "America/Manaus", "America/Fortaleza") |
 | `monday` | object | `{ open: "09:00", close: "18:00" }` | Hours for this day (null = closed), interpreted in tenant timezone |
 | `tuesday` | object | `{ open: "09:00", close: "18:00" }` | — |
 | `wednesday` | object | `{ open: "09:00", close: "18:00" }` | — |
@@ -117,7 +119,7 @@ Defines when the car wash operates. Used for availability calculations and remin
 ```json
 {
   "business_hours": {
-    "timezone": "America/New_York",
+    "timezone": "America/Sao_Paulo",
     "monday": { "open": "09:00", "close": "18:00" },
     "tuesday": { "open": "09:00", "close": "18:00" },
     "wednesday": { "open": "09:00", "close": "18:00" },
@@ -169,9 +171,9 @@ Currency, language, and regional preferences.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `currency` | string | "USD" | ISO 4217 currency code (USD, EUR, BRL, etc.) |
-| `currency_symbol` | string | "$" | Display symbol (used in UI) |
-| `language` | string | "en" | ISO 639-1 language code (future: i18n) |
+| `currency` | string | "BRL" | ISO 4217 currency code. BeloAuto is Brazil-only — always BRL. |
+| `currency_symbol` | string | "R$" | Display symbol (used in UI). Brazilian Real symbol. |
+| `language` | string | "pt-BR" | BCP-47 language tag. All customer-facing text in Brazilian Portuguese. |
 | `decimal_places` | integer | 2 | Decimal precision for money display |
 
 **Example:**
@@ -184,6 +186,9 @@ Currency, language, and regional preferences.
     "decimal_places": 2
   }
 }
+```
+
+> BeloAuto is a Brazil-only product. All tenants use BRL and pt-BR. The `currency` and `language` fields are stored for completeness but should not be changed in MVP.
 ```
 
 **Validation Rules:**
@@ -208,10 +213,11 @@ Currency, language, and regional preferences.
     "auto_approve_enabled": false,
     "min_booking_advance_hours": 0,
     "max_booking_advance_days": 90,
-    "service_buffer_minutes": 60
+    "service_buffer_minutes": 60,
+    "slot_granularity_minutes": 30
   },
   "business_hours": {
-    "timezone": "America/New_York",
+    "timezone": "America/Sao_Paulo",
     "monday": { "open": "09:00", "close": "18:00" },
     "tuesday": { "open": "09:00", "close": "18:00" },
     "wednesday": { "open": "09:00", "close": "18:00" },
@@ -233,7 +239,7 @@ Currency, language, and regional preferences.
 
 ## Defaults (MVP Tenant Creation)
 
-When super admin creates a new tenant (UC-024), if settings are not provided, system creates:
+When a developer provisions a new tenant (UC-024), if settings are not provided, the system creates:
 
 ```json
 {
@@ -247,10 +253,11 @@ When super admin creates a new tenant (UC-024), if settings are not provided, sy
     "auto_approve_enabled": false,
     "min_booking_advance_hours": 0,
     "max_booking_advance_days": 90,
-    "service_buffer_minutes": 60
+    "service_buffer_minutes": 60,
+    "slot_granularity_minutes": 30
   },
   "business_hours": {
-    "timezone": "UTC",
+    "timezone": "America/Sao_Paulo",
     "monday": { "open": "09:00", "close": "18:00" },
     "tuesday": { "open": "09:00", "close": "18:00" },
     "wednesday": { "open": "09:00", "close": "18:00" },
@@ -260,9 +267,9 @@ When super admin creates a new tenant (UC-024), if settings are not provided, sy
     "sunday": null
   },
   "localization": {
-    "currency": "USD",
-    "currency_symbol": "$",
-    "language": "en",
+    "currency": "BRL",
+    "currency_symbol": "R$",
+    "language": "pt-BR",
     "decimal_places": 2
   }
 }
@@ -281,8 +288,8 @@ constructor(private tenantContext: TenantContext) {}
 // Access settings
 const loyaltyExpiryDays = this.tenantContext.settings.loyalty.expiry_days; // 180
 const cancellationWindow = this.tenantContext.settings.booking.cancellation_window_hours; // 48
-const timezone = this.tenantContext.settings.business_hours.timezone; // "UTC"
-const currency = this.tenantContext.settings.localization.currency; // "USD"
+const timezone = this.tenantContext.settings.business_hours.timezone; // "America/Sao_Paulo"
+const currency = this.tenantContext.settings.localization.currency; // "BRL"
 ```
 
 ### **Example: Validating Cancellation Window (UC-007)**

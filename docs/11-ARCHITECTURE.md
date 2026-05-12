@@ -10,37 +10,49 @@ BeloAuto is designed as a **Modular Monolith** using **Hexagonal Architecture (P
 
 ```mermaid
 graph TD
-    subgraph "Web Layer (React)"
-        Hotsite[Hotsite Render Engine]
-        Dashboard[Dashboard Backoffice]
+    subgraph "Web Layer (Next.js 14 — apps/web)"
+        Hotsite[Hotsite Render Engine<br/>public, unauthenticated]
+        Dashboard[Dashboard Backoffice<br/>authenticated - Customer & Staff]
     end
 
-    subgraph "Edge / Gateway"
-        BFF[Backend-for-Frontend]
+    subgraph "BFF — apps/bff (separate NestJS service)"
+        BFF[Backend-for-Frontend<br/>sole entry point for Web Layer]
     end
 
-    subgraph "Core System (NestJS - Modular Monolith)"
-        subgraph "Bounded Contexts"
-            BC1[Booking Context]
-            BC2[Customer Context]
-            BC3[Loyalty Context]
-            BC4[Notification Context]
-            BC5[Staff Context]
-        end
-        
-        EB[Internal Event Bus]
+    subgraph "Backend — apps/backend (NestJS Modular Monolith)"
+        BC1[Booking Context]
+        BC2[Customer Context]
+        BC3[Loyalty Context]
+        BC4[Notification Context]
+        BC5[Staff Context]
+        BC6[Platform Context]
+        EB[(IEventBus Port<br/>GCP Pub/Sub)]
     end
 
     subgraph "Infrastructure"
-        DB[(PostgreSQL)]
+        DB[(PostgreSQL 15<br/>Cloud SQL)]
         OAuth[Google OAuth 2.0]
-        Email[SES / SendGrid]
-        Storage[Google Cloud Storage]
+        Email[IEmailSender Port<br/>SendGrid adapter]
+        Storage[S3-compatible Storage<br/>GCS adapter]
+        Secrets[GCP Secret Manager]
     end
 
-    Hotsite -->|1. Fetch Manifest| BFF
-    Dashboard -->|2. Authenticated Actions| BFF
-    BFF -->|Internal API| BC1
+    Hotsite -->|GET /tenants/slug/:slug — manifest| BFF
+    Dashboard -->|Authenticated API calls + JWT| BFF
+    BFF -->|Validates JWT · injects tenantId| BC1
+    BFF -->|Validates JWT · injects tenantId| BC2
+    BFF -->|Validates JWT · injects tenantId| BC3
+    BFF -->|Validates JWT · injects tenantId| BC5
+    BFF -->|Validates JWT · injects tenantId| BC6
+    BC1 -->|publishes events| EB
+    BC6 -->|publishes events| EB
+    EB -->|BookingCompleted| BC3
+    EB -->|all events| BC4
+    BC3 -->|ServicePointsEarned, PointsExpiringSoon| EB
+    BC4 -->|sends| Email
+    BC1 & BC2 & BC3 & BC4 & BC5 & BC6 -->|queries| DB
+    BFF -->|Google OAuth callback| OAuth
+    BC1 -->|photo upload/download| Storage
 ```
 
 ---

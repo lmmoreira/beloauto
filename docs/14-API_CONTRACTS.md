@@ -11,8 +11,13 @@ BeloAuto follows a **RESTful API** standard using **JSON** for all payloads. All
 ## Base Standards
 
 ### 1. **Base URL**
-- **Production:** `https://api.beloauto.com/v1`
-- **Local:** `http://localhost:3000/v1`
+All endpoints are served by the **BFF** (`apps/bff/`) — the frontend never calls the backend directly.
+
+- **Production:** `https://bff.beloauto.com/v1`
+- **Staging:** `https://beloauto-bff-staging-<hash>-uc.a.run.app/v1` (get URL from `terraform output bff_url`)
+- **Local:** `http://localhost:3002/v1`
+
+> The backend (`apps/backend/`) is an internal Cloud Run service. It is not publicly reachable. Only the BFF calls it, via `BACKEND_INTERNAL_URL`.
 
 ### 2. **Tenant Scoping (Mandatory)**
 - **Public/Guest Endpoints:** Must include `X-Tenant-Slug` header (e.g., `autowash-pro`).
@@ -129,14 +134,22 @@ For even better performance with large datasets (Phase 2), consider cursor-based
 ### **JWT Structure**
 ```json
 {
-  "sub": "user-uuid",
-  "tenantId": "tenant-uuid",
+  "sub":        "user-uuid-v7",
+  "tenantId":   "tenant-uuid-v7",
   "tenantSlug": "autowash-pro",
-  "role": "STAFF | CUSTOMER",
-  "iat": 123456789,
-  "exp": 123456789
+  "role":       "CUSTOMER | STAFF | MANAGER",
+  "iat":        123456789,
+  "exp":        123456789
 }
 ```
+
+| Role | Who | Access |
+|---|---|---|
+| `CUSTOMER` | Authenticated customer | Own bookings, loyalty, profile |
+| `STAFF` | Regular employee | All bookings, services, schedule |
+| `MANAGER` | Admin/owner (MANAGER role) | Everything STAFF can do + tenant settings, staff management, hotsite |
+
+> **Guest bookings** (UC-001) carry no JWT. The BFF identifies them by the absence of an `Authorization` header. Tenant context comes from the `X-Tenant-Slug` header.
 
 ---
 
@@ -160,9 +173,19 @@ Used by the React app to fetch branding and layout for a slug.
   ```
 
 ### **Service Management (Admin - UC-012, UC-013)**
-- `GET /services` -> List all services (Public/Admin).
-- `POST /services` -> Create service (Admin).
-- `PATCH /services/:id` -> Update service details/price/duration (Admin).
+- `GET /services` -> List all services (Public/Admin). Each item includes:
+  ```json
+  {
+    "serviceId": "uuid", "name": "Coleta e Entrega", "description": "...",
+    "price": { "amount": 20.00, "currency": "BRL" },
+    "durationMinutes": 15, "pointsValue": 1,
+    "requiresPickupAddress": true,
+    "isActive": true
+  }
+  ```
+  The frontend uses `requiresPickupAddress` to show/hide the address field as services are added to the basket.
+- `POST /services` -> Create service (Admin). Body includes `requiresPickupAddress: boolean` (default `false`).
+- `PATCH /services/:id` -> Update service details/price/duration/`requiresPickupAddress` (Admin).
 - `DELETE /services/:id` -> Deactivate service (Admin).
 
 ---
@@ -234,38 +257,64 @@ A booking has **1..N service lines**. Order in the `serviceIds` array is preserv
 - **Body:**
   ```json
   {
-    "serviceIds":   ["uuid-basic-wash", "uuid-wax", "uuid-basic-wash"],  // ≥ 1; duplicates OK
-    "scheduledAt":  "ISO8601",                                            // start of the slot
-    "guestInfo":    { "name": "...", "email": "...", "phone": "..." },    // omit when authenticated (BFF reads from JWT)
-    "carPhotoUrls": ["https://..."]                                       // optional
+    "serviceIds":   ["uuid-basic-wash", "uuid-pickup"],  // ≥ 1; duplicates OK
+    "scheduledAt":  "ISO8601",
+    "guestInfo":    { "name": "...", "email": "...", "phone": "..." },
+    "pickupAddress": {
+      "street":       "Rua das Flores",
+      "number":       "123",
+      "complement":   "Apto 4B",
+      "neighborhood": "Centro",
+      "city":         "Belo Horizonte",
+      "state":        "MG",
+      "zipCode":      "30130010"
+    },
+    "carPhotoUrls": ["https://..."]
   }
   ```
-- **Response (`201 Created`)** — the server is the source of truth for snapshot fields and totals:
+  - `pickupAddress` is **required** when any `serviceId` has `requiresPickupAddress = true`; omit otherwise.
+  - `guestInfo` is omitted for authenticated customers (BFF reads from JWT).
+
+- **Response (`201 Created`):**
   ```json
   {
     "bookingId":          "uuid",
     "status":             "PENDING",
     "scheduledAt":        "ISO8601",
-    "totalPrice":         { "amount": 75.00, "currency": "USD" },
+    "totalPrice":         { "amount": 120.00, "currency": "BRL" },
     "totalDurationMins":  85,
+    "pickupAddress": {
+      "street": "Rua das Flores", "number": "123", "complement": "Apto 4B",
+      "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30130010"
+    },
     "lines": [
       {
-        "lineId":                "uuid",
-        "serviceId":             "uuid-basic-wash",
-        "priceAtBooking":        { "amount": 20.00, "currency": "USD" },
-        "durationMinsAtBooking": 30,
-        "pointsValueAtBooking":  1
+        "lineId":                          "uuid",
+        "serviceId":                       "uuid-basic-wash",
+        "priceAtBooking":                  { "amount": 100.00, "currency": "BRL" },
+        "durationMinsAtBooking":           30,
+        "pointsValueAtBooking":            1,
+        "requiresPickupAddressAtBooking":  false
       },
-      { "lineId": "uuid", "serviceId": "uuid-wax",        "priceAtBooking": { "amount": 35.00, "currency": "USD" }, "durationMinsAtBooking": 25, "pointsValueAtBooking": 3 },
-      { "lineId": "uuid", "serviceId": "uuid-basic-wash", "priceAtBooking": { "amount": 20.00, "currency": "USD" }, "durationMinsAtBooking": 30, "pointsValueAtBooking": 1 }
+      {
+        "lineId":                          "uuid",
+        "serviceId":                       "uuid-pickup",
+        "priceAtBooking":                  { "amount": 20.00, "currency": "BRL" },
+        "durationMinsAtBooking":           15,
+        "pointsValueAtBooking":            1,
+        "requiresPickupAddressAtBooking":  true
+      }
     ],
     "carPhotoUrls": ["https://..."]
   }
   ```
+
 - **Errors (RFC 9457 Problem Details):**
   - `400 invalid-services-empty` — `serviceIds` is empty.
   - `400 invalid-services-not-found` — one or more `serviceId` does not exist in the current tenant.
   - `400 invalid-services-inactive` — one or more service has `is_active = false`.
+  - `400 missing-pickup-address` — one or more selected services require a pickup address but none was provided.
+  - `400 invalid-pickup-address` — `pickupAddress` fields fail validation (e.g. `zipCode` not 8 digits, `state` not a valid UF).
   - `409 slot-unavailable` — the requested `scheduledAt + totalDurationMins` window overlaps another APPROVED booking or a `ScheduleClosure`.
 
 ### **Booking Management (UC-003 - UC-008)**
@@ -275,12 +324,59 @@ A booking has **1..N service lines**. Order in the `serviceIds` array is preserv
   - **Status enum:** `APPROVED | REJECTED | CANCELLED | INFO_REQUESTED | PENDING` (`PENDING` only when transitioning back from `INFO_REQUESTED` via UC-005 alt-flow A2).
 - `PATCH /bookings/:id` → (UC-008) General update (e.g., **Reschedule** date/time). Lines cannot be edited after `APPROVED` (returns `409 booking-lines-frozen`).
 
+### **Reschedule (UC-008)**
+- `PATCH /bookings/:id/reschedule`
+- **Body:** `{ "scheduledAt": "ISO8601", "adminNotes": "..." }`
+- **Validation:** New `scheduledAt + totalDurationMins` window must be free. Returns `409 slot-unavailable` if not.
+- **Event:** Publishes `BookingRescheduled` → Notification sends customer email.
+
 ### **Information Workflow (UC-005)**
 - `POST /bookings/:id/info` -> Customer submits requested photos/notes.
 
 ### **Completion (UC-009)**
 - `PATCH /bookings/:id/complete`
-- **Body:** `{ "notes": "...", "photoUrls": ["..."] }`
+- **Body:**
+  ```json
+  {
+    "notes": "Extra shine applied",
+    "photoUrls": ["https://..."],
+    "lineActualPrices": [
+      { "lineId": "uuid-line-1", "actualPriceCharged": 80.00 },
+      { "lineId": "uuid-line-2", "actualPriceCharged": 0.00 }
+    ]
+  }
+  ```
+  - `lineActualPrices` is optional. Omit it entirely if all lines were charged at full price.
+  - Individual entries can be omitted — lines not listed default to `priceAtBooking`.
+  - `actualPriceCharged` must be `>= 0`. Zero is valid (waived service).
+
+- **Response (`200 OK`):**
+  ```json
+  {
+    "bookingId": "uuid",
+    "status": "COMPLETED",
+    "totalPrice":       { "amount": 120.00, "currency": "BRL" },
+    "totalActualPrice": { "amount":  80.00, "currency": "BRL" },
+    "lines": [
+      {
+        "lineId": "uuid-line-1",
+        "serviceId": "uuid-basic-wash",
+        "priceAtBooking":     { "amount": 100.00, "currency": "BRL" },
+        "actualPriceCharged": { "amount":  80.00, "currency": "BRL" }
+      },
+      {
+        "lineId": "uuid-line-2",
+        "serviceId": "uuid-pickup",
+        "priceAtBooking":     { "amount": 20.00, "currency": "BRL" },
+        "actualPriceCharged": { "amount":  0.00, "currency": "BRL" }
+      }
+    ]
+  }
+  ```
+
+- **Errors:**
+  - `400 invalid-line-id` — a `lineId` in `lineActualPrices` does not belong to this booking.
+  - `400 invalid-actual-price` — `actualPriceCharged` is negative.
 
 ---
 
@@ -316,8 +412,18 @@ Availability depends on the **total duration** of the customer's basket, not on 
 
 ### **Customer Management (UC-016)**
 - `GET /customers` -> (Admin) List all customers in tenant.
-- `GET /customers/:id` -> (Admin/Self) Detailed profile.
-- `GET /me` -> (Self) Current authenticated user profile.
+- `GET /customers/:id` -> (Admin/Self) Detailed profile. Response includes `defaultAddress` (nullable).
+- `GET /me` -> (Self) Current authenticated user profile. Response includes `defaultAddress` (nullable).
+- `PATCH /me` -> (Self) Update own profile. Accepts `defaultAddress` to save a default pickup address:
+  ```json
+  {
+    "defaultAddress": {
+      "street": "Av. Afonso Pena", "number": "1000", "complement": null,
+      "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30130921"
+    }
+  }
+  ```
+  Set `defaultAddress` to `null` to clear it. Other profile fields (`phone`, `firstName`, `lastName`) may also be updated via `PATCH /me`.
 
 ### **Loyalty Metrics (UC-016)**
 - `GET /loyalty/balance` — current customer's active points.

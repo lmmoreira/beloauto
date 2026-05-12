@@ -42,14 +42,16 @@ UC-XXX: [Use Case Name]
   4. As the guest adds / removes services, the booking summary updates live:
      - **Total price** = SUM of each selected service's current price.
      - **Total duration** = SUM of each selected service's duration.
-  5. System displays calendar with available slots, filtered by **total duration** (a slot must accommodate the full visit, not just one service).
+     - If any selected service has `requiresPickupAddress = true`, the form reveals a **pickup address field**.
+  5. System displays calendar with available slots, filtered by **total duration**.
   6. Guest selects preferred date/time.
-  7. Guest optionally uploads one or more car photos (PNG/JPG) — encouraged with text "Help us understand your car's condition".
-  8. System validates: email format, phone format, slot availability against total duration, at least one service selected, file sizes.
-  9. Guest clicks "Submit".
-  10. System creates the `Booking` aggregate with status = PENDING and one `BookingLine` per selected service. Each line snapshots the service's current `price`, `duration_mins`, and `points_value` — see `docs/02-DOMAIN_MODEL.md`. Photos are stored. All rows are scoped to tenant.
-  11. System publishes `BookingRequested` event (envelope includes `tenantId`; `data.lines[]` carries the snapshotted lines).
-  12. Guest sees confirmation: "Your request is pending. You'll hear from us soon."
+  7. **If pickup address field is visible:** Guest fills in the address (street, number, complement, neighborhood, city, state, CEP). Required — cannot submit without it.
+  8. Guest optionally uploads one or more car photos (PNG/JPG).
+  9. System validates: email format, phone format, slot availability, ≥ 1 service selected, file sizes, and — if any pickup service selected — pickup address is present and CEP is 8 digits.
+  10. Guest clicks "Submit".
+  11. System creates the `Booking` aggregate with status = PENDING and one `BookingLine` per selected service. Each line snapshots `price`, `duration_mins`, `points_value`, and `requiresPickupAddress`. `Booking.pickupAddress` is set if applicable. Photos stored. All rows scoped to tenant.
+  12. System publishes `BookingRequested` event (includes `pickupAddress` when applicable).
+  13. Guest sees confirmation: "Your request is pending. You'll hear from us soon."
 
 - **Alternative Flows:**
   - **A1: Invalid email** → System shows error, guest corrects.
@@ -57,10 +59,12 @@ UC-XXX: [Use Case Name]
   - **A3: No available slots for the selected duration** → System shows "No slot of [N] minutes is available on that day; pick another day or remove a service".
   - **A4: Photo upload fails** → System allows submission without photos (optional).
   - **A5: Multiple photos** → Guest can add/remove photos before submitting.
-  - **A6: Wrong tenant URL** → Guest is requesting booking for Tenant A; sees only Tenant A's services/calendar.
+  - **A6: Wrong tenant URL** → Guest sees only that tenant's services/calendar.
+  - **A7: Pickup service selected but address missing** → System blocks submission: "Endereço de coleta obrigatório para o serviço selecionado."
+  - **A8: Guest removes pickup service from basket** → Address field hides; previously entered address is discarded.
 
-- **Postconditions:** Booking exists in PENDING with ≥ 1 lines, scoped to tenant. Admin of that tenant is notified. Guest receives confirmation email listing the services and total price.
-- **Events Triggered:** `BookingRequested` (envelope: `tenantId`; `data.lines[]` ≥ 1).
+- **Postconditions:** Booking exists in PENDING with ≥ 1 lines (and `pickupAddress` if applicable), scoped to tenant. Admin notified. Guest receives confirmation email listing services, total price, and pickup address if relevant.
+- **Events Triggered:** `BookingRequested` (envelope: `tenantId`; `data.lines[]` ≥ 1; `data.pickupAddress` if applicable).
 
 ---
 
@@ -72,21 +76,23 @@ UC-XXX: [Use Case Name]
 - **Main Flow:**
   1. System pre-fills name, email, phone from the customer's profile.
   2. Customer selects **one or more services** from the tenant's catalog. Same multi-line model as UC-001 main flow steps 3–4.
-  3. System displays calendar with available slots filtered by total duration.
-  4. Customer selects preferred date/time.
-  5. Customer optionally uploads car photos.
-  6. System validates input (including ≥ 1 service selected and slot fits total duration).
-  7. Customer clicks "Submit".
-  8. System creates `Booking` with status = PENDING and one `BookingLine` per selected service. `customerId` is linked. Snapshots as in UC-001 main flow step 10.
-  9. System publishes `BookingRequested` event (envelope `tenantId`; `data.lines[]` ≥ 1).
-  10. System displays: "Request submitted. View your bookings in your profile."
-  11. System shows the customer's current active-points total (e.g., "47 active points").
+  3. If any selected service has `requiresPickupAddress = true`, the form reveals the **pickup address field**, pre-filled with `customer.defaultAddress` (if set). Customer can edit it for this booking.
+  4. System displays calendar with available slots filtered by total duration.
+  5. Customer selects preferred date/time.
+  6. Customer optionally uploads car photos.
+  7. System validates input (including ≥ 1 service selected, slot fits total duration, and pickup address present when required — same as UC-001 A7).
+  8. Customer clicks "Submit".
+  9. System creates `Booking` with status = PENDING and one `BookingLine` per selected service. `customerId` is linked. Snapshots `requiresPickupAddress` per line. `Booking.pickupAddress` set from form value (not from profile — the booking owns its own copy).
+  10. System publishes `BookingRequested` event (envelope `tenantId`; `data.lines[]` ≥ 1; `data.pickupAddress` if applicable).
+  11. System displays: "Request submitted. View your bookings in your profile."
+  12. System shows the customer's current active-points total (e.g., "47 active points").
 
 - **Alternative Flows:**
-  - Same A1–A6 as UC-001.
-  - **A7: Customer views past bookings** → System shows COMPLETED / CANCELLED history with each booking's line list.
+  - Same A1–A8 as UC-001.
+  - **A9: Customer has no defaultAddress and selects pickup service** → Address field shown empty; customer must fill it in.
+  - **A10: Customer views past bookings** → System shows COMPLETED / CANCELLED history with each booking's line list and pickup address if applicable.
 
-- **Postconditions:** Booking created with ≥ 1 lines and linked to customer. No loyalty effect yet (loyalty accrues on completion).
+- **Postconditions:** Booking created with ≥ 1 lines (and `pickupAddress` if applicable), linked to customer. No loyalty effect yet.
 - **Events Triggered:** `BookingRequested`
 
 ---
@@ -257,7 +263,7 @@ UC-XXX: [Use Case Name]
    - **A2: New slot unavailable** → System shows error and suggests available alternatives
 
 - **Postconditions:** Booking cancelled (status CANCELLED) or rescheduled (status APPROVED with updated time). Customer receives notification email in both cases.
-- **Events Triggered:** `BookingCancelled` (cancel), reschedule email sent (no new event type in MVP — handled by email trigger)
+- **Events Triggered:** `BookingCancelled` (cancel flow), `BookingRescheduled` (reschedule flow — carries new and previous slot; Notification Context sends the customer email)
 ---
 
 ### **UC-009: Admin Marks Booking Complete**
@@ -266,24 +272,38 @@ UC-XXX: [Use Case Name]
 - **Preconditions:** Booking is APPROVED. Scheduled time has passed (or is current).
 - **Trigger:** Admin/Staff clicks "Mark Complete" or "Wash Done" in the dashboard
 - **Main Flow:**
-  1. Staff/Admin opens the booking. The dashboard shows the full line list (all services that were performed).
+  1. Staff/Admin opens the booking. The dashboard shows the full line list (all services that were performed), with each line's quoted `priceAtBooking`.
   2. Staff/Admin clicks "Mark as Completed".
   3. Staff/Admin may add notes (e.g., "Extra shine applied").
-  4. Staff/Admin optionally uploads one or more after-service photos (PNG/JPG).
-  5. Staff/Admin clicks "Confirm".
-  6. System transitions booking: `APPROVED → COMPLETED` (all lines complete together — no partial completion in MVP).
-  7. System records `completedBy`, `completedAt`, `afterServicePhotoUrls`, `adminNotes`.
-  8. System publishes `BookingCompleted` event with the full line list.
-  9. If `customerId != null` (authenticated customer): Loyalty Context consumes the event and inserts one `LoyaltyEntry` per line (idempotent on `(tenant_id, booking_line_id)`). Loyalty publishes one `ServicePointsEarned` per insert.
-  10. System shows success.
+  4. Staff/Admin optionally adjusts the **actual price charged** per line. Each line shows the quoted price as a pre-filled default — staff only changes it when discounting or waiving:
+     ```
+     Basic Wash    — quoted R$ 100,00 · charged [R$ 80,00] ← staff edited
+     Pickup        — quoted R$  20,00 · charged [R$  0,00] ← staff waived (zero)
+     ```
+     Lines left unchanged keep their `priceAtBooking` as `actualPriceCharged`.
+  5. Staff/Admin optionally uploads one or more after-service photos (PNG/JPG).
+  6. Staff/Admin clicks "Confirm".
+  7. System transitions booking: `APPROVED → COMPLETED` (all lines complete together — no partial completion in MVP).
+  8. System records `completedBy`, `completedAt`, `afterServicePhotoUrls`, `adminNotes`.
+  9. For each line: system sets `actualPriceCharged` (staff-entered value, or `priceAtBooking` if unchanged). System caches `totalActualPrice = SUM(lines.actualPriceCharged)`.
+  10. System publishes `BookingCompleted` event with the full line list (including `actualPriceCharged` per line and `totalActualPrice`).
+  11. If `customerId != null`: Loyalty Context inserts one `LoyaltyEntry` per line using `pointsValueAtBooking` — **loyalty points are not affected by the actual price charged**.
+  12. System shows success, displaying a summary:
+      ```
+      Serviço concluído!
+      Basic Wash:  R$ 100,00 → cobrado R$ 80,00
+      Pickup:      R$  20,00 → cobrado R$  0,00
+      Total cobrado: R$ 80,00  (cotado: R$ 120,00)
+      ```
 
 - **Alternative Flows:**
   - **A1: No-show** → Admin marks as NO_SHOW instead of COMPLETED (future state, not in MVP).
   - **A2: Multiple photos** → Staff can add/remove photos before confirming.
   - **A3: Photo upload fails** → System allows completion without photos (optional).
-  - **A4: Guest booking** → Booking is marked COMPLETED but no `LoyaltyEntry` is created (no `customerId`). Notification still sends a "thanks" email to the guest.
+  - **A4: Guest booking** → Booking is marked COMPLETED but no `LoyaltyEntry` is created (no `customerId`). Notification still sends a "thanks" email to the guest with the actual amounts.
+  - **A5: All lines charged at full price** → Staff leaves all fields unchanged. `actualPriceCharged = priceAtBooking` for every line. `totalActualPrice = totalPrice`.
 
-- **Postconditions:** Booking is COMPLETED. For authenticated customers: N new `LoyaltyEntry` rows (N = number of lines). For guests: nothing in loyalty. A single notification email to the customer summarises every service completed and the total points earned.
+- **Postconditions:** Booking is COMPLETED. `actualPriceCharged` set on every line; `totalActualPrice` cached on the booking. For authenticated customers: N new `LoyaltyEntry` rows (N = number of lines, points based on `pointsValueAtBooking` regardless of price). Notification email shows both quoted and actual amounts.
 - **Events Triggered:** `BookingCompleted` (once), `ServicePointsEarned` (once per line, only when `customerId != null`).
 
 ---
@@ -323,45 +343,45 @@ UC-XXX: [Use Case Name]
 #### **Scheduling Algorithm (MVP)**
 
 **Slot Structure:**
-- Minimal slot unit: **1 hour** (fixed, non-configurable)
-- Valid start times: 09:00, 10:00, 11:00, ..., 17:00 (hourly intervals)
-- Tenant's business hours determine which slots exist (e.g., 09:00–18:00)
+- Slot unit: `tenants.settings.booking.slot_granularity_minutes` (default: 30 min, valid: 15/30/60)
+- Valid start times are multiples of the granularity within business hours (e.g., 09:00, 09:30, 10:00, … for 30-min slots)
+- Tenant's business hours (`settings.business_hours`) determine the available window
 
 **Booking Duration Calculation:**
 ```
-booking_duration_minutes = SUM(service.duration_minutes for each service in basket) + tenant.settings.booking.service_buffer_minutes
+booking_duration_minutes = SUM(service.duration_minutes for each service in basket)
+                         + tenants.settings.booking.service_buffer_minutes
 ```
 
-Example: If basket has [Basic Wash (30 min), Wax (25 min)] and buffer is 60 min:
-- Total: 30 + 25 + 60 = 115 minutes ≈ 2 hours (rounds up)
-- Required slots: 2 (occupies slots 14:00–15:00 and 15:00–16:00)
+Example: basket = [Basic Wash (30 min), Wax (25 min)], buffer = 60 min, granularity = 30 min:
+- Raw duration: 30 + 25 + 60 = 115 minutes
+- Required slots: CEIL(115 / 30) = 4 consecutive 30-min slots
 
 **Availability Calculation:**
-1. System computes `bookingDurationMins` from basket + buffer
-2. System rounds up to nearest hour: `requiredSlots = CEIL(bookingDurationMins / 60)`
-3. For each potential start-time slot:
-   - Check if all required consecutive slots are free (no APPROVED bookings, no ScheduleClosures)
-   - Check if all slots fall within business hours
-   - If yes → slot is available (green)
-   - If no → slot is unavailable (grey)
+1. Load `slot_granularity_minutes`, `service_buffer_minutes`, business hours, and timezone from `tenants.settings`
+2. Compute `bookingDurationMins` from basket + buffer
+3. Compute `requiredSlots = CEIL(bookingDurationMins / slot_granularity_minutes)`
+4. For each potential start-time in the query window:
+   - Check if all `requiredSlots` consecutive slots are free (no APPROVED bookings or ScheduleClosures overlap)
+   - Check that all slots fall within business hours for that day
+   - If yes → slot is available; if no → slot is unavailable
 
-**Example Timeline:**
+**Example Timeline (30-min granularity, requiredSlots = 2):**
 ```
-14:00–15:00: Free ✓
-15:00–16:00: Free ✓
-16:00–17:00: APPROVED booking ✗
-17:00–18:00: Free ✓
+14:00–14:30: Free ✓
+14:30–15:00: Free ✓
+15:00–15:30: APPROVED booking ✗
+15:30–16:00: Free ✓
 
-If required slots = 2:
-- Start 14:00: ✓ (14:00 free + 15:00 free = available)
-- Start 15:00: ✗ (15:00 free + 16:00 occupied = unavailable)
-- Start 16:00: ✗ (16:00 occupied + 17:00 free = unavailable)
-- Start 17:00: ✗ (17:00 free + 18:00 closed = unavailable)
+Start 14:00: ✓ (14:00 free + 14:30 free = available)
+Start 14:30: ✗ (14:30 free + 15:00 occupied = unavailable)
+Start 15:00: ✗ (15:00 occupied)
+Start 15:30: ✓ (15:30 free + 16:00 free = available — if fits in business hours)
 ```
 
 #### **Main Flow:**
 1. System computes `totalDurationMins = SUM(selectedServices.durationMins) + tenants.settings.booking.service_buffer_minutes`
-2. System computes `requiredSlots = CEIL(totalDurationMins / 60)`
+2. System computes `requiredSlots = CEIL(totalDurationMins / tenants.settings.booking.slot_granularity_minutes)`
 3. System fetches:
    - All `ScheduleClosures` for the tenant (closed dates/ranges)
    - All APPROVED bookings in the next 90 days for the tenant
@@ -394,22 +414,24 @@ If required slots = 2:
 - **Trigger:** Admin clicks "Manage Services" → "Add Service"
 - **Main Flow:**
   1. Admin enters service details:
-     - Name (e.g., "Basic Wash")
-     - Description (e.g., "Exterior wash + dry")
+     - Name (e.g., "Coleta e Entrega")
+     - Description
      - Price
      - Duration (minutes)
+     - Loyalty points value
+     - **Requires pickup address** (toggle, default off) — enable for services that require the customer to provide a pickup location (e.g. "Coleta e Entrega", "Busca em domicílio")
      - Status (ACTIVE/INACTIVE)
   2. Admin clicks "Create"
-  3. System validates: name unique, price > 0, duration > 0
-  4. System creates Service aggregate
-  5. Admin sees confirmation: "Service created"
+  3. System validates: name unique within tenant, price ≥ 0, duration > 0
+  4. System creates Service aggregate with `requiresPickupAddress` flag
+  5. Admin sees confirmation: "Serviço criado"
 
 - **Alternative Flows:**
   - **A1: Service name already exists** → System shows error, admin changes name
   - **A2: Price/duration invalid** → System shows validation error
 
-- **Postconditions:** Service available for guests to book
-- **Events Triggered:** None (system event, not domain event)
+- **Postconditions:** Service available for booking. If `requiresPickupAddress = true`, the booking form will show the address field whenever this service is selected.
+- **Events Triggered:** None
 
 ---
 
@@ -419,17 +441,18 @@ If required slots = 2:
 - **Preconditions:** Service exists
 - **Trigger:** Admin clicks "Manage Services" → selects service → "Edit"
 - **Main Flow:**
-  1. Admin modifies: name, description, price, duration, status
+  1. Admin modifies: name, description, price, duration, loyalty points value, `requiresPickupAddress` toggle, status
   2. Admin clicks "Save"
   3. System validates changes
   4. System updates Service aggregate
-  5. Admin sees confirmation: "Service updated"
+  5. Admin sees confirmation: "Serviço atualizado"
 
 - **Alternative Flows:**
   - **A1: Deactivate service** → Admin sets status = INACTIVE → service hidden from booking page
-  - **A2: Price increase impacts future bookings** → Past bookings unaffected, future bookings use new price
+  - **A2: Price change** → Past bookings unaffected (snapshots are immutable); future bookings use new price
+  - **A3: Toggle `requiresPickupAddress`** → Only affects future bookings. Existing `booking_lines` retain their snapshotted `requiresPickupAddressAtBooking` value.
 
-- **Postconditions:** Service updated. New bookings reflect changes.
+- **Postconditions:** Service updated. New bookings reflect all changes including `requiresPickupAddress`.
 - **Events Triggered:** None
 
 ---
@@ -505,9 +528,11 @@ If required slots = 2:
 
 ### **UC-018: Admin Receives Daily Schedule Reminder**
 
+> **Cron scheduling note (applies to UC-018, UC-019, UC-020):** A single global cron fires every 30 minutes. On each fire it queries `tenants` for records whose current local time (UTC offset from `settings.business_hours.timezone`) equals 06:00. Only those tenants are processed. This ensures "6 AM tenant-local" without per-tenant scheduled jobs.
+
 - **Actor:** System (scheduled job) & Staff/Admin
 - **Preconditions:** Admin has active account and bookings for today
-- **Trigger:** System cron job runs at 6 AM each day
+- **Trigger:** System cron job runs at 6 AM tenant-local time
 - **Main Flow:**
   1. System queries all APPROVED bookings for today
   2. System fetches customer details, service details
@@ -551,7 +576,7 @@ If required slots = 2:
   - **A2: Multiple reminders** → Only one reminder per booking (check history)
 
 - **Postconditions:** Customer reminded of upcoming appointment
-- **Events Triggered:** `BookingReminderSentCustomer`
+- **Events Triggered:** `BookingReminderDue` (emitted by cron; Notification Context sends the email)
 
 ---
 
@@ -576,7 +601,7 @@ If required slots = 2:
   - **A1: Customer cancelled** → Skip (booking not APPROVED)
 
 - **Postconditions:** Customer reminded of appointment today
-- **Events Triggered:** `BookingReminderSentCustomerDay`
+- **Events Triggered:** `BookingReminderDueToday` (emitted by cron; Notification Context sends the email)
 
 ---
 
@@ -849,7 +874,7 @@ If required slots = 2:
 | UC-005 | Admin requests info | Admin | PENDING (awaiting info) |
 | UC-006 | Customer views bookings | Customer | Read operation |
 | UC-007 | Customer cancels booking | Customer | APPROVED → CANCELLED |
-| UC-008 | Admin cancels booking | Admin | APPROVED/PENDING → CANCELLED |
+| UC-008 | Admin cancels / reschedules booking | Admin | APPROVED/PENDING → CANCELLED (`BookingCancelled`) or scheduledAt updated (`BookingRescheduled`) |
 | UC-009 | Mark booking complete | Staff | APPROVED → COMPLETED + photos + N LoyaltyEntry rows (one per line) |
 | UC-010 | Close schedule | Admin | ScheduleClosure created |
 | UC-011 | View calendar | Any | Read available slots filtered by basket's total duration |
@@ -858,8 +883,8 @@ If required slots = 2:
 | UC-016 | View loyalty metrics | Customer/Admin | Read-only aggregation of `loyalty_entries` — total active points + per-service breakdown + completions count |
 | UC-017 | View analytics | Admin | Future feature |
 | UC-018 | Admin receives daily schedule | System | Scheduled reminder email at 6 AM |
-| UC-019 | Customer reminder (day before) | System | Scheduled reminder email at 6 AM |
-| UC-020 | Customer reminder (day of) | System | Scheduled reminder email at 6 AM |
+| UC-019 | Customer reminder (day before) | System | Cron emits `BookingReminderDue`; Notification sends email at 6 AM |
+| UC-020 | Customer reminder (day of) | System | Cron emits `BookingReminderDueToday`; Notification sends email at 6 AM |
 | UC-021 | Customer login with tenant selection | Customer | OAuth + tenant selection if multiple |
 | UC-022 | Staff login (no selection) | Staff | OAuth (direct to single tenant) |
 | UC-023 | Customer switches tenant | Customer | Switch session to different tenant |

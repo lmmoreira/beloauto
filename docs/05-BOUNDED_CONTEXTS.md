@@ -60,85 +60,53 @@ Notification Context subscribes:
 ## Context Map (Tenant-Scoped)
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                         BeloAuto System                           │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                    │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │              BOOKING CONTEXT                                │ │
-│  │  (Core domain - manages booking lifecycle)                  │ │
-│  │                                                              │ │
-│  │  Aggregates:                                                │ │
-│  │  - Booking (root)                                           │ │
-│  │  - Service (root)                                           │ │
-│  │  - ScheduleClosure (root)                                   │ │
-│  │                                                              │ │
-│  │  Published Events:                                          │ │
-│  │  - BookingRequested                                         │ │
-│  │  - BookingApproved                                          │ │
-│  │  - BookingRejected                                          │ │
-│  │  - BookingInfoRequested                                     │ │
-│  │  - BookingInfoSubmitted                                     │ │
-│  │  - BookingCompleted                                         │ │
-│  │  - BookingCancelled                                         │ │
-│  └────────────┬────────────────┬───────────────────────────────┘ │
-│               │                │                                  │
-│       ┌───────▼─────┐  ┌──────▼───────┐                          │
-│       │Consumes:    │  │Consumes:     │                          │
-│       │WashCompleted│  │Cancellation  │                          │
-│       │             │  │Recorded      │                          │
-│       └─────────────┘  └──────────────┘                          │
-│               │                │                                  │
-│       ┌───────▼────────────────▼───────┐                         │
-│       │                                 │                         │
-│       ▼                                 ▼                         │
-│  ┌──────────────────┐          ┌──────────────────┐             │
-│  │ LOYALTY CONTEXT  │          │ NOTIFICATION CTX │             │
-│  │ (Supporting)     │          │ (Supporting)     │             │
-│  │                  │          │                  │             │
-│  │ Aggregates:      │          │ Aggregates:      │             │
-│  │ - LoyaltyEntry   │          │ - EmailTemplate  │             │
-│  │   (append-only) │          │                  │             │
-│  │   (root)         │          │ - NotificationLog│             │
-│  │                  │          │   (root)         │             │
-│  │ Published:       │          │                  │             │
-│  │ - WashCompleted  │          │ Published:       │             │
-│  │ - Cancellation   │          │ - EmailSent      │             │
-│  │   Recorded       │          │ - EmailFailed    │             │
-│  │ - Loyalty        │          │                  │             │
-│  │   StatusChanged  │          │ Calls external:  │             │
-│  └──────────────────┘          │ SendGrid/SES     │             │
-│       │                         │                  │             │
-│       │                         │ Listens to ALL   │             │
-│       │                         │ other contexts   │             │
-│       │                         │ for events       │             │
-│       │                         │                  │             │
-│       └─────────────────────────┘                 │             │
-│                                                   │             │
-│       ┌───────────────────────────────────────────▼──────┐      │
-│       │         CUSTOMER CONTEXT                         │      │
-│       │  (Supporting - auth'd users only)                │      │
-│       │                                                   │      │
-│       │  Aggregates:                                      │      │
-│       │  - Customer (root)                                │      │
-│       │                                                   │      │
-│       │  No published events                              │      │
-│       │  (Passive context, referenced by others)          │      │
-│       └───────────────────────────────────────────────────┘      │
-│                                                                    │
-│       ┌───────────────────────────────────────────────────┐      │
-│       │         STAFF CONTEXT                             │      │
-│       │  (Supporting - employees only)                    │      │
-│       │                                                   │      │
-│       │  Aggregates:                                      │      │
-│       │  - Staff (root)                                   │      │
-│       │  - ScheduleClosure (shared with Booking)          │      │
-│       │                                                   │      │
-│       │  No published events                              │      │
-│       │  (Passive context, referenced by others)          │      │
-│       └───────────────────────────────────────────────────┘      │
-│                                                                    │
-└──────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                           BeloAuto System                               │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌───────────────────────────────────────────────────────────────────┐ │
+│  │                      BOOKING CONTEXT  (Core)                      │ │
+│  │  Aggregates: Booking (root + BookingLine), Service, ScheduleClosure│ │
+│  │  Published: BookingRequested, BookingApproved, BookingRejected,   │ │
+│  │             BookingInfoRequested, BookingInfoSubmitted,            │ │
+│  │             BookingCompleted, BookingCancelled, BookingRescheduled,│ │
+│  │             BookingReminderDue, BookingReminderDueToday,           │ │
+│  │             AdminDailyScheduleReminder                             │ │
+│  └──────────┬──────────────────────────────────────────┬─────────────┘ │
+│             │ BookingCompleted only                    │ all events     │
+│             ▼                                          ▼               │
+│  ┌──────────────────────┐              ┌───────────────────────────┐  │
+│  │   LOYALTY CONTEXT    │              │   NOTIFICATION CONTEXT    │  │
+│  │   (Supporting)       │              │   (Supporting)            │  │
+│  │                      │              │                           │  │
+│  │  Aggregates:         │              │  Aggregates:              │  │
+│  │  - LoyaltyEntry      │              │  - NotificationTemplate   │  │
+│  │    (append-only)     │              │  - NotificationLog        │  │
+│  │                      │  ServicePointsEarned, PointsExpiringSoon │  │
+│  │  Published:          │──────────────►                           │  │
+│  │  - ServicePointsEarned              │  Sends email via          │  │
+│  │  - PointsExpiringSoon│              │  IEmailSender port        │  │
+│  │                      │              │  (default: SendGrid)      │  │
+│  └──────────────────────┘              │                           │  │
+│                                        │  Published:               │  │
+│                                        │  - EmailSent              │  │
+│                                        │  - EmailFailed            │  │
+│                                        └───────────────────────────┘  │
+│                                                                          │
+│  ┌──────────────────────┐  ┌────────────────────┐  ┌───────────────┐  │
+│  │   CUSTOMER CONTEXT   │  │   STAFF CONTEXT    │  │PLATFORM CONTEXT│ │
+│  │   (Supporting)       │  │   (Supporting)     │  │(Foundational) │  │
+│  │                      │  │                    │  │               │  │
+│  │  Aggregates:         │  │  Aggregates:       │  │  Aggregates:  │  │
+│  │  - Customer (root)   │  │  - Staff (root)    │  │  - Tenant     │  │
+│  │    (multi-tenant)    │  │    (single-tenant) │  │  - Hotsite-   │  │
+│  │                      │  │                    │  │    Config     │  │
+│  │  No published events │  │  No published      │  │               │  │
+│  │  (passive context)   │  │  events (passive)  │  │  Published:   │  │
+│  └──────────────────────┘  └────────────────────┘  │  - StaffInvited│ │
+│                                                      │  - StaffDeact.│ │
+│                                                      └───────────────┘ │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -168,14 +136,17 @@ Notification Context subscribes:
 - Queries: Always filtered by `WHERE tenant_id = ?`
 
 **Published Events** (every event carries `tenantId`, `eventId`, `occurredAt`, `correlationId`):
-- `BookingRequested` → consumed by Notification, Loyalty
-- `BookingApproved` → consumed by Notification, Loyalty
+- `BookingRequested` → consumed by **Notification only**
+- `BookingApproved` → consumed by **Notification only**
 - `BookingRejected` → consumed by Notification
 - `BookingInfoRequested` (PENDING → INFO_REQUESTED) → consumed by Notification
 - `BookingInfoSubmitted` (INFO_REQUESTED → PENDING) → consumed by Notification
-- `BookingCompleted` → consumed by Loyalty, Notification
-- `BookingCancelled` → consumed by Loyalty, Notification
-- Reminder events: `BookingReminderSentCustomer`, `BookingReminderSentCustomerDay`, `AdminDailyScheduleReminder`
+- `BookingCompleted` → consumed by **Loyalty** (inserts LoyaltyEntry per line) and **Notification**
+- `BookingCancelled` → consumed by Notification
+- `BookingRescheduled` → consumed by Notification
+- Cron-emitted reminder events: `BookingReminderDue`, `BookingReminderDueToday`, `AdminDailyScheduleReminder` → all consumed by Notification
+
+> **Loyalty only subscribes to `BookingCompleted`.** It does not consume any other Booking event.
 
 **Dependencies:**
 - **Input:** Requires Customer data (optional), Staff data (optional) to validate - all tenant-scoped
@@ -205,13 +176,13 @@ Notification Context subscribes:
 **Responsibilities:**
 - Listen to `BookingCompleted` from Booking Context (tenant-scoped). When the booking has a `customerId`, insert a `LoyaltyEntry`.
 - Compute the customer's active balance on demand (total + per-service).
-- Run a daily cron to emit `PointsExpired` notifications for entries that just crossed their expiration window.
+- Run a **weekly** cron (Mondays 06:00 tenant-local) to emit `PointsExpiringSoon` warnings for entries expiring within the next 7 days (forward-looking, no DB write).
 
 **Database:** `beloauto_loyalty` schema
 - Single table: `loyalty_entries` (see `docs/13-DATABASE_SCHEMA.md`)
 - Every row has `tenant_id` (required, indexed)
 - Queries always filtered by `WHERE tenant_id = ?`
-- `UNIQUE(tenant_id, booking_id)` guarantees idempotent processing of `BookingCompleted`
+- `UNIQUE(tenant_id, booking_line_id)` guarantees idempotent processing of `BookingCompleted` — a booking with N lines produces N entries, all with different `booking_line_id` values
 
 **Published Events** (every event carries `tenantId`, `eventId`, `occurredAt`, `correlationId`):
 - `ServicePointsEarned` → consumed by Notification. **One event per `BookingLine`** — a 3-line booking produces 3 events.
@@ -225,10 +196,10 @@ Notification Context subscribes:
 - **Output:** Read-only API for balance queries; published tenant-scoped events
 
 **Tech Stack:**
-- Event listener / subscriber pattern (tenant-scoped, idempotent via `UNIQUE(tenant_id, booking_line_id)`)
+- Event subscriber pattern (GCP Pub/Sub via `IEventBus` port — tenant-scoped, idempotent via `UNIQUE(tenant_id, booking_line_id)`)
 - Repository for `loyalty_entries` (insert + select only — no update/delete)
 - Domain service for balance calculation
-- **Weekly cron** (Mondays 06:00 tenant-local) for `PointsExpiringSoon` warnings — writes no DB rows
+- **Weekly cron** (Mondays 06:00 tenant-local) for `PointsExpiringSoon` warnings — publishes event, writes no DB rows
 
 **Tenant Isolation Guarantees:**
 - ✓ Cannot read another tenant's `loyalty_entries`
@@ -318,9 +289,11 @@ BookingCompleted → Email: Customer "Thanks for your wash!"
 BookingCancelled → Email #1: Customer "Cancellation confirmed"
                  → Email #2: Admin "[name] cancelled booking"
 
-BookingReminderSentCustomer → Email: Customer "Reminder: your appointment is tomorrow at [time]"
+BookingRescheduled → Email: Customer/guest "Your booking has been rescheduled to [new date/time]"
 
-BookingReminderSentCustomerDay → Email: Customer "Reminder: your appointment is today at [time]"
+BookingReminderDue → Email: Customer/guest "Reminder: your appointment is tomorrow at [time]"
+
+BookingReminderDueToday → Email: Customer/guest "Reminder: your appointment is today at [time]"
 
 AdminDailyScheduleReminder → Email: Admin "Today's schedule: [X] appointments, see details below"
 
@@ -334,9 +307,9 @@ PointsExpiringSoon → Email (weekly digest): Customer "Heads up — [X] points 
 - **Output:** Calls SendGrid/SES API
 
 **Tech Stack:**
-- Event listener/subscriber pattern
-- Email template engine (Handlebars, EJS)
-- HTTP client for SendGrid/SES
+- Event subscriber pattern (GCP Pub/Sub via `IEventBus`)
+- Email template engine (Handlebars or EJS)
+- `IEmailSender` port with SendGrid adapter as default implementation (swappable)
 - Retry logic with exponential backoff
 
 ---
@@ -412,7 +385,8 @@ Same Person, Multiple Tenants:
 
 **Owned Aggregates:**
 - `Staff` - Employee profile (tenant-scoped)
-- `ScheduleClosure` - Shared with Booking Context (staff days off, maintenance, tenant-scoped)
+
+> `ScheduleClosure` is **owned by the Booking Context** — it directly controls calendar availability. Staff Context references `ScheduleClosure` read-only (by `tenant_id` and `staff_id`) when displaying staff schedules. No writes to `schedule_closures` originate from the Staff Context.
 
 **Responsibilities:**
 - Store staff information for a specific tenant
@@ -477,8 +451,8 @@ Notification Context subscribes, composes email, sends
 - Testability (can mock events)
 
 **MVP Approach:**
-- Start with synchronous event handling (simple, no queue needed)
-- Migrate to async/queue-based as system grows
+- GCP Pub/Sub Emulator (Docker) locally; GCP Pub/Sub (managed) in production
+- All event handling is asynchronous from day one via the `IEventBus` port
 
 ---
 
@@ -491,17 +465,158 @@ Notification Context subscribes, composes email, sends
 
 ---
 
-### **3. Shared Schema Reference (Minimal)**
+### **3. ScheduleClosure Reference**
 
-**ScheduleClosure exists in Booking, but referenced by Staff:**
+`ScheduleClosure` is owned by the **Booking Context**. When a staff member creates a day-off entry, the write goes through the Booking Context use case (UC-010). The Staff Context never writes to `schedule_closures` directly — it reads closures for display purposes only (filtered by `tenant_id` and `staff_id`).
+
+---
+
+## Context Isolation Contract
+
+These rules are **non-negotiable**. Any violation creates cross-context coupling — the spaghetti that eventually prevents independent testing, deployment, and evolution of each context. CI code review MUST reject PRs that break them.
+
+---
+
+### Rule 1 — No Cross-Context Module Imports
+
+A NestJS module belonging to Context A **MUST NOT** import any code from Context B's module path (`src/contexts/<B>/`).
+
+```typescript
+// ❌ FORBIDDEN — Loyalty module importing from Customer context
+import { CustomerRepository } from '../../customer/infrastructure/persistence/customer.repository';
+import { Customer } from '../../customer/domain/entities/customer.entity';
+
+// ✅ ALLOWED — importing from src/shared/ (cross-cutting concerns only)
+import { IEventBus } from '../../../shared/ports/event-bus.interface';
+import { Money } from '../../../shared/value-objects/money';
+
+// ✅ ALLOWED — importing from within the same context
+import { LoyaltyEntry } from '../domain/entities/loyalty-entry.entity';
+```
+
+NestJS module files (`*.module.ts`) MUST NOT `imports:` or `providers:` any class from another context's module.
+
+---
+
+### Rule 2 — Communication via Events or BFF Only
+
+| Need | Allowed pattern | Forbidden |
+|---|---|---|
+| Notify another context of a state change | Publish a domain event via `IEventBus` | Direct method call |
+| Read data from another context (Web Layer) | BFF aggregates from each context's own API | Context A calling Context B's service |
+| React to another context's state change | Subscribe to that context's event | Polling or shared DB query |
+
+```typescript
+// ❌ FORBIDDEN — Booking use case calling Loyalty directly
+class CompleteBookingUseCase {
+  constructor(private loyaltyService: LoyaltyService) {}  // cross-context injection
+}
+
+// ✅ CORRECT — Booking publishes; Loyalty subscribes independently
+class CompleteBookingUseCase {
+  constructor(private eventBus: IEventBus) {}  // only the shared port
+  async execute(...) {
+    // ... domain logic ...
+    await this.eventBus.publish(new BookingCompleted(...));
+  }
+}
+```
+
+---
+
+### Rule 3 — Database Schema Isolation
+
+Each context owns its own **PostgreSQL schema**. TypeORM entities in a context only reference tables within that context's schema.
+
+| Context | Schema |
+|---|---|
+| Booking | `booking` |
+| Customer | `customer` |
+| Staff | `staff` |
+| Loyalty | `loyalty` |
+| Notification | `notification` |
+| Platform | `platform` |
+
+**Cross-context UUID references have no DB-level FK constraint.** If `loyalty.loyalty_entries` needs to reference a booking, it stores `booking_id UUID` with no `REFERENCES booking.bookings(id)`. Referential integrity across contexts is the application's responsibility (enforced by events and idempotency keys).
+
+```sql
+-- ✅ Intra-context FK (within booking schema) — ALLOWED
+ALTER TABLE booking.booking_lines
+  ADD CONSTRAINT fk_booking_lines_booking
+  FOREIGN KEY (booking_id) REFERENCES booking.bookings(id);
+
+-- ❌ Cross-context FK — FORBIDDEN
+ALTER TABLE loyalty.loyalty_entries
+  ADD CONSTRAINT fk_loyalty_booking
+  FOREIGN KEY (booking_id) REFERENCES booking.bookings(id);  -- couples schemas
+
+-- ✅ Correct: store UUID, no constraint
+-- booking_id UUID NOT NULL  ← just a column, no FK
+```
+
+**One exception:** every table keeps `tenant_id` with a FK to `platform.tenants`. Tenant existence is a foundational platform invariant — not a context coupling.
+
+```sql
+-- ✅ tenant_id FK to platform.tenants is the one allowed cross-schema FK
+ALTER TABLE booking.bookings
+  ADD CONSTRAINT fk_bookings_tenant
+  FOREIGN KEY (tenant_id) REFERENCES platform.tenants(id);
+```
+
+---
+
+### Rule 4 — Self-Contained Events
+
+Events carry all data their consumers need. A consumer **MUST NOT** query another context to fill in data missing from an event.
+
+```typescript
+// ❌ FORBIDDEN — Notification handler querying Customer context
+async handle(event: BookingApproved) {
+  const customer = await this.customerRepo.findById(event.customerId); // cross-context query
+  await this.send(customer.email, ...);
+}
+
+// ✅ CORRECT — event carries everything Notification needs
+async handle(event: BookingApproved) {
+  await this.send(event.guestEmail, ...);  // email is in the event payload
+}
+```
+
+If a consumer needs data that the event does not carry, the fix is to **add that data to the event payload** — not to add a cross-context query.
+
+---
+
+### Rule 5 — Shared Folder for Cross-Cutting Concerns Only
+
+`src/shared/` is the **only** place code is shared across contexts.
+
+| What belongs in `src/shared/` | What does NOT |
+|---|---|
+| `IEventBus` port | Any entity or aggregate |
+| `IEmailSender` port | Any use case |
+| Base classes: `AggregateRoot`, `DomainEvent`, `ValueObject` | Any repository implementation |
+| Value objects used by multiple contexts: `Money`, `Address` | Any context-specific domain service |
+| `TenantContext` (request-scoped tenant identity) | Any controller |
+| Logger, OTel utilities | Any context-specific DTO |
+| Pagination DTOs, RFC 9457 error base type | |
+
+If you find yourself wanting to put a domain concept in `shared/`, it is a signal that either (a) it belongs to a specific context, or (b) it should become its own context.
+
+---
+
+### Rule 6 — No Shared Domain State
+
+If two contexts represent the same real-world data, each owns its own copy. Data reaches a context via events and is stored locally if queries need it.
 
 ```
-Staff.ScheduleClosure ← FK to Booking.ScheduleClosure
+✅ Correct:
+  booking.bookings.guest_email        VARCHAR  ← Booking owns this copy
+  notification.notification_logs.recipient  VARCHAR  ← Notification owns its copy
+  Both received the email from the BookingRequested event.
+
+❌ Wrong:
+  Notification queries customer.customers to get the email.
 ```
-
-For MVP: Keep simple. Only ScheduleClosure is truly "shared."
-
-**Future:** If sharing grows, consider separate shared module or service.
 
 ---
 
@@ -511,11 +626,12 @@ For MVP: Keep simple. Only ScheduleClosure is truly "shared."
 
 | Context | Owns | Reads | Watches |
 |---------|------|-------|---------|
-| Booking | Bookings, Services, ScheduleClosures | - | - |
-| Customer | Customers | - | - |
-| Staff | Staff members | - | - |
-| Loyalty | LoyaltyEntry (append-only) | Customer, Booking (via events) | BookingCompleted (only event Loyalty consumes — inserts one entry per line) |
-| Notification | Templates, Logs | - | All events |
+| Booking | Bookings, Services, ScheduleClosures, BookingLines | — | — |
+| Customer | Customers | — | — |
+| Staff | Staff members | — | — |
+| Loyalty | LoyaltyEntry (append-only, insert only) | Customer, Booking (via events) | `BookingCompleted` only — inserts one `LoyaltyEntry` per line; idempotent on `UNIQUE(tenant_id, booking_line_id)` |
+| Notification | NotificationTemplates, NotificationLogs | — | All events from all contexts |
+| Platform | Tenants, HotsiteConfigs | — | — |
 
 ### **Consistency Model:**
 
@@ -634,15 +750,16 @@ For MVP: All deployed as single service, but code organized as separate modules 
 If BeloAuto grows beyond single business:
 
 ```
-Current (MVP Monolith):
+Current (MVP Modular Monolith):
   Single PostgreSQL
-  All contexts in one Node.js process
-  Event bus: in-memory (Node EventEmitter)
+  All contexts in one Node.js process (NestJS modules)
+  Event bus: GCP Pub/Sub Emulator (Docker locally) · GCP Pub/Sub (production)
+  BFF: separate NestJS service in apps/bff/
 
-Future (Microservices):
+Future (Microservices — only if needed at scale):
   Database per context (Loyalty DB, Notification DB, etc.)
   Separate Node.js processes per context
-  Event bus: GCP Pub/Sub (Emulator locally, managed in production)
+  Event bus: same GCP Pub/Sub (or Kafka via IEventBus swap)
   API Gateway (BFF) routes to appropriate service
 ```
 

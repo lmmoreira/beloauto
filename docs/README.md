@@ -1,6 +1,8 @@
-# BeloAuto Documentation - Phase 2: Technical Architecture Complete
+# BeloAuto Documentation
 
 This folder contains the foundational documentation for BeloAuto, built on **Domain-Driven Design (DDD)** principles and **Hexagonal Architecture**.
+
+**Quick start:** Read `CLAUDE.md` (root) first — it is the canonical agent context and links everything else. Use `QUICK_REFERENCE.md` for a one-page cheat sheet.
 
 ---
 
@@ -8,22 +10,20 @@ This folder contains the foundational documentation for BeloAuto, built on **Dom
 
 ### **Phase 1 - DDD Foundation (✓ Complete)**
 
-These documents establish the business domain, technical strategy, and architectural foundation:
-
 #### **01-BUSINESS_CONTEXT.md**
-- **What:** The business problem, user personas, core workflows.
+- **What:** Business problem, user personas, core workflows, success metrics.
 
 #### **02-DOMAIN_MODEL.md**
-- **What:** DDD concepts: bounded contexts, aggregates, entities, value objects.
+- **What:** 6 bounded contexts, aggregates, entities, value objects, domain services.
 
 #### **03-DOMAIN_EVENTS.md**
-- **What:** All domain events that occur in the system.
+- **What:** All domain events with full payload definitions and flow diagrams.
 
 #### **04-USE_CASES.md**
-- **What:** 23 user workflows (UC-001 through UC-023).
+- **What:** 27 active use cases (UC-001 through UC-029; UC-014 and UC-015 superseded).
 
 #### **05-BOUNDED_CONTEXTS.md**
-- **What:** How the 5 contexts interact and communicate.
+- **What:** How the 6 contexts interact, communicate, and maintain isolation.
 
 #### **06-TENANT_ISOLATION_STRATEGY.md**
 - **What:** Business and Technical strategy for multi-tenancy.
@@ -75,6 +75,15 @@ These documents define the implementation, testing, and deployment strategies:
 
 #### **20-COST_OPTIMIZATION_STRATEGY.md**
 - **What:** Balancing professional standards with startup financing.
+
+#### **21-TENANTS_SETTINGS_SCHEMA.md**
+- **What:** Canonical schema for `tenants.settings` JSONB — all configurable keys, defaults, validation rules.
+
+#### **22-TECH_STACK_DECISIONS.md**
+- **What:** Final technology decisions with justifications — TypeORM, NestJS, Next.js, Pub/Sub, Cloud Run, Cloud SQL, Terraform.
+
+#### **25-ERROR_CATALOG.md**
+- **What:** All RFC 9457 Problem Details error responses, organised by category.
 
 ---
 

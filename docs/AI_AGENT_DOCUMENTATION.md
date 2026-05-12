@@ -184,21 +184,13 @@ Never loads all 100 KB unless absolutely necessary
 
 ---
 
-### 2. `claude.md` (Claude Agent - NEW)
+### 2. `claude.md` / `gemini.md` (AI Agent symlinks)
 
-**Purpose:** Quick reference for Claude/Anthropic agents
+**Purpose:** Quick reference for Claude and other AI agents.
 
-**What it will contain:**
-- Identical to `.copilot/context.md`
-- Anthropic-specific guidance
-- Claude's token budget (200K tokens)
-- Best practices for long conversations
+**Status:** Already created — both `claude.md` and `gemini.md` are symlinks to `.copilot/context.md`.
 
-**How to create:**
-```bash
-ln -s /home/leonardo/Projetos/leonardo/beloauto/.copilot/context.md \
-      /home/leonardo/Projetos/leonardo/beloauto/claude.md
-```
+Canonical content lives in `.copilot/context.md`. Edit that file to update all agents simultaneously.
 
 ---
 
@@ -269,7 +261,7 @@ Turn 2: "How should we structure the API?"
   
 Turn 3: "Create database schema design doc"
   ✓ Load: docs/02-DOMAIN_MODEL.md (all aggregates)
-  ✓ Load: docs/07-06-TENANT_ISOLATION_STRATEGY.md (schema section)
+  ✓ Load: docs/06-TENANT_ISOLATION_STRATEGY.md (schema section)
   
   Total: +5-6 KB (Total now: 12-17 KB)
 ```
@@ -358,7 +350,7 @@ Turn 3: "Create database schema design doc"
 ```
 "Everything about tenant isolation is in:
  - User model: 06-TENANT_ISOLATION_STRATEGY.md
- - Architecture: docs/07-06-TENANT_ISOLATION_STRATEGY.md
+ - Architecture: docs/06-TENANT_ISOLATION_STRATEGY.md
  - Queries: .copilot/context.md (patterns section)
  
  Create repository that..."
@@ -391,7 +383,7 @@ Is this a quick question?
    │     └─ NO, it's about AUTHENTICATION?
    │        ├─ YES
    │        │  ├─ Load: 06-TENANT_ISOLATION_STRATEGY.md
-   │        │  └─ Load: Multi-tenancy from 07-06-TENANT_ISOLATION_STRATEGY.md
+   │        │  └─ Load: Multi-tenancy from 06-TENANT_ISOLATION_STRATEGY.md
    │        │
    │        └─ NO, it's about DATABASE/SCHEMA?
    │           ├─ YES
@@ -439,7 +431,7 @@ docs/
 ├── 04-USE_CASES.md
 ├── 05-BOUNDED_CONTEXTS.md
 ├── 06-06-TENANT_ISOLATION_STRATEGY.md
-├── 07-06-TENANT_ISOLATION_STRATEGY.md
+├── 06-TENANT_ISOLATION_STRATEGY.md
 ├── 08-AI_AGENT_DOCUMENTATION.md ← This file (strategy guide)
 └── README.md
 ```

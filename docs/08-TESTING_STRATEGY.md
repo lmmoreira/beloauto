@@ -1,105 +1,817 @@
 # Testing Strategy - BeloAuto
 
-## Overview
+## Philosophy
 
-To support **Trunk-Based Development (TBD)** and ensure a mature, professional delivery, BeloAuto follows a rigorous testing strategy based on the **Testing Pyramid**. Every change must be verified by automated tests before merging to the `main` branch.
+Tests in BeloAuto are **executable specifications**. Each test proves that a specific piece of behaviour from `docs/04-USE_CASES.md` works — not just that code runs. An AI agent implementing any UC must write tests first (TDD) and must be able to run them locally before pushing.
+
+**Three non-negotiable rules:**
+1. Every UC must have a unit test, an integration test, and a tenant-isolation test.
+2. Tests are co-located with source: `booking.entity.spec.ts` lives next to `booking.entity.ts`.
+3. No `.skip()`, `.only()`, or `setTimeout()` in any test file — CI will block the merge.
+
+---
+
+## Tools
+
+| Layer | Tool | Why |
+|---|---|---|
+| Backend unit + integration | **Jest** | NestJS default, excellent DI mocking, mature |
+| Frontend unit + component | **Vitest** | Faster than Jest, native ESM, Vite-native |
+| Frontend components | **React Testing Library** | Tests behaviour, not implementation |
+| HTTP integration | **Supertest** | NestJS-native HTTP testing |
+| Real DB / Pub/Sub | **Testcontainers** | Ephemeral containers per test suite, no shared state |
+| API contract | **Spectral** | OpenAPI linting — validates spec consistency in CI |
+| E2E | **Playwright** | Full browser automation, cross-context flows |
+| In-memory fakes | **Manual** | Hand-written in-memory adapters (see §In-Memory Adapters) |
+| Frontend API mocking | **MSW (Mock Service Worker)** | Intercepts BFF calls in browser and Vitest |
 
 ---
 
 ## The Testing Pyramid
 
-### 1. **Unit & Component Tests (Core)**
-- **Scope:** Individual functions, classes, and UI components.
-- **Focus:** 
-  - Backend: Business rules in the Domain layer.
-  - Frontend: Atomic components and state logic (Hooks).
-- **Tools:** Jest/Vitest (Backend/Frontend), React Testing Library.
-- **Mocking:** No external dependencies. Use in-memory data structures or MSW (Mock Service Worker) for frontend API calls.
-- **Goal:** >80% code coverage.
+```
+              ▲
+             /E2E\          Playwright — 3-5 critical user journeys
+            /─────\
+           / Contr.\        Spectral — OpenAPI spec validation
+          /─────────\
+         /Integration\      Jest + Testcontainers — real DB, real Pub/Sub emulator
+        /─────────────\
+       /  Application  \    Jest + in-memory adapters — use case logic
+      /─────────────────\
+     /   Domain (Unit)   \  Jest — pure TypeScript, zero dependencies
+    /─────────────────────\
+```
 
-### 2. **Integration Tests (Adapters & Journeys)**
-- **Scope:** Interaction between layers and critical UI workflows.
-- **Focus:** 
-  - Backend: Repositories, API controllers, Event Bus.
-  - Frontend: Integration of multiple modules (e.g., "Booking Form" submitting to the "BFF Adapter").
-- **Tools:** Supertest (API), Testcontainers (DB/Events), Vitest (Frontend).
-- **Goal:** Verify that the system "talks" correctly internally.
-
-### 3. **Contract Tests (Alignment)**
-- **Scope:** API contracts between Frontend → BFF and BFF → Backend.
-- **Focus:** Preventing breaking changes in JSON schemas.
-- **Tools:** Pact or Spectral (OpenAPI linting).
-- **Goal:** Ensure the consumer and provider stay in sync.
-
-### 4. **End-to-End (E2E) Tests (Critical Paths)**
-- **Scope:** Full user journeys (e.g., Guest Booking Request).
-- **Focus:** The "Happy Path" across the entire stack.
-- **Tools:** Playwright (Recommended for both Web and API).
-- **Goal:** Verify the system works as a whole from the user's perspective.
+**Coverage target:** ≥ 80% on **changed code** (differential — measured by SonarCloud on PRs, not a global threshold). Fast layers (domain, application) carry most of the coverage; slow layers (integration, E2E) prove the wiring.
 
 ---
 
-## Testing Practices for Trunk-Based Development
+## Layer 1 — Domain Tests (Pure Unit)
 
-### **1. Test-Driven Development (TDD)**
-Developers are encouraged to write tests *before* implementation, especially for complex business rules in the domain model. This ensures the implementation matches the requirements defined in `04-USE_CASES.md`.
+**Scope:** Entities, value objects, aggregates, domain services inside `domain/`.
 
-### **2. Small, Frequent Commits**
-Tests must be small enough to allow for frequent commits to `main`. If a test suite takes too long, it should be optimized or split.
+**Rules:**
+- Zero framework imports (`@nestjs/*`, `typeorm`, etc.).
+- Zero mocks. Domain logic takes plain objects in, returns plain objects or domain events out.
+- Every valid and invalid state machine transition must have its own test.
+- Tests run in milliseconds. If a domain test is slow, something is wrong.
 
-### **3. Red-Green-Refactor**
-- **Red:** Write a failing test for a specific Use Case step.
-- **Green:** Write the minimal code to make the test pass.
-- **Refactor:** Clean up the code while keeping the test green.
+**File location:** `<file>.spec.ts` co-located with `<file>.ts`.
+
+### Naming convention
+```
+describe('<ClassName> / <methodName>()')
+  it('should <expected behaviour> when <precondition>')
+  it('should throw <ErrorType> when <invalid precondition>')
+```
+
+### Example — Booking aggregate state machine
+```typescript
+// src/contexts/booking/domain/entities/booking.entity.spec.ts
+
+describe('Booking / approveBooking()', () => {
+  it('should transition PENDING to APPROVED and emit BookingApproved', () => {
+    const booking = BookingFactory.pending({ tenantId: TENANT_A_ID });
+
+    booking.approveBooking(STAFF_ID);
+
+    expect(booking.status).toBe(BookingStatus.APPROVED);
+    expect(booking.approvedBy).toBe(STAFF_ID);
+    expect(booking.domainEvents).toContainEqual(
+      expect.objectContaining({ eventName: 'BookingApproved', tenantId: TENANT_A_ID }),
+    );
+  });
+
+  it('should transition INFO_REQUESTED to APPROVED', () => {
+    const booking = BookingFactory.infoRequested({ tenantId: TENANT_A_ID });
+    booking.approveBooking(STAFF_ID);
+    expect(booking.status).toBe(BookingStatus.APPROVED);
+  });
+
+  it('should throw InvalidStateTransitionError when booking is APPROVED', () => {
+    const booking = BookingFactory.approved({ tenantId: TENANT_A_ID });
+    expect(() => booking.approveBooking(STAFF_ID))
+      .toThrow(InvalidStateTransitionError);
+  });
+
+  it('should throw InvalidStateTransitionError when booking is COMPLETED', () => {
+    const booking = BookingFactory.completed({ tenantId: TENANT_A_ID });
+    expect(() => booking.approveBooking(STAFF_ID))
+      .toThrow(InvalidStateTransitionError);
+  });
+});
+
+// State machine coverage matrix — every transition must be tested
+describe('Booking state machine', () => {
+  const validTransitions = [
+    { from: 'PENDING',        action: 'approve',          to: 'APPROVED' },
+    { from: 'PENDING',        action: 'reject',           to: 'REJECTED' },
+    { from: 'PENDING',        action: 'requestInfo',      to: 'INFO_REQUESTED' },
+    { from: 'PENDING',        action: 'cancel',           to: 'CANCELLED' },
+    { from: 'INFO_REQUESTED', action: 'submitInfo',       to: 'PENDING' },
+    { from: 'INFO_REQUESTED', action: 'approve',          to: 'APPROVED' },
+    { from: 'INFO_REQUESTED', action: 'reject',           to: 'REJECTED' },
+    { from: 'INFO_REQUESTED', action: 'cancel',           to: 'CANCELLED' },
+    { from: 'APPROVED',       action: 'complete',         to: 'COMPLETED' },
+    { from: 'APPROVED',       action: 'cancel',           to: 'CANCELLED' },
+  ];
+
+  test.each(validTransitions)(
+    'valid: $from → $to via $action',
+    ({ from, action, to }) => {
+      const booking = BookingFactory.withStatus(from as BookingStatus);
+      (booking as any)[action + 'Booking']?.(/* minimal args */);
+      expect(booking.status).toBe(to);
+    },
+  );
+
+  const terminalStates = ['COMPLETED', 'REJECTED', 'CANCELLED'];
+  test.each(terminalStates)(
+    'terminal: %s cannot transition to any state',
+    (state) => {
+      const booking = BookingFactory.withStatus(state as BookingStatus);
+      expect(() => booking.approveBooking(STAFF_ID)).toThrow(InvalidStateTransitionError);
+      expect(() => booking.cancelBooking(STAFF_ID)).toThrow(InvalidStateTransitionError);
+    },
+  );
+});
+```
+
+### Example — Booking aggregate invariants
+```typescript
+describe('Booking / requestBooking()', () => {
+  it('should throw MissingPickupAddressError when a pickup service is selected without an address', () => {
+    const pickupService = ServiceFactory.withPickup();
+    expect(() =>
+      Booking.requestBooking(GUEST_ACTOR, SLOT, [pickupService], undefined /* no address */),
+    ).toThrow(MissingPickupAddressError);
+  });
+
+  it('should snapshot service price into BookingLine at request time', () => {
+    const service = ServiceFactory.create({ price: Money.of(100, 'BRL') });
+    const booking = Booking.requestBooking(GUEST_ACTOR, SLOT, [service], null);
+    expect(booking.lines[0].priceAtBooking).toEqual(Money.of(100, 'BRL'));
+  });
+});
+```
 
 ---
 
-## Tenant Isolation Testing
+## Layer 2 — Application Tests (Use Case + In-Memory Adapters)
 
-A critical requirement for BeloAuto is **Multi-Tenant Isolation**. Every test suite must include a "Tenant Leak" check:
-- **Scenario:** Create data for Tenant A. Try to access/modify it using a session for Tenant B.
-- **Expectation:** System must return 404 (Not Found) or 403 (Forbidden).
+**Scope:** Use cases in `application/use-cases/`. Tests the orchestration logic with all external ports replaced by in-memory fakes.
+
+**Rules:**
+- No real database, no real Pub/Sub. All ports are in-memory implementations.
+- Every use case test MUST include a **tenant isolation assertion** (attempt access as wrong tenant → expect `NotFoundError` or `ForbiddenError`).
+- Tests run in milliseconds.
+
+### In-Memory Adapters
+
+In-memory adapters live in `src/shared/testing/` and implement the same port interfaces as real adapters:
+
+```typescript
+// src/shared/testing/in-memory-booking.repository.ts
+export class InMemoryBookingRepository implements IBookingRepository {
+  private store = new Map<string, Booking>();
+
+  async save(booking: Booking): Promise<void> {
+    this.store.set(`${booking.tenantId}:${booking.id}`, booking);
+  }
+
+  async findByTenant(id: string, tenantId: string): Promise<Booking | null> {
+    return this.store.get(`${tenantId}:${id}`) ?? null;
+  }
+
+  async findAllByTenant(tenantId: string): Promise<Booking[]> {
+    return [...this.store.values()].filter(b => b.tenantId === tenantId);
+  }
+}
+
+// src/shared/testing/in-memory-event-bus.ts
+export class InMemoryEventBus implements IEventBus {
+  readonly publishedEvents: DomainEvent[] = [];
+
+  async publish(event: DomainEvent): Promise<void> {
+    this.publishedEvents.push(event);
+  }
+
+  async subscribe(_eventName: string, _handler: Function): Promise<void> {}
+
+  clear(): void { this.publishedEvents.length = 0; }
+}
+```
+
+### Example — Use case test (with mandatory tenant isolation)
+```typescript
+// src/contexts/booking/application/use-cases/approve-booking.use-case.spec.ts
+
+describe('ApproveBookingUseCase', () => {
+  let useCase: ApproveBookingUseCase;
+  let bookingRepo: InMemoryBookingRepository;
+  let eventBus: InMemoryEventBus;
+
+  beforeEach(() => {
+    bookingRepo = new InMemoryBookingRepository();
+    eventBus = new InMemoryEventBus();
+    useCase = new ApproveBookingUseCase(bookingRepo, eventBus);
+  });
+
+  it('should approve a PENDING booking and publish BookingApproved', async () => {
+    const booking = BookingFactory.pending({ tenantId: TENANT_A });
+    await bookingRepo.save(booking);
+
+    await useCase.execute({ bookingId: booking.id, staffId: STAFF_ID, tenantId: TENANT_A });
+
+    const saved = await bookingRepo.findByTenant(booking.id, TENANT_A);
+    expect(saved!.status).toBe(BookingStatus.APPROVED);
+    expect(eventBus.publishedEvents).toHaveLength(1);
+    expect(eventBus.publishedEvents[0]).toMatchObject({
+      eventName: 'BookingApproved',
+      tenantId: TENANT_A,
+    });
+  });
+
+  // ─── MANDATORY TENANT ISOLATION TEST ───────────────────────────────────────
+  it('should throw NotFoundError when booking belongs to a different tenant', async () => {
+    const booking = BookingFactory.pending({ tenantId: TENANT_A });
+    await bookingRepo.save(booking);
+
+    await expect(
+      useCase.execute({ bookingId: booking.id, staffId: STAFF_ID, tenantId: TENANT_B }),
+    ).rejects.toThrow(NotFoundError);
+
+    // no events published for failed cross-tenant attempts
+    expect(eventBus.publishedEvents).toHaveLength(0);
+  });
+  // ───────────────────────────────────────────────────────────────────────────
+
+  it('should throw InvalidStateTransitionError when booking is already APPROVED', async () => {
+    const booking = BookingFactory.approved({ tenantId: TENANT_A });
+    await bookingRepo.save(booking);
+
+    await expect(
+      useCase.execute({ bookingId: booking.id, staffId: STAFF_ID, tenantId: TENANT_A }),
+    ).rejects.toThrow(InvalidStateTransitionError);
+
+    expect(eventBus.publishedEvents).toHaveLength(0);
+  });
+});
+```
 
 ---
 
-## Domain Event Testing
+## Layer 3 — Infrastructure Tests (Integration)
 
-Since BeloAuto is event-driven, we must test both sides of the event flow:
-1. **Producer:** Assert that specific domain events (e.g., `BookingRequested`) are emitted when a use case completes.
-2. **Consumer:** Assert that a listener (e.g., Loyalty service) correctly updates its state when it receives a specific event.
+**Scope:** Repository adapters, event consumers, REST controllers. Uses real PostgreSQL (via Testcontainers) and the real GCP Pub/Sub Emulator.
+
+**Rules:**
+- Each context spins up its **own schema only**, not the full DB. Migrations run from `src/contexts/<context>/infrastructure/migrations/`.
+- `beforeAll`: start container, run migrations.
+- `afterEach`: truncate context tables (not drop) — keeps the schema, clears data.
+- `afterAll`: stop container.
+- Each test suite creates its own unique `tenantId` (UUID) to avoid cross-test contamination even within the same container.
+
+### Testcontainers setup (per context)
+```typescript
+// src/contexts/booking/infrastructure/persistence/booking.repository.integration.spec.ts
+import { v7 as uuidv7 } from 'uuid';
+
+let dataSource: DataSource;
+let container: StartedPostgreSqlContainer;
+
+beforeAll(async () => {
+  container = await new PostgreSqlContainer('postgres:15')
+    .withDatabase('beloauto_test')
+    .start();
+
+  dataSource = new DataSource({
+    type: 'postgres',
+    url: container.getConnectionUri(),
+    schema: 'booking',   // ← only this context's schema
+    entities: [BookingEntity, BookingLineEntity, ServiceEntity, ScheduleClosureEntity],
+    migrations: [/* booking context migrations only */],
+  });
+
+  await dataSource.initialize();
+  await dataSource.runMigrations();
+});
+
+afterEach(async () => {
+  // truncate in FK-safe order — keeps schema, clears rows
+  await dataSource.query('TRUNCATE booking.booking_lines CASCADE');
+  await dataSource.query('TRUNCATE booking.bookings CASCADE');
+});
+
+afterAll(async () => {
+  await dataSource.destroy();
+  await container.stop();
+});
+```
+
+### Example — Repository integration test
+```typescript
+describe('BookingRepository', () => {
+  let repo: BookingRepository;
+  const TENANT_A = uuidv7();
+  const TENANT_B = uuidv7();
+
+  beforeEach(() => {
+    repo = new TypeOrmBookingRepository(dataSource);
+  });
+
+  it('should save and retrieve a booking within the same tenant', async () => {
+    const booking = BookingFactory.pending({ tenantId: TENANT_A });
+    await repo.save(booking);
+
+    const found = await repo.findByTenant(booking.id, TENANT_A);
+    expect(found).not.toBeNull();
+    expect(found!.tenantId).toBe(TENANT_A);
+  });
+
+  it('should return null when booking is queried with wrong tenant', async () => {
+    const booking = BookingFactory.pending({ tenantId: TENANT_A });
+    await repo.save(booking);
+
+    const found = await repo.findByTenant(booking.id, TENANT_B);
+    expect(found).toBeNull(); // tenant isolation enforced at query level
+  });
+
+  it('should return only bookings belonging to the queried tenant', async () => {
+    await repo.save(BookingFactory.pending({ tenantId: TENANT_A }));
+    await repo.save(BookingFactory.pending({ tenantId: TENANT_A }));
+    await repo.save(BookingFactory.pending({ tenantId: TENANT_B })); // different tenant
+
+    const results = await repo.findAllByTenant(TENANT_A);
+    expect(results).toHaveLength(2);
+    expect(results.every(b => b.tenantId === TENANT_A)).toBe(true);
+  });
+});
+```
+
+### Example — Event idempotency test
+```typescript
+describe('LoyaltyEventConsumer — idempotency', () => {
+  it('should insert N entries when BookingCompleted has N lines', async () => {
+    const event = BookingCompletedFactory.withLines(3, { tenantId: TENANT_A, customerId: CUSTOMER_ID });
+    await consumer.handle(event);
+
+    const entries = await loyaltyRepo.findByCustomer(CUSTOMER_ID, TENANT_A);
+    expect(entries).toHaveLength(3);
+  });
+
+  it('should be a no-op when the same BookingCompleted event is replayed', async () => {
+    const event = BookingCompletedFactory.withLines(3, { tenantId: TENANT_A, customerId: CUSTOMER_ID });
+
+    await consumer.handle(event);
+    await consumer.handle(event); // replay — simulates at-least-once delivery
+
+    const entries = await loyaltyRepo.findByCustomer(CUSTOMER_ID, TENANT_A);
+    expect(entries).toHaveLength(3); // NOT 6 — UNIQUE(tenant_id, booking_line_id) is the guard
+  });
+
+  it('should not create LoyaltyEntries for guest bookings', async () => {
+    const event = BookingCompletedFactory.withLines(2, { tenantId: TENANT_A, customerId: null });
+    await consumer.handle(event);
+
+    const entries = await loyaltyRepo.findByTenant(TENANT_A);
+    expect(entries).toHaveLength(0);
+  });
+});
+```
 
 ---
 
-## Quality Gates
+## Layer 4 — Contract Tests (Spectral)
 
-The CI/CD pipeline will enforce these gates:
-- ✓ **Zero Lint Errors:** Using ESLint/Prettier.
-- ✓ **Type Safety:** `tsc` must pass with no errors.
-- ✓ **All Tests Pass:** Unit and Integration tests must be green.
-- ✓ **Coverage Threshold:** Minimum 80% coverage on new code.
-- ✓ **Security Scan:** No high-severity vulnerabilities in dependencies.
+**Scope:** The OpenAPI spec at `docs/api/openapi.yaml` is validated against Spectral rules in CI.
+
+**Goal:** Prevent broken or inconsistent API contracts before a single line of implementation is written or changed.
+
+**Setup:**
+```yaml
+# .spectral.yml
+extends: ['spectral:oas']
+rules:
+  operation-success-response: warn
+  openapi-tags: off
+  info-contact: off
+```
+
+**CI step (runs in Stage 1 — Static Analysis):**
+```bash
+npx @stoplight/spectral-cli lint docs/api/openapi.yaml --fail-severity warn
+```
+
+**What Spectral enforces:**
+- Every endpoint has at least one success response defined.
+- Every error response uses RFC 9457 `application/problem+json` content type.
+- No `any` or untyped `object` in request/response schemas.
+- Required fields are marked as `required`.
+- Enum values match the domain model (`PENDING`, `APPROVED`, etc.).
+
+---
+
+## Layer 5 — End-to-End Tests (Playwright)
+
+**Scope:** Full user journeys from browser to database, through the real BFF and backend.
+
+**Rules:**
+- Happy path only — edge cases belong to unit and integration layers.
+- Run against a **staging environment** (real containers, seeded DB), not against localhost.
+- Maximum 5–8 E2E scenarios for MVP. Each one maps to a core UC journey.
+
+**MVP E2E scenarios:**
+1. Guest submits a booking request → admin receives notification → booking in PENDING (UC-001 + UC-018)
+2. Admin approves booking → customer receives confirmation email (UC-003)
+3. Staff marks booking complete with actual prices → loyalty entry created (UC-009)
+4. Customer cancels an approved booking within window → confirmation email sent (UC-007)
+5. Customer login with multiple tenants → tenant selection screen → correct data visible (UC-021)
+
+**Example:**
+```typescript
+// e2e/guest-booking.spec.ts
+test('UC-001: guest can submit a booking request and see pending confirmation', async ({ page }) => {
+  await page.goto('/autowash-pro');
+  await page.click('[data-testid="book-now"]');
+  await page.fill('[data-testid="guest-name"]', 'João Silva');
+  await page.fill('[data-testid="guest-email"]', 'joao@test.com.br');
+  await page.fill('[data-testid="guest-phone"]', '+5531999990000');
+  await page.click('[data-testid="service-basic-wash"]');
+  await page.click('[data-testid="slot-2026-06-01-09-00"]');
+  await page.click('[data-testid="submit-booking"]');
+
+  await expect(page.locator('[data-testid="booking-confirmation"]'))
+    .toContainText('Seu pedido está pendente');
+});
+```
+
+---
+
+## Test Data Factories
+
+Every test that needs domain objects uses a **Factory** — never constructs aggregates by hand. Factories live in `src/shared/testing/factories/`.
+
+```typescript
+// src/shared/testing/factories/booking.factory.ts
+export const BookingFactory = {
+  pending(overrides?: Partial<BookingProps>): Booking {
+    return Booking.requestBooking(
+      overrides?.actor ?? GuestActorFactory.create(),
+      overrides?.slot ?? SlotFactory.tomorrow(),
+      overrides?.services ?? [ServiceFactory.basicWash()],
+      overrides?.pickupAddress ?? null,
+    );
+  },
+
+  approved(overrides?: Partial<BookingProps>): Booking {
+    const booking = BookingFactory.pending(overrides);
+    booking.approveBooking(overrides?.staffId ?? STAFF_ID);
+    booking.clearDomainEvents(); // clean slate for the test's assertions
+    return booking;
+  },
+
+  withStatus(status: BookingStatus, overrides?: Partial<BookingProps>): Booking {
+    // ... build booking in the required state
+  },
+};
+```
+
+**Rule:** Factories always produce **valid** domain objects. Use `overrides` to target specific scenarios — never build invalid states by bypassing the aggregate.
+
+### Shared test constants
+```typescript
+// src/shared/testing/constants.ts
+export const TENANT_A = '00000000-0000-0000-0000-000000000001' as TenantId;
+export const TENANT_B = '00000000-0000-0000-0000-000000000002' as TenantId;
+export const STAFF_ID = '00000000-0000-0000-0000-000000000010' as StaffId;
+export const CUSTOMER_ID = '00000000-0000-0000-0000-000000000020' as CustomerId;
+```
+
+---
+
+## Tenant Isolation Test — Mandatory Pattern
+
+Every use case test file **must** contain at least one test that crosses tenant boundaries and asserts isolation. This is the minimum viable isolation test:
+
+```typescript
+// Pattern: create data in TENANT_A, attempt access as TENANT_B
+it('should not expose TENANT_A data to TENANT_B', async () => {
+  // Arrange: create resource in tenant A
+  const resource = await createInTenantA();
+
+  // Act: attempt access as tenant B
+  const result = actor === 'customer-or-staff'
+    ? await useCase.execute({ id: resource.id, tenantId: TENANT_B })
+    : await repo.findByTenant(resource.id, TENANT_B);
+
+  // Assert: either null (repository) or NotFoundError (use case)
+  expect(result).toBeNull(); // or .rejects.toThrow(NotFoundError)
+});
+```
+
+**Named exports to reuse across suites:**
+```typescript
+// src/shared/testing/tenant-isolation.helper.ts
+export function expectTenantIsolation(
+  fn: () => Promise<unknown>,
+): Promise<void> {
+  return expect(fn()).rejects.toThrow(NotFoundError);
+}
+```
+
+---
+
+## Architecture Isolation Test
+
+This test enforces the Context Isolation Contract (Rule 1 in `docs/05-BOUNDED_CONTEXTS.md`) at build time. It uses ESLint import rules, not a custom test.
+
+All 30 pairs (6 contexts × 5 forbidden sources) are listed explicitly — no "repeat for all" shortcuts. Every pair must be present for the rule to be complete.
+
+```jsonc
+// apps/backend/.eslintrc.js  (or eslint.config.ts)
+{
+  "rules": {
+    "import/no-restricted-paths": [
+      "error",
+      {
+        "zones": [
+          // ── Booking cannot import from ───────────────────────────────────────
+          { "target": "./src/contexts/booking",      "from": "./src/contexts/customer" },
+          { "target": "./src/contexts/booking",      "from": "./src/contexts/staff" },
+          { "target": "./src/contexts/booking",      "from": "./src/contexts/loyalty" },
+          { "target": "./src/contexts/booking",      "from": "./src/contexts/notification" },
+          { "target": "./src/contexts/booking",      "from": "./src/contexts/platform" },
+
+          // ── Customer cannot import from ──────────────────────────────────────
+          { "target": "./src/contexts/customer",     "from": "./src/contexts/booking" },
+          { "target": "./src/contexts/customer",     "from": "./src/contexts/staff" },
+          { "target": "./src/contexts/customer",     "from": "./src/contexts/loyalty" },
+          { "target": "./src/contexts/customer",     "from": "./src/contexts/notification" },
+          { "target": "./src/contexts/customer",     "from": "./src/contexts/platform" },
+
+          // ── Staff cannot import from ─────────────────────────────────────────
+          { "target": "./src/contexts/staff",        "from": "./src/contexts/booking" },
+          { "target": "./src/contexts/staff",        "from": "./src/contexts/customer" },
+          { "target": "./src/contexts/staff",        "from": "./src/contexts/loyalty" },
+          { "target": "./src/contexts/staff",        "from": "./src/contexts/notification" },
+          { "target": "./src/contexts/staff",        "from": "./src/contexts/platform" },
+
+          // ── Loyalty cannot import from ───────────────────────────────────────
+          { "target": "./src/contexts/loyalty",      "from": "./src/contexts/booking" },
+          { "target": "./src/contexts/loyalty",      "from": "./src/contexts/customer" },
+          { "target": "./src/contexts/loyalty",      "from": "./src/contexts/staff" },
+          { "target": "./src/contexts/loyalty",      "from": "./src/contexts/notification" },
+          { "target": "./src/contexts/loyalty",      "from": "./src/contexts/platform" },
+
+          // ── Notification cannot import from ──────────────────────────────────
+          { "target": "./src/contexts/notification", "from": "./src/contexts/booking" },
+          { "target": "./src/contexts/notification", "from": "./src/contexts/customer" },
+          { "target": "./src/contexts/notification", "from": "./src/contexts/staff" },
+          { "target": "./src/contexts/notification", "from": "./src/contexts/loyalty" },
+          { "target": "./src/contexts/notification", "from": "./src/contexts/platform" },
+
+          // ── Platform cannot import from ──────────────────────────────────────
+          { "target": "./src/contexts/platform",     "from": "./src/contexts/booking" },
+          { "target": "./src/contexts/platform",     "from": "./src/contexts/customer" },
+          { "target": "./src/contexts/platform",     "from": "./src/contexts/staff" },
+          { "target": "./src/contexts/platform",     "from": "./src/contexts/loyalty" },
+          { "target": "./src/contexts/platform",     "from": "./src/contexts/notification" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+This makes cross-context imports a **lint error** caught in CI Stage 1 (Static Analysis), long before tests run.
+
+> **Note on `src/shared/`:** The rule above only restricts context-to-context imports. Imports from `src/shared/` are always allowed from any context — that is the intended cross-cutting path.
+
+---
+
+## BookingRescheduled Test Examples
+
+UC-008 (admin reschedules) produces a `BookingRescheduled` event and requires its own test coverage. It is easy to miss because the booking status does not change (stays `APPROVED`) — only `scheduledAt` updates.
+
+### Domain unit test — aggregate
+
+```typescript
+// src/contexts/booking/domain/entities/booking.entity.spec.ts
+
+describe('Booking / rescheduleBooking()', () => {
+  it('should update scheduledAt and emit BookingRescheduled when APPROVED', () => {
+    const booking = BookingFactory.approved({ tenantId: TENANT_A });
+    const previousSlot = booking.scheduledAt;
+    const newSlot = SlotFactory.nextWeek();
+
+    booking.rescheduleBooking(STAFF_ID, newSlot, 'Customer request');
+
+    expect(booking.status).toBe(BookingStatus.APPROVED);   // status unchanged
+    expect(booking.scheduledAt).toEqual(newSlot.startTime);
+    expect(booking.domainEvents).toContainEqual(
+      expect.objectContaining({
+        eventName: 'BookingRescheduled',
+        tenantId: TENANT_A,
+        data: expect.objectContaining({
+          newSlot: expect.objectContaining({ startTime: newSlot.startTime }),
+          previousSlot: expect.objectContaining({ startTime: previousSlot }),
+          rescheduledBy: STAFF_ID,
+        }),
+      }),
+    );
+  });
+
+  it('should throw InvalidStateTransitionError when rescheduling a PENDING booking', () => {
+    const booking = BookingFactory.pending({ tenantId: TENANT_A });
+    expect(() => booking.rescheduleBooking(STAFF_ID, SlotFactory.nextWeek(), null))
+      .toThrow(InvalidStateTransitionError);
+  });
+
+  it('should throw InvalidStateTransitionError when rescheduling a COMPLETED booking', () => {
+    const booking = BookingFactory.completed({ tenantId: TENANT_A });
+    expect(() => booking.rescheduleBooking(STAFF_ID, SlotFactory.nextWeek(), null))
+      .toThrow(InvalidStateTransitionError);
+  });
+});
+```
+
+### Use case test — with mandatory tenant isolation
+
+```typescript
+// src/contexts/booking/application/use-cases/reschedule-booking.use-case.spec.ts
+
+describe('RescheduleBookingUseCase', () => {
+  let useCase: RescheduleBookingUseCase;
+  let bookingRepo: InMemoryBookingRepository;
+  let eventBus: InMemoryEventBus;
+
+  beforeEach(() => {
+    bookingRepo = new InMemoryBookingRepository();
+    eventBus    = new InMemoryEventBus();
+    useCase     = new RescheduleBookingUseCase(bookingRepo, eventBus);
+  });
+
+  it('should update scheduledAt and publish BookingRescheduled', async () => {
+    const booking = BookingFactory.approved({ tenantId: TENANT_A });
+    await bookingRepo.save(booking);
+    const newSlot = SlotFactory.nextWeek();
+
+    await useCase.execute({
+      bookingId:    booking.id,
+      tenantId:     TENANT_A,
+      staffId:      STAFF_ID,
+      newScheduledAt: newSlot.startTime,
+      adminNotes:   'Reagendado a pedido do cliente',
+    });
+
+    const saved = await bookingRepo.findByTenant(booking.id, TENANT_A);
+    expect(saved!.scheduledAt).toEqual(newSlot.startTime);
+    expect(saved!.status).toBe(BookingStatus.APPROVED);
+    expect(eventBus.publishedEvents).toHaveLength(1);
+    expect(eventBus.publishedEvents[0]).toMatchObject({
+      eventName: 'BookingRescheduled',
+      tenantId:  TENANT_A,
+    });
+  });
+
+  // ─── MANDATORY TENANT ISOLATION TEST ───────────────────────────────────────
+  it('should throw NotFoundError when booking belongs to a different tenant', async () => {
+    const booking = BookingFactory.approved({ tenantId: TENANT_A });
+    await bookingRepo.save(booking);
+
+    await expect(
+      useCase.execute({
+        bookingId:      booking.id,
+        tenantId:       TENANT_B,   // wrong tenant
+        staffId:        STAFF_ID,
+        newScheduledAt: SlotFactory.nextWeek().startTime,
+        adminNotes:     null,
+      }),
+    ).rejects.toThrow(NotFoundError);
+
+    expect(eventBus.publishedEvents).toHaveLength(0);
+  });
+  // ───────────────────────────────────────────────────────────────────────────
+
+  it('should throw SlotUnavailableError when the new slot conflicts', async () => {
+    const existing = BookingFactory.approved({ tenantId: TENANT_A });
+    const target   = BookingFactory.approved({ tenantId: TENANT_A });
+    await bookingRepo.save(existing);
+    await bookingRepo.save(target);
+
+    // Try to reschedule `target` into the slot already taken by `existing`
+    await expect(
+      useCase.execute({
+        bookingId:      target.id,
+        tenantId:       TENANT_A,
+        staffId:        STAFF_ID,
+        newScheduledAt: existing.scheduledAt,
+        adminNotes:     null,
+      }),
+    ).rejects.toThrow(SlotUnavailableError);
+
+    expect(eventBus.publishedEvents).toHaveLength(0);
+  });
+});
+```
+
+> `BookingRescheduled` is consumed only by **Notification Context** (sends the customer a "your booking has been rescheduled" email). Loyalty Context does NOT consume this event — reschedule does not affect points.
+
+---
+
+## Test Parallelism
+
+- **Domain and application tests** are stateless — run fully in parallel (`--runInBand false`, default Jest behaviour).
+- **Integration tests** each spin up their own Testcontainers instance. They run in parallel using Jest's `--maxWorkers` setting. Because each context owns its own schema and each test generates a unique `tenantId` (UUID), there are no port or data conflicts.
+- **E2E tests** run sequentially against staging (Playwright default). Parallel E2E requires separate worker slots and isolated staging data — post-MVP.
+
+---
+
+## Quality Gates (CI)
+
+| Gate | Tool | Failure action |
+|---|---|---|
+| Zero lint errors | ESLint + Prettier | Block merge |
+| Zero cross-context imports | ESLint `no-restricted-paths` | Block merge |
+| Type check passes | `tsc --noEmit` | Block merge |
+| All tests pass (100%) | Jest / Vitest | Block merge |
+| Coverage ≥ 80% on **changed code** | SonarCloud (differential) | Block merge |
+| OpenAPI spec valid | Spectral | Block merge |
+| Security scan clean | Snyk + Gitleaks | Block merge |
+
+> Coverage is **differential** (changed files only), not a global project threshold. SonarCloud computes this on the PR diff. The Jest/Vitest coverage report feeds into SonarCloud.
+
+---
+
+## Forbidden Patterns
+
+| Pattern | Reason | Fix |
+|---|---|---|
+| `it.skip(...)` / `describe.skip(...)` | Hides test failures from CI | Delete the test or fix it |
+| `it.only(...)` | Masks failures in other tests | Remove before committing |
+| `setTimeout` in test body | Makes tests flaky and slow | Use `await`, proper async, or fake timers |
+| Mocking a real TypeORM repository in a use case test | Doesn't test real SQL behaviour | Use in-memory adapter for use case layer; real DB for infrastructure layer |
+| Shared mutable test state between `it` blocks | Makes tests order-dependent and flaky | Use `beforeEach` to reset state |
+| Direct DB writes in domain or application tests | Bypasses aggregate invariants | Use factories; let the aggregate persist via the in-memory adapter |
+| Hardcoding a fixed `tenantId` across parallel integration tests | Causes data contamination between suites | Generate a fresh `uuidv7()` per test suite (`import { v7 as uuidv7 } from 'uuid'`) |
 
 ---
 
 ## Testing Environments
 
-| Env | Purpose | Data |
-|-----|---------|------|
-| **Local** | Rapid development | In-memory / Docker-compose |
-| **CI (Runner)**| Pre-merge validation | Testcontainers (ephemeral) |
-| **Staging** | QA & User Acceptance | Sanitized production-like data |
-| **Production** | Live system | Real user data |
+| Environment | Purpose | Data source |
+|---|---|---|
+| **Local** | Fast feedback during development | Testcontainers (ephemeral) |
+| **CI runner** | Gate on every PR | Testcontainers (ephemeral, spun per job) |
+| **Staging** | E2E tests + UAT | Seeded data, reset between runs |
+| **Production** | — | Never tested against directly |
 
 ---
 
-## Summary of Tools
+## File Structure Reference
 
-- **Backend:** NestJS, Jest, Supertest, Testcontainers.
-- **Frontend:** React, React Testing Library, Playwright.
-- **API:** OpenAPI (Swagger), Spectral.
-- **Mocking:** ts-mockito or jest-mock-extended.
+```
+src/contexts/booking/
+├── domain/
+│   ├── entities/
+│   │   ├── booking.entity.ts
+│   │   └── booking.entity.spec.ts          ← domain unit test
+│   └── services/
+│       ├── availability.service.ts
+│       └── availability.service.spec.ts    ← domain unit test
+├── application/
+│   └── use-cases/
+│       ├── approve-booking.use-case.ts
+│       └── approve-booking.use-case.spec.ts ← application test (in-memory adapters)
+└── infrastructure/
+    ├── persistence/
+    │   ├── booking.repository.ts
+    │   └── booking.repository.integration.spec.ts  ← integration test (Testcontainers)
+    ├── controllers/
+    │   ├── booking.controller.ts
+    │   └── booking.controller.integration.spec.ts  ← HTTP integration (Supertest)
+    └── event-consumers/
+        ├── booking-completed.consumer.ts
+        └── booking-completed.consumer.integration.spec.ts  ← event + idempotency test
 
----
+src/shared/testing/
+├── constants.ts             ← TENANT_A, TENANT_B, STAFF_ID, CUSTOMER_ID
+├── in-memory-event-bus.ts   ← IEventBus in-memory implementation
+├── in-memory-booking.repository.ts
+├── in-memory-loyalty.repository.ts
+├── ... (one per context port)
+└── factories/
+    ├── booking.factory.ts
+    ├── service.factory.ts
+    ├── customer.factory.ts
+    └── loyalty-entry.factory.ts
 
-**Status:** Phase 2 - Technical Architecture  
-**Next:** `09-CI_CD_PIPELINE.md`
+e2e/
+├── guest-booking.spec.ts
+├── admin-approve.spec.ts
+├── complete-with-actual-prices.spec.ts
+├── customer-cancel.spec.ts
+└── customer-login-tenant-selection.spec.ts
+```

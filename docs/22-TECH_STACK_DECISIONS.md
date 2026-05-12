@@ -177,27 +177,36 @@ export class LoyaltyEntry {
 NestJS module structure directly maps to bounded contexts defined in `docs/05-BOUNDED_CONTEXTS.md`:
 
 ```
-src/
-├── booking/                    # Booking Bounded Context
-│   ├── domain/
-│   │   ├── entities/
-│   │   ├── value-objects/
-│   │   └── services/
-│   ├── application/
-│   │   └── use-cases/          # UC-001 through UC-009
-│   ├── infrastructure/
-│   │   ├── repositories/       # TypeORM repositories
-│   │   └── event-publishers/
-│   └── booking.module.ts
+apps/backend/src/
+├── contexts/
+│   ├── booking/                    # Booking Bounded Context
+│   │   ├── domain/
+│   │   │   ├── entities/
+│   │   │   ├── value-objects/
+│   │   │   └── services/
+│   │   ├── application/
+│   │   │   ├── use-cases/          # UC-001 through UC-013
+│   │   │   └── ports/              # IBookingRepository, etc.
+│   │   ├── infrastructure/
+│   │   │   ├── persistence/        # TypeORM repositories
+│   │   │   ├── controllers/        # REST controllers
+│   │   │   └── event-publishers/
+│   │   └── booking.module.ts
+│   │
+│   ├── loyalty/                    # Loyalty Bounded Context
+│   │   ├── domain/
+│   │   ├── application/
+│   │   ├── infrastructure/
+│   │   └── loyalty.module.ts
+│   │
+│   ├── notification/               # Notification Bounded Context
+│   │   └── notification.module.ts
+│   │
+│   ├── customer/                   # Customer Bounded Context
+│   ├── staff/                      # Staff Bounded Context
+│   └── platform/                   # Platform Bounded Context
 │
-├── loyalty/                    # Loyalty Bounded Context
-│   ├── domain/
-│   ├── application/
-│   └── loyalty.module.ts
-│
-├── notification/               # Notification Bounded Context
-│   └── notification.module.ts
-│
+├── shared/                         # Cross-cutting: Logger, OTel, IEventBus, TenantContext
 └── app.module.ts
 ```
 
@@ -317,7 +326,7 @@ export class CompleteBookingController {
 
 ### Decision
 **Next.js 14+** with **React 18**  
-**Deployment:** Self-hosted on GCP Cloud Storage + CDN (NOT Vercel)
+**Deployment:** GCP Cloud Run container (same pattern as backend and BFF — NOT Vercel, NOT GCS static export)
 
 ### Why Next.js
 
@@ -326,9 +335,9 @@ export class CompleteBookingController {
 | **Maturity** | ⭐⭐⭐⭐⭐ Netflix, Hulu, major SaaS companies |
 | **Built-in Optimization** | ⭐⭐⭐⭐⭐ Automatic code splitting, image optimization |
 | **Full-Stack** | ⭐⭐⭐⭐⭐ Can integrate with NestJS backend cleanly |
-| **Deployment** | ⭐⭐⭐⭐⭐ Static export or server rendering |
+| **Deployment** | ⭐⭐⭐⭐⭐ SSR on Cloud Run — same container pattern as the rest of the stack |
 | **Development** | ⭐⭐⭐⭐⭐ Hot module reloading, excellent DX |
-| **Cost** | ⭐⭐⭐⭐⭐ $0 open source, self-hosted saves vendor fees |
+| **Cost** | ⭐⭐⭐⭐⭐ $0 open source; Cloud Run at MVP scale ≈ $5–15/month |
 
 ### Why NOT Vite + React
 
@@ -371,60 +380,48 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
 This aligns with `docs/06-TENANT_ISOLATION_STRATEGY.md` - Client enforces tenant awareness.
 
-#### API Integration Pattern
+#### BFF Integration Pattern
 
-Clean separation from NestJS backend:
+The frontend (`apps/web/`) calls the **separate NestJS BFF** (`apps/bff/`), not the backend directly. The BFF validates the JWT, injects `tenantId`, and aggregates data from backend contexts.
 
 ```typescript
-// pages/api/bookings/[id].ts - BFF pattern
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query;
-  const tenantSlug = req.headers['x-tenant-slug'];
-
-  // Option A: Call NestJS backend
-  const booking = await fetch(
-    `${process.env.BACKEND_URL}/bookings/${id}`,
-    {
-      headers: {
-        'X-Tenant-Slug': tenantSlug,
-        'Authorization': `Bearer ${req.cookies.jwt}`,
-      }
-    }
-  ).then(r => r.json());
-
-  return res.status(200).json(booking);
+// apps/web/lib/api/bookings.ts — API client in Next.js
+export async function getBooking(id: string, jwt: string, tenantSlug: string) {
+  const res = await fetch(`${process.env.BFF_URL}/bookings/${id}`, {
+    headers: {
+      'Authorization': `Bearer ${jwt}`,
+      'X-Tenant-Slug': tenantSlug,
+    },
+  });
+  if (!res.ok) throw new ApiError(res);
+  return res.json();
 }
 ```
 
-**Key:** Frontend doesn't directly call TypeORM - always through API (enforces multi-tenancy).
+**Key:** Next.js never calls the backend or TypeORM directly. All API traffic goes through the NestJS BFF, which enforces multi-tenancy.
 
-### Deployment Strategy (Cost-Conscious)
+### Deployment Strategy
 
-#### Day 1-100: Minimal Cost
+BeloAuto's Next.js app requires **server-side rendering** — GCS static export is not viable because:
 
-```
-├─ Next.js compiled to static files
-├─ Deploy to GCP Cloud Storage ($0.02/GB/month)
-├─ Cloud CDN caching ($0.085/GB served)
-├─ Example: 100K users, 5MB app size
-│  ├─ Storage: $0.02/month
-│  ├─ CDN (10GB/month): $0.85/month
-│  └─ Total: <$1/month
-```
+- `/[slug]` hotsite routing must resolve tenant branding dynamically per request
+- Google OAuth callbacks and session redirects (UC-021, UC-022) require server-side handling
+- Next.js middleware for auth guards runs server-side
+- Hotsite content updates (UC-027) must be reflected immediately without a rebuild
 
-#### Day 365+: Scaled
+**Decision: GCP Cloud Run** — the same pattern as backend and BFF. One Docker image, deployed as a container.
 
-```
-├─ Same deployment
-├─ More aggressive caching (headers, TTL)
-├─ Multiple CDN edge locations
-├─ Cost: $50-100/month at 1M users
-```
+#### Scaling path
 
-**Why NOT Vercel:**
-- Vercel: $20/month minimum + $0.15/GB bandwidth
-- GCP: $0 storage + $0.12/GB CDN (save 80% on bandwidth)
-- Self-hosted saves vendor lock-in
+| Stage | Timeline | Cloud Run config | Est. cost |
+|---|---|---|---|
+| MVP | Month 0–3 | `min=0, max=20, memory=256Mi` | ~$5–15/month |
+| Growth | Month 3–12 | `min=1, max=50, memory=512Mi` | ~$30–60/month |
+| Scale | Month 12+ | `min=2, max=100` + Cloud CDN in front | ~$80–150/month |
+
+**Why NOT Vercel:** Vendor lock-in, $20/month floor, and incompatible with the GCP-native infrastructure already in place. The BFF URL, IAM, and VPC are all GCP — Vercel would sit outside that trust boundary.
+
+**Why NOT GCS + CDN static export:** Requires `output: 'export'` in `next.config.js`, which disables middleware, SSR, and server components. Every feature that makes Next.js 14 worth using depends on the Node.js runtime.
 
 ### React 18 Choice
 
@@ -517,13 +514,23 @@ export class PubSubPublisher implements EventPublisher {
   }
 }
 
-// NestJS subscriber (consumes events)
-export class BookingCompletedHandler {
-  @OnEvent('booking.completed')
-  async handleBookingCompleted(event: BookingCompletedEvent) {
-    // UC-016: Create LoyaltyEntry when booking completes
-    for (const line of event.lines) {
-      await this.loyaltyService.recordCompletion(line);
+// NestJS subscriber — uses IEventBus port, NOT @OnEvent() (which is in-memory only)
+// The PubSubEventBus adapter calls this handler when a message arrives on the subscription.
+@Injectable()
+export class BookingCompletedHandler implements IEventHandler<BookingCompletedEvent> {
+  constructor(private eventBus: IEventBus) {}
+
+  onModuleInit() {
+    // Register this handler for BookingCompleted messages on the loyalty subscription
+    this.eventBus.subscribe('BookingCompleted', (event: BookingCompletedEvent) =>
+      this.handle(event),
+    );
+  }
+
+  async handle(event: BookingCompletedEvent): Promise<void> {
+    if (!event.data.customerId) return; // guest booking — no loyalty entry
+    for (const line of event.data.lines) {
+      await this.loyaltyService.recordCompletion(event, line);
     }
   }
 }
@@ -1067,41 +1074,33 @@ resource "google_sql_database_instance" "postgres" {
   # ... (see section 6)
 }
 
-# Cloud Run Backend
-resource "google_cloud_run_service" "backend" {
+# Cloud Run — backend, BFF, and web (Next.js SSR) all run as containers
+resource "google_cloud_run_v2_service" "backend" {
   name     = "beloauto-backend"
   location = "us-central1"
-  # ... (see section 5)
+  # ... (see docs/23-INFRASTRUCTURE_SETUP.md — cloudrun.tf)
 }
 
-# Cloud Storage for Frontend
-resource "google_storage_bucket" "frontend" {
-  name          = "beloauto-frontend"
-  location      = "US"
-  storage_class = "STANDARD"
+# Cloud Storage — media uploads only (tenant photos), NOT for the frontend
+resource "google_storage_bucket" "media" {
+  name     = "beloauto-media-prod"
+  location = "US"
+  # ... (see docs/23-INFRASTRUCTURE_SETUP.md — storage.tf)
 }
 
-# Cloud CDN
-resource "google_compute_backend_bucket" "frontend_cdn" {
-  name            = "beloauto-frontend-cdn"
-  bucket_name     = google_storage_bucket.frontend.name
-  cdn_policy {
-    client_ttl          = 3600
-    default_ttl         = 3600
-    max_ttl             = 86400
-    serve_while_stale   = 86400
-  }
-}
-
-# Cloud Pub/Sub Topics
-resource "google_pubsub_topic" "booking_events" {
-  name = "booking-events"
+# Cloud Pub/Sub
+resource "google_pubsub_topic" "domain_events" {
+  name = "beloauto-domain-events"
+  # ... (see docs/23-INFRASTRUCTURE_SETUP.md — pubsub.tf)
 }
 
 # GCP Secret Manager
 resource "google_secret_manager_secret" "database_url" {
   secret_id = "database-url"
+  # ... (see docs/23-INFRASTRUCTURE_SETUP.md — secrets.tf)
 }
+
+# Full authoritative Terraform: docs/23-INFRASTRUCTURE_SETUP.md
 ```
 
 ### Multi-Cloud Ready (Future)
@@ -1183,7 +1182,7 @@ export DATABASE_URL=postgres://localhost/beloauto
 export PUBSUB_PROJECT_ID=beloauto-local
 
 # Same code works everywhere
-npm run start
+pnpm start
 ```
 
 ### Cost Impact
@@ -1203,34 +1202,37 @@ npm run start
 
 | Component | Cost | Notes |
 |-----------|------|-------|
-| Cloud Run | $20 | 10-30 requests/sec |
+| Cloud Run (backend + BFF + web) | $20 | 10-30 requests/sec across 3 services |
 | Cloud SQL db-f1-micro | $15 | 0.6 GB RAM, 100 GB storage |
 | Pub/Sub | $5 | 10K events/day |
-| Cloud Storage CDN | $9 | Frontend static files |
+| Cloud Storage (media only) | $1 | Tenant photo uploads |
+| Cloud Scheduler | $1 | 2 cron jobs ($0.10/job/month) |
 | Secret Manager | $1 | 6 secrets |
-| **TOTAL** | **~$50/month** | Lean, production-ready |
+| **TOTAL** | **~$43/month** | Lean, production-ready |
 
 ### Growth Phase (Month 12)
 
 | Component | Cost | Notes |
 |-----------|------|-------|
-| Cloud Run | $120 | 100-200 requests/sec |
+| Cloud Run (backend + BFF + web) | $120 | 100-200 requests/sec |
 | Cloud SQL db-n1-standard-1 | $100 | 3.75 GB RAM, 500 GB storage |
 | Pub/Sub | $40 | 100K events/day |
-| Cloud Storage CDN | $30 | More traffic |
+| Cloud Storage (media) | $10 | Growing photo library |
+| Cloud Scheduler | $1 | 2 cron jobs |
 | Secret Manager | $1 | 6 secrets |
-| **TOTAL** | **~$300/month** | Proven traffic |
+| **TOTAL** | **~$272/month** | Proven traffic |
 
 ### Scale Phase (Month 24)
 
 | Component | Cost | Notes |
 |-----------|------|-------|
-| Cloud Run | $300 | 500-1000 requests/sec |
+| Cloud Run (backend + BFF + web) | $300 | 500-1000 requests/sec |
 | Cloud SQL db-n1-standard-4 | $300 | 15 GB RAM, read replicas |
 | Pub/Sub | $100 | 500K events/day |
-| Cloud Storage CDN | $50 | Scaled traffic |
+| Cloud Storage (media) | $30 | Large photo library |
+| Cloud Scheduler | $1 | 2 cron jobs |
 | Secret Manager | $1 | 6 secrets |
-| **TOTAL** | **~$800/month** | Approaching scale |
+| **TOTAL** | **~$732/month** | Approaching scale |
 
 ### vs. Wrong Approach
 
@@ -1262,10 +1264,10 @@ Code Changes: Zero
 Architecture: Same code, scaled infrastructure
 Traffic: 1K-100K users
 Additions:
-├─ Database read replicas (one-click)
-├─ Cloud CDN caching (config change)
-└─ Multi-region Cloud Run (config change)
-Cost: $300/month
+├─ Database read replicas (one-click in Cloud Console)
+├─ Cloud Run min-instances bumped to avoid cold starts
+└─ Multi-region Cloud Run if latency becomes an issue (config change)
+Cost: ~$272/month
 Code Changes: Zero
 ```
 

@@ -62,29 +62,148 @@ The React app contains a library of **Core Modules**. Each module is a professio
 
 ---
 
-## 4. Local Development Workflow
+## 4. Next.js Routing & SSR Strategy
 
-To simulate different tenants locally:
+The hotsite lives inside the same `apps/web/` Next.js app as the dashboard, separated by route prefix.
 
-1. **URL-based Routing:** Navigate to `http://localhost:3000/:slug`.
-2. **Slug Detection:** The React app parses the URL path to get the `slug`.
-3. **Data Fetching:**
-   - `GET /v1/tenants/slug/:slug` (Fetches the Manifest).
-   - Use the `slug` in the `X-Tenant-Slug` header for all subsequent API calls (Availability, Services).
-4. **Mocking:** For testing, we can provide different manifest JSONs to see how the "Rendering Engine" behaves.
+**Route:** `app/[slug]/` (Next.js App Router dynamic segment)
+
+```
+https://beloauto.com/autowash-pro          → app/[slug]/page.tsx
+https://beloauto.com/autowash-pro/booking  → app/[slug]/booking/page.tsx
+https://beloauto.com/dashboard             → app/dashboard/ (requires auth)
+```
+
+**`app/[slug]/layout.tsx`** — fetches manifest and applies branding:
+
+```typescript
+// app/[slug]/layout.tsx
+import { fetchManifest } from '@/lib/api/tenant';
+
+export default async function HotsiteLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: { slug: string };
+}) {
+  const manifest = await fetchManifest(params.slug); // cached — see §Manifest Caching below
+
+  return (
+    <html lang="pt-BR">
+      <body
+        style={{
+          '--primary-color':    manifest.branding.primaryColor,
+          '--secondary-color':  manifest.branding.secondaryColor,
+          '--font-family':      manifest.branding.fontFamily,
+        } as React.CSSProperties}
+      >
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+**`app/[slug]/page.tsx`** — renders modules in order:
+
+```typescript
+// app/[slug]/page.tsx
+import { HeroModule, ServiceListModule, GalleryModule, TestimonialsModule, BookingCtaModule } from '@/components/hotsite';
+
+const MODULE_MAP = {
+  HERO:         HeroModule,
+  SERVICE_LIST: ServiceListModule,
+  GALLERY:      GalleryModule,
+  TESTIMONIALS: TestimonialsModule,
+  BOOKING_CTA:  BookingCtaModule,
+};
+
+export default async function HotsitePage({ params }: { params: { slug: string } }) {
+  const manifest = await fetchManifest(params.slug);
+
+  return (
+    <main>
+      {manifest.layout.map((module) => {
+        const Component = MODULE_MAP[module.type];
+        return Component ? <Component key={module.type} data={module.data} slug={params.slug} /> : null;
+      })}
+    </main>
+  );
+}
+```
 
 ---
 
-## 5. Deployment & Pipeline
+## 5. Manifest Caching
 
-1. **Single Artifact:** We build and deploy **ONE** frontend container (`beloauto-frontend`).
-2. **Global Reach:** The same container serves `beloauto.com/tenant-a` and `beloauto.com/tenant-b`.
-3. **Cache Strategy:**
-   - The frontend bundle is cached globally (CDN).
-   - The Hotsite Manifest has a short TTL (e.g., 5 mins) to allow admins to update their hotsite without a new deployment.
-4. **Custom Domains (Future):**
-   - A reverse proxy (Nginx or Cloud Run Custom Domains) maps `autowashpro.com` to `beloauto.com/autowash-pro`.
-   - The frontend detects the domain and treats it as a slug.
+The manifest is fetched server-side on every request but cached by Next.js's built-in data cache.
+
+```typescript
+// lib/api/tenant.ts
+export async function fetchManifest(slug: string) {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_BFF_URL}/tenants/slug/${slug}`,
+    {
+      headers: { 'X-Tenant-Slug': slug },
+      next: { revalidate: 300 },  // ISR-style: revalidate every 5 minutes
+    },
+  );
+
+  if (res.status === 404) notFound(); // Next.js renders 404 page
+  if (!res.ok) throw new Error('Failed to fetch manifest');
+
+  return res.json();
+}
+```
+
+**Cache behaviour:**
+- First request: fetches from BFF → cached in Next.js server memory for 300 seconds
+- Subsequent requests within 5 minutes: served from cache (no BFF call)
+- After 5 minutes: Next.js revalidates in the background, serving stale while fresh data loads
+- When admin publishes hotsite changes (UC-027): takes up to 5 minutes to propagate — acceptable for MVP
+
+**Why 5 minutes:** Short enough that admin changes feel near-instant; long enough to absorb traffic spikes without hammering the BFF on every page view.
+
+---
+
+## 6. Local Development Workflow
+
+```bash
+# Start all services
+pnpm infra:up && pnpm dev
+```
+
+Visit `http://localhost:3000/<tenant-slug>` to see a tenant's hotsite. The slug is extracted from the URL by Next.js's `[slug]` dynamic route.
+
+**Testing different tenants:**
+1. Provision two tenants via the CLI (UC-024): `pnpm --filter backend tenant:create --slug autowash-pro ...`
+2. Visit `http://localhost:3000/autowash-pro` and `http://localhost:3000/superclean` to see each hotsite
+3. To test branding: update `hotsite_configs` directly in the local DB or use the dashboard at `http://localhost:3000/dashboard`
+
+---
+
+## 7. Deployment
+
+**Runtime:** GCP Cloud Run — the same `beloauto-web` Cloud Run service that serves the dashboard also serves the hotsite. A single container handles all tenant slugs.
+
+- `https://beloauto.com/autowash-pro` → Cloud Run `beloauto-web` → `app/[slug]/page.tsx`
+- `https://beloauto.com/dashboard` → Cloud Run `beloauto-web` → `app/dashboard/layout.tsx`
+
+The custom domain `beloauto.com` points to the `beloauto-web` Cloud Run service via Cloud Run domain mapping (see `docs/23-INFRASTRUCTURE_SETUP.md` — `domainmapping.tf`). TLS is handled automatically.
+
+**Custom domains for tenants (future, post-MVP):**
+Cloud Run domain mapping supports additional domains. To map `autowashpro.com.br` to the hotsite:
+```bash
+gcloud run domain-mappings create \
+  --service beloauto-web \
+  --domain autowashpro.com.br \
+  --region us-central1 \
+  --project beloauto-prod
+```
+The Next.js middleware reads the `Host` header and treats it as the slug lookup key. No code changes needed — just a domain mapping and a new manifest entry. This is a post-MVP feature.
+
+**CI/CD:** Hotsite is part of the `apps/web/` package. Same pipeline as the dashboard — see `docs/09-CI_CD_PIPELINE.md` (`ci-frontend.yml` + `deploy-frontend.yml`). No separate pipeline needed.
 
 ---
 

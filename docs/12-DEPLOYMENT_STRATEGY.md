@@ -1,60 +1,58 @@
 # Deployment Strategy - BeloAuto
 
-## Overview
+## Philosophy
 
-BeloAuto follows a **"Simple but Robust"** deployment philosophy. We prioritize **No Vendor Lock-in** by using standardized Docker artifacts, but we leverage **Managed Container Platforms** to provide professional horizontal scaling and self-healing without the operational complexity of Kubernetes.
-
----
-
-## The "Same Image" Guarantee
-
-To ensure absolute reliability, BeloAuto uses the **Immutable Artifact** pattern:
-- **Build Once:** GitHub Actions builds a Docker image on every push to `main`.
-- **Verify Always:** That *exact* image is scanned by SonarQube and passes Integration Tests.
-- **Deploy Anywhere:** The same image is pulled by Production. Configuration is injected at runtime via Environment Variables.
+**Simple, robust, cost-conscious.** BeloAuto starts on fully-managed GCP services that require zero operational overhead, scale automatically with traffic, and cost ~$50/month at MVP. The same Docker images and the same code run from day 1 through 1 M users — only the infrastructure tier changes.
 
 ---
 
-## Production Architecture: Managed Container Platform
+## Production Architecture (GCP)
 
-We avoid managing virtual machines (VPS) or complex clusters (K8s). Instead, we use managed services like **AWS Fargate** or **GCP Cloud Run**.
-
-### **1. Compute Layer (Stateless)**
-- **Artifacts:** `beloauto-backend`, `beloauto-bff`.
-- **Scaling:** Horizontal. We can run multiple **replicas** of each container.
-- **Traffic:** Managed Load Balancer (ALB on AWS / Global LB on GCP) handles traffic distribution and SSL termination.
-- **Robustness:** If a container crashes, the platform automatically restarts a new one.
-
-### **2. Storage & State (Managed)**
-- **Database:** Standard **PostgreSQL** via a managed service (AWS RDS / GCP Cloud SQL).
-- **Files/Photos:** S3-compatible storage (AWS S3 / GCP GCS) via a standard adapter.
-- **Portability:** Because we use standard SQL and S3 protocols, moving clouds is just a connection string update.
-
-### **3. Observability (Self-Hosted Containers)**
-- **Prometheus & Grafana:** Deployed as containers on the same managed platform.
-- **Persistence:** Connected to a managed volume (AWS EFS / GCP Filestore) to ensure metrics/logs survive container restarts.
-- **Independence:** By running our own Prometheus/Grafana rather than using cloud-specific tools (CloudWatch/Stackdriver), we maintain **zero vendor lock-in**.
+| Layer | Service | Notes |
+|---|---|---|
+| **Frontend** | GCP Cloud Run (`beloauto-web`) | Next.js 14 SSR container; public HTTPS |
+| **BFF** | GCP Cloud Run (`beloauto-bff`) | NestJS BFF; public HTTPS; sole entry point for the web layer |
+| **Backend** | GCP Cloud Run (`beloauto-backend`) | NestJS modular monolith; internal only (not public) |
+| **Database** | GCP Cloud SQL PostgreSQL 15 | Private IP inside VPC; automated backups; no public exposure |
+| **Event bus** | GCP Pub/Sub | Managed, serverless; local dev uses the Pub/Sub emulator |
+| **Storage** | GCP Cloud Storage | Tenant photo uploads; paths: `tenants/<tid>/bookings/<bid>/<file>` |
+| **Secrets** | GCP Secret Manager | Injected into Cloud Run at runtime via `--set-secrets` |
+| **Observability** | GCE e2-small VM (prod only) | Docker Compose: Prometheus + Grafana + Loki + OTel Collector |
 
 ---
 
-## Deployment Workflow (CD)
+## Immutable Artifact Pattern
 
-1.  **CI Success:** GitHub Actions pushes the verified image to the Registry (e.g., GitHub Packages or Docker Hub).
-2.  **Pre-Deploy:** A specialized "Migration Task" runs the latest database migrations.
-3.  **Deployment:** The managed platform performs a **Rolling Update**:
-    - Starts the new version replicas.
-    - Performs Health Checks (`/health/ready`).
-    - Redirects traffic to the new version.
-    - Shuts down the old version.
-4.  **Security:** All containers run as non-root users. Secrets are injected from a Secret Manager (not stored in the code or image).
+One Docker image is built per commit, scanned by Trivy, and tagged with the Git SHA. The **same image** moves through staging → production. It is never rebuilt between environments. Configuration differences (DB URL, secrets) are injected at runtime via Secret Manager — never baked into the image.
 
 ---
 
-## Local Development Parity
+## Scaling Path (no code changes required)
 
-Developers use **Docker Compose** locally. This mimics the production environment (Backend, DB, Prometheus, Grafana) on a single machine, ensuring "it works on my machine" translates to "it works in production."
+| Stage | Timeline | Cloud SQL tier | Cloud Run max instances | Est. cost |
+|---|---|---|---|---|
+| MVP | Month 0–3 | `db-f1-micro` | 10 | ~$50/month |
+| Growth | Month 3–12 | `db-n1-standard-1` | 100 | ~$300/month |
+| Scale | Month 12+ | `db-n1-standard-4` + read replica | 200+ | ~$800/month |
+
+Kubernetes is not needed until Cloud Run costs exceed ~$2 k/month or multi-region orchestration is required. The same Docker images deploy to GKE without code changes.
 
 ---
 
-**Status:** Phase 2 - Technical Architecture  
-**Next:** `13-DATABASE_SCHEMA.md`
+## Key Rules
+
+1. **Migrations run before deployment** — as a hard prerequisite CI job, never at app startup (`synchronize: false`).
+2. **Cloud Run health checks** — every service exposes `/health/live` and `/health/ready`. Cloud Run shifts traffic only after `/health/ready` returns 200.
+3. **No direct pushes to `main`** — all changes go through a PR with CI gates passing.
+4. **Rollback = re-deploy previous SHA** — because images are immutable and tagged by commit, rollback is a one-command re-deploy of the previous image tag.
+
+---
+
+## Authoritative References
+
+| Topic | Document |
+|---|---|
+| Full GCP infrastructure setup, Terraform HCL, Day 0 bootstrap | `docs/23-INFRASTRUCTURE_SETUP.md` |
+| CI/CD pipeline YAML, GitHub Actions workflows, quality gates | `docs/09-CI_CD_PIPELINE.md` |
+| Release lifecycle, hotfix path, rollback procedures | `docs/18-RELEASE_LIFECYCLE_OPERATIONS.md` |
+| Observability stack (Prometheus, Grafana, Loki, OTel) | `docs/10-OBSERVABILITY_STRATEGY.md` |

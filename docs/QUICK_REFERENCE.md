@@ -32,7 +32,7 @@
 | Filter all queries by `tenant_id` | Query without tenant scope |
 | Include `tenantId` in all events | Emit events without tenant context |
 | Write tests first (TDD) | Code first, test later |
-| Run `npm run test && npm run lint` locally | Commit without running tests |
+| Run `pnpm test && pnpm lint` locally | Commit without running tests |
 | Use environment variables | Hardcode config/secrets |
 | Ask for clarification | Assume requirements |
 | Fix linting warnings | Suppress warnings with comments |
@@ -58,15 +58,16 @@
 
 ---
 
-## 5 Bounded Contexts
+## 6 Bounded Contexts
 
 | Context | Owns | Key Aggregates | Key Events |
 |---------|------|----------------|-----------|
-| **Booking** (Core) | Bookings, Services, Closures | Booking, Service | BookingRequested, BookingApproved, BookingCompleted, BookingCancelled |
-| **Customer** (Support) | Authenticated users | Customer | - |
-| **Loyalty** (Support) | Points earned per service (append-only) | LoyaltyEntry | ServicePointsEarned, PointsExpired |
+| **Booking** (Core) | Bookings, BookingLines, Services, ScheduleClosures | Booking, Service, ScheduleClosure | BookingRequested, BookingApproved, BookingCompleted, BookingCancelled, BookingRescheduled |
+| **Customer** (Support) | Authenticated users (multi-tenant) | Customer | — |
+| **Loyalty** (Support) | Points earned per service line (append-only) | LoyaltyEntry | ServicePointsEarned, PointsExpiringSoon |
 | **Notification** (Support) | Email sending | NotificationTemplate, NotificationLog | EmailSent, EmailFailed |
-| **Staff** (Support) | Employees | Staff, ScheduleClosure | - |
+| **Staff** (Support) | Employees (single-tenant) | Staff | — |
+| **Platform** (Foundational) | Tenants, hotsite config | Tenant, HotsiteConfig | StaffInvited, StaffDeactivated |
 
 ---
 
@@ -87,22 +88,18 @@ SELECT * FROM [table] WHERE tenant_id = ? AND [other filters]
 
 ---
 
-## 23 Use Cases
+## 27 Active Use Cases (UC-014 and UC-015 superseded by UC-021/022)
 
 | Category | Use Cases |
 |----------|-----------|
-| Booking | UC-001 (guest), UC-002 (customer), UC-003-008 (approve/cancel), UC-009 (complete) |
+| Booking | UC-001 (guest), UC-002 (customer), UC-003–008 (approve/reject/cancel/reschedule), UC-009 (complete) |
 | Calendar | UC-010 (close schedule), UC-011 (view calendar) |
-| Services | UC-012 (create), UC-013 (edit) |
-| Auth | UC-021 (customer login), UC-022 (staff login), UC-023 (switch tenant) |
+| Services | UC-012 (create), UC-013 (edit/deactivate) |
+| Auth | UC-021 (customer login + tenant selection), UC-022 (staff login), UC-023 (switch tenant) |
 | Loyalty | UC-016 (view active points + per-service breakdown) |
-| Notifications | UC-018-020 (reminders @ 6 AM) |
-| Analytics | UC-017 (future) |
-
-**Key UCs to implement Phase 2:**
-- UC-021: Customer login (Google OAuth + tenant selection)
-- UC-022: Staff login (Google OAuth, no selection)
-- UC-001: Guest booking request
+| Notifications | UC-018 (admin daily digest @ 6 AM), UC-019 (day-before reminder), UC-020 (day-of reminder) |
+| Analytics | UC-017 (future, out of MVP) |
+| Platform | UC-024 (provision tenant CLI), UC-025 (first login / accept invite), UC-026 (edit settings), UC-027 (manage hotsite), UC-028 (invite staff), UC-029 (deactivate staff) |
 
 ---
 
@@ -210,17 +207,18 @@ BookingInfoRequested    { bookingId, informationNeeded, requestedBy }
 BookingInfoSubmitted    { bookingId, infoPayload, submittedBy }
 BookingCompleted        { bookingId, completedBy, completedSlot, afterServicePhotoUrls[], lines[] }
 BookingCancelled        { bookingId, cancelledBy, isBusiness, reason? }
-BookingReminderSentCustomer    { bookingId, email, appointmentSlot }
-BookingReminderSentCustomerDay { bookingId, email, appointmentSlot }
-AdminDailyScheduleReminder     { staffEmail, bookings[] }
+BookingRescheduled      { bookingId, newSlot, previousSlot, rescheduledBy }
+BookingReminderDue         { bookingId, recipientEmail, appointmentSlot, lines[] }   ← cron emits; Notification sends email
+BookingReminderDueToday    { bookingId, recipientEmail, appointmentSlot, lines[] }   ← cron emits; Notification sends email
+AdminDailyScheduleReminder { staffEmail, bookingsToday[] }                           ← cron emits; Notification sends digest
 ```
 
 **Loyalty consumer rule:** Loyalty Context consumes ONLY `BookingCompleted`. None of the other Booking events change loyalty state.
 
 ### Loyalty Events
 ```
-ServicePointsEarned {tenantId, customerId, serviceId, points}
-PointsExpired {tenantId, customerId, serviceId, points}
+ServicePointsEarned  { tenantId, customerId, bookingLineId, serviceId, pointsEarned, expiresAt, totalActiveAfter }
+PointsExpiringSoon   { tenantId, customerId, serviceId, pointsExpiringSoon, earliestExpiresAt }
 ```
 
 ---

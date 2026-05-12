@@ -150,16 +150,16 @@ Follow clean code fundamentals:
 
 ```bash
 # 1. Run all tests
-npm run test
+pnpm test
 
 # 2. Run linting (fix warnings, don't suppress)
-npm run lint
+pnpm lint
 
 # 3. Check types
-npm run type-check
+pnpm type-check
 
 # 4. Check test coverage (minimum: 80% on changed code — CI gate)
-npm run coverage
+pnpm coverage
 ```
 
 **CI Pipeline enforces:**
@@ -214,10 +214,10 @@ const x: number = 123;
 - [ ] No flaky tests (deterministic results)
 
 ### Verification
-- [ ] Ran `npm run test` locally → ✅ All pass
-- [ ] Ran `npm run lint` locally → ✅ No warnings
-- [ ] Ran `npm run type-check` locally → ✅ No errors
-- [ ] Ran `npm run coverage` locally → ✅ Coverage meets threshold
+- [ ] Ran `pnpm test` locally → ✅ All pass
+- [ ] Ran `pnpm lint` locally → ✅ No warnings
+- [ ] Ran `pnpm type-check` locally → ✅ No errors
+- [ ] Ran `pnpm coverage` locally → ✅ Coverage meets threshold
 - [ ] Code follows SOLID principles
 - [ ] Code is readable and maintainable
 
@@ -277,10 +277,10 @@ A feature or fix is **only done** when:
    - [ ] Test coverage meets threshold (80% on changed code)
 
 4. **Verification**
-   - [ ] All local tests pass: `npm run test`
-   - [ ] Linting passes: `npm run lint`
-   - [ ] Type checks pass: `npm run type-check`
-   - [ ] Coverage verified: `npm run coverage`
+   - [ ] All local tests pass: `pnpm test`
+   - [ ] Linting passes: `pnpm lint`
+   - [ ] Type checks pass: `pnpm type-check`
+   - [ ] Coverage verified: `pnpm coverage`
    - [ ] No warnings suppressed
 
 5. **Localization**

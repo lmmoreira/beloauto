@@ -13,7 +13,7 @@ This document provides a step-by-step operational guide for the entire lifecycle
 2. **Environment:** Run `docker-compose up` to have a local PostgreSQL and GCP Pub/Sub Emulator (plus Prometheus/Grafana for observability).
 3. **TDD:** Write a failing test in the `domain` or `application` layer.
 4. **Implement:** Write the minimal code to pass the test.
-5. **Verify:** Run `npm run test` and `npm run lint` locally.
+5. **Verify:** Run `pnpm test` and `pnpm lint` locally.
 
 ### **Step 2: The Pull Request (PR)**
 1. **Push:** Push to GitHub.
@@ -40,7 +40,7 @@ This document provides a step-by-step operational guide for the entire lifecycle
    - **No New Build:** The *exact same* Docker image from Staging is used.
    - **Production Migrations:** Run migrations against the Prod DB.
    - **Blue/Green or Rolling Update:** Deploy to the Production platform.
-3. **Verification:** Monitor Grafana/Sentry for any spike in errors.
+3. **Verification:** Monitor Grafana dashboards and Loki error logs for any spike in errors or latency.
 
 ---
 
@@ -84,7 +84,7 @@ The container platform (Cloud Run/Fargate) is configured to automatically rollba
 During and after deployment, the team monitors the "Release Dashboard" in Grafana:
 - **Success Rate:** Should remain > 99%.
 - **Latency (P99):** Should not increase by more than 10%.
-- **Error Logs:** Check Sentry for new unique issues.
+- **Error Logs:** Check Loki for new `ERROR`-level entries; correlate via `correlationId`.
 
 ---
 

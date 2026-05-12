@@ -82,12 +82,12 @@ A bounded context is an autonomous domain with clear boundaries and its own mode
 **Responsibilities:**
 - Store staff member details for a specific tenant
 - Link Google OAuth to staff account
-- Track staff scheduling (days off, closures)
 - Foundation for future: role-based permissions per tenant
 
 **Key Aggregates:**
 - Staff (root) - scoped to tenant
-- ScheduleClosure (shared with Booking Context) - scoped to tenant
+
+> `ScheduleClosure` is owned by the **Booking Context** (it directly controls calendar availability). Staff Context reads closures for display but never writes them directly.
 
 ---
 
@@ -125,11 +125,14 @@ Booking {
 
   scheduledAt:        DateTime         -- start of the appointment slot
   totalDurationMins:  Duration         -- = SUM(lines.durationMinsAtBooking); derived & cached
-  totalPrice:         Money            -- = SUM(lines.priceAtBooking);        derived & cached
+  totalPrice:         Money            -- = SUM(lines.priceAtBooking);        derived & cached (quoted total)
+  totalActualPrice:   Money | null     -- = SUM(lines.actualPriceCharged);    null until COMPLETED, then cached
   -- Effective slot reserved on the calendar:
   --   [scheduledAt, scheduledAt + totalDurationMins)
 
   lines:                BookingLine[]   -- ≥ 1 (a booking with zero lines is invalid)
+  pickupAddress:        Address | null  -- required when any line has requiresPickupAddressAtBooking=true;
+                                        -- null for bookings with no pickup service
   carPhotoUrls:         String[]        -- before, uploaded by customer/guest (UC-001)
   afterServicePhotoUrls: String[]       -- after, uploaded by staff (UC-009)
 
@@ -159,35 +162,47 @@ Booking {
 **Booking invariants (enforced by the aggregate, not the DB):**
 - `lines.length >= 1`. A booking with zero lines cannot be persisted.
 - `totalPrice` and `totalDurationMins` are **derived** — never set directly. The aggregate recalculates them when lines change. The DB stores them denormalised for fast list queries; an integrity check enforces equality with the sum.
+- `totalActualPrice` is `null` until `status = COMPLETED`. At completion, the aggregate sets `actualPriceCharged` on each line (defaulting to `priceAtBooking` if not overridden) and caches `totalActualPrice = SUM(lines.actualPriceCharged)`. Immutable after that.
+- **Pickup address invariant:** if `lines.any(l => l.requiresPickupAddressAtBooking)` then `pickupAddress` MUST be non-null. Enforced at `requestBooking()` — a booking with a pickup-type service and no address is rejected.
 - The line collection is mutable **only before** the booking is approved. Once `status = APPROVED`, lines are immutable — admins may not silently add or remove services from a confirmed booking. (Future UC for "amend approved booking" can lift this.)
 - The same `serviceId` may appear in multiple lines (e.g. two cars, both Basic Wash → two `BookingLine` rows with the same `serviceId`).
 
 #### **Entity: BookingLine** (child entity inside the Booking aggregate)
-One service to be performed during the booking's appointment. Carries **snapshot** fields from the `Service` so the booking is unaffected by later service edits.
+One service to be performed during the booking's appointment. Carries **snapshot** fields from the `Service` so the booking is unaffected by later service edits, and an **actual price** field recorded at completion time.
 
 **Properties:**
 ```
 BookingLine {
-  lineId:                  BookingLineId
-  bookingId:               BookingId      -- parent
-  tenantId:                TenantId       -- denormalised for FK / tenant isolation
-  serviceId:               ServiceId      -- which service was selected
+  lineId:                          BookingLineId
+  bookingId:                       BookingId      -- parent
+  tenantId:                        TenantId       -- denormalised for FK / tenant isolation
+  serviceId:                       ServiceId      -- which service was selected
 
   -- Snapshots, frozen at booking-request time. NEVER updated.
-  priceAtBooking:          Money
-  durationMinsAtBooking:   int
-  pointsValueAtBooking:    int            -- becomes the LoyaltyEntry.points on completion
+  priceAtBooking:                  Money          -- quoted price
+  durationMinsAtBooking:           int
+  pointsValueAtBooking:            int            -- becomes the LoyaltyEntry.points on completion
+  requiresPickupAddressAtBooking:  boolean        -- snapshot of Service.requiresPickupAddress;
+                                                  -- used to enforce the pickup address invariant
+
+  -- Set at completion time (UC-009). Null before COMPLETED.
+  actualPriceCharged:              Money | null   -- what was actually charged. Defaults to
+                                                  -- priceAtBooking if staff does not override.
+                                                  -- Zero = waived. Immutable once COMPLETED.
 }
 ```
 
 **Invariants:**
-- All three snapshot fields are immutable from the moment the line is persisted.
+- All snapshot fields are immutable from the moment the line is persisted.
+- `actualPriceCharged` is `null` until the booking reaches `COMPLETED`. Once set, it is immutable.
+- `actualPriceCharged >= 0` (zero is valid — waived service; negative is not).
 - A line cannot exist without a parent `Booking`.
 - A line's `tenantId` must equal its parent booking's `tenantId` (composite FK enforces this at the DB).
 
 **Key Methods (on the Booking aggregate root — `BookingLine` itself has no behaviour):**
-- `requestBooking(actor, scheduledAt, serviceIds[])`
-  - Loads each `Service`, snapshots `price`/`durationMinutes`/`loyaltyPointsValue` into a new `BookingLine`.
+- `requestBooking(actor, scheduledAt, serviceIds[], pickupAddress?: Address)`
+  - Loads each `Service`, snapshots `price`/`durationMinutes`/`loyaltyPointsValue`/`requiresPickupAddress` into a new `BookingLine`.
+  - Validates pickup invariant: if any line has `requiresPickupAddressAtBooking = true` and `pickupAddress` is absent → reject.
   - Computes `totalPrice` and `totalDurationMins`.
   - Validates calendar availability against the total duration.
   - Creates booking in `PENDING`.
@@ -196,7 +211,11 @@ BookingLine {
 - `rejectBooking(reason)` → transitions `PENDING | INFO_REQUESTED → REJECTED`, publishes `BookingRejected`.
 - `requestMoreInfo(informationNeeded)` → `PENDING → INFO_REQUESTED`, publishes `BookingInfoRequested`.
 - `submitInformation(payload)` → `INFO_REQUESTED → PENDING`, publishes `BookingInfoSubmitted`.
-- `completeBooking(afterServicePhotoUrls, adminNotes?)` → `APPROVED → COMPLETED`, stores photos, publishes `BookingCompleted` **with the line list** (so Loyalty can insert one `LoyaltyEntry` per line).
+- `completeBooking(afterServicePhotoUrls, adminNotes?, actualPrices?: Map<BookingLineId, Money>)`
+  → `APPROVED → COMPLETED`.
+  For each line: sets `actualPriceCharged = actualPrices[lineId] ?? priceAtBooking`.
+  Computes and caches `totalActualPrice = SUM(lines.actualPriceCharged)`.
+  Stores photos. Publishes `BookingCompleted` **with the full line list including `actualPriceCharged`**.
 - `cancelBooking(actor, reason?)` → validates `tenants.settings.cancellation_window_hours` rule, transitions to `CANCELLED`, publishes `BookingCancelled`.
 - `isEligibleForCancellation(now)` → checks the cancellation-window rule.
 - `uploadCarPhotos(photoUrls)` → appends to `carPhotoUrls`.
@@ -221,16 +240,18 @@ Represents a car wash service type (e.g., Basic Wash, Premium Wash).
 **Properties:**
 ```
 Service {
-  serviceId: ServiceId
-  tenantId: TenantId (which company this service belongs to)
-  name: ServiceName
-  description: String
-  price: Money
-  durationMinutes: Duration
-  loyaltyPointsValue: LoyaltyPoints (e.g., Basic=1pt, Premium=2pts, Wax=3pts)
-  isActive: Boolean (UC-013)
-  createdAt: DateTime
-  updatedAt: DateTime
+  serviceId:              ServiceId
+  tenantId:               TenantId
+  name:                   ServiceName
+  description:            String
+  price:                  Money
+  durationMinutes:        Duration
+  loyaltyPointsValue:     LoyaltyPoints (e.g., Basic=1pt, Premium=2pts, Wax=3pts)
+  requiresPickupAddress:  Boolean        -- true = booking form must collect a pickup address
+                                         -- (e.g. "Coleta e Entrega"). Default false.
+  isActive:               Boolean        (UC-013)
+  createdAt:              DateTime
+  updatedAt:              DateTime
 }
 ```
 
@@ -290,15 +311,17 @@ Represents an authenticated user with a profile.
 **Properties:**
 ```
 Customer {
-  customerId: CustomerId
-  tenantId: TenantId (which company this customer is booking with)
-  googleOAuthId: String (unique from Google)
-  email: Email
-  phone: Phone
-  firstName: String
-  lastName: String
-  createdAt: DateTime
-  updatedAt: DateTime
+  customerId:     CustomerId
+  tenantId:       TenantId
+  googleOAuthId:  String (unique from Google)
+  email:          Email
+  phone:          Phone
+  firstName:      String
+  lastName:       String
+  defaultAddress: Address | null   -- optional; pre-fills pickupAddress on the booking form.
+                                   -- The booking always stores its own copy — this is convenience only.
+  createdAt:      DateTime
+  updatedAt:      DateTime
 }
 
 Note: Same person (Google email) CAN be a customer in multiple tenants.
@@ -420,7 +443,7 @@ Represents an employee.
 - `StaffId` (unique identifier)
 - `Email`
 - `FullName`
-- `StaffRole` (ADMIN, STAFF) [foundation for future role-based access]
+- `StaffRole` (MANAGER, STAFF) [foundation for future role-based access]
 
 **Properties:**
 ```
@@ -478,19 +501,40 @@ Domain events represent significant business occurrences that other contexts may
 
 ## Value Objects Reference
 
+> **Shared value objects:** `Money` and `Address` are used by multiple contexts (Booking, Customer, Loyalty). They live in `src/shared/value-objects/` — **not** inside any single context. Contexts import them from shared. All other value objects below (`Email`, `Phone`, `TimeSlot`, etc.) follow the same rule if used across contexts; otherwise they live inside their own context's `domain/value-objects/`.
+
+### **Address**
+Brazilian postal address. Lives in `src/shared/value-objects/address.ts`. Used for customer `defaultAddress` and booking `pickupAddress`.
+```
+Address {
+  street:       String          -- logradouro (e.g. "Rua das Flores")
+  number:       String          -- número (e.g. "123")
+  complement:   String | null   -- complemento (e.g. "Apto 4B", "Bloco C") — optional
+  neighborhood: String          -- bairro (e.g. "Centro")
+  city:         String          -- cidade (e.g. "Belo Horizonte")
+  state:        String          -- UF, 2 chars (e.g. "MG")
+  zipCode:      String          -- CEP, 8 digits no hyphen (e.g. "30130010")
+}
+```
+- Immutable (value object — replace, never mutate)
+- `zipCode` must match `/^\d{8}$/`
+- `state` must be a valid Brazilian UF
+
 ### **Email**
 - Validates RFC 5322 format
 - Immutable
 - Comparable by value
 
 ### **Phone**
-- Validates phone number format
-- Stores in international format
+- Validates phone number format (Brazilian mobile/landline)
+- Stores in E.164 format (`+55...`)
 - Immutable
 
 ### **Money**
-- Amount (decimal)
-- Currency (default: USD)
+Lives in `src/shared/value-objects/money.ts`.
+- Amount (Decimal — never float)
+- Currency (always `'BRL'` — BeloAuto is Brazil-only)
+- Display format: `R$ 1.234,56` (Brazilian locale)
 - Supports operations: add, subtract, multiply
 - Immutable
 

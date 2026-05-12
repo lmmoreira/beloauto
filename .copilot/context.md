@@ -77,7 +77,7 @@ Raise a doc bug if a UC appears to violate these — do not "make it work."
 
 | Context | Type | Aggregates | Publishes |
 |---|---|---|---|
-| **Booking** | Core | `Booking`, `Service`, `ScheduleClosure` | `BookingRequested/Approved/Rejected/InfoRequested/InfoSubmitted/Completed/Cancelled` + 3 reminder events |
+| **Booking** | Core | `Booking`, `Service`, `ScheduleClosure` | `BookingRequested/Approved/Rejected/InfoRequested/InfoSubmitted/Completed/Cancelled/Rescheduled` + `BookingReminderDue`, `BookingReminderDueToday`, `AdminDailyScheduleReminder` |
 | **Customer** | Supporting | `Customer` (multi-tenant rows) | — |
 | **Staff** | Supporting | `Staff` (single-tenant) | — |
 | **Loyalty** | Supporting | `LoyaltyEntry` (append-only, earn-only) | `ServicePointsEarned`, `PointsExpiringSoon` |
@@ -92,10 +92,10 @@ Raise a doc bug if a UC appears to violate these — do not "make it work."
 
 ```json
 {
-  "eventId": "uuid-v4",
-  "tenantId": "uuid-v4",
+  "eventId": "uuid-v7",
+  "tenantId": "uuid-v7",
   "occurredAt": "2026-05-11T14:23:45.123Z",
-  "correlationId": "uuid-v4",
+  "correlationId": "uuid-v7",
   "eventName": "BookingCompleted",
   "eventVersion": 1,
   "data": { }
@@ -231,6 +231,10 @@ Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, ten
 | Running migrations at app startup | Unsafe for rolling deploys | Run as separate CI job before deploy |
 | English copy in email templates | Wrong locale | All customer-facing text in pt-BR |
 | Money as plain `number` | Loses currency | Use `Money { amount: Decimal, currency: 'BRL' }` |
+| Import from `src/contexts/<B>/` inside Context A | Breaks context isolation | Only import from `src/shared/` or own context |
+| Cross-schema DB FK between contexts | Tight schema coupling | Store UUID only; no FK constraint across schemas |
+| Event consumer querying another context to fill missing data | Defeats self-contained events | Add the needed data to the event payload |
+| Placing a domain entity or use case in `src/shared/` | Blurs context ownership | Only ports, base classes, and multi-context VOs in shared |
 
 ---
 
@@ -245,8 +249,9 @@ Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, ten
 | Database / migration | `docs/13-DATABASE_SCHEMA.md` + `docs/02-DOMAIN_MODEL.md` (relevant aggregate) | 4 |
 | API endpoint | `docs/14-API_CONTRACTS.md` + the cited UC | 3–5 |
 | Event handler | `docs/03-DOMAIN_EVENTS.md` (event) + `docs/05-BOUNDED_CONTEXTS.md` (context) | 3 |
-| Hotsite / public frontend | `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` + `docs/14-API_CONTRACTS.md` (tenants section) | 3 |
+| Hotsite / public frontend | `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` + `docs/14-API_CONTRACTS.md` (tenants section) + `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` (folder structure) | 4 |
 | Dashboard / admin frontend | `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` + `docs/14-API_CONTRACTS.md` | 3 |
+| BFF implementation | `docs/24-BFF_ARCHITECTURE.md` + `docs/14-API_CONTRACTS.md` | 4 |
 | Architecture question | `docs/11-ARCHITECTURE.md` + `docs/05-BOUNDED_CONTEXTS.md` | 5 |
 | Multi-tenancy / isolation | `docs/06-TENANT_ISOLATION_STRATEGY.md` | 2 |
 | Testing patterns | `docs/08-TESTING_STRATEGY.md` | 3 |
@@ -287,7 +292,21 @@ Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, ten
 ├── domain/           # entities, value objects, events, domain services (no framework)
 ├── application/      # use cases, port interfaces, DTOs
 └── infrastructure/   # adapters: TypeORM repos, REST controllers, Pub/Sub publishers, HTTP clients
+    └── migrations/   # TypeORM migrations scoped to this context's schema
 ```
+
+### Shared folder — cross-cutting concerns ONLY (`apps/backend/src/shared/`)
+```
+src/shared/
+├── ports/            # IEventBus, IEmailSender, IRepository<T>
+├── domain/           # AggregateRoot, DomainEvent, ValueObject (base classes)
+├── value-objects/    # Money, Address (used by multiple contexts)
+├── tenant/           # TenantContext (request-scoped), TenantInterceptor
+├── observability/    # Logger, OTel tracer, structured log helpers
+└── http/             # Pagination DTOs, RFC 9457 ProblemDetail base type
+```
+
+**Rule:** A context module MUST NOT import from another context's path. Only `src/shared/` is importable across contexts. Domain objects (entities, aggregates, use cases, repositories) are NEVER in shared.
 
 ---
 
@@ -295,9 +314,7 @@ Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, ten
 
 Only truly unresolved items remain here:
 
-1. **Component library (frontend):** Radix UI, shadcn/ui, Mantine, or custom?
-2. **Email service:** SendGrid or AWS SES for MVP?
-3. **Multi-location (post-MVP):** Multiple locations per tenant = separate tenants or sub-tenant model?
+1. **Multi-location (post-MVP):** Multiple locations per tenant = separate tenants or sub-tenant model?
 
 ---
 
@@ -307,16 +324,22 @@ Only truly unresolved items remain here:
 |---|---|---|---|
 | 1 | Event bus | GCP Pub/Sub + emulator locally | ✅ Fixed in docs 05, 11, 18 |
 | 2 | DB migrations | Separate CI job (Stage 4.5), never at app startup | ✅ Fixed in doc 09 |
-| 3 | Brazil/BRL/pt-BR | Currency BRL, locale pt-BR | ✅ Fixed in docs 01, 07 |
+| 3 | Brazil/BRL/pt-BR | Currency BRL, locale pt-BR, America/Sao_Paulo | ✅ Fixed in docs 01, 07, 21 |
 | 4 | Coverage threshold | ≥80% on **changed code** | ✅ Fixed in docs 07, 08, 09 |
-| 5 | Cancellation window | Read from `tenants.settings.cancellation_window_hours` | ✅ Fixed in UC-006, UC-007 |
-| 6 | Booking status enum | `PENDING/INFO_REQUESTED/APPROVED/REJECTED/COMPLETED/CANCELLED` | ✅ Resolved Wave 1 |
-| 7 | Event envelope | Standard 7-field envelope (see §4) | ✅ Resolved Wave 1 |
-| 8 | BFF | Separate NestJS service in `apps/bff/` | ⏳ Doc 22 still implies Next.js BFF routes |
-| 9 | Monorepo | pnpm workspaces `apps/` + `packages/` | ⏳ Not in any individual doc yet |
-| 10 | UC-014/UC-015 | Superseded by UC-021/UC-022 — note exists in doc 04 but no `[SUPERSEDED]` header | ⏳ Minor — note is clear enough |
-| 11 | Loyalty expiry | Read from `tenants.settings.loyalty_expiry_days` | ⏳ Doc 02 prose still mentions 180 as "typical value" (acceptable) |
-| 12 | Platform context | 6th context: `Tenant`, `HotsiteConfig`; UC-024 to UC-029 | ✅ Added to docs 02, 03, 04, 05 |
+| 5 | Cancellation window | Read from `tenants.settings.booking.cancellation_window_hours` | ✅ Fixed |
+| 6 | Booking status enum | `PENDING/INFO_REQUESTED/APPROVED/REJECTED/COMPLETED/CANCELLED` | ✅ Resolved |
+| 7 | Event envelope | Standard 7-field envelope (see §4) | ✅ Resolved |
+| 8 | BFF | Separate NestJS service in `apps/bff/` | ✅ Fixed in doc 22 |
+| 9 | Monorepo paths | `apps/backend/src/contexts/` canonical | ✅ Fixed in docs 22, 11 |
+| 10 | UC-014/UC-015 | Superseded by UC-021/UC-022 | ✅ Noted clearly in doc 04 |
+| 11 | Loyalty expiry | Read from `tenants.settings.loyalty.expiry_days` | ✅ Fixed in doc 21 |
+| 12 | Platform context | 6th context: `Tenant`, `HotsiteConfig`; UC-024–029 | ✅ Fixed in docs 02, 03, 04, 05 |
+| 13 | Component library | **shadcn/ui** (Radix UI + Tailwind) | ✅ Fixed in docs 16, 22 |
+| 14 | Email service | **SendGrid** (default adapter); `IEmailSender` port for swappability | ✅ Fixed in docs 05, 10, 22 |
+| 15 | Reminder events | `BookingReminderDue` / `BookingReminderDueToday`; cron emits, Notification sends | ✅ Fixed in docs 03, 04, 05 |
+| 16 | Loyalty idempotency key | `UNIQUE(tenant_id, booking_line_id)` — not `booking_id` | ✅ Fixed in doc 05 |
+| 17 | Reschedule event | `BookingRescheduled` event added; Notification sends email | ✅ Fixed in docs 03, 04, 05, 14 |
+| 18 | Error tracking | No Sentry in MVP; Loki + Grafana | ✅ Fixed in docs 10, 18 |
 
 ---
 

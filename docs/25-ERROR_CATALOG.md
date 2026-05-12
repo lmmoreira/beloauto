@@ -25,7 +25,7 @@ All errors follow RFC 9457 Problem Details structure:
   "detail": "The serviceIds array is empty. Please select at least one service.",
   "instance": "/bookings",
   "timestamp": "2026-05-11T23:08:44Z",
-  "correlationId": "uuid-v4"
+  "correlationId": "uuid-v7"
 }
 ```
 
@@ -122,6 +122,32 @@ All errors follow RFC 9457 Problem Details structure:
 }
 ```
 **Trigger:** POST /bookings with `is_active = false` service
+
+---
+
+#### `400 missing-pickup-address`
+```json
+{
+  "type": "https://api.beloauto.com/errors#missing-pickup-address",
+  "status": 400,
+  "title": "Pickup Address Required",
+  "detail": "The selected service 'Coleta e Entrega' requires a pickup address. Please provide pickupAddress in the request."
+}
+```
+**Trigger:** POST /bookings where at least one service has `requiresPickupAddress = true` but `pickupAddress` was not provided.
+
+---
+
+#### `400 invalid-pickup-address`
+```json
+{
+  "type": "https://api.beloauto.com/errors#invalid-pickup-address",
+  "status": 400,
+  "title": "Invalid Pickup Address",
+  "detail": "pickupAddress.zipCode must be exactly 8 digits (CEP). Provided: '301309-21'."
+}
+```
+**Trigger:** POST /bookings with a `pickupAddress` that fails validation (CEP format, missing required fields, invalid UF).
 
 ---
 
@@ -353,7 +379,7 @@ All errors follow RFC 9457 Problem Details structure:
   "type": "https://api.beloauto.com/errors#internal-server-error",
   "status": 500,
   "title": "Internal Server Error",
-  "detail": "An unexpected error occurred. Please contact support with correlationId: 'uuid-v4'."
+  "detail": "An unexpected error occurred. Please contact support with correlationId: 'uuid-v7'."
 }
 ```
 **Trigger:** Unhandled exception on server

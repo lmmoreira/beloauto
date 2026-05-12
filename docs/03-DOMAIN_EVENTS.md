@@ -10,10 +10,10 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
 
 ```json
 {
-  "eventId":       "uuid-v4",
-  "tenantId":      "uuid-v4",
+  "eventId":       "uuid-v7",
+  "tenantId":      "uuid-v7",
   "occurredAt":    "2026-05-11T14:23:45.123Z",
-  "correlationId": "uuid-v4",
+  "correlationId": "uuid-v7",
   "eventName":     "BookingApproved",
   "eventVersion":  1,
   "data":          { /* per-event payload, see below */ }
@@ -22,10 +22,10 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
 
 | Field | Why | Rules |
 |---|---|---|
-| `eventId` | Idempotency key for consumers (at-least-once delivery) | UUID v4; unique per publication |
+| `eventId` | Idempotency key for consumers (at-least-once delivery) | UUID v7; unique per publication; time-ordered for DB index performance |
 | `tenantId` | Tenant isolation | UUID; consumers MUST filter on this |
 | `occurredAt` | Business time the event happened | ISO-8601 UTC, millisecond precision |
-| `correlationId` | Trace a chain of events back to one originating request | UUID v4; inherited across the chain |
+| `correlationId` | Trace a chain of events back to one originating request | UUID v7; generated once per HTTP request, inherited by all child events |
 | `eventName` | Routing & logging | PascalCase, matches the canonical name in this file |
 | `eventVersion` | Schema evolution | Integer; bump on breaking change (see §"Event Versioning") |
 | `data` | The payload below | Object; field names in camelCase |
@@ -55,21 +55,27 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     scheduledAt:       ISO8601                                // start of the slot
     totalDurationMins: number                                 // SUM(lines.durationMinsAtBooking)
     totalPrice:        { amount: number, currency: string }   // SUM(lines.priceAtBooking)
+    requiresPickup:    boolean                                // true if any line has requiresPickupAddressAtBooking=true
+    pickupAddress: {                                          // non-null when requiresPickup=true
+      street: string, number: string, complement: string | null,
+      neighborhood: string, city: string, state: string, zipCode: string
+    } | null
     lines: [                                                   // ≥ 1
       {
-        lineId:                  string
-        serviceId:               string
-        priceAtBooking:          { amount: number, currency: string }
-        durationMinsAtBooking:   number
-        pointsValueAtBooking:    number
+        lineId:                          string
+        serviceId:                       string
+        priceAtBooking:                  { amount: number, currency: string }
+        durationMinsAtBooking:           number
+        pointsValueAtBooking:            number
+        requiresPickupAddressAtBooking:  boolean
       }
     ]
     carPhotoUrls:      string[]                                // 0..n; tenant-prefixed storage paths
   }
   ```
 - **Consumers:**
-  - **Notification Context** → email to admin: "New booking request from [name]"
-  - **Notification Context** → email to guest: "Your booking request is pending"
+  - **Notification Context** → email to admin: "New booking request from [name]" (if pickup: includes pickup address)
+  - **Notification Context** → email to guest: "Your booking request is pending" (if pickup: confirms the address)
 
 > Loyalty Context does NOT consume this event. Loyalty only reacts to `BookingCompleted` — points are awarded after the visit, not on request or approval.
 
@@ -170,18 +176,26 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     completedBy:             string         // staff id
     afterServicePhotoUrls:   string[]       // 0..n; tenant-prefixed storage paths
     adminNotes:              string | null
+    pickupAddress: {                        // non-null if booking had a pickup service
+      street: string, number: string, complement: string | null,
+      neighborhood: string, city: string, state: string, zipCode: string
+    } | null
+    totalPrice:              { amount: number, currency: string }   // quoted total (sum of priceAtBooking)
+    totalActualPrice:        { amount: number, currency: string }   // charged total (sum of actualPriceCharged)
     lines: [                                // ≥ 1 — the full set of completed lines
       {
         lineId:               string
         serviceId:            string
-        pointsValueAtBooking: number        // becomes the resulting LoyaltyEntry.points
+        priceAtBooking:       { amount: number, currency: string }  // quoted price for this line
+        actualPriceCharged:   { amount: number, currency: string }  // what was actually charged (may differ)
+        pointsValueAtBooking: number        // becomes the resulting LoyaltyEntry.points (unaffected by price)
       }
     ]
   }
   ```
 - **Consumers:**
-  - **Notification Context** → email to customer summarising all services completed and total points earned.
-  - **Loyalty Context** → if `customerId != null`, iterate `lines`: insert one `LoyaltyEntry` per line (idempotent on `(tenant_id, booking_line_id)`); publish one `ServicePointsEarned` per inserted line.
+  - **Notification Context** → email to customer summarising all services completed, showing both quoted and actual prices where they differ, plus total points earned.
+  - **Loyalty Context** → if `customerId != null`, iterate `lines`: insert one `LoyaltyEntry` per line using `pointsValueAtBooking` (loyalty is **not** affected by `actualPriceCharged`); publish one `ServicePointsEarned` per inserted line.
 
 ---
 
@@ -204,12 +218,35 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
   - **Notification Context** → email to customer: "Your booking has been cancelled"
   - **Notification Context** → email to admin: "Booking [id] cancelled by [actor]"
 
-> Loyalty Context does NOT consume this event. A booking cannot reach `COMPLETED` and then be cancelled (the state machine forbids it), so no `LoyaltyEntry` rows are ever affected by a cancellation. The previous "audit-only" subscription has been removed.
+> Loyalty Context does NOT consume this event. A booking cannot reach `COMPLETED` and then be cancelled (the state machine forbids it), so no `LoyaltyEntry` rows are ever affected by a cancellation.
 
 ---
 
-#### **BookingReminderSentCustomer**
-- **Trigger:** Scheduled cron job (06:00 tenant-local) finds APPROVED bookings whose appointment is **tomorrow**
+#### **BookingRescheduled**
+- **Trigger:** Admin reschedules a booking (UC-008 alt-flow A1) — `scheduledAt` is updated, status stays `APPROVED`
+- **State change:** `booking.scheduledAt` updated. Status remains `APPROVED`.
+- **Data:**
+  ```
+  {
+    bookingId:         string
+    customerId:        string | null
+    guestEmail:        string
+    guestName:         string
+    newSlot:           { startTime: ISO8601, endTime: ISO8601 }   // new [scheduledAt, scheduledAt + totalDurationMins)
+    previousSlot:      { startTime: ISO8601, endTime: ISO8601 }   // old slot (for the email)
+    rescheduledBy:     string    // staff id
+    adminNotes:        string | null
+  }
+  ```
+- **Consumers:**
+  - **Notification Context** → email to customer/guest: "Your booking has been rescheduled to [new date/time]"
+
+> Loyalty Context does NOT consume this event — loyalty is unaffected by rescheduling.
+
+---
+
+#### **BookingReminderDue**
+- **Trigger:** Scheduled cron job (06:00 tenant-local) finds APPROVED bookings whose appointment is **tomorrow**. The cron emits one event per booking; Notification Context sends the email.
 - **State change:** none (booking stays APPROVED)
 - **Data:**
   ```
@@ -218,17 +255,20 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     customerId:       string | null
     recipientEmail:   string
     customerName:     string
-    serviceId:        string
+    scheduledAt:      ISO8601
     appointmentSlot:  { startTime: ISO8601, endTime: ISO8601 }
+    lines: [
+      { serviceId: string, serviceName: string }
+    ]
   }
   ```
 - **Consumers:**
-  - **Notification Context** → already sent the email; this event is the audit record
+  - **Notification Context** → email to customer/guest: "Reminder: your appointment is tomorrow at [time]"
 
 ---
 
-#### **BookingReminderSentCustomerDay**
-- **Trigger:** Scheduled cron job (06:00 tenant-local) finds APPROVED bookings whose appointment is **today**
+#### **BookingReminderDueToday**
+- **Trigger:** Scheduled cron job (06:00 tenant-local) finds APPROVED bookings whose appointment is **today**. The cron emits one event per booking; Notification Context sends the email.
 - **State change:** none
 - **Data:**
   ```
@@ -237,12 +277,15 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     customerId:       string | null
     recipientEmail:   string
     customerName:     string
-    serviceId:        string
+    scheduledAt:      ISO8601
     appointmentSlot:  { startTime: ISO8601, endTime: ISO8601 }
+    lines: [
+      { serviceId: string, serviceName: string }
+    ]
   }
   ```
 - **Consumers:**
-  - **Notification Context** → audit record
+  - **Notification Context** → email to customer/guest: "Reminder: your appointment is today at [time]"
 
 ---
 
@@ -452,7 +495,7 @@ Customer clicks "Cancel"
 - **Consumers:** Notification Context → sends invitation email with login link
 
 #### **StaffDeactivated**
-- **Trigger:** MANAGER-role staff member deactivates a team member (UC-028)
+- **Trigger:** MANAGER-role staff member deactivates a team member (UC-029)
 - **State change:** `staff.isActive` set to `false`; active sessions invalidated at next JWT check
 - **Data:**
   ```json
@@ -468,7 +511,7 @@ Customer clicks "Cancel"
 
 ## Event Publishing & Consumption
 
-- **Transport:** technology-agnostic `IEventBus` port. Local dev: GCP Pub/Sub Emulator (Docker). Production: GCP Pub/Sub (managed). Swappable to SQS / Kafka via a new adapter — domain code never changes.
+- **Transport:** technology-agnostic `IEventBus` port. Local dev: GCP Pub/Sub Emulator (Docker). Production: GCP Pub/Sub (managed). Swappable to SQS/Kafka via a new adapter — domain code never changes.
 - **Delivery semantics:** at-least-once. **All consumers MUST be idempotent** (deduplicate by `eventId`).
 - **Ordering:** not guaranteed across events. Consumers MUST tolerate out-of-order delivery (e.g. `BookingCompleted` arriving before `BookingApproved` should be rejected with a retry, not crash).
 - **Transactional outbox:** event publication MUST be transactional with the state change that produced it (e.g. via an outbox pattern). No event without a corresponding committed row; no committed row without its event eventually published.
