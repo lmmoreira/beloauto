@@ -37,6 +37,26 @@ pnpm dev
 | GCS emulator | http://localhost:4443 | GCS storage (local) |
 | PostgreSQL | localhost:5432 | Database (`beloauto` / `beloauto`) |
 
+## Local CI (run before opening a PR)
+
+These commands replicate the CI pipeline locally using only Docker — no tokens required.
+
+```bash
+pnpm ci:fast    # ~15s — lint + prettier + type-check + unit tests
+                # Runs automatically on every git push (pre-push hook)
+
+pnpm ci:local   # ~5min — everything above + integration tests
+                #         + gitleaks secret scan (Docker)
+                #         + docker build × 3
+                #         + trivy image scan × 3 (Docker)
+```
+
+**Enable the pre-push hook once** after cloning:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 ## Common Commands
 
 ```bash
@@ -76,7 +96,7 @@ Loyalty: 10 pts earned on the completed booking (balance > 0 on first login)
 apps/
   backend/   NestJS modular monolith (port 3001)
   bff/       NestJS Backend-for-Frontend (port 3002)
-  web/       Next.js 14 — hotsite + dashboard (port 3000)
+  web/       Next.js 16 — hotsite + dashboard (port 3000)
 packages/
   types/     Shared TypeScript DTOs
   config/    Shared ESLint, TypeScript, Prettier configs

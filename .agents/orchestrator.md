@@ -105,6 +105,16 @@ If any check fails: flag it to the user. Do not present the PR links as ready un
 
 After opening all PRs, for each one:
 
+**Before pushing** — run the fast local gate (auto via pre-push hook):
+```bash
+pnpm ci:fast   # lint + prettier + type-check + unit tests (~15s)
+```
+
+**Before opening the PR** — run the full local gate:
+```bash
+pnpm ci:local  # + integration tests + gitleaks + docker builds + trivy (~5min, Docker only, no tokens)
+```
+
 **Step 6a — CI checks**
 ```bash
 gh pr checks <N> --repo lmmoreira/beloauto

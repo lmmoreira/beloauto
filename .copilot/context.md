@@ -376,9 +376,10 @@ Only truly unresolved items remain here:
 9. Are functions ≤ 20 lines, no `any`, no hardcoded config values? ✓
 10. Is all customer-facing text in pt-BR, money in BRL? ✓
 11. Does the integration test include a tenant-isolation assertion? ✓
-12. Did I run CI steps locally before opening the PR? (`pnpm lint` · `pnpm prettier --check .` · `pnpm type-check` · `pnpm test`) ✓
-13. After opening the PR, did I verify all CI checks passed (`gh pr checks <N> --repo lmmoreira/beloauto`)? If any failed — fix, commit, push, re-verify. Once all checks are green, merge: `gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch`. Do not report done until the squash commit is on `main`. ✓
-14. After merging, did I mark the story as `✅ Done` in `plan/<milestone>.md`? (heading: `### MXX-SYY — title ✅ Done`) ✓
+12. Did I run `pnpm ci:fast` before pushing? (lint + prettier + type-check + unit tests — auto-runs via pre-push hook if `git config core.hooksPath .githooks` is set) ✓
+13. Did I run `pnpm ci:local` before opening the PR? (adds integration tests + gitleaks + docker builds + trivy — all via Docker, zero tokens needed) ✓
+14. After opening the PR, did I verify all CI checks passed (`gh pr checks <N> --repo lmmoreira/beloauto`)? If any failed — fix, commit, push, re-verify. Once all checks are green, merge: `gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch`. Do not report done until the squash commit is on `main`. ✓
+15. After merging, did I mark the story as `✅ Done` in `plan/<milestone>.md`? (heading: `### MXX-SYY — title ✅ Done`) ✓
 
 ---
 

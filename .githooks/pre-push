@@ -1,0 +1,6 @@
+#!/bin/bash
+# pre-push hook — runs ci:fast before every git push.
+# Activate once with: git config core.hooksPath .githooks
+set -e
+echo "Running ci:fast pre-push check..."
+pnpm ci:fast
