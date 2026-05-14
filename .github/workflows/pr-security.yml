@@ -70,3 +70,35 @@ jobs:
           exit-code: '1'
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+
+  checkov:
+    name: Checkov IaC Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect Terraform changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            terraform:
+              - 'infrastructure/terraform/**'
+
+      - name: Checkov — Terraform
+        if: steps.filter.outputs.terraform == 'true'
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infrastructure/terraform
+          soft_fail: false
+          quiet: true
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+
+      - name: Upload SARIF to GitHub Security tab
+        if: steps.filter.outputs.terraform == 'true' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
