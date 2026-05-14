@@ -3,7 +3,6 @@
     // ─── TypeScript & Language ───────────────────────────────
     "esbenp.prettier-vscode", // Prettier formatter — matches CI gate
     "dbaeumer.vscode-eslint", // ESLint — matches CI gate
-    "rbbit.typescript-hero", // Auto-organise imports on save
     "usernamehw.errorlens", // Inline error messages (no hover needed)
     "yoavbls.pretty-ts-errors", // Makes strict-mode TS errors human-readable
 

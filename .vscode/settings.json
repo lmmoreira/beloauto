@@ -10,7 +10,9 @@
   // ─── ESLint ──────────────────────────────────────────────────────────────
   // Auto-fix on save; validate .ts and .tsx (matches CI eslint config)
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit",
+    "source.addMissingImports": "explicit"
   },
   "eslint.validate": ["javascript", "typescript", "typescriptreact", "javascriptreact"],
 
