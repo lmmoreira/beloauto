@@ -183,11 +183,21 @@ Then verify the workflow logic:
 □ Gitleaks runs on all CI pipelines
 ```
 
-After opening the PR, verify CI:
+After opening the PR, verify CI and wait for Copilot review:
 ```bash
+# 1. CI checks
 gh pr checks <N> --repo lmmoreira/beloauto
+# Fix any failures, push, re-verify.
+
+# 2. Copilot review (branch protection requires 1 approval)
+gh pr view <N> --repo lmmoreira/beloauto --json reviewDecision -q '.reviewDecision'
+# Wait until APPROVED. If CHANGES_REQUESTED:
+#   - Fix clear code issues autonomously.
+#   - Escalate architectural/design concerns to the user.
+
+# 3. Merge only when CI green + reviewDecision = APPROVED
+gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch
 ```
-If any check fails → read logs, fix, push, re-verify. Do not report done until green.
 
 Open PR as **DRAFT**.
 Title: `cicd/<description>`

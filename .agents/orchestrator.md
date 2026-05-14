@@ -101,16 +101,34 @@ If any check fails: flag it to the user. Do not present the PR links as ready un
 
 ---
 
-### Step 6 — Verify CI, then present to user
+### Step 6 — Verify CI + Copilot review, then present to user
 
-After opening all PRs, run for each one:
+After opening all PRs, for each one:
 
+**Step 6a — CI checks**
 ```bash
 gh pr checks <N> --repo lmmoreira/beloauto
 ```
+If any check fails → read logs (`gh run view <run-id> --repo lmmoreira/beloauto --log-failed`), fix, commit, push, re-verify.
 
-- If all checks are green → present to the user.
-- If any check fails → read the logs (`gh run view <run-id> --repo lmmoreira/beloauto --log-failed`), fix the issue, commit, push, and re-verify before presenting. Do not report a story as done while CI is red.
+**Step 6b — Copilot review**
+
+Branch protection requires 1 approval. Copilot is auto-requested on every PR.
+Poll until a decision is made:
+```bash
+gh pr view <N> --repo lmmoreira/beloauto --json reviewDecision,reviews -q '{decision: .reviewDecision, reviews: [.reviews[] | {author: .author.login, state: .state, body: .body}]}'
+```
+
+| `reviewDecision` | Action |
+|---|---|
+| `APPROVED` | Proceed to merge |
+| `CHANGES_REQUESTED` | Read comments. Fix clear code-quality issues autonomously, then push. **Escalate architectural or design concerns to the user before acting.** |
+| `REVIEW_REQUIRED` (pending) | Wait and re-poll |
+
+**Step 6c — Merge** (only when CI green AND reviewDecision = APPROVED)
+```bash
+gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch
+```
 
 ```
 PRs ready for review — merge in this order:
