@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Documentation — manually formatted, not subject to Prettier
+docs/
+plan/
+.agents/
+.copilot/
+*.md
+
+# Generated / vendor files
+pnpm-lock.yaml
