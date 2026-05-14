@@ -166,9 +166,8 @@ Always use `workflow_call` for reusable components. Never duplicate build logic.
 
 Run locally first — catch errors before CI does:
 ```bash
-pnpm lint
-pnpm prettier --check .
-pnpm type-check
+pnpm ci:fast    # lint + prettier + type-check + unit tests (~15s)
+pnpm ci:local   # full gate including docker builds + trivy via Docker (~5min)
 ```
 
 Then verify the workflow logic:
