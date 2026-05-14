@@ -182,7 +182,7 @@ Create Dockerfiles for all three apps and add a CI job that builds the Docker im
 
 ---
 
-### M01-S07 — Checkov IaC security scan
+### M01-S07 — Checkov IaC security scan ✅ Done
 
 **Agent:** `devops`  
 **Complexity:** S  
