@@ -164,6 +164,14 @@ Always use `workflow_call` for reusable components. Never duplicate build logic.
 
 ## Self-Check Before Opening PR
 
+Run locally first — catch errors before CI does:
+```bash
+pnpm lint
+pnpm prettier --check .
+pnpm type-check
+```
+
+Then verify the workflow logic:
 ```
 □ CI workflows use paths: triggers (no cross-service runs)
 □ Every prod deploy job has a GitHub Environment requiring 1 reviewer
@@ -174,6 +182,12 @@ Always use `workflow_call` for reusable components. Never duplicate build logic.
 □ Reusable workflows use workflow_call — no duplicated logic
 □ Gitleaks runs on all CI pipelines
 ```
+
+After opening the PR, verify CI:
+```bash
+gh pr checks <N> --repo lmmoreira/beloauto
+```
+If any check fails → read logs, fix, push, re-verify. Do not report done until green.
 
 Open PR as **DRAFT**.
 Title: `cicd/<description>`

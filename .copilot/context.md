@@ -376,6 +376,8 @@ Only truly unresolved items remain here:
 9. Are functions ≤ 20 lines, no `any`, no hardcoded config values? ✓
 10. Is all customer-facing text in pt-BR, money in BRL? ✓
 11. Does the integration test include a tenant-isolation assertion? ✓
+12. Did I run CI steps locally before opening the PR? (`pnpm lint` · `pnpm prettier --check .` · `pnpm type-check` · `pnpm test`) ✓
+13. After opening the PR, did I verify all CI checks passed (`gh pr checks <N> --repo lmmoreira/beloauto`)? If any failed — fix, commit, push, re-verify. Do not report done until CI is green. ✓
 
 ---
 
