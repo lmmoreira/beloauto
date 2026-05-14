@@ -377,7 +377,7 @@ Only truly unresolved items remain here:
 10. Is all customer-facing text in pt-BR, money in BRL? ✓
 11. Does the integration test include a tenant-isolation assertion? ✓
 12. Did I run CI steps locally before opening the PR? (`pnpm lint` · `pnpm prettier --check .` · `pnpm type-check` · `pnpm test`) ✓
-13. After opening the PR: (a) verify all CI checks passed (`gh pr checks <N> --repo lmmoreira/beloauto`) — fix any failures autonomously; (b) wait for Copilot review (`gh pr view <N> --repo lmmoreira/beloauto --json reviewDecision -q '.reviewDecision'` returns `APPROVED`). If Copilot requests changes: fix clear code-quality issues autonomously, but **escalate architectural or design concerns to the user** before acting. Do not merge until CI is green AND reviewDecision is APPROVED. ✓
+13. After opening the PR, did I verify all CI checks passed (`gh pr checks <N> --repo lmmoreira/beloauto`)? If any failed — fix, commit, push, re-verify. Once all checks are green, merge: `gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch`. Do not report done until the squash commit is on `main`. ✓
 
 ---
 
