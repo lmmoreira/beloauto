@@ -1,0 +1,35 @@
+{
+  "recommendations": [
+    // ─── TypeScript & Language ───────────────────────────────
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "rbbit.typescript-hero",
+    "usernamehw.errorlens",
+
+    // ─── Next.js & NestJS ────────────────────────────────────
+    "pulkitgangwar.nextjs-snippets",
+    "ashinzekene.nestjs",
+    "bradlc.vscode-tailwindcss",
+
+    // ─── Docker & DevOps ─────────────────────────────────────
+    "ms-azuretools.vscode-docker",
+    "ms-vscode-remote.remote-containers",
+    "mikestead.dotenv",
+    "redhat.vscode-yaml",
+
+    // ─── Git & Productivity ──────────────────────────────────
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+    "christian-kohler.path-intellisense",
+    "formulahendry.auto-rename-tag",
+
+    // ─── Testing & REST ──────────────────────────────────────
+    "firsttris.vscode-jest-runner",
+    "rangav.vscode-thunder-client",
+    "cweijan.vscode-database-client2",
+    "ryanluker.vscode-coverage-gutters",
+
+    // ─── Quality (matches CI SonarCloud gate) ────────────────
+    "sonarsource.sonarlint-vscode"
+  ]
+}
