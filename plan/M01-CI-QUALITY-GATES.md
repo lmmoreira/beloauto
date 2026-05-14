@@ -11,7 +11,7 @@
 
 ---
 
-### M01-S01 — PR lint, format, and type-check workflow
+### M01-S01 — PR lint, format, and type-check workflow ✅ Done
 
 **Agent:** `devops`  
 **Complexity:** S  
@@ -40,7 +40,7 @@ Create the GitHub Actions workflow that runs on every pull request targeting `ma
 
 ---
 
-### M01-S02 — Unit and integration test workflow
+### M01-S02 — Unit and integration test workflow ✅ Done
 
 **Agent:** `devops`  
 **Complexity:** S  
@@ -70,7 +70,7 @@ Create the GitHub Actions workflow that runs all Jest tests (unit + integration)
 
 ---
 
-### M01-S03 — Gitleaks secret scanning
+### M01-S03 — Gitleaks secret scanning ✅ Done
 
 **Agent:** `devops`  
 **Complexity:** S  

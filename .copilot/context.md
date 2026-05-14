@@ -378,6 +378,7 @@ Only truly unresolved items remain here:
 11. Does the integration test include a tenant-isolation assertion? ✓
 12. Did I run CI steps locally before opening the PR? (`pnpm lint` · `pnpm prettier --check .` · `pnpm type-check` · `pnpm test`) ✓
 13. After opening the PR, did I verify all CI checks passed (`gh pr checks <N> --repo lmmoreira/beloauto`)? If any failed — fix, commit, push, re-verify. Once all checks are green, merge: `gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch`. Do not report done until the squash commit is on `main`. ✓
+14. After merging, did I mark the story as `✅ Done` in `plan/<milestone>.md`? (heading: `### MXX-SYY — title ✅ Done`) ✓
 
 ---
 
