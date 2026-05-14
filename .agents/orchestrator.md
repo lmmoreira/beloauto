@@ -116,6 +116,16 @@ If any check fails → read logs (`gh run view <run-id> --repo lmmoreira/beloaut
 gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch
 ```
 
+**Step 6c — Mark story as Done in the plan doc**
+
+After the squash commit lands on `main`, update the story heading in `plan/<milestone>.md`:
+
+```
+### MXX-SYY — Story title  →  ### MXX-SYY — Story title ✅ Done
+```
+
+Commit directly on the same story branch is not possible after merge — include the `✅ Done` mark in the PR commit itself, or open a follow-up `chore/` branch if the PR has already merged.
+
 ```
 PRs ready for review — merge in this order:
 
