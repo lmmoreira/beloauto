@@ -1,0 +1,17 @@
+title = "BeloAuto Gitleaks Config"
+
+[allowlist]
+  description = "Safe placeholder and test-fixture values — not real secrets"
+
+  paths = [
+    '''.env\.example$''',
+    '''pnpm-lock\.yaml$''',
+  ]
+
+  regexes = [
+    # Seed script test OAuth IDs (fake Google sub values, never real)
+    '''google-sub-(admin|worker|customer)-[a-z]''',
+    # Placeholder prefixes used in .env.example files
+    '''change-me-to-a-random''',
+    '''your-google-client''',
+  ]

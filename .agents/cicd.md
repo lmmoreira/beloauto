@@ -183,11 +183,14 @@ Then verify the workflow logic:
 □ Gitleaks runs on all CI pipelines
 ```
 
-After opening the PR, verify CI:
+After opening the PR, verify CI then merge:
 ```bash
+# 1. CI checks — fix any failures, push, re-verify
 gh pr checks <N> --repo lmmoreira/beloauto
+
+# 2. Merge once all checks are green
+gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch
 ```
-If any check fails → read logs, fix, push, re-verify. Do not report done until green.
 
 Open PR as **DRAFT**.
 Title: `cicd/<description>`

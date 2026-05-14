@@ -101,16 +101,20 @@ If any check fails: flag it to the user. Do not present the PR links as ready un
 
 ---
 
-### Step 6 — Verify CI, then present to user
+### Step 6 — Verify CI, then merge and present to user
 
-After opening all PRs, run for each one:
+After opening all PRs, for each one:
 
+**Step 6a — CI checks**
 ```bash
 gh pr checks <N> --repo lmmoreira/beloauto
 ```
+If any check fails → read logs (`gh run view <run-id> --repo lmmoreira/beloauto --log-failed`), fix, commit, push, re-verify.
 
-- If all checks are green → present to the user.
-- If any check fails → read the logs (`gh run view <run-id> --repo lmmoreira/beloauto --log-failed`), fix the issue, commit, push, and re-verify before presenting. Do not report a story as done while CI is red.
+**Step 6b — Merge** (once all CI checks are green)
+```bash
+gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch
+```
 
 ```
 PRs ready for review — merge in this order:
