@@ -25,6 +25,8 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 # Copy prod node_modules + config files from pnpm deploy
 COPY --from=builder /standalone .
 

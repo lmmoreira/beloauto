@@ -25,6 +25,8 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 COPY --from=builder /standalone .
 COPY --from=builder /app/apps/bff/dist ./dist
 
