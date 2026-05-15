@@ -1,12 +1,14 @@
 import type { Config } from 'jest';
 
-const sharedTransform = {
+// Typed explicitly so the tuple ['ts-jest', options] satisfies [string, unknown]
+// at both the project and top-level config sites (needed for globalSetup transform).
+const sharedTransform: NonNullable<Config['transform']> = {
   '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.test.json' }],
 };
 
 const config: Config = {
   rootDir: 'src',
-  // Top-level transform enables ts-jest for globalSetup/globalTeardown files
+  // Top-level transform enables ts-jest for globalSetup/globalTeardown TypeScript files
   transform: sharedTransform,
   collectCoverageFrom: [
     '**/*.(t|j)s',
