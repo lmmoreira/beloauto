@@ -7,7 +7,7 @@ import {
 } from '../../../contexts/platform/domain/value-objects/tenant-settings.vo';
 
 export class TenantSettingsPropsBuilder {
-  private props: TenantSettingsProps;
+  private readonly props: TenantSettingsProps;
 
   constructor() {
     this.props = TenantSettings.default().toJSON();

@@ -4,7 +4,7 @@ export class HotsiteConfigEntityBuilder {
   private id = 'config-id-1';
   private tenantId = 'tenant-id-1';
   private isPublished = false;
-  private updatedAt = new Date('2026-01-01T00:00:00Z');
+  private readonly updatedAt = new Date('2026-01-01T00:00:00Z');
 
   withId(id: string): this {
     this.id = id;

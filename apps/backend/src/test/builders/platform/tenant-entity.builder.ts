@@ -3,11 +3,11 @@ import { TenantEntity } from '../../../contexts/platform/infrastructure/entities
 
 export class TenantEntityBuilder {
   private id = 'tenant-id-1';
-  private name = 'BeloAuto';
+  private readonly name = 'BeloAuto';
   private slug = 'beloauto';
   private isActive = true;
-  private createdAt = new Date('2026-01-01T00:00:00Z');
-  private updatedAt = new Date('2026-01-01T00:00:00Z');
+  private readonly createdAt = new Date('2026-01-01T00:00:00Z');
+  private readonly updatedAt = new Date('2026-01-01T00:00:00Z');
 
   withId(id: string): this {
     this.id = id;
