@@ -2,17 +2,7 @@ import { Repository } from 'typeorm';
 import { HotsiteConfig } from '../../domain/hotsite-config.aggregate';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TypeOrmHotsiteConfigRepository } from './typeorm-hotsite-config.repository';
-
-function makeEntity(overrides: Partial<HotsiteConfigEntity> = {}): HotsiteConfigEntity {
-  const e = new HotsiteConfigEntity();
-  e.id = 'config-id-1';
-  e.tenantId = 'tenant-id-1';
-  e.branding = { primaryColor: '#FFFFFF' };
-  e.layout = [{ type: 'HERO', order: 1 }];
-  e.isPublished = false;
-  e.updatedAt = new Date('2026-01-01T00:00:00Z');
-  return Object.assign(e, overrides);
-}
+import { HotsiteConfigBuilder, HotsiteConfigEntityBuilder } from '../../../../test/builders';
 
 describe('TypeOrmHotsiteConfigRepository', () => {
   let mockRepo: jest.Mocked<Repository<HotsiteConfigEntity>>;
@@ -28,8 +18,7 @@ describe('TypeOrmHotsiteConfigRepository', () => {
 
   describe('findByTenantId', () => {
     it('returns a HotsiteConfig aggregate when found', async () => {
-      const entity = makeEntity();
-      mockRepo.findOne.mockResolvedValue(entity);
+      mockRepo.findOne.mockResolvedValue(new HotsiteConfigEntityBuilder().build());
 
       const result = await repo.findByTenantId('tenant-id-1');
 
@@ -48,8 +37,9 @@ describe('TypeOrmHotsiteConfigRepository', () => {
     });
 
     it('correctly maps isPublished = true', async () => {
-      const entity = makeEntity({ isPublished: true });
-      mockRepo.findOne.mockResolvedValue(entity);
+      mockRepo.findOne.mockResolvedValue(
+        new HotsiteConfigEntityBuilder().withIsPublished(true).build(),
+      );
 
       const result = await repo.findByTenantId('tenant-id-1');
       expect(result!.isPublished).toBe(true);
@@ -58,15 +48,15 @@ describe('TypeOrmHotsiteConfigRepository', () => {
 
   describe('save', () => {
     it('maps domain aggregate to entity and persists it', async () => {
-      const config = HotsiteConfig.create('tenant-id-2');
-      config.updateContent({ primaryColor: '#112233' }, [{ type: 'HERO', order: 1 }]);
+      const config = new HotsiteConfigBuilder()
+        .withTenantId('tenant-id-2')
+        .buildWithContent({ primaryColor: '#112233' }, [{ type: 'HERO', order: 1 }]);
       mockRepo.save.mockResolvedValue({} as HotsiteConfigEntity);
 
       await repo.save(config);
 
       expect(mockRepo.save).toHaveBeenCalledTimes(1);
-      const savedEntity: HotsiteConfigEntity = mockRepo.save.mock
-        .calls[0][0] as HotsiteConfigEntity;
+      const savedEntity = mockRepo.save.mock.calls[0][0] as HotsiteConfigEntity;
       expect(savedEntity.id).toBe(config.id);
       expect(savedEntity.tenantId).toBe('tenant-id-2');
       expect(savedEntity.branding).toEqual({ primaryColor: '#112233' });

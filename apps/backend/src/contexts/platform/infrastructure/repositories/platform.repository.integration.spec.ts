@@ -1,11 +1,10 @@
 import { DataSource } from 'typeorm';
-import { HotsiteConfig } from '../../domain/hotsite-config.aggregate';
-import { Tenant } from '../../domain/tenant.aggregate';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TenantEntity } from '../entities/tenant.entity';
 import { TypeOrmHotsiteConfigRepository } from './typeorm-hotsite-config.repository';
 import { TypeOrmTenantRepository } from './typeorm-tenant.repository';
 import { createTestDataSource } from '../../../../test/test-datasource';
+import { TenantBuilder, HotsiteConfigBuilder } from '../../../../test/builders';
 
 describe('Platform repositories (integration)', () => {
   let dataSource: DataSource;
@@ -23,7 +22,10 @@ describe('Platform repositories (integration)', () => {
   });
 
   it('tenant provisioning and full lifecycle — create, find, update, deactivate', async () => {
-    const tenant = Tenant.create('Lavacar Estrela', 'lavacar-estrela', 'America/Sao_Paulo');
+    const tenant = new TenantBuilder()
+      .withName('Lavacar Estrela')
+      .withSlug('lavacar-estrela')
+      .build();
     await tenantRepo.save(tenant);
 
     // Full retrieval by slug verifies all fields survive the round-trip
@@ -51,14 +53,14 @@ describe('Platform repositories (integration)', () => {
   });
 
   it('hotsite config management — from empty slate to branded and published', async () => {
-    const tenant = Tenant.create('Lavacar Brilho', 'lavacar-brilho');
+    const tenant = new TenantBuilder().withName('Lavacar Brilho').withSlug('lavacar-brilho').build();
     await tenantRepo.save(tenant);
 
     // No config exists yet
     expect(await hotsiteRepo.findByTenantId(tenant.id)).toBeNull();
 
     // Create the initial (unpublished) config
-    const config = HotsiteConfig.create(tenant.id);
+    const config = new HotsiteConfigBuilder().withTenantId(tenant.id).build();
     await hotsiteRepo.save(config);
 
     const initial = await hotsiteRepo.findByTenantId(tenant.id);
@@ -82,13 +84,13 @@ describe('Platform repositories (integration)', () => {
   });
 
   it('multi-tenant isolation — Tenant B cannot access Tenant A hotsite config', async () => {
-    const tenantA = Tenant.create('Lavacar Alpha', 'lavacar-alpha');
-    const tenantB = Tenant.create('Lavacar Beta', 'lavacar-beta');
+    const tenantA = new TenantBuilder().withName('Lavacar Alpha').withSlug('lavacar-alpha').build();
+    const tenantB = new TenantBuilder().withName('Lavacar Beta').withSlug('lavacar-beta').build();
     await tenantRepo.save(tenantA);
     await tenantRepo.save(tenantB);
 
     // Only Tenant A has a hotsite config
-    const configA = HotsiteConfig.create(tenantA.id);
+    const configA = new HotsiteConfigBuilder().withTenantId(tenantA.id).build();
     await hotsiteRepo.save(configA);
 
     // Querying with Tenant B's ID returns nothing

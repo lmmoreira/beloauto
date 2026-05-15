@@ -1,11 +1,11 @@
-import { Tenant } from './tenant.aggregate';
 import { PlatformDomainError } from './errors/platform-domain.error';
 import { TenantSettings } from './value-objects/tenant-settings.vo';
+import { TenantBuilder } from '../../../test/builders';
 
 describe('Tenant', () => {
   describe('create()', () => {
     it('creates a valid tenant with all required fields', () => {
-      const tenant = Tenant.create('BeloAuto', 'beloauto', 'America/Sao_Paulo');
+      const tenant = new TenantBuilder().build();
       expect(tenant.name).toBe('BeloAuto');
       expect(tenant.slug).toBe('beloauto');
       expect(tenant.isActive).toBe(true);
@@ -14,45 +14,47 @@ describe('Tenant', () => {
     });
 
     it('uses America/Sao_Paulo as default timezone', () => {
-      const tenant = Tenant.create('BeloAuto', 'beloauto');
+      const tenant = new TenantBuilder().build();
       expect(tenant.settings.business_hours.timezone).toBe('America/Sao_Paulo');
     });
 
     it('trims whitespace from name', () => {
-      const tenant = Tenant.create('  BeloAuto  ', 'beloauto');
+      const tenant = new TenantBuilder().withName('  BeloAuto  ').build();
       expect(tenant.name).toBe('BeloAuto');
     });
 
     it('throws for empty name', () => {
-      expect(() => Tenant.create('', 'beloauto')).toThrow(PlatformDomainError);
+      expect(() => new TenantBuilder().withName('').build()).toThrow(PlatformDomainError);
     });
 
     it('throws for whitespace-only name', () => {
-      expect(() => Tenant.create('   ', 'beloauto')).toThrow(PlatformDomainError);
+      expect(() => new TenantBuilder().withName('   ').build()).toThrow(PlatformDomainError);
     });
 
     it('throws for slug with uppercase letters', () => {
-      expect(() => Tenant.create('Name', 'INVALID')).toThrow(PlatformDomainError);
+      expect(() => new TenantBuilder().withSlug('INVALID').build()).toThrow(PlatformDomainError);
     });
 
     it('throws for slug with spaces or special characters', () => {
-      expect(() => Tenant.create('Name', 'INVALID SLUG!')).toThrow(PlatformDomainError);
+      expect(() => new TenantBuilder().withSlug('INVALID SLUG!').build()).toThrow(
+        PlatformDomainError,
+      );
     });
 
     it('allows slug with hyphens and numbers', () => {
-      expect(() => Tenant.create('Name', 'lavacar-belo-01')).not.toThrow();
+      expect(() => new TenantBuilder().withSlug('lavacar-belo-01').build()).not.toThrow();
     });
   });
 
   describe('deactivate()', () => {
     it('sets isActive to false', () => {
-      const tenant = Tenant.create('BeloAuto', 'beloauto');
+      const tenant = new TenantBuilder().build();
       tenant.deactivate();
       expect(tenant.isActive).toBe(false);
     });
 
     it('updates updatedAt', () => {
-      const tenant = Tenant.create('BeloAuto', 'beloauto');
+      const tenant = new TenantBuilder().build();
       const before = tenant.updatedAt;
       tenant.deactivate();
       expect(tenant.updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
@@ -61,7 +63,7 @@ describe('Tenant', () => {
 
   describe('updateSettings()', () => {
     it('replaces the settings value object', () => {
-      const tenant = Tenant.create('BeloAuto', 'beloauto');
+      const tenant = new TenantBuilder().build();
       const newSettings = TenantSettings.default('America/Manaus');
       tenant.updateSettings(newSettings);
       expect(tenant.settings.business_hours.timezone).toBe('America/Manaus');

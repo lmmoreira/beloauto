@@ -3,18 +3,7 @@ import { Tenant } from '../../domain/tenant.aggregate';
 import { TenantSettings } from '../../domain/value-objects/tenant-settings.vo';
 import { TenantEntity } from '../entities/tenant.entity';
 import { TypeOrmTenantRepository } from './typeorm-tenant.repository';
-
-function makeEntity(overrides: Partial<TenantEntity> = {}): TenantEntity {
-  const e = new TenantEntity();
-  e.id = 'tenant-id-1';
-  e.name = 'BeloAuto';
-  e.slug = 'beloauto';
-  e.settings = TenantSettings.default().toJSON();
-  e.isActive = true;
-  e.createdAt = new Date('2026-01-01T00:00:00Z');
-  e.updatedAt = new Date('2026-01-01T00:00:00Z');
-  return Object.assign(e, overrides);
-}
+import { TenantBuilder, TenantEntityBuilder } from '../../../../test/builders';
 
 describe('TypeOrmTenantRepository', () => {
   let mockRepo: jest.Mocked<Repository<TenantEntity>>;
@@ -31,8 +20,7 @@ describe('TypeOrmTenantRepository', () => {
 
   describe('findBySlug', () => {
     it('returns a Tenant aggregate when found', async () => {
-      const entity = makeEntity();
-      mockRepo.findOne.mockResolvedValue(entity);
+      mockRepo.findOne.mockResolvedValue(new TenantEntityBuilder().build());
 
       const result = await repo.findBySlug('beloauto');
 
@@ -50,8 +38,7 @@ describe('TypeOrmTenantRepository', () => {
     });
 
     it('reconstitutes TenantSettings from stored JSONB', async () => {
-      const entity = makeEntity();
-      mockRepo.findOne.mockResolvedValue(entity);
+      mockRepo.findOne.mockResolvedValue(new TenantEntityBuilder().build());
 
       const result = await repo.findBySlug('beloauto');
 
@@ -63,8 +50,7 @@ describe('TypeOrmTenantRepository', () => {
 
   describe('findById', () => {
     it('returns a Tenant aggregate when found', async () => {
-      const entity = makeEntity();
-      mockRepo.findOne.mockResolvedValue(entity);
+      mockRepo.findOne.mockResolvedValue(new TenantEntityBuilder().build());
 
       const result = await repo.findById('tenant-id-1');
 
@@ -80,13 +66,13 @@ describe('TypeOrmTenantRepository', () => {
 
   describe('save', () => {
     it('maps domain aggregate to entity and persists it', async () => {
-      const tenant = Tenant.create('Novo Lavacar', 'novo-lavacar');
+      const tenant = new TenantBuilder().withSlug('novo-lavacar').withName('Novo Lavacar').build();
       mockRepo.save.mockResolvedValue({} as TenantEntity);
 
       await repo.save(tenant);
 
       expect(mockRepo.save).toHaveBeenCalledTimes(1);
-      const savedEntity: TenantEntity = mockRepo.save.mock.calls[0][0] as TenantEntity;
+      const savedEntity = mockRepo.save.mock.calls[0][0] as TenantEntity;
       expect(savedEntity.id).toBe(tenant.id);
       expect(savedEntity.name).toBe('Novo Lavacar');
       expect(savedEntity.slug).toBe('novo-lavacar');
