@@ -1,6 +1,6 @@
 import { PlatformDomainError } from '../errors/platform-domain.error';
 import { TenantSettings } from './tenant-settings.vo';
-import { TenantSettingsPropsBuilder } from '../../../../test/builders';
+import { TenantSettingsPropsBuilder } from '../../../../test/builders/platform';
 
 describe('TenantSettings', () => {
   describe('default()', () => {

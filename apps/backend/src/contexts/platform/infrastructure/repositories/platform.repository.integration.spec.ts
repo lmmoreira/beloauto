@@ -4,7 +4,7 @@ import { TenantEntity } from '../entities/tenant.entity';
 import { TypeOrmHotsiteConfigRepository } from './typeorm-hotsite-config.repository';
 import { TypeOrmTenantRepository } from './typeorm-tenant.repository';
 import { createTestDataSource } from '../../../../test/test-datasource';
-import { TenantBuilder, HotsiteConfigBuilder } from '../../../../test/builders';
+import { TenantBuilder, HotsiteConfigBuilder } from '../../../../test/builders/platform';
 
 describe('Platform repositories (integration)', () => {
   let dataSource: DataSource;

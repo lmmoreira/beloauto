@@ -3,7 +3,7 @@ import { Tenant } from '../../domain/tenant.aggregate';
 import { TenantSettings } from '../../domain/value-objects/tenant-settings.vo';
 import { TenantEntity } from '../entities/tenant.entity';
 import { TypeOrmTenantRepository } from './typeorm-tenant.repository';
-import { TenantBuilder, TenantEntityBuilder } from '../../../../test/builders';
+import { TenantBuilder, TenantEntityBuilder } from '../../../../test/builders/platform';
 
 describe('TypeOrmTenantRepository', () => {
   let mockRepo: jest.Mocked<Repository<TenantEntity>>;

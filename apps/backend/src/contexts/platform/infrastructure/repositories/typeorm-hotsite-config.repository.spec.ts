@@ -2,7 +2,7 @@ import { Repository } from 'typeorm';
 import { HotsiteConfig } from '../../domain/hotsite-config.aggregate';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TypeOrmHotsiteConfigRepository } from './typeorm-hotsite-config.repository';
-import { HotsiteConfigBuilder, HotsiteConfigEntityBuilder } from '../../../../test/builders';
+import { HotsiteConfigBuilder, HotsiteConfigEntityBuilder } from '../../../../test/builders/platform';
 
 describe('TypeOrmHotsiteConfigRepository', () => {
   let mockRepo: jest.Mocked<Repository<HotsiteConfigEntity>>;

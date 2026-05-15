@@ -1,6 +1,6 @@
 import { PlatformDomainError } from './errors/platform-domain.error';
 import { TenantSettings } from './value-objects/tenant-settings.vo';
-import { TenantBuilder } from '../../../test/builders';
+import { TenantBuilder } from '../../../test/builders/platform';
 
 describe('Tenant', () => {
   describe('create()', () => {

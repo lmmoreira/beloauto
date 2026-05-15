@@ -1,4 +1,4 @@
-import { Tenant } from '../../contexts/platform/domain/tenant.aggregate';
+import { Tenant } from '../../../contexts/platform/domain/tenant.aggregate';
 
 export class TenantBuilder {
   private name = 'BeloAuto';

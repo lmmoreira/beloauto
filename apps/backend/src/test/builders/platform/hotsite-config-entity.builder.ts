@@ -1,4 +1,4 @@
-import { HotsiteConfigEntity } from '../../contexts/platform/infrastructure/entities/hotsite-config.entity';
+import { HotsiteConfigEntity } from '../../../contexts/platform/infrastructure/entities/hotsite-config.entity';
 
 export class HotsiteConfigEntityBuilder {
   private id = 'config-id-1';

@@ -1,5 +1,5 @@
 import { PlatformDomainError } from './errors/platform-domain.error';
-import { HotsiteConfigBuilder } from '../../../test/builders';
+import { HotsiteConfigBuilder } from '../../../test/builders/platform';
 
 describe('HotsiteConfig', () => {
   describe('create()', () => {

@@ -4,7 +4,7 @@ import {
   LoyaltySettings,
   TenantSettings,
   TenantSettingsProps,
-} from '../../contexts/platform/domain/value-objects/tenant-settings.vo';
+} from '../../../contexts/platform/domain/value-objects/tenant-settings.vo';
 
 export class TenantSettingsPropsBuilder {
   private props: TenantSettingsProps;

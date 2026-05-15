@@ -1,5 +1,5 @@
-import { TenantSettings } from '../../contexts/platform/domain/value-objects/tenant-settings.vo';
-import { TenantEntity } from '../../contexts/platform/infrastructure/entities/tenant.entity';
+import { TenantSettings } from '../../../contexts/platform/domain/value-objects/tenant-settings.vo';
+import { TenantEntity } from '../../../contexts/platform/infrastructure/entities/tenant.entity';
 
 export class TenantEntityBuilder {
   private id = 'tenant-id-1';

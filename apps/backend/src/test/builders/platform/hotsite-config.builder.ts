@@ -2,7 +2,7 @@ import {
   HotsiteConfig,
   HotsiteBranding,
   LayoutModule,
-} from '../../contexts/platform/domain/hotsite-config.aggregate';
+} from '../../../contexts/platform/domain/hotsite-config.aggregate';
 
 const DEFAULT_TENANT_ID = '01234567-0000-7000-8000-000000000001';
 const DEFAULT_BRANDING: HotsiteBranding = { primaryColor: '#FF5733' };
