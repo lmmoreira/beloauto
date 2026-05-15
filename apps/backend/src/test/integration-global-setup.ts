@@ -13,8 +13,8 @@ export default async function globalSetup(): Promise<void> {
 
   process.env['TEST_DATABASE_URL'] = container.getConnectionUri();
 
-  // Stored in global so globalTeardown (same main process) can stop it
-  (global as Record<string, unknown>)['__TC_PG_CONTAINER__'] = container;
+  // Stored in globalThis so globalTeardown (same main process) can stop it
+  (globalThis as Record<string, unknown>)['__TC_PG_CONTAINER__'] = container;
 
   // Run migrations once for the entire test run
   const ds = new DataSource({
