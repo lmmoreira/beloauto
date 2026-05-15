@@ -1,23 +1,24 @@
+import { AsyncLocalStorage } from 'async_hooks';
+import { Injectable } from '@nestjs/common';
+
+interface TenantStore {
+  tenantId: string;
+  correlationId: string;
+}
+
+const tenantStorage = new AsyncLocalStorage<TenantStore>();
+
+export function runWithTenantContext<T>(tenantId: string, correlationId: string, fn: () => T): T {
+  return tenantStorage.run({ tenantId, correlationId }, fn);
+}
+
+@Injectable()
 export class TenantContext {
-  private _tenantId: string | null = null;
-  private _tenantSlug: string | null = null;
-
   get tenantId(): string {
-    if (!this._tenantId) throw new Error('TenantContext not initialised');
-    return this._tenantId;
+    return tenantStorage.getStore()!.tenantId;
   }
 
-  get tenantSlug(): string {
-    if (!this._tenantSlug) throw new Error('TenantContext not initialised');
-    return this._tenantSlug;
-  }
-
-  set(tenantId: string, tenantSlug: string): void {
-    this._tenantId = tenantId;
-    this._tenantSlug = tenantSlug;
-  }
-
-  isInitialised(): boolean {
-    return this._tenantId !== null;
+  get correlationId(): string {
+    return tenantStorage.getStore()!.correlationId;
   }
 }
