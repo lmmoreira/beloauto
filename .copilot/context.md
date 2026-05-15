@@ -182,11 +182,62 @@ Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, ten
 - Email templates in pt-BR; Money display as `R$ 1.234,56`
 
 ### Testing
-- TDD for domain logic (red-green-refactor)
-- Every UC: ≥1 unit test, ≥1 integration test (real Testcontainers DB + Pub/Sub emulator), ≥1 tenant-isolation test
-- Tenant-isolation test pattern: create data for Tenant A, attempt access as Tenant B → expect 404 or 403
+
+#### Philosophy — three test layers
+| Layer | Tool | What it tests | Speed |
+|---|---|---|---|
+| Unit | Jest (`.spec.ts`) | Domain logic, use case behaviour, mapping | < 1s per file |
+| Integration | Jest (`.integration.spec.ts`) + Testcontainers | Adapter behaviour against a real DB | ~30s total (singleton container) |
+| E2E | Playwright | Happy paths through the full stack | minutes |
+
+- TDD for domain logic — red-green-refactor
+- Every UC: ≥1 unit test, ≥1 integration test, ≥1 tenant-isolation test
+- Tenant-isolation test pattern: create data for Tenant A, attempt access as Tenant B → expect 404/403
 - E2E (Playwright): happy paths only
 - No `.skip()`, `.only()`, `setTimeout` in tests
+
+#### Test Data Builder pattern (mandatory)
+Never construct domain objects inline in tests. Use builders in `src/test/builders/<context>/`:
+
+```typescript
+// ✅ correct
+const tenant = new TenantBuilder().withSlug('lavacar-belo').build();
+const config = new HotsiteConfigBuilder().withTenantId(tenant.id).buildWithContent();
+
+// ❌ wrong — couples tests to constructor signature
+const tenant = Tenant.create('BeloAuto', 'beloauto', 'America/Sao_Paulo');
+```
+
+- One builder class per aggregate / value object / TypeORM entity
+- Sensible defaults for every field — tests only set what they care about
+- Builders live in `src/test/builders/<context>/index.ts` (barrel export)
+- Infrastructure tests (TypeORM entities) have their own entity builders in the same folder
+
+#### In-memory repository pattern (for use case tests)
+Each port has two implementations: the real TypeORM adapter and a test double:
+
+```
+ITenantRepository (port)
+├── TypeOrmTenantRepository  ← real adapter, tested by integration tests
+└── InMemoryTenantRepository ← test double, used by use case unit tests
+```
+
+In-memory repos live in `src/test/repositories/<context>/`. Use them in use case unit tests so no DB is needed:
+
+```typescript
+const tenantRepo = new InMemoryTenantRepository();
+const useCase = new ProvisionTenantUseCase(tenantRepo, ...);
+await useCase.execute({ slug: 'lavacar-belo' });
+expect(await tenantRepo.findBySlug('lavacar-belo')).not.toBeNull();
+```
+
+**Do NOT delete TypeORM adapter unit tests** — they provide coverage that SonarCloud requires (integration test coverage is not merged into the lcov report).
+
+#### Integration test rules
+- **Singleton Testcontainers** — one PostgreSQL container per `jest --selectProjects integration` run, started in `src/test/integration-global-setup.ts` via Jest `globalSetup`. Never create a container inside a test file.
+- **Story-based tests** — each `it()` tells a meaningful sequence of domain operations (create → update → verify → assert isolation). Avoid narrow method-verification tests ("does `save()` call `repo.save()`?").
+- **File-local slug prefixes** — since all integration files share one DB, each file uses unique slugs to avoid UNIQUE constraint conflicts when tests run in parallel.
+- Each integration spec calls `createTestDataSource()` in `beforeAll` and `dataSource.destroy()` in `afterAll`.
 
 ### CI gates (block merge)
 - ESLint + Prettier — zero warnings
