@@ -29,10 +29,7 @@
   ],
   "pnpm": {
     "onlyBuiltDependencies": [
-      "cpu-features",
-      "protobufjs",
-      "sharp",
-      "ssh2"
+      "sharp"
     ]
   },
   "devDependencies": {

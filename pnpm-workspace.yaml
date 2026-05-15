@@ -4,8 +4,8 @@ packages:
 allowBuilds:
   '@nestjs/core': true
   '@swc/core': true
-  cpu-features: set this to true or false
-  protobufjs: set this to true or false
+  cpu-features: true
+  protobufjs: true
   sharp: true
-  ssh2: set this to true or false
+  ssh2: true
   unrs-resolver: true
