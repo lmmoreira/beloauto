@@ -90,3 +90,23 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail on any new SonarCloud issue
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          PR=${{ github.event.pull_request.number }}
+          RESULT=$(curl -sf -u "${SONAR_TOKEN}:" \
+            "https://sonarcloud.io/api/issues/search?componentKeys=lmmoreira_beloauto&pullRequest=${PR}&statuses=OPEN,CONFIRMED&ps=50")
+          COUNT=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['total'])")
+          if [ "$COUNT" -gt 0 ]; then
+            echo "❌ ${COUNT} new SonarCloud issue(s) — fix before merging:"
+            echo "$RESULT" | python3 -c "
+import json, sys
+for i in json.load(sys.stdin)['issues']:
+    file = i['component'].split(':', 1)[-1]
+    print(f\"  [{i['severity']}] {i['message']} — {file}:{i.get('line', '?')}\")
+"
+            exit 1
+          fi
+          echo "✅ No new SonarCloud issues."
