@@ -65,7 +65,8 @@ describe('TypeOrmHotsiteConfigRepository', () => {
       await repo.save(config);
 
       expect(mockRepo.save).toHaveBeenCalledTimes(1);
-      const savedEntity: HotsiteConfigEntity = mockRepo.save.mock.calls[0][0] as HotsiteConfigEntity;
+      const savedEntity: HotsiteConfigEntity = mockRepo.save.mock
+        .calls[0][0] as HotsiteConfigEntity;
       expect(savedEntity.id).toBe(config.id);
       expect(savedEntity.tenantId).toBe('tenant-id-2');
       expect(savedEntity.branding).toEqual({ primaryColor: '#112233' });
