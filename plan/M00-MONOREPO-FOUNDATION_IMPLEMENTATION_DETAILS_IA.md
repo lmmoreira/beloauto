@@ -103,6 +103,12 @@ apps/backend/
   tsconfig.json       ← includes spec files + "types": ["node","jest"] — used by VS Code + tsc --noEmit
   tsconfig.build.json ← excludes spec files — for build-only tooling that must omit test code
   tsconfig.test.json  ← extends tsconfig.json, kept for ts-jest backward compat
+  src/test/
+    integration-global-setup.ts    ← starts one PostgreSQL container, runs migrations, sets TEST_DATABASE_URL
+    integration-global-teardown.ts ← stops the container
+    test-datasource.ts             ← createTestDataSource() factory — each spec creates+destroys its own DS
+    builders/<context>/            ← Test Data Builders (one per aggregate/VO/entity)
+    repositories/<context>/        ← In-memory repository test doubles (one per port)
 ```
 
 **Key facts:**
@@ -112,8 +118,32 @@ apps/backend/
 - `.vscode/settings.json` has `jestrunner.codeLensSelector: "**/*.{spec,test}.{js,jsx,ts,tsx}"` — VS Code code lens only appears on spec files, not on migration or entity files.
 - `ts-jest` configured with `tsconfig: '<rootDir>/../tsconfig.test.json'`
 - `transformIgnorePatterns` not needed (uuid v9 is CJS-compatible)
-- Coverage: `jest --coverage` runs via `pnpm test:cov`
+- Coverage: `jest --coverage` runs via `pnpm test:cov` (unit tests only — integration coverage NOT merged)
 - **CLAUDE.md §7** requires ≥80% coverage on changed code (differential, not global)
+
+### Test Data Builder pattern
+Every new aggregate, value object, or TypeORM entity needs a builder in `src/test/builders/<context>/`:
+- Fluent API: `new TenantBuilder().withSlug('x').build()`
+- Sensible defaults for all fields — tests only override what they care about
+- `readonly` on fields that have no `withX()` setter (SonarCloud S2933)
+- Export through `src/test/builders/<context>/index.ts`
+
+### In-memory repository pattern
+Every new port (e.g. `ITenantRepository`) needs an in-memory implementation in `src/test/repositories/<context>/`:
+- Implements the port interface directly — no TypeORM, no DB
+- Used in **use case unit tests** so they need no database
+- The TypeORM adapter unit tests (mock-based) still exist for coverage — do NOT delete them
+- Export through `src/test/repositories/<context>/index.ts`
+
+### Testcontainers — singleton per run
+Integration project in `jest.config.ts` has `globalSetup` / `globalTeardown`:
+- One container starts per `jest --selectProjects integration` run — NOT per file
+- `process.env.TEST_DATABASE_URL` is set in globalSetup and inherited by all workers
+- Migrations run once in globalSetup — not per file
+- Each spec calls `createTestDataSource()` + `dataSource.destroy()` in `beforeAll`/`afterAll`
+
+### Integration test story rule
+Each `it()` in an integration spec should tell a **meaningful sequence** of operations, not verify a single method. Example: "create → update → verify → isolation-check" as one test — not separate tests for each step.
 
 ---
 

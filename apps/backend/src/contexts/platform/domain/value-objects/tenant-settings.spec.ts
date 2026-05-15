@@ -1,9 +1,6 @@
-import { TenantSettings, TenantSettingsProps } from './tenant-settings.vo';
 import { PlatformDomainError } from '../errors/platform-domain.error';
-
-function validProps(): TenantSettingsProps {
-  return TenantSettings.default().toJSON();
-}
+import { TenantSettings } from './tenant-settings.vo';
+import { TenantSettingsPropsBuilder } from '../../../../test/builders/platform';
 
 describe('TenantSettings', () => {
   describe('default()', () => {
@@ -33,27 +30,28 @@ describe('TenantSettings', () => {
 
   describe('create() — loyalty validation', () => {
     it('throws for expiry_days out of range', () => {
-      const props = validProps();
-      props.loyalty.expiry_days = 0;
+      const props = new TenantSettingsPropsBuilder().withLoyalty({ expiry_days: 0 }).build();
       expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
     });
 
     it('throws for expiry_warning_days >= expiry_days', () => {
-      const props = validProps();
-      props.loyalty.expiry_warning_days = 180;
+      const props = new TenantSettingsPropsBuilder()
+        .withLoyalty({ expiry_warning_days: 180 })
+        .build();
       expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
     });
   });
 
   describe('create() — booking validation', () => {
     it('throws for cancellation_window_hours above 720', () => {
-      const props = validProps();
-      props.booking.cancellation_window_hours = 721;
+      const props = new TenantSettingsPropsBuilder()
+        .withBooking({ cancellation_window_hours: 721 })
+        .build();
       expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
     });
 
     it('throws for invalid slot_granularity_minutes', () => {
-      const props = validProps();
+      const props = new TenantSettingsPropsBuilder().build();
       (props.booking as { slot_granularity_minutes: number }).slot_granularity_minutes = 45;
       expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
     });
@@ -61,20 +59,21 @@ describe('TenantSettings', () => {
 
   describe('create() — business_hours validation', () => {
     it('throws for invalid IANA timezone', () => {
-      const props = validProps();
-      props.business_hours.timezone = 'Not/ATimezone';
+      const props = new TenantSettingsPropsBuilder()
+        .withBusinessHours({ timezone: 'Not/ATimezone' })
+        .build();
       expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
     });
 
     it('throws for close before open', () => {
-      const props = validProps();
-      props.business_hours.monday = { open: '18:00', close: '09:00' };
+      const props = new TenantSettingsPropsBuilder()
+        .withBusinessHours({ monday: { open: '18:00', close: '09:00' } })
+        .build();
       expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
     });
 
     it('accepts null day (closed)', () => {
-      const props = validProps();
-      props.business_hours.saturday = null;
+      const props = new TenantSettingsPropsBuilder().withBusinessHours({ saturday: null }).build();
       expect(() => TenantSettings.create(props)).not.toThrow();
     });
   });

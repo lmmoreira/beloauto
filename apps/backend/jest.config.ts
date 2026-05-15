@@ -1,11 +1,15 @@
 import type { Config } from 'jest';
 
-const sharedTransform = {
+// Typed explicitly so the tuple ['ts-jest', options] satisfies [string, unknown]
+// at both the project and top-level config sites (needed for globalSetup transform).
+const sharedTransform: NonNullable<Config['transform']> = {
   '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.test.json' }],
 };
 
 const config: Config = {
   rootDir: 'src',
+  // Top-level transform enables ts-jest for globalSetup/globalTeardown TypeScript files
+  transform: sharedTransform,
   collectCoverageFrom: [
     '**/*.(t|j)s',
     '!**/*.spec.ts',
@@ -34,6 +38,9 @@ const config: Config = {
       transform: sharedTransform,
       testEnvironment: 'node',
       testTimeout: 60000,
+      // Single PostgreSQL container shared across all integration test files
+      globalSetup: '<rootDir>/test/integration-global-setup.ts',
+      globalTeardown: '<rootDir>/test/integration-global-teardown.ts',
     },
   ],
 };
