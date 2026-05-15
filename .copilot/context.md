@@ -308,7 +308,11 @@ gh run view <run-id> --repo lmmoreira/beloauto --log-failed
 # Fix → commit → push → re-check. Loop until all checks are green.
 ```
 
-### Step 9 — Merge once ALL checks are green
+### Step 9 — Ask user before merging (MANDATORY)
+Once all CI checks are green, report the result and ask:
+> "All checks are green on PR #N. Have you reviewed it and are you happy to merge?"
+
+**Never merge without explicit user confirmation.** Only after they say yes:
 ```bash
 gh pr merge <PR-number> --repo lmmoreira/beloauto --squash --delete-branch
 git checkout main && git pull origin main

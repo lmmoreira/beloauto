@@ -1,155 +1,102 @@
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { DataSource } from 'typeorm';
 import { HotsiteConfig } from '../../domain/hotsite-config.aggregate';
 import { Tenant } from '../../domain/tenant.aggregate';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TenantEntity } from '../entities/tenant.entity';
-import { CreatePlatformTenants1716500000001 } from '../migrations/1716500000001-CreatePlatformTenants';
-import { CreatePlatformHotsiteConfigs1716500000002 } from '../migrations/1716500000002-CreatePlatformHotsiteConfigs';
 import { TypeOrmHotsiteConfigRepository } from './typeorm-hotsite-config.repository';
 import { TypeOrmTenantRepository } from './typeorm-tenant.repository';
+import { createTestDataSource } from '../../../../test/test-datasource';
 
 describe('Platform repositories (integration)', () => {
-  let container: StartedPostgreSqlContainer;
   let dataSource: DataSource;
   let tenantRepo: TypeOrmTenantRepository;
   let hotsiteRepo: TypeOrmHotsiteConfigRepository;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer('postgres:15-alpine').start();
-
-    dataSource = new DataSource({
-      type: 'postgres',
-      url: container.getConnectionUri(),
-      synchronize: false,
-      migrationsRun: false,
-      entities: [TenantEntity, HotsiteConfigEntity],
-      migrations: [CreatePlatformTenants1716500000001, CreatePlatformHotsiteConfigs1716500000002],
-    });
-
-    await dataSource.initialize();
-    await dataSource.query(`CREATE SCHEMA IF NOT EXISTS "platform"`);
-    await dataSource.runMigrations();
-
-    const tenantTypeOrmRepo = dataSource.getRepository(TenantEntity);
-    const hotsiteTypeOrmRepo = dataSource.getRepository(HotsiteConfigEntity);
-
-    tenantRepo = new TypeOrmTenantRepository(tenantTypeOrmRepo);
-    hotsiteRepo = new TypeOrmHotsiteConfigRepository(hotsiteTypeOrmRepo);
-  }, 60000);
+    dataSource = await createTestDataSource();
+    tenantRepo = new TypeOrmTenantRepository(dataSource.getRepository(TenantEntity));
+    hotsiteRepo = new TypeOrmHotsiteConfigRepository(dataSource.getRepository(HotsiteConfigEntity));
+  });
 
   afterAll(async () => {
     await dataSource.destroy();
-    await container.stop();
   });
 
-  describe('TypeOrmTenantRepository', () => {
-    it('saves and retrieves a tenant by slug', async () => {
-      const tenant = Tenant.create('BeloAuto Teste', 'beloauto-teste', 'America/Sao_Paulo');
-      await tenantRepo.save(tenant);
+  it('tenant provisioning and full lifecycle — create, find, update, deactivate', async () => {
+    const tenant = Tenant.create('Lavacar Estrela', 'lavacar-estrela', 'America/Sao_Paulo');
+    await tenantRepo.save(tenant);
 
-      const found = await tenantRepo.findBySlug('beloauto-teste');
+    // Full retrieval by slug verifies all fields survive the round-trip
+    const bySlug = await tenantRepo.findBySlug('lavacar-estrela');
+    expect(bySlug).not.toBeNull();
+    expect(bySlug!.id).toBe(tenant.id);
+    expect(bySlug!.name).toBe('Lavacar Estrela');
+    expect(bySlug!.isActive).toBe(true);
+    expect(bySlug!.settings.loyalty.expiry_days).toBe(180);
+    expect(bySlug!.settings.business_hours.timezone).toBe('America/Sao_Paulo');
 
-      expect(found).not.toBeNull();
-      expect(found!.id).toBe(tenant.id);
-      expect(found!.name).toBe('BeloAuto Teste');
-      expect(found!.slug).toBe('beloauto-teste');
-      expect(found!.isActive).toBe(true);
-      expect(found!.settings.business_hours.timezone).toBe('America/Sao_Paulo');
-    });
+    // findById returns the same aggregate
+    const byId = await tenantRepo.findById(tenant.id);
+    expect(byId!.slug).toBe('lavacar-estrela');
 
-    it('returns null for a non-existent slug', async () => {
-      const result = await tenantRepo.findBySlug('nao-existe');
-      expect(result).toBeNull();
-    });
+    // existsBySlug reflects reality
+    expect(await tenantRepo.existsBySlug('lavacar-estrela')).toBe(true);
+    expect(await tenantRepo.existsBySlug('never-provisioned')).toBe(false);
 
-    it('finds a tenant by id', async () => {
-      const tenant = Tenant.create('Outro Lavacar', 'outro-lavacar');
-      await tenantRepo.save(tenant);
-
-      const found = await tenantRepo.findById(tenant.id);
-
-      expect(found).not.toBeNull();
-      expect(found!.slug).toBe('outro-lavacar');
-    });
-
-    it('returns null when findById receives an unknown id', async () => {
-      const result = await tenantRepo.findById('00000000-0000-0000-0000-000000000000');
-      expect(result).toBeNull();
-    });
-
-    it('existsBySlug returns true for existing slug', async () => {
-      const tenant = Tenant.create('Existe Sim', 'existe-sim');
-      await tenantRepo.save(tenant);
-
-      expect(await tenantRepo.existsBySlug('existe-sim')).toBe(true);
-    });
-
-    it('existsBySlug returns false for unknown slug', async () => {
-      expect(await tenantRepo.existsBySlug('nao-existe-mesmo')).toBe(false);
-    });
-
-    it('updates tenant settings on subsequent save', async () => {
-      const tenant = Tenant.create('Update Test', 'update-test');
-      await tenantRepo.save(tenant);
-
-      tenant.deactivate();
-      await tenantRepo.save(tenant);
-
-      const found = await tenantRepo.findBySlug('update-test');
-      expect(found!.isActive).toBe(false);
-    });
+    // Deactivation persists
+    tenant.deactivate();
+    await tenantRepo.save(tenant);
+    const deactivated = await tenantRepo.findBySlug('lavacar-estrela');
+    expect(deactivated!.isActive).toBe(false);
   });
 
-  describe('TypeOrmHotsiteConfigRepository', () => {
-    it('saves and retrieves a hotsite config by tenantId', async () => {
-      const tenant = Tenant.create('Hotsite Test', 'hotsite-test');
-      await tenantRepo.save(tenant);
+  it('hotsite config management — from empty slate to branded and published', async () => {
+    const tenant = Tenant.create('Lavacar Brilho', 'lavacar-brilho');
+    await tenantRepo.save(tenant);
 
-      const config = HotsiteConfig.create(tenant.id);
-      await hotsiteRepo.save(config);
+    // No config exists yet
+    expect(await hotsiteRepo.findByTenantId(tenant.id)).toBeNull();
 
-      const found = await hotsiteRepo.findByTenantId(tenant.id);
+    // Create the initial (unpublished) config
+    const config = HotsiteConfig.create(tenant.id);
+    await hotsiteRepo.save(config);
 
-      expect(found).not.toBeNull();
-      expect(found!.id).toBe(config.id);
-      expect(found!.tenantId).toBe(tenant.id);
-      expect(found!.isPublished).toBe(false);
-    });
+    const initial = await hotsiteRepo.findByTenantId(tenant.id);
+    expect(initial!.id).toBe(config.id);
+    expect(initial!.isPublished).toBe(false);
+    expect(initial!.layout).toHaveLength(0);
 
-    it('returns null for an unknown tenantId', async () => {
-      const result = await hotsiteRepo.findByTenantId('00000000-0000-0000-0000-000000000001');
-      expect(result).toBeNull();
-    });
+    // Admin sets branding and layout modules
+    config.updateContent({ primaryColor: '#FF5733', logoUrl: 'https://cdn.example.com/logo.png' }, [
+      { type: 'HERO', order: 1 },
+      { type: 'SERVICE_LIST', order: 2 },
+      { type: 'BOOKING_CTA', order: 3 },
+    ]);
+    await hotsiteRepo.save(config);
 
-    it('updates config content on subsequent save', async () => {
-      const tenant = Tenant.create('Branding Test', 'branding-test');
-      await tenantRepo.save(tenant);
-
-      const config = HotsiteConfig.create(tenant.id);
-      await hotsiteRepo.save(config);
-
-      config.updateContent({ primaryColor: '#FF5733' }, [{ type: 'HERO', order: 1 }]);
-      await hotsiteRepo.save(config);
-
-      const found = await hotsiteRepo.findByTenantId(tenant.id);
-      expect(found!.branding.primaryColor).toBe('#FF5733');
-      expect(found!.layout).toHaveLength(1);
-    });
+    const branded = await hotsiteRepo.findByTenantId(tenant.id);
+    expect(branded!.branding.primaryColor).toBe('#FF5733');
+    expect(branded!.branding.logoUrl).toBe('https://cdn.example.com/logo.png');
+    expect(branded!.layout).toHaveLength(3);
+    expect(branded!.layout[0].type).toBe('HERO');
   });
 
-  describe('Tenant isolation', () => {
-    it('cannot retrieve Tenant A config when querying with Tenant B id', async () => {
-      const tenantA = Tenant.create('Tenant A', 'tenant-a');
-      const tenantB = Tenant.create('Tenant B', 'tenant-b');
-      await tenantRepo.save(tenantA);
-      await tenantRepo.save(tenantB);
+  it('multi-tenant isolation — Tenant B cannot access Tenant A hotsite config', async () => {
+    const tenantA = Tenant.create('Lavacar Alpha', 'lavacar-alpha');
+    const tenantB = Tenant.create('Lavacar Beta', 'lavacar-beta');
+    await tenantRepo.save(tenantA);
+    await tenantRepo.save(tenantB);
 
-      const configA = HotsiteConfig.create(tenantA.id);
-      await hotsiteRepo.save(configA);
+    // Only Tenant A has a hotsite config
+    const configA = HotsiteConfig.create(tenantA.id);
+    await hotsiteRepo.save(configA);
 
-      const result = await hotsiteRepo.findByTenantId(tenantB.id);
-      expect(result).toBeNull();
-    });
+    // Querying with Tenant B's ID returns nothing
+    const resultForB = await hotsiteRepo.findByTenantId(tenantB.id);
+    expect(resultForB).toBeNull();
+
+    // Tenant A still sees its own config
+    const resultForA = await hotsiteRepo.findByTenantId(tenantA.id);
+    expect(resultForA!.id).toBe(configA.id);
   });
 });

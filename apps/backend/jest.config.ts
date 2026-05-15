@@ -6,6 +6,8 @@ const sharedTransform = {
 
 const config: Config = {
   rootDir: 'src',
+  // Top-level transform enables ts-jest for globalSetup/globalTeardown files
+  transform: sharedTransform,
   collectCoverageFrom: [
     '**/*.(t|j)s',
     '!**/*.spec.ts',
@@ -34,6 +36,9 @@ const config: Config = {
       transform: sharedTransform,
       testEnvironment: 'node',
       testTimeout: 60000,
+      // Single PostgreSQL container shared across all integration test files
+      globalSetup: '<rootDir>/test/integration-global-setup.ts',
+      globalTeardown: '<rootDir>/test/integration-global-teardown.ts',
     },
   ],
 };
