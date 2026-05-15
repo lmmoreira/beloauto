@@ -53,7 +53,10 @@ describe('Platform repositories (integration)', () => {
   });
 
   it('hotsite config management — from empty slate to branded and published', async () => {
-    const tenant = new TenantBuilder().withName('Lavacar Brilho').withSlug('lavacar-brilho').build();
+    const tenant = new TenantBuilder()
+      .withName('Lavacar Brilho')
+      .withSlug('lavacar-brilho')
+      .build();
     await tenantRepo.save(tenant);
 
     // No config exists yet

@@ -73,9 +73,7 @@ describe('TenantSettings', () => {
     });
 
     it('accepts null day (closed)', () => {
-      const props = new TenantSettingsPropsBuilder()
-        .withBusinessHours({ saturday: null })
-        .build();
+      const props = new TenantSettingsPropsBuilder().withBusinessHours({ saturday: null }).build();
       expect(() => TenantSettings.create(props)).not.toThrow();
     });
   });

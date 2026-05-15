@@ -37,10 +37,10 @@ describe('HotsiteConfig', () => {
   describe('updateContent()', () => {
     it('updates branding and layout', () => {
       const config = new HotsiteConfigBuilder().build();
-      config.updateContent(
-        { primaryColor: '#123456', logoUrl: 'https://example.com/logo.png' },
-        [{ type: 'HERO', order: 0 }, { type: 'BOOKING_CTA', order: 1 }],
-      );
+      config.updateContent({ primaryColor: '#123456', logoUrl: 'https://example.com/logo.png' }, [
+        { type: 'HERO', order: 0 },
+        { type: 'BOOKING_CTA', order: 1 },
+      ]);
       expect(config.branding.primaryColor).toBe('#123456');
       expect(config.layout).toHaveLength(2);
     });
