@@ -6,17 +6,11 @@ config();
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().default(3001),
-  DATABASE_URL: z.string().refine(
-    (val) => {
-      try {
-        new URL(val);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    { message: 'DATABASE_URL must be a valid URL' },
-  ),
+  DB_HOST: z.string().min(1, { message: 'DB_HOST is required' }),
+  DB_PORT: z.coerce.number().default(5432),
+  DB_USER: z.string().min(1, { message: 'DB_USER is required' }),
+  DB_PASSWORD: z.string().min(1, { message: 'DB_PASSWORD is required' }),
+  DB_NAME: z.string().min(1, { message: 'DB_NAME is required' }),
   PLATFORM_ADMIN_KEY: z
     .string()
     .min(32, { message: 'PLATFORM_ADMIN_KEY must be at least 32 characters' }),
