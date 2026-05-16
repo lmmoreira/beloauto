@@ -286,6 +286,7 @@ expect(await tenantRepo.findBySlug('lavacar-belo')).not.toBeNull();
 | Cross-schema DB FK between contexts | Tight schema coupling | Store UUID only; no FK constraint across schemas |
 | Event consumer querying another context to fill missing data | Defeats self-contained events | Add the needed data to the event payload |
 | Placing a domain entity or use case in `src/shared/` | Blurs context ownership | Only ports, base classes, and multi-context VOs in shared |
+| Exporting repository tokens from a `*.module.ts` (e.g. `exports: [TENANT_REPOSITORY]`) | Makes the repo injectable by any importing module — a direct BC isolation violation | Never export repository tokens; cross-context data goes through BFF orchestration, self-contained events, or a shared read-only port in `src/shared/ports/` |
 
 ---
 
