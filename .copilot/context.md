@@ -181,6 +181,34 @@ Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, ten
 - No barrel `index.ts` in `ports/` or `shared/domain/` directories — always import from the specific file (e.g. `./ports/tenant-repository.port`). Test builder barrels (`src/test/builders/`) are the only exception. ESLint `no-restricted-imports` enforces this at CI.
 - All configurable values (48 h window, 180 d expiry) read from `tenants.settings`, never hardcoded
 - Email templates in pt-BR; Money display as `R$ 1.234,56`
+- Domain errors → HTTP status mapping belongs in a `mapXxxError(err: unknown): never` helper in `infrastructure/http/` — never multiple `if (err instanceof X)` chains inside a controller method. The controller method should be one line: `return this.useCase.execute(dto).catch(mapXxxError)`
+- Guards that protect a single context's endpoints belong in `src/contexts/<context>/infrastructure/guards/` — only truly cross-cutting guards (used by multiple contexts) go in `src/shared/guards/`
+
+### Transactions (multi-aggregate writes)
+
+Any use case that writes to two or more aggregates **must** wrap all writes in `ITransactionManager.run()`:
+
+```typescript
+// ✅ atomic — both saves commit or both roll back
+await this.txManager.run(async () => {
+  await this.tenantRepo.save(tenant);
+  await this.hotsiteRepo.save(config);
+});
+
+// ❌ partial failure leaves DB inconsistent
+await this.tenantRepo.save(tenant);   // succeeds
+await this.hotsiteRepo.save(config);  // fails → orphaned tenant row
+```
+
+| Artifact | Location | Notes |
+|---|---|---|
+| Port | `src/shared/ports/transaction-manager.port.ts` | `ITransactionManager { run<T>(work: () => Promise<T>): Promise<T> }` |
+| Real adapter | `src/shared/infrastructure/typeorm-transaction-manager.ts` | `DataSource.transaction()` + `AsyncLocalStorage` |
+| Global module | `src/shared/infrastructure/transaction-manager.module.ts` | `@Global()` — imported once in `AppModule` |
+| Test double | `src/test/infrastructure/in-memory-transaction-manager.ts` | Simply calls `work()` — no real transaction needed for in-memory repos |
+| Context propagation | `src/shared/infrastructure/transaction-context.ts` | `runWithEntityManager` / `getActiveEntityManager` via `AsyncLocalStorage` |
+
+**Repository transaction-awareness:** every TypeORM repo write method checks `getActiveEntityManager()` from `transaction-context.ts` — if a transaction is active it uses that `EntityManager`, otherwise falls back to `this.repo`. Read methods (`findById`, `existsBySlug`, etc.) do not need to be transaction-aware.
 
 ### Testing
 
@@ -233,6 +261,25 @@ expect(await tenantRepo.findBySlug('lavacar-belo')).not.toBeNull();
 ```
 
 **Do NOT delete TypeORM adapter unit tests** — they provide coverage that SonarCloud requires (integration test coverage is not merged into the lcov report).
+
+#### In-memory infrastructure test doubles
+
+Every shared port that produces side effects has an in-memory double in `src/test/infrastructure/`. **Always prefer these over `jest.fn()` mocks** — they capture state, make assertions more readable, and never leak between tests.
+
+| Port | In-memory double | Key feature |
+|---|---|---|
+| `IEventBus` | `InMemoryEventBus` | `published: DomainEvent[]` — assert on `.published` array |
+| `ITransactionManager` | `InMemoryTransactionManager` | Simply calls `work()` — no real transaction, in-memory repos don't need one |
+
+```typescript
+// ✅ preferred
+const eventBus = new InMemoryEventBus();
+await useCase.execute(dto);
+expect(eventBus.published[0].eventName).toBe('TenantProvisioned');
+
+// ❌ avoid — jest.fn() gives no state to assert on
+const eventBus = { publish: jest.fn() };
+```
 
 #### Integration test rules
 - **Singleton Testcontainers** — one PostgreSQL container per `jest --selectProjects integration` run, started in `src/test/integration-global-setup.ts` via Jest `globalSetup`. Never create a container inside a test file.
@@ -288,6 +335,10 @@ expect(await tenantRepo.findBySlug('lavacar-belo')).not.toBeNull();
 | Event consumer querying another context to fill missing data | Defeats self-contained events | Add the needed data to the event payload |
 | Placing a domain entity or use case in `src/shared/` | Blurs context ownership | Only ports, base classes, and multi-context VOs in shared |
 | Exporting repository tokens from a `*.module.ts` (e.g. `exports: [TENANT_REPOSITORY]`) | Makes the repo injectable by any importing module — a direct BC isolation violation | Never export repository tokens; cross-context data goes through BFF orchestration, self-contained events, or a shared read-only port in `src/shared/ports/` |
+| Writing to two or more aggregates without `ITransactionManager.run()` | Partial DB failure leaves inconsistent state (orphaned rows) — compensating deletes are not atomic | Wrap all writes in `txManager.run(async () => { ... })` |
+| Using `jest.fn()` to stub `IEventBus` or `ITransactionManager` | Misses state assertions; mock expectations are brittle | Use `InMemoryEventBus` / `InMemoryTransactionManager` from `src/test/infrastructure/` |
+| Multiple `if (err instanceof X)` chains inside a controller method | Noisy, hard to read, inflates cognitive complexity | Extract into a `mapXxxError(err: unknown): never` helper in `infrastructure/http/` |
+| Placing a context-specific guard in `src/shared/guards/` | Implies the guard is cross-cutting when it isn't — misleads future agents | Guards protecting a single context live in `src/contexts/<context>/infrastructure/guards/` |
 | Barrel `index.ts` in `ports/` or `shared/domain/` directories | Hides which symbols come from where; grows into circular dependency risk as the codebase scales | Import directly from the specific file; blocked by `no-restricted-imports` ESLint rule (regex on import path ending) |
 
 ---
@@ -344,7 +395,7 @@ git diff main...HEAD
 ```
 Go through every changed file and verify **all** of the following:
 - [ ] No framework imports (`HttpException`, NestJS decorators) in domain or application layers — only controllers/guards/pipes may use them. Use domain errors instead; the controller maps them to HTTP status codes.
-- [ ] Every pair of writes that must be consistent is wrapped in a transaction or has a compensating action.
+- [ ] Every use case that writes to two or more aggregates wraps all writes in `ITransactionManager.run()` — no compensating deletes.
 - [ ] No redundant or duplicated test assertions — each test call to the system under test has a purpose.
 - [ ] Every public method on a controller/service has an explicit return type annotation.
 - [ ] `@Global()` modules have a comment explaining why they are global and where they are imported.

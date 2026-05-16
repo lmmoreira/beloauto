@@ -234,6 +234,77 @@ This pattern is also better design: the params object is named, self-documenting
 
 Check the SonarCloud PR decoration (appears as a check in the PR, not just a comment) for the full list on each PR.
 
+**⚠️ Custom "Fail on any new issue" CI step — MINOR issues also block merge:**
+`pr-quality.yml` has a step after the SonarCloud scan that calls the SonarCloud API and exits 1 if _any_ open issue exists on the PR — regardless of severity. The Quality Gate (coverage ≥ 80%, 0 security hotspots) is a separate check. Both must be green. Zero new issues of any severity is required.
+
+**S2699 — Every `it()` must have at least one Jest `expect()`:**
+Supertest's `.expect(401)` or `.expect(200)` does NOT count as a Jest assertion. Every test block must contain at least one `expect(...)` from Jest. If the HTTP status code is all you care about, add `expect(response.status).toBe(...)` on the returned `body`.
+
+```typescript
+// ❌ S2699 — no Jest expect
+it('returns 401 for wrong key', async () => {
+  await request(app.getHttpServer()).post('/internal/tenants').expect(401);
+});
+
+// ✅ correct
+it('returns 401 for wrong key', async () => {
+  const { body } = await request(app.getHttpServer()).post('/internal/tenants').expect(401);
+  expect(body.status).toBe(401);
+});
+```
+
+**S1874 — Zod v4 deprecated string validators:**
+The overloads `z.string().email(msg)`, `.url()`, `.regex(pattern, msg)` that accept a `string | { message }` param are deprecated in Zod v4. Use `z.string().refine()` instead:
+
+```typescript
+// ❌ S1874 — deprecated overload
+z.string().email('must be a valid email')
+
+// ✅ correct
+z.string().refine(
+  (val) => val.includes('@') && val.includes('.'),
+  { message: 'must be a valid email' }
+)
+```
+
+Use `ZodType` instead of `ZodSchema` (also deprecated): `import { ZodType } from 'zod'`.
+
+**S5852 — ReDoS security hotspot for regex validation:**
+Regex-based validation in DTOs can trigger an S5852 Security Hotspot (MEDIUM), which fails the Quality Gate. Use non-regex alternatives for common validators:
+
+```typescript
+// Email — index-based (no regex)
+const isValidEmail = (val: string): boolean => {
+  const atIdx = val.indexOf('@');
+  if (atIdx <= 0) return false;
+  const domain = val.slice(atIdx + 1);
+  const dotIdx = domain.lastIndexOf('.');
+  return domain.length > 0 && dotIdx > 0 && dotIdx < domain.length - 1;
+};
+
+// URL — URL constructor
+const isValidUrl = (val: string): boolean => {
+  try { new URL(val); return true; } catch { return false; }
+};
+
+// IANA timezone — Intl API
+const isValidTimezone = (tz: string): boolean => {
+  try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return true; } catch { return false; }
+};
+```
+
+**S3696 — `throw err as Error` is flagged:**
+TypeScript cast `throw err as Error` when `err: unknown` triggers S3696. Use an `instanceof` guard:
+
+```typescript
+// ❌ S3696
+throw err as Error;
+
+// ✅ correct
+if (err instanceof Error) throw err;
+throw new Error(`Unexpected error: ${String(err)}`);
+```
+
 ---
 
 ## 14. Branch Protection — `main` Is Now Fully Gated
