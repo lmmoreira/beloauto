@@ -24,5 +24,6 @@ export function mapPlatformError(err: unknown): never {
     };
     throw new HttpException(body, HttpStatus.BAD_REQUEST);
   }
-  throw err as Error;
+  if (err instanceof Error) throw err;
+  throw new Error(`Unexpected error: ${String(err)}`);
 }
