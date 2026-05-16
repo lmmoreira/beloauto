@@ -1,4 +1,5 @@
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
+import { runWithEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import { Tenant } from '../../domain/tenant.aggregate';
 import { TenantSettings } from '../../domain/value-objects/tenant-settings.vo';
 import { TenantEntity } from '../entities/tenant.entity';
@@ -65,7 +66,7 @@ describe('TypeOrmTenantRepository', () => {
   });
 
   describe('save', () => {
-    it('maps domain aggregate to entity and persists it', async () => {
+    it('maps domain aggregate to entity and persists via repo when no transaction is active', async () => {
       const tenant = new TenantBuilder().withSlug('novo-lavacar').withName('Novo Lavacar').build();
       mockRepo.save.mockResolvedValue({} as TenantEntity);
 
@@ -78,6 +79,21 @@ describe('TypeOrmTenantRepository', () => {
       expect(savedEntity.slug).toBe('novo-lavacar');
       expect(savedEntity.isActive).toBe(true);
       expect(savedEntity.settings).toEqual(tenant.settings.toJSON());
+    });
+
+    it('uses the active EntityManager when inside a transaction', async () => {
+      const mockManager = {
+        save: jest.fn().mockResolvedValue({}),
+      } as unknown as EntityManager;
+      const tenant = new TenantBuilder().withSlug('tx-tenant').build();
+
+      await runWithEntityManager(mockManager, () => repo.save(tenant));
+
+      expect(mockManager.save).toHaveBeenCalledWith(
+        TenantEntity,
+        expect.objectContaining({ id: tenant.id, slug: 'tx-tenant' }),
+      );
+      expect(mockRepo.save).not.toHaveBeenCalled();
     });
   });
 

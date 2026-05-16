@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import { IHotsiteConfigRepository } from '../../application/ports/hotsite-config-repository.port';
 import { HotsiteConfig } from '../../domain/hotsite-config.aggregate';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
@@ -19,7 +20,12 @@ export class TypeOrmHotsiteConfigRepository implements IHotsiteConfigRepository 
 
   async save(config: HotsiteConfig): Promise<void> {
     const entity = this.toEntity(config);
-    await this.repo.save(entity);
+    const manager = getActiveEntityManager();
+    if (manager) {
+      await manager.save(HotsiteConfigEntity, entity);
+    } else {
+      await this.repo.save(entity);
+    }
   }
 
   private toDomain(entity: HotsiteConfigEntity): HotsiteConfig {

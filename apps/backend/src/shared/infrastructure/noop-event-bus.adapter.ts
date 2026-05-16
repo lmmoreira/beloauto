@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { IEventBus, DomainEvent } from '../ports/index';
+import { DomainEvent } from '../domain/domain-event';
+import { IEventBus } from '../ports/event-bus.port';
 import { AppLogger } from '../observability/app-logger';
 
 @Injectable()

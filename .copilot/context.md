@@ -178,6 +178,7 @@ Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, ten
 - No business logic in controllers — controllers call use cases only
 - No synchronous cross-context calls — use events. BFF is the only allowed orchestrator
 - DI everywhere — no `new SomeRepository()` in services
+- No barrel `index.ts` in `ports/` or `shared/domain/` directories — always import from the specific file (e.g. `./ports/tenant-repository.port`). Test builder barrels (`src/test/builders/`) are the only exception. ESLint `no-restricted-imports` enforces this at CI.
 - All configurable values (48 h window, 180 d expiry) read from `tenants.settings`, never hardcoded
 - Email templates in pt-BR; Money display as `R$ 1.234,56`
 
@@ -286,6 +287,8 @@ expect(await tenantRepo.findBySlug('lavacar-belo')).not.toBeNull();
 | Cross-schema DB FK between contexts | Tight schema coupling | Store UUID only; no FK constraint across schemas |
 | Event consumer querying another context to fill missing data | Defeats self-contained events | Add the needed data to the event payload |
 | Placing a domain entity or use case in `src/shared/` | Blurs context ownership | Only ports, base classes, and multi-context VOs in shared |
+| Exporting repository tokens from a `*.module.ts` (e.g. `exports: [TENANT_REPOSITORY]`) | Makes the repo injectable by any importing module — a direct BC isolation violation | Never export repository tokens; cross-context data goes through BFF orchestration, self-contained events, or a shared read-only port in `src/shared/ports/` |
+| Barrel `index.ts` in `ports/` or `shared/domain/` directories | Hides which symbols come from where; grows into circular dependency risk as the codebase scales | Import directly from the specific file; blocked by `no-restricted-imports` ESLint rule (regex on import path ending) |
 
 ---
 
@@ -333,7 +336,26 @@ pnpm ci:local   # ~5 min — Docker must be running (pnpm infra:up)
 ```
 This is **not mandatory**. GitHub CI will catch the same issues. Run it when you want early feedback before the PR (e.g. touching Dockerfiles, infra, or integration-test paths). Skip it for pure domain/unit-test changes.
 
-### Step 7 — Open the PR
+### Step 7 — Self-review the full diff (MANDATORY — before every PR)
+
+Read the complete diff of the branch before opening any PR:
+```bash
+git diff main...HEAD
+```
+Go through every changed file and verify **all** of the following:
+- [ ] No framework imports (`HttpException`, NestJS decorators) in domain or application layers — only controllers/guards/pipes may use them. Use domain errors instead; the controller maps them to HTTP status codes.
+- [ ] Every pair of writes that must be consistent is wrapped in a transaction or has a compensating action.
+- [ ] No redundant or duplicated test assertions — each test call to the system under test has a purpose.
+- [ ] Every public method on a controller/service has an explicit return type annotation.
+- [ ] `@Global()` modules have a comment explaining why they are global and where they are imported.
+- [ ] Any new required env var is documented in `.env.example` AND added to the local `.env` (never committed).
+- [ ] No non-null assertions (`!`) or `any` casts in production code; minimised in test code.
+- [ ] All SonarCloud-prone patterns addressed: `!`, `as unknown`, `as any`, long functions, cognitive complexity.
+- [ ] §8 Anti-Patterns — check the list for anything introduced.
+
+**Do not open the PR until every item above is satisfied.** This review is the agent's responsibility, not the user's.
+
+### Step 8 — Open the PR  _(was Step 7)_
 ```bash
 gh pr create \
   --title "feat(<context>): <description> (M0X-SYY)" \
@@ -351,7 +373,7 @@ M0X-SYY — <title>
   --repo lmmoreira/beloauto
 ```
 
-### Step 8 — Monitor CI; self-fix any failure
+### Step 9 — Monitor CI; self-fix any failure
 ```bash
 gh pr checks <PR-number> --repo lmmoreira/beloauto
 # On failure:
@@ -359,7 +381,7 @@ gh run view <run-id> --repo lmmoreira/beloauto --log-failed
 # Fix → commit → push → re-check. Loop until all checks are green.
 ```
 
-### Step 9 — Ask user before merging (MANDATORY)
+### Step 10 — Ask user before merging (MANDATORY)
 Once all CI checks are green, report the result and ask:
 > "All checks are green on PR #N. Have you reviewed it and are you happy to merge?"
 
@@ -369,14 +391,14 @@ gh pr merge <PR-number> --repo lmmoreira/beloauto --squash --delete-branch
 git checkout main && git pull origin main
 ```
 
-### Step 10 — Mark story done (only after the squash commit is on `main`)
+### Step 11 — Mark story done (only after the squash commit is on `main`)
 In `plan/M0X-<NAME>.md`:
 ```
 ### M0X-SYY — title  →  ### M0X-SYY — title ✅ Done
 ```
 Commit this change to `main` directly (`chore(plan): mark M0X-SYY done`).
 
-### Step 11 — Milestone complete? Create wrap-up docs
+### Step 12 — Milestone complete? Create wrap-up docs
 If every story in the milestone is now `✅ Done`, see §15 item 16 for the two wrap-up files to create.
 
 ---

@@ -131,7 +131,7 @@ Repository adapters:
   - `save(config, tenantId): Promise<void>`
 
 NestJS module:
-- `PlatformModule` — exports `ITenantRepository`, `IHotsiteConfigRepository` tokens for injection by use cases
+- `PlatformModule` — no `exports`; repository tokens are only injected within the same module's use cases (never exported to other bounded contexts)
 
 **Acceptance criteria:**
 - [ ] `TypeOrmTenantRepository.findBySlug('beloauto')` returns a `Tenant` aggregate (not a raw TypeORM entity)

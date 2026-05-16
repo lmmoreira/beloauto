@@ -1,4 +1,4 @@
-import { IHotsiteConfigRepository } from '../../../contexts/platform/application/ports';
+import { IHotsiteConfigRepository } from '../../../contexts/platform/application/ports/hotsite-config-repository.port';
 import { HotsiteConfig } from '../../../contexts/platform/domain/hotsite-config.aggregate';
 
 export class InMemoryHotsiteConfigRepository implements IHotsiteConfigRepository {

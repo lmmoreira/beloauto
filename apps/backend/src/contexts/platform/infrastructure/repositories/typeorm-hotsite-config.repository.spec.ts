@@ -1,4 +1,5 @@
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
+import { runWithEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import { HotsiteConfig } from '../../domain/hotsite-config.aggregate';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TypeOrmHotsiteConfigRepository } from './typeorm-hotsite-config.repository';
@@ -50,7 +51,7 @@ describe('TypeOrmHotsiteConfigRepository', () => {
   });
 
   describe('save', () => {
-    it('maps domain aggregate to entity and persists it', async () => {
+    it('maps domain aggregate to entity and persists via repo when no transaction is active', async () => {
       const config = new HotsiteConfigBuilder()
         .withTenantId('tenant-id-2')
         .buildWithContent({ primaryColor: '#112233' }, [{ type: 'HERO', order: 1 }]);
@@ -65,6 +66,21 @@ describe('TypeOrmHotsiteConfigRepository', () => {
       expect(savedEntity.branding).toEqual({ primaryColor: '#112233' });
       expect(savedEntity.layout).toHaveLength(1);
       expect(savedEntity.isPublished).toBe(false);
+    });
+
+    it('uses the active EntityManager when inside a transaction', async () => {
+      const mockManager = {
+        save: jest.fn().mockResolvedValue({}),
+      } as unknown as EntityManager;
+      const config = new HotsiteConfigBuilder().withTenantId('tx-tenant-id').build();
+
+      await runWithEntityManager(mockManager, () => repo.save(config));
+
+      expect(mockManager.save).toHaveBeenCalledWith(
+        HotsiteConfigEntity,
+        expect.objectContaining({ tenantId: 'tx-tenant-id' }),
+      );
+      expect(mockRepo.save).not.toHaveBeenCalled();
     });
   });
 });

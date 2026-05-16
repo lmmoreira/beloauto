@@ -74,6 +74,11 @@ describe('TenantInterceptor', () => {
     expect(() => interceptor.intercept(ctx, mockCallHandler)).not.toThrow();
   });
 
+  it('skips tenant check for internal routes', () => {
+    const ctx = makeContext({}, '/internal/tenants');
+    expect(() => interceptor.intercept(ctx, mockCallHandler)).not.toThrow();
+  });
+
   it('concurrent requests store independent tenant contexts', async () => {
     const tenantContext = new TenantContext();
     const results: Array<{ tenantId: string; correlationId: string }> = [];
