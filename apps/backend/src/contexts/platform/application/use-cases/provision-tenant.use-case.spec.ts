@@ -1,24 +1,20 @@
-import { IEventBus } from '../../../../shared/ports/event-bus.port';
+import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryHotsiteConfigRepository } from '../../../../test/repositories/platform/in-memory-hotsite-config.repository';
 import { InMemoryTenantRepository } from '../../../../test/repositories/platform/in-memory-tenant.repository';
 import { SlugAlreadyTakenError } from '../../domain/errors/platform-domain.error';
 import { TenantProvisioned } from '../../domain/events/tenant-provisioned.event';
 import { ProvisionTenantUseCase } from './provision-tenant.use-case';
 
-const makeEventBus = (): jest.Mocked<IEventBus> => ({
-  publish: jest.fn().mockResolvedValue(undefined),
-});
-
 describe('ProvisionTenantUseCase', () => {
   let tenantRepo: InMemoryTenantRepository;
   let hotsiteRepo: InMemoryHotsiteConfigRepository;
-  let eventBus: jest.Mocked<IEventBus>;
+  let eventBus: InMemoryEventBus;
   let useCase: ProvisionTenantUseCase;
 
   beforeEach(() => {
     tenantRepo = new InMemoryTenantRepository();
     hotsiteRepo = new InMemoryHotsiteConfigRepository();
-    eventBus = makeEventBus();
+    eventBus = new InMemoryEventBus();
     useCase = new ProvisionTenantUseCase(tenantRepo, hotsiteRepo, eventBus);
   });
 
@@ -61,8 +57,8 @@ describe('ProvisionTenantUseCase', () => {
       adminEmail: 'sul@lavacar.com.br',
     });
 
-    expect(eventBus.publish).toHaveBeenCalledTimes(1);
-    const event = eventBus.publish.mock.calls[0][0] as TenantProvisioned;
+    expect(eventBus.published).toHaveLength(1);
+    const event = eventBus.published[0] as TenantProvisioned;
     expect(event.eventName).toBe('TenantProvisioned');
     expect(event.data.slug).toBe('lavacar-sul');
     expect(event.data.adminEmail).toBe('sul@lavacar.com.br');
@@ -79,7 +75,7 @@ describe('ProvisionTenantUseCase', () => {
   });
 
   it('compensates by deleting the tenant if hotsite save fails', async () => {
-    jest.spyOn(hotsiteRepo, 'save').mockRejectedValueOnce(new Error('db error'));
+    jest.spyOn(hotsiteRepo, 'save').mockRejectedValue(new Error('db error'));
 
     await expect(
       useCase.execute({ name: 'A', slug: 'fail-slug', adminEmail: 'a@a.com' }),

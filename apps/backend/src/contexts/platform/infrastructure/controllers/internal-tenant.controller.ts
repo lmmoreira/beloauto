@@ -1,15 +1,4 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpException,
-  HttpStatus,
-  Post,
-  UseGuards,
-  UsePipes,
-} from '@nestjs/common';
-import { PlatformAdminGuard } from '../../../../shared/guards/platform-admin.guard';
-import { ProblemDetail } from '../../../../shared/http/problem-detail';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards, UsePipes } from '@nestjs/common';
 import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
 import {
   ProvisionTenantDto,
@@ -19,10 +8,8 @@ import {
   ProvisionTenantResult,
   ProvisionTenantUseCase,
 } from '../../application/use-cases/provision-tenant.use-case';
-import {
-  PlatformDomainError,
-  SlugAlreadyTakenError,
-} from '../../domain/errors/platform-domain.error';
+import { PlatformAdminGuard } from '../guards/platform-admin.guard';
+import { mapPlatformError } from '../http/platform-error.mapper';
 
 @Controller('internal/tenants')
 @UseGuards(PlatformAdminGuard)
@@ -32,29 +19,7 @@ export class InternalTenantController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UsePipes(new ZodValidationPipe(ProvisionTenantSchema))
-  async provision(@Body() dto: ProvisionTenantDto): Promise<ProvisionTenantResult> {
-    try {
-      return await this.provisionTenant.execute(dto);
-    } catch (err) {
-      if (err instanceof SlugAlreadyTakenError) {
-        const body: ProblemDetail = {
-          type: 'about:blank',
-          title: 'Conflict',
-          status: HttpStatus.CONFLICT,
-          detail: err.message,
-        };
-        throw new HttpException(body, HttpStatus.CONFLICT);
-      }
-      if (err instanceof PlatformDomainError) {
-        const body: ProblemDetail = {
-          type: 'about:blank',
-          title: 'Bad Request',
-          status: HttpStatus.BAD_REQUEST,
-          detail: err.message,
-        };
-        throw new HttpException(body, HttpStatus.BAD_REQUEST);
-      }
-      throw err;
-    }
+  provision(@Body() dto: ProvisionTenantDto): Promise<ProvisionTenantResult> {
+    return this.provisionTenant.execute(dto).catch(mapPlatformError);
   }
 }

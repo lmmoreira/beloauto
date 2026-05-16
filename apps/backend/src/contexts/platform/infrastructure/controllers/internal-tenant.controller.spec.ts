@@ -1,63 +1,69 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { InMemoryHotsiteConfigRepository } from '../../../../test/repositories/platform/in-memory-hotsite-config.repository';
+import { InMemoryTenantRepository } from '../../../../test/repositories/platform/in-memory-tenant.repository';
+import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
+import { HOTSITE_CONFIG_REPOSITORY } from '../../application/ports/hotsite-config-repository.port';
+import { TENANT_REPOSITORY } from '../../application/ports/tenant-repository.port';
 import { ProvisionTenantUseCase } from '../../application/use-cases/provision-tenant.use-case';
-import {
-  PlatformDomainError,
-  SlugAlreadyTakenError,
-} from '../../domain/errors/platform-domain.error';
+import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import { InternalTenantController } from './internal-tenant.controller';
-
-const RESULT = { tenantId: 'uuid-1', name: 'Lavacar', slug: 'lavacar' };
 
 describe('InternalTenantController', () => {
   let controller: InternalTenantController;
-  let execute: jest.Mock;
+  let tenantRepo: InMemoryTenantRepository;
+  let eventBus: InMemoryEventBus;
 
   beforeEach(async () => {
-    execute = jest.fn();
+    tenantRepo = new InMemoryTenantRepository();
+    eventBus = new InMemoryEventBus();
+
     const moduleRef = await Test.createTestingModule({
       controllers: [InternalTenantController],
-      providers: [{ provide: ProvisionTenantUseCase, useValue: { execute } }],
+      providers: [
+        ProvisionTenantUseCase,
+        { provide: TENANT_REPOSITORY, useValue: tenantRepo },
+        { provide: HOTSITE_CONFIG_REPOSITORY, useValue: new InMemoryHotsiteConfigRepository() },
+        { provide: EVENT_BUS, useValue: eventBus },
+      ],
     }).compile();
 
     controller = moduleRef.get(InternalTenantController);
   });
 
-  it('calls use case and returns the result', async () => {
-    execute.mockResolvedValue(RESULT);
-    const dto = { name: 'Lavacar', slug: 'lavacar', adminEmail: 'a@a.com' };
-    expect(await controller.provision(dto)).toEqual(RESULT);
-    expect(execute).toHaveBeenCalledWith(dto);
+  it('provisions a tenant and returns tenantId, name, slug', async () => {
+    const result = await controller.provision({
+      name: 'Lavacar Belo',
+      slug: 'lavacar-belo',
+      adminEmail: 'admin@lavacar.com.br',
+    });
+
+    expect(result.slug).toBe('lavacar-belo');
+    expect(result.name).toBe('Lavacar Belo');
+    expect(result.tenantId).toBeDefined();
+    expect(eventBus.published).toHaveLength(1);
+    expect(eventBus.published[0].eventName).toBe('TenantProvisioned');
   });
 
   it('maps SlugAlreadyTakenError to 409 HttpException', async () => {
-    execute.mockRejectedValue(new SlugAlreadyTakenError('lavacar'));
+    await controller.provision({ name: 'A', slug: 'taken', adminEmail: 'a@a.com' });
 
     expect.assertions(2);
     try {
-      await controller.provision({ name: 'T', slug: 'lavacar', adminEmail: 'a@a.com' });
+      await controller.provision({ name: 'B', slug: 'taken', adminEmail: 'b@b.com' });
     } catch (err) {
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.CONFLICT);
     }
   });
 
-  it('maps PlatformDomainError to 400 HttpException', async () => {
-    execute.mockRejectedValue(new PlatformDomainError('Invalid name'));
-
+  it('maps PlatformDomainError to 400 HttpException for invalid domain input', async () => {
     expect.assertions(2);
     try {
-      await controller.provision({ name: '', slug: 'test', adminEmail: 'a@a.com' });
+      await controller.provision({ name: '', slug: 'valid', adminEmail: 'a@a.com' });
     } catch (err) {
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
     }
-  });
-
-  it('re-throws non-domain errors unchanged', async () => {
-    execute.mockRejectedValue(new Error('db down'));
-    await expect(
-      controller.provision({ name: 'T', slug: 'test', adminEmail: 'a@a.com' }),
-    ).rejects.toThrow('db down');
   });
 });

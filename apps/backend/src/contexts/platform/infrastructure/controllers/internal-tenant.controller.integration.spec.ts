@@ -3,8 +3,9 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
+import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
+import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TenantEntity } from '../entities/tenant.entity';
 import { PlatformModule } from '../../platform.module';
@@ -32,7 +33,7 @@ describe('InternalTenantController (integration)', () => {
       ],
     })
       .overrideProvider(EVENT_BUS)
-      .useValue({ publish: jest.fn().mockResolvedValue(undefined) })
+      .useValue(new InMemoryEventBus())
       .compile();
 
     app = moduleRef.createNestApplication();
