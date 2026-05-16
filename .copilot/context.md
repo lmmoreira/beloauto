@@ -178,6 +178,7 @@ Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, ten
 - No business logic in controllers — controllers call use cases only
 - No synchronous cross-context calls — use events. BFF is the only allowed orchestrator
 - DI everywhere — no `new SomeRepository()` in services
+- No barrel `index.ts` in `ports/` or `shared/domain/` directories — always import from the specific file (e.g. `./ports/tenant-repository.port`). Test builder barrels (`src/test/builders/`) are the only exception. ESLint `no-restricted-imports` enforces this at CI.
 - All configurable values (48 h window, 180 d expiry) read from `tenants.settings`, never hardcoded
 - Email templates in pt-BR; Money display as `R$ 1.234,56`
 
@@ -287,6 +288,7 @@ expect(await tenantRepo.findBySlug('lavacar-belo')).not.toBeNull();
 | Event consumer querying another context to fill missing data | Defeats self-contained events | Add the needed data to the event payload |
 | Placing a domain entity or use case in `src/shared/` | Blurs context ownership | Only ports, base classes, and multi-context VOs in shared |
 | Exporting repository tokens from a `*.module.ts` (e.g. `exports: [TENANT_REPOSITORY]`) | Makes the repo injectable by any importing module — a direct BC isolation violation | Never export repository tokens; cross-context data goes through BFF orchestration, self-contained events, or a shared read-only port in `src/shared/ports/` |
+| Barrel `index.ts` in `ports/` or `shared/domain/` directories | Hides which symbols come from where; grows into circular dependency risk as the codebase scales | Import directly from the specific file; blocked by `no-restricted-imports` ESLint rule (regex on import path ending) |
 
 ---
 
