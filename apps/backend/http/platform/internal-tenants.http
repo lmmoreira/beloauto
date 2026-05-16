@@ -1,0 +1,123 @@
+# Platform — Internal Tenant Provisioning
+# UC-024: Platform operator provisions a new tenant
+#
+# Prerequisites:
+#   1. pnpm infra:up           (start PostgreSQL + Pub/Sub emulator)
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run dev
+#
+# REST Client reads PLATFORM_ADMIN_KEY from apps/backend/.env automatically.
+# Switch environment (bottom-right VS Code status bar): select "local"
+
+@baseUrl    = {{$env backendUrl}}
+@adminKey   = {{$dotenv PLATFORM_ADMIN_KEY}}
+@authHeader = Bearer {{adminKey}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Provision a new tenant (minimal — timezone defaults to America/Sao_Paulo)
+POST {{baseUrl}}/internal/tenants
+Authorization: {{authHeader}}
+Content-Type: application/json
+
+{
+  "name": "Lavacar Belo Horizonte",
+  "slug": "lavacar-bh",
+  "adminEmail": "admin@lavacar-bh.com.br"
+}
+
+###
+
+### Provision a new tenant (explicit timezone)
+POST {{baseUrl}}/internal/tenants
+Authorization: {{authHeader}}
+Content-Type: application/json
+
+{
+  "name": "Lavacar Manaus",
+  "slug": "lavacar-manaus",
+  "adminEmail": "admin@lavacar-manaus.com.br",
+  "timezone": "America/Manaus"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR CASES — useful to verify guard + validation are working
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 401 — Missing Authorization header
+POST {{baseUrl}}/internal/tenants
+Content-Type: application/json
+
+{
+  "name": "Test",
+  "slug": "test",
+  "adminEmail": "test@test.com"
+}
+
+###
+
+### 401 — Wrong API key
+POST {{baseUrl}}/internal/tenants
+Authorization: Bearer wrong-key
+Content-Type: application/json
+
+{
+  "name": "Test",
+  "slug": "test",
+  "adminEmail": "test@test.com"
+}
+
+###
+
+### 400 — Invalid slug format (uppercase + space)
+POST {{baseUrl}}/internal/tenants
+Authorization: {{authHeader}}
+Content-Type: application/json
+
+{
+  "name": "Test",
+  "slug": "Invalid Slug!",
+  "adminEmail": "test@test.com"
+}
+
+###
+
+### 400 — Invalid email
+POST {{baseUrl}}/internal/tenants
+Authorization: {{authHeader}}
+Content-Type: application/json
+
+{
+  "name": "Test",
+  "slug": "valid-slug",
+  "adminEmail": "not-an-email"
+}
+
+###
+
+### 400 — Invalid IANA timezone
+POST {{baseUrl}}/internal/tenants
+Authorization: {{authHeader}}
+Content-Type: application/json
+
+{
+  "name": "Test",
+  "slug": "valid-slug-2",
+  "adminEmail": "test@test.com",
+  "timezone": "Europe/Not-A-Zone"
+}
+
+###
+
+### 409 — Duplicate slug (run the happy-path request first, then this one)
+POST {{baseUrl}}/internal/tenants
+Authorization: {{authHeader}}
+Content-Type: application/json
+
+{
+  "name": "Duplicate",
+  "slug": "lavacar-bh",
+  "adminEmail": "other@lavacar-bh.com.br"
+}

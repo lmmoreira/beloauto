@@ -79,6 +79,20 @@
     "Dockerfile*": "dockerfile"
   },
 
+  // ─── REST Client (HTTP files) ────────────────────────────────────────────
+  // Reads PLATFORM_ADMIN_KEY and DATABASE_URL from the gitignored backend .env
+  // Install extension: humao.rest-client
+  "rest-client.dotenv.path": "${workspaceFolder}/apps/backend/.env",
+  "rest-client.defaultHeaders": {
+    "Content-Type": "application/json"
+  },
+  "rest-client.environmentVariables": {
+    "local": {
+      "backendUrl": "http://localhost:3001",
+      "tenantId": "replace-with-a-real-tenant-uuid"
+    }
+  },
+
   // ─── Editor ──────────────────────────────────────────────────────────────
   // 100-char ruler matches prettier printWidth; 2-space indent throughout
   "editor.rulers": [100],
