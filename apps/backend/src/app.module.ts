@@ -10,12 +10,14 @@ import { TenantModule } from './shared/tenant/tenant.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      url: process.env['DATABASE_URL'],
-      synchronize: false,
-      migrationsRun: false,
-      entities: [__dirname + '/contexts/**/infrastructure/entities/*.entity{.ts,.js}'],
+    TypeOrmModule.forRootAsync({
+      useFactory: () => ({
+        type: 'postgres',
+        url: process.env['DATABASE_URL'],
+        synchronize: false,
+        migrationsRun: false,
+        entities: [__dirname + '/contexts/**/infrastructure/entities/*.entity{.ts,.js}'],
+      }),
     }),
     EventBusModule,
     TransactionManagerModule,
