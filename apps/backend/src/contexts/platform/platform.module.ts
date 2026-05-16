@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { HOTSITE_CONFIG_REPOSITORY, TENANT_REPOSITORY } from './application/ports';
+import { HOTSITE_CONFIG_REPOSITORY } from './application/ports/hotsite-config-repository.port';
+import { TENANT_REPOSITORY } from './application/ports/tenant-repository.port';
 import { ProvisionTenantUseCase } from './application/use-cases/provision-tenant.use-case';
 import { HotsiteConfigEntity } from './infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from './infrastructure/entities/tenant.entity';

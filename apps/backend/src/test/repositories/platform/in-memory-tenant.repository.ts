@@ -1,4 +1,4 @@
-import { ITenantRepository } from '../../../contexts/platform/application/ports';
+import { ITenantRepository } from '../../../contexts/platform/application/ports/tenant-repository.port';
 import { Tenant } from '../../../contexts/platform/domain/tenant.aggregate';
 
 export class InMemoryTenantRepository implements ITenantRepository {
