@@ -1,4 +1,5 @@
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
+import { runWithEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import { Tenant } from '../../domain/tenant.aggregate';
 import { TenantSettings } from '../../domain/value-objects/tenant-settings.vo';
 import { TenantEntity } from '../entities/tenant.entity';
@@ -14,7 +15,6 @@ describe('TypeOrmTenantRepository', () => {
       findOne: jest.fn(),
       save: jest.fn(),
       existsBy: jest.fn(),
-      delete: jest.fn(),
     } as unknown as jest.Mocked<Repository<TenantEntity>>;
     repo = new TypeOrmTenantRepository(mockRepo);
   });
@@ -66,7 +66,7 @@ describe('TypeOrmTenantRepository', () => {
   });
 
   describe('save', () => {
-    it('maps domain aggregate to entity and persists it', async () => {
+    it('maps domain aggregate to entity and persists via repo when no transaction is active', async () => {
       const tenant = new TenantBuilder().withSlug('novo-lavacar').withName('Novo Lavacar').build();
       mockRepo.save.mockResolvedValue({} as TenantEntity);
 
@@ -80,6 +80,21 @@ describe('TypeOrmTenantRepository', () => {
       expect(savedEntity.isActive).toBe(true);
       expect(savedEntity.settings).toEqual(tenant.settings.toJSON());
     });
+
+    it('uses the active EntityManager when inside a transaction', async () => {
+      const mockManager = {
+        save: jest.fn().mockResolvedValue({}),
+      } as unknown as EntityManager;
+      const tenant = new TenantBuilder().withSlug('tx-tenant').build();
+
+      await runWithEntityManager(mockManager, () => repo.save(tenant));
+
+      expect(mockManager.save).toHaveBeenCalledWith(
+        TenantEntity,
+        expect.objectContaining({ id: tenant.id, slug: 'tx-tenant' }),
+      );
+      expect(mockRepo.save).not.toHaveBeenCalled();
+    });
   });
 
   describe('existsBySlug', () => {
@@ -92,14 +107,6 @@ describe('TypeOrmTenantRepository', () => {
     it('returns false when slug does not exist', async () => {
       mockRepo.existsBy.mockResolvedValue(false);
       expect(await repo.existsBySlug('nao-existe')).toBe(false);
-    });
-  });
-
-  describe('deleteById', () => {
-    it('delegates to repo.delete with the id', async () => {
-      (mockRepo.delete as jest.Mock).mockResolvedValue({ affected: 1 });
-      await repo.deleteById('tenant-id-1');
-      expect(mockRepo.delete).toHaveBeenCalledWith({ id: 'tenant-id-1' });
     });
   });
 });

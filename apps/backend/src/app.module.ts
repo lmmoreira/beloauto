@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PlatformModule } from './contexts/platform/platform.module';
 import { HealthController } from './health/health.controller';
 import { EventBusModule } from './shared/infrastructure/event-bus.module';
+import { TransactionManagerModule } from './shared/infrastructure/transaction-manager.module';
 import { TenantInterceptor } from './shared/tenant/tenant.interceptor';
 import { TenantModule } from './shared/tenant/tenant.module';
 
@@ -17,6 +18,7 @@ import { TenantModule } from './shared/tenant/tenant.module';
       entities: [__dirname + '/contexts/**/infrastructure/entities/*.entity{.ts,.js}'],
     }),
     EventBusModule,
+    TransactionManagerModule,
     TenantModule,
     PlatformModule,
   ],

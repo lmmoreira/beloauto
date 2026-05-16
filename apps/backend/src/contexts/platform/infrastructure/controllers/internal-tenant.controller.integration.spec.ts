@@ -5,6 +5,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
+import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TenantEntity } from '../entities/tenant.entity';
@@ -29,6 +30,7 @@ describe('InternalTenantController (integration)', () => {
           synchronize: false,
         }),
         EventBusModule,
+        TransactionManagerModule,
         PlatformModule,
       ],
     })

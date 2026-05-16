@@ -25,8 +25,4 @@ export class InMemoryTenantRepository implements ITenantRepository {
     }
     return false;
   }
-
-  async deleteById(id: string): Promise<void> {
-    this.store.delete(id);
-  }
 }

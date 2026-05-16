@@ -1,12 +1,14 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
+import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryHotsiteConfigRepository } from '../../../../test/repositories/platform/in-memory-hotsite-config.repository';
 import { InMemoryTenantRepository } from '../../../../test/repositories/platform/in-memory-tenant.repository';
-import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
+import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
+import { TRANSACTION_MANAGER } from '../../../../shared/ports/transaction-manager.port';
 import { HOTSITE_CONFIG_REPOSITORY } from '../../application/ports/hotsite-config-repository.port';
 import { TENANT_REPOSITORY } from '../../application/ports/tenant-repository.port';
 import { ProvisionTenantUseCase } from '../../application/use-cases/provision-tenant.use-case';
-import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import { InternalTenantController } from './internal-tenant.controller';
 
 describe('InternalTenantController', () => {
@@ -25,6 +27,7 @@ describe('InternalTenantController', () => {
         { provide: TENANT_REPOSITORY, useValue: tenantRepo },
         { provide: HOTSITE_CONFIG_REPOSITORY, useValue: new InMemoryHotsiteConfigRepository() },
         { provide: EVENT_BUS, useValue: eventBus },
+        { provide: TRANSACTION_MANAGER, useValue: new InMemoryTransactionManager() },
       ],
     }).compile();
 

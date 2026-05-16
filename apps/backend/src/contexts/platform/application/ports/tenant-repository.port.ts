@@ -7,5 +7,4 @@ export interface ITenantRepository {
   findById(id: string): Promise<Tenant | null>;
   save(tenant: Tenant): Promise<void>;
   existsBySlug(slug: string): Promise<boolean>;
-  deleteById(id: string): Promise<void>;
 }

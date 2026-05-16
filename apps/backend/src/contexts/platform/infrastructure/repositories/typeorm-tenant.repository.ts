@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import { ITenantRepository } from '../../application/ports/tenant-repository.port';
 import { Tenant } from '../../domain/tenant.aggregate';
 import { TenantSettings } from '../../domain/value-objects/tenant-settings.vo';
@@ -25,15 +26,16 @@ export class TypeOrmTenantRepository implements ITenantRepository {
 
   async save(tenant: Tenant): Promise<void> {
     const entity = this.toEntity(tenant);
-    await this.repo.save(entity);
+    const manager = getActiveEntityManager();
+    if (manager) {
+      await manager.save(TenantEntity, entity);
+    } else {
+      await this.repo.save(entity);
+    }
   }
 
   async existsBySlug(slug: string): Promise<boolean> {
     return this.repo.existsBy({ slug });
-  }
-
-  async deleteById(id: string): Promise<void> {
-    await this.repo.delete({ id });
   }
 
   private toDomain(entity: TenantEntity): Tenant {

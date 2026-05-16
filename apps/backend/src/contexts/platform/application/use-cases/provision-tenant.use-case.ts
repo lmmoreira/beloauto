@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { uuidv7 } from '../../../../shared/domain/uuid-v7';
 import { EVENT_BUS, IEventBus } from '../../../../shared/ports/event-bus.port';
+import {
+  ITransactionManager,
+  TRANSACTION_MANAGER,
+} from '../../../../shared/ports/transaction-manager.port';
 import { HotsiteConfig } from '../../domain/hotsite-config.aggregate';
 import { TenantProvisioned } from '../../domain/events/tenant-provisioned.event';
 import { SlugAlreadyTakenError } from '../../domain/errors/platform-domain.error';
@@ -24,6 +28,7 @@ export class ProvisionTenantUseCase {
     @Inject(TENANT_REPOSITORY) private readonly tenantRepo: ITenantRepository,
     @Inject(HOTSITE_CONFIG_REPOSITORY) private readonly hotsiteRepo: IHotsiteConfigRepository,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
+    @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
   ) {}
 
   async execute(dto: ProvisionTenantDto): Promise<ProvisionTenantResult> {
@@ -34,16 +39,12 @@ export class ProvisionTenantUseCase {
     }
 
     const tenant = Tenant.create(dto.name, dto.slug, timezone);
-    await this.tenantRepo.save(tenant);
+    const config = HotsiteConfig.create(tenant.id);
 
-    try {
-      const config = HotsiteConfig.create(tenant.id);
+    await this.txManager.run(async () => {
+      await this.tenantRepo.save(tenant);
       await this.hotsiteRepo.save(config);
-    } catch (err) {
-      // Compensating action: remove the tenant row so no orphan is left
-      await this.tenantRepo.deleteById(tenant.id).catch(() => {});
-      throw err;
-    }
+    });
 
     await this.eventBus.publish(
       new TenantProvisioned(tenant.id, uuidv7(), {
