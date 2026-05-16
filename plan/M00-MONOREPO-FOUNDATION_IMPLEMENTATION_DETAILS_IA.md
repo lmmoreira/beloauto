@@ -18,7 +18,7 @@
 | BFF NestJS | `apps/bff/src/` | port 3002, global prefix `/v1`, CommonJS, SWC |
 | Web Next.js 16 | `apps/web/` | port 3000, App Router, Tailwind v4, shadcn/ui manual install |
 | Docker Compose | `docker/docker-compose.yml` | Postgres 15, Pub/Sub emulator, GCS emulator, MailHog |
-| TypeORM DataSource | `apps/backend/src/shared/database/data-source.ts` | `synchronize: false`, reads `DATABASE_URL` from `.env` |
+| TypeORM DataSource | `apps/backend/src/shared/database/data-source.ts` | `synchronize: false`, reads `DB_HOST/PORT/USER/PASSWORD/NAME` from `.env` |
 | Domain primitives | `apps/backend/src/shared/domain/` | AggregateRoot, DomainEvent (UUID v7 native), ValueObject |
 | Value objects | `apps/backend/src/shared/value-objects/` | Money (decimal.js), Address |
 | Shared DTO types | `packages/types/src/` | All BFF↔frontend contracts — never define locally |
@@ -159,6 +159,30 @@ All four infra services (Postgres, Pub/Sub emulator, GCS emulator, MailHog) run 
 | `apps/bff/.env` | `validateEnv()` in `main.ts` | BFF startup |
 | `apps/web/.env.local` | Next.js automatically | Web dev server |
 
+### Backend required DB vars
+Never use a single `DATABASE_URL` string. Use explicit fields so passwords with special characters (`@`, `:`, `/`) are never URL-encoded silently:
+```
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=beloauto
+DB_PASSWORD=beloauto
+DB_NAME=beloauto
+```
+Both `app.module.ts` (TypeOrmModule) and `data-source.ts` (TypeORM CLI) read these five vars.
+
+### TypeORM module — always use `forRootAsync`, never `forRoot`
+`TypeOrmModule.forRoot({ url: process.env['X'] })` evaluates `process.env['X']` at **import time** — before dotenv has run — so the value is always `undefined`. Use `forRootAsync`:
+```typescript
+TypeOrmModule.forRootAsync({
+  useFactory: () => ({
+    type: 'postgres',
+    host: process.env['DB_HOST'],
+    // ...
+  }),
+}),
+```
+`useFactory` runs during DI container build, after `validateEnv()` has loaded `.env`.
+
 ### BFF required vars (validation fails without these)
 `BACKEND_INTERNAL_URL`, `JWT_SECRET` (≥64 chars), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `CRON_SECRET` (≥32 chars)
 
@@ -201,7 +225,32 @@ Fixed IDs are in the `IDS` constant at the top of the file. Use these when writi
 
 ---
 
-## 10. CLAUDE.md Cross-References
+## 10. VS Code REST Client — `.http` Files
+
+Every new REST endpoint must have a request block in `apps/backend/http/<context>/<resource>.http`. The extension is `humao.rest-client` (configured in `.vscode/extensions.json`).
+
+### Variable syntax (critical — easy to get wrong)
+
+| Syntax | Reads from | When to use |
+|---|---|---|
+| `{{varName}}` | REST Client environments in `.vscode/settings.json` | `baseUrl`, `tenantId`, per-env values |
+| `{{$dotenv VAR}}` | `apps/backend/.env` (configured via `rest-client.dotenv.path`) | `PLATFORM_ADMIN_KEY`, secrets |
+| `{{$env VAR}}` | OS process environment | Almost never — not what you want |
+
+**Common mistake:** Writing `@baseUrl = {{$env backendUrl}}` instead of `@baseUrl = {{backendUrl}}`. `$env` reads OS-level vars — `backendUrl` is defined in `settings.json` under `rest-client.environmentVariables.local`, not in the OS env. The result is an empty URL and a "connection refused" error even though the server is running.
+
+### Environments
+Environments are defined in `.vscode/settings.json`:
+```json
+"rest-client.environmentVariables": {
+  "local": { "backendUrl": "http://localhost:3001", "tenantId": "..." }
+}
+```
+The developer switches environments via the status bar (bottom-right of VS Code). Always provide at least a `"local"` environment.
+
+---
+
+## 12. CLAUDE.md Cross-References
 
 | Topic | CLAUDE.md section |
 |---|---|
@@ -216,7 +265,7 @@ Fixed IDs are in the `IDS` constant at the top of the file. Use these when writi
 
 ---
 
-## 11. Common Commands (for agent scripts)
+## 13. Common Commands (for agent scripts)
 
 ```bash
 pnpm -w run infra:up          # start Docker (Postgres, Pub/Sub, GCS, MailHog)

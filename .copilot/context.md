@@ -341,6 +341,9 @@ const eventBus = { publish: jest.fn() };
 | Multiple `if (err instanceof X)` chains inside a controller method | Noisy, hard to read, inflates cognitive complexity | Extract into a `mapXxxError(err: unknown): never` helper in `infrastructure/http/` |
 | Placing a context-specific guard in `src/shared/guards/` | Implies the guard is cross-cutting when it isn't — misleads future agents | Guards protecting a single context live in `src/contexts/<context>/infrastructure/guards/` |
 | Barrel `index.ts` in `ports/` or `shared/domain/` directories | Hides which symbols come from where; grows into circular dependency risk as the codebase scales | Import directly from the specific file; blocked by `no-restricted-imports` ESLint rule (regex on import path ending) |
+| Single `DATABASE_URL` connection string for TypeORM | `pg` parses credentials out of the URL — passwords with special characters (`@`, `:`, `/`) break silently; production passwords from GCP Secret Manager use arbitrary chars | Use five explicit vars: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` — always plain strings, no URL encoding |
+| `TypeOrmModule.forRoot({ … process.env['X'] … })` | Module decorator evaluated at import time, before dotenv runs — `process.env['X']` is always `undefined` | Use `TypeOrmModule.forRootAsync({ useFactory: () => ({ … }) })` — factory runs during DI build, after dotenv |
+| `{{$env varName}}` in `.http` REST Client files | `$env` reads OS-level env vars — REST Client environment values (e.g. `backendUrl`) live in `.vscode/settings.json`, not the OS env; resolves to empty string → "connection refused" even when server is running | Use `{{varName}}` for REST Client env vars; use `{{$dotenv VAR}}` only for `.env` secrets |
 
 ---
 
