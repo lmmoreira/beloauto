@@ -6,8 +6,10 @@ config();
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().default(3001),
-  DATABASE_URL: z.string().url(),
-  PLATFORM_ADMIN_KEY: z.string().min(32, 'PLATFORM_ADMIN_KEY must be at least 32 characters'),
+  DATABASE_URL: z.string().url({ message: 'DATABASE_URL must be a valid URL' }),
+  PLATFORM_ADMIN_KEY: z
+    .string()
+    .min(32, { message: 'PLATFORM_ADMIN_KEY must be at least 32 characters' }),
   PUBSUB_EMULATOR_HOST: z.string().optional(),
   PUBSUB_PROJECT_ID: z.string().default('beloauto-local'),
   GCS_EMULATOR_HOST: z.string().optional(),

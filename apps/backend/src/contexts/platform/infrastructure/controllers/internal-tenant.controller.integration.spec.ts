@@ -57,11 +57,13 @@ describe('InternalTenantController (integration)', () => {
   });
 
   it('returns 401 for a wrong API key', async () => {
-    await request(app.getHttpServer())
+    const { body } = await request(app.getHttpServer())
       .post('/internal/tenants')
       .set('Authorization', 'Bearer wrong-key-wrong-key-wrong-key')
       .send({ name: 'Test', slug: 'test', adminEmail: 'test@test.com' })
       .expect(401);
+
+    expect(body.status).toBe(401);
   });
 
   it('returns 400 for an invalid email', async () => {
@@ -75,15 +77,17 @@ describe('InternalTenantController (integration)', () => {
   });
 
   it('returns 400 for an invalid slug format', async () => {
-    await request(app.getHttpServer())
+    const { body } = await request(app.getHttpServer())
       .post('/internal/tenants')
       .set('Authorization', AUTH)
       .send({ name: 'Test', slug: 'Invalid Slug!', adminEmail: 'test@test.com' })
       .expect(400);
+
+    expect(body.status).toBe(400);
   });
 
   it('returns 400 for an invalid IANA timezone', async () => {
-    await request(app.getHttpServer())
+    const { body } = await request(app.getHttpServer())
       .post('/internal/tenants')
       .set('Authorization', AUTH)
       .send({
@@ -93,6 +97,8 @@ describe('InternalTenantController (integration)', () => {
         timezone: 'Not/AZone',
       })
       .expect(400);
+
+    expect(body.status).toBe(400);
   });
 
   it('provisions a tenant and creates DB rows on valid request', async () => {

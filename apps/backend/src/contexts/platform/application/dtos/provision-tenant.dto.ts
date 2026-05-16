@@ -10,11 +10,11 @@ const isValidTimezone = (tz: string): boolean => {
 };
 
 export const ProvisionTenantSchema = z.object({
-  name: z.string().min(1, 'name must not be empty'),
-  slug: z
-    .string()
-    .regex(/^[a-z0-9-]+$/, 'slug must only contain lowercase letters, numbers, and hyphens'),
-  adminEmail: z.string().email('adminEmail must be a valid email'),
+  name: z.string().min(1, { message: 'name must not be empty' }),
+  slug: z.string().regex(/^[a-z0-9-]+$/, {
+    message: 'slug must only contain lowercase letters, numbers, and hyphens',
+  }),
+  adminEmail: z.string().email({ message: 'adminEmail must be a valid email' }),
   timezone: z
     .string()
     .refine(isValidTimezone, { message: 'timezone must be a valid IANA timezone' })
