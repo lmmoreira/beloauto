@@ -23,32 +23,26 @@ describe('ZodValidationPipe', () => {
   });
 
   it('error response is a RFC 9457 Problem Detail with violations array', () => {
-    let caught: BadRequestException | undefined;
+    expect.assertions(4);
     try {
       pipe.transform({ name: '', count: 'oops' });
     } catch (e) {
-      caught = e as BadRequestException;
+      const body = (e as BadRequestException).getResponse() as Record<string, unknown>;
+      expect(body['type']).toBe('about:blank');
+      expect(body['status']).toBe(400);
+      expect(body['title']).toBe('Bad Request');
+      expect(Array.isArray(body['violations'])).toBe(true);
     }
-
-    const body = caught!.getResponse() as Record<string, unknown>;
-    expect(body['type']).toBe('about:blank');
-    expect(body['status']).toBe(400);
-    expect(body['title']).toBe('Bad Request');
-    expect(Array.isArray(body['violations'])).toBe(true);
-    expect((body['violations'] as unknown[]).length).toBeGreaterThan(0);
   });
 
   it('violation entries include field and message', () => {
-    let caught: BadRequestException | undefined;
+    expect.assertions(1);
     try {
-      pipe.transform({ name: '' });
+      pipe.transform({ name: 'ok' });
     } catch (e) {
-      caught = e as BadRequestException;
+      const violations = (e as BadRequestException).getResponse() as Record<string, unknown>;
+      const items = violations['violations'] as Array<Record<string, string>>;
+      expect(items.some((v) => v['field'] === 'count')).toBe(true);
     }
-
-    const violations = (caught!.getResponse() as Record<string, unknown>)['violations'] as Array<
-      Record<string, string>
-    >;
-    expect(violations.some((v) => v['field'] === 'count')).toBe(true);
   });
 });

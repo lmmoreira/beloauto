@@ -15,8 +15,14 @@ import {
   ProvisionTenantDto,
   ProvisionTenantSchema,
 } from '../../application/dtos/provision-tenant.dto';
-import { ProvisionTenantUseCase } from '../../application/use-cases/provision-tenant.use-case';
-import { PlatformDomainError } from '../../domain/errors/platform-domain.error';
+import {
+  ProvisionTenantResult,
+  ProvisionTenantUseCase,
+} from '../../application/use-cases/provision-tenant.use-case';
+import {
+  PlatformDomainError,
+  SlugAlreadyTakenError,
+} from '../../domain/errors/platform-domain.error';
 
 @Controller('internal/tenants')
 @UseGuards(PlatformAdminGuard)
@@ -26,10 +32,19 @@ export class InternalTenantController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UsePipes(new ZodValidationPipe(ProvisionTenantSchema))
-  async provision(@Body() dto: ProvisionTenantDto) {
+  async provision(@Body() dto: ProvisionTenantDto): Promise<ProvisionTenantResult> {
     try {
       return await this.provisionTenant.execute(dto);
     } catch (err) {
+      if (err instanceof SlugAlreadyTakenError) {
+        const body: ProblemDetail = {
+          type: 'about:blank',
+          title: 'Conflict',
+          status: HttpStatus.CONFLICT,
+          detail: err.message,
+        };
+        throw new HttpException(body, HttpStatus.CONFLICT);
+      }
       if (err instanceof PlatformDomainError) {
         const body: ProblemDetail = {
           type: 'about:blank',

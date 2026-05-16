@@ -1,7 +1,7 @@
-import { HttpException } from '@nestjs/common';
 import { IEventBus } from '../../../../shared/ports/event-bus.port';
 import { InMemoryHotsiteConfigRepository } from '../../../../test/repositories/platform/in-memory-hotsite-config.repository';
 import { InMemoryTenantRepository } from '../../../../test/repositories/platform/in-memory-tenant.repository';
+import { SlugAlreadyTakenError } from '../../domain/errors/platform-domain.error';
 import { TenantProvisioned } from '../../domain/events/tenant-provisioned.event';
 import { ProvisionTenantUseCase } from './provision-tenant.use-case';
 
@@ -70,17 +70,22 @@ describe('ProvisionTenantUseCase', () => {
     expect(event.tenantId).toBe(event.data.tenantId);
   });
 
-  it('throws 409 when slug is already taken', async () => {
+  it('throws SlugAlreadyTakenError when slug is already taken', async () => {
     await useCase.execute({ name: 'A', slug: 'taken-slug', adminEmail: 'a@a.com' });
 
     await expect(
       useCase.execute({ name: 'B', slug: 'taken-slug', adminEmail: 'b@b.com' }),
-    ).rejects.toThrow(HttpException);
+    ).rejects.toThrow(SlugAlreadyTakenError);
+  });
 
-    const err = await useCase
-      .execute({ name: 'B', slug: 'taken-slug', adminEmail: 'b@b.com' })
-      .catch((e: HttpException) => e);
-    expect((err as HttpException).getStatus()).toBe(409);
+  it('compensates by deleting the tenant if hotsite save fails', async () => {
+    jest.spyOn(hotsiteRepo, 'save').mockRejectedValueOnce(new Error('db error'));
+
+    await expect(
+      useCase.execute({ name: 'A', slug: 'fail-slug', adminEmail: 'a@a.com' }),
+    ).rejects.toThrow('db error');
+
+    expect(await tenantRepo.findBySlug('fail-slug')).toBeNull();
   });
 
   it('tenant isolation — two tenants get separate hotsite configs', async () => {

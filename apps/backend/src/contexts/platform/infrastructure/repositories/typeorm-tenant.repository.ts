@@ -32,6 +32,10 @@ export class TypeOrmTenantRepository implements ITenantRepository {
     return this.repo.existsBy({ slug });
   }
 
+  async deleteById(id: string): Promise<void> {
+    await this.repo.delete({ id });
+  }
+
   private toDomain(entity: TenantEntity): Tenant {
     return Tenant.reconstitute({
       id: entity.id,

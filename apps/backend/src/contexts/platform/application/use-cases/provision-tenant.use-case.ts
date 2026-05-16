@@ -1,9 +1,9 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { uuidv7 } from '../../../../shared/domain/uuid-v7';
 import { EVENT_BUS, IEventBus } from '../../../../shared/ports/event-bus.port';
-import { ProblemDetail } from '../../../../shared/http/problem-detail';
 import { HotsiteConfig } from '../../domain/hotsite-config.aggregate';
 import { TenantProvisioned } from '../../domain/events/tenant-provisioned.event';
+import { SlugAlreadyTakenError } from '../../domain/errors/platform-domain.error';
 import { Tenant } from '../../domain/tenant.aggregate';
 import {
   HOTSITE_CONFIG_REPOSITORY,
@@ -30,20 +30,20 @@ export class ProvisionTenantUseCase {
     const timezone = dto.timezone ?? 'America/Sao_Paulo';
 
     if (await this.tenantRepo.existsBySlug(dto.slug)) {
-      const body: ProblemDetail = {
-        type: 'about:blank',
-        title: 'Conflict',
-        status: HttpStatus.CONFLICT,
-        detail: `Slug '${dto.slug}' is already in use`,
-      };
-      throw new HttpException(body, HttpStatus.CONFLICT);
+      throw new SlugAlreadyTakenError(dto.slug);
     }
 
     const tenant = Tenant.create(dto.name, dto.slug, timezone);
     await this.tenantRepo.save(tenant);
 
-    const config = HotsiteConfig.create(tenant.id);
-    await this.hotsiteRepo.save(config);
+    try {
+      const config = HotsiteConfig.create(tenant.id);
+      await this.hotsiteRepo.save(config);
+    } catch (err) {
+      // Compensating action: remove the tenant row so no orphan is left
+      await this.tenantRepo.deleteById(tenant.id).catch(() => {});
+      throw err;
+    }
 
     await this.eventBus.publish(
       new TenantProvisioned(tenant.id, uuidv7(), {

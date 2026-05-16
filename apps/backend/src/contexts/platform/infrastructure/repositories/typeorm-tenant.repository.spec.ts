@@ -14,6 +14,7 @@ describe('TypeOrmTenantRepository', () => {
       findOne: jest.fn(),
       save: jest.fn(),
       existsBy: jest.fn(),
+      delete: jest.fn(),
     } as unknown as jest.Mocked<Repository<TenantEntity>>;
     repo = new TypeOrmTenantRepository(mockRepo);
   });
@@ -91,6 +92,14 @@ describe('TypeOrmTenantRepository', () => {
     it('returns false when slug does not exist', async () => {
       mockRepo.existsBy.mockResolvedValue(false);
       expect(await repo.existsBySlug('nao-existe')).toBe(false);
+    });
+  });
+
+  describe('deleteById', () => {
+    it('delegates to repo.delete with the id', async () => {
+      (mockRepo.delete as jest.Mock).mockResolvedValue({ affected: 1 });
+      await repo.deleteById('tenant-id-1');
+      expect(mockRepo.delete).toHaveBeenCalledWith({ id: 'tenant-id-1' });
     });
   });
 });
