@@ -9,7 +9,13 @@ const isValidTimezone = (tz: string): boolean => {
   }
 };
 
-const isValidEmail = (val: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+const isValidEmail = (val: string): boolean => {
+  const atIdx = val.indexOf('@');
+  if (atIdx <= 0) return false;
+  const domain = val.slice(atIdx + 1);
+  const dotIdx = domain.lastIndexOf('.');
+  return domain.length > 0 && dotIdx > 0 && dotIdx < domain.length - 1;
+};
 
 export const ProvisionTenantSchema = z.object({
   name: z.string().min(1, { message: 'name must not be empty' }),
