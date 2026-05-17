@@ -81,6 +81,14 @@ export class Tenant extends AggregateRoot {
     this.props.updatedAt = new Date();
   }
 
+  updateName(name: string): void {
+    if (!name || name.trim().length === 0) {
+      throw new PlatformDomainError('Tenant name must not be empty');
+    }
+    this.props.name = name.trim();
+    this.props.updatedAt = new Date();
+  }
+
   deactivate(): void {
     this.props.isActive = false;
     this.props.updatedAt = new Date();

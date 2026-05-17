@@ -11,3 +11,10 @@ export class SlugAlreadyTakenError extends PlatformDomainError {
     this.name = 'SlugAlreadyTakenError';
   }
 }
+
+export class TenantNotFoundError extends PlatformDomainError {
+  constructor(tenantId: string) {
+    super(`Tenant '${tenantId}' not found`);
+    this.name = 'TenantNotFoundError';
+  }
+}

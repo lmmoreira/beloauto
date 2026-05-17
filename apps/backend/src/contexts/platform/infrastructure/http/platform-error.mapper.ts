@@ -3,6 +3,7 @@ import { ProblemDetail } from '../../../../shared/http/problem-detail';
 import {
   PlatformDomainError,
   SlugAlreadyTakenError,
+  TenantNotFoundError,
 } from '../../domain/errors/platform-domain.error';
 
 export function mapPlatformError(err: unknown): never {
@@ -14,6 +15,15 @@ export function mapPlatformError(err: unknown): never {
       detail: err.message,
     };
     throw new HttpException(body, HttpStatus.CONFLICT);
+  }
+  if (err instanceof TenantNotFoundError) {
+    const body: ProblemDetail = {
+      type: 'about:blank',
+      title: 'Not Found',
+      status: HttpStatus.NOT_FOUND,
+      detail: err.message,
+    };
+    throw new HttpException(body, HttpStatus.NOT_FOUND);
   }
   if (err instanceof PlatformDomainError) {
     const body: ProblemDetail = {
