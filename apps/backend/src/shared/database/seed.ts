@@ -55,7 +55,7 @@ const TENANT_SETTINGS = {
     thursday: { open: '08:00', close: '18:00' },
     friday: { open: '08:00', close: '18:00' },
     saturday: { open: '08:00', close: '14:00' },
-    sunday: null, // closed — null means closed, not { closed: true }
+    sunday: null,
   },
   localization: {
     currency: 'BRL',
@@ -93,8 +93,6 @@ async function seed(): Promise<void> {
   await q.startTransaction();
 
   try {
-    await ensureSchemas(q);
-
     const alreadySeeded = (await q.query(
       `SELECT EXISTS(SELECT 1 FROM platform.tenants WHERE id = $1) AS exists`,
       [IDS.tenantA],
@@ -124,145 +122,7 @@ async function seed(): Promise<void> {
   }
 }
 
-// ── Schema bootstrap (CREATE TABLE IF NOT EXISTS — mirrors migration definitions) ─
-
-async function ensureSchemas(q: ReturnType<DataSource['createQueryRunner']>): Promise<void> {
-  // Schemas
-  for (const schema of ['platform', 'customer', 'staff', 'booking', 'loyalty']) {
-    await q.query(`CREATE SCHEMA IF NOT EXISTS "${schema}"`);
-  }
-
-  // platform.tenants — matches CreatePlatformTenants1716500000001
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS platform.tenants (
-      id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-      name        VARCHAR(255) NOT NULL,
-      slug        VARCHAR(100) NOT NULL,
-      settings    JSONB        NOT NULL DEFAULT '{}',
-      is_active   BOOLEAN      NOT NULL DEFAULT true,
-      created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-      updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-      CONSTRAINT "UQ_platform_tenants_slug" UNIQUE (slug)
-    )
-  `);
-
-  // platform.hotsite_configs — matches CreatePlatformHotsiteConfigs1716500000002
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS platform.hotsite_configs (
-      id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id    UUID        NOT NULL REFERENCES platform.tenants(id),
-      branding     JSONB       NOT NULL DEFAULT '{}',
-      layout       JSONB       NOT NULL DEFAULT '[]',
-      is_published BOOLEAN     NOT NULL DEFAULT false,
-      created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-      CONSTRAINT "UQ_platform_hotsite_configs_tenant_id" UNIQUE (tenant_id)
-    )
-  `);
-
-  // customer.customers — matches CreateCustomerCustomers1716600000001
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS customer.customers (
-      id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id        UUID         NOT NULL,
-      google_oauth_id  VARCHAR(255) NOT NULL,
-      email            VARCHAR(255) NOT NULL,
-      name             VARCHAR(255) NOT NULL,
-      phone            VARCHAR(20),
-      default_address  JSONB,
-      created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
-      updated_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
-    )
-  `);
-  await q.query(`
-    CREATE INDEX IF NOT EXISTS "IDX_customer_customers_tenant_id"
-      ON customer.customers (tenant_id)
-  `);
-  await q.query(`
-    CREATE INDEX IF NOT EXISTS "IDX_customer_customers_tenant_oauth"
-      ON customer.customers (tenant_id, google_oauth_id)
-  `);
-
-  // staff.staff — placeholder until M03-S02 migration
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS staff.staff (
-      id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id        UUID         NOT NULL,
-      google_oauth_id  VARCHAR(255),
-      email            VARCHAR(255) NOT NULL,
-      role             VARCHAR(20)  NOT NULL CHECK (role IN ('MANAGER','STAFF')),
-      is_active        BOOLEAN      NOT NULL DEFAULT false,
-      created_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
-      updated_at       TIMESTAMPTZ  NOT NULL DEFAULT now(),
-      CONSTRAINT "UQ_staff_staff_tenant_oauth" UNIQUE (tenant_id, google_oauth_id)
-    )
-  `);
-
-  // booking.services — placeholder until M05
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS booking.services (
-      id                      UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id               UUID          NOT NULL,
-      name                    VARCHAR(255)  NOT NULL,
-      description             TEXT,
-      price_amount            NUMERIC(10,2) NOT NULL,
-      price_currency          VARCHAR(10)   NOT NULL DEFAULT 'BRL',
-      duration_minutes        INTEGER       NOT NULL,
-      loyalty_points          INTEGER       NOT NULL DEFAULT 0,
-      requires_pickup_address BOOLEAN       NOT NULL DEFAULT false,
-      is_active               BOOLEAN       NOT NULL DEFAULT true,
-      created_at              TIMESTAMPTZ   NOT NULL DEFAULT now(),
-      updated_at              TIMESTAMPTZ   NOT NULL DEFAULT now()
-    )
-  `);
-
-  // booking.bookings — placeholder until M07
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS booking.bookings (
-      id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id     UUID         NOT NULL,
-      customer_id   UUID,
-      type          VARCHAR(20)  NOT NULL,
-      status        VARCHAR(30)  NOT NULL,
-      scheduled_at  TIMESTAMPTZ  NOT NULL,
-      vehicle_plate VARCHAR(20)  NOT NULL,
-      vehicle_model VARCHAR(100),
-      notes         TEXT,
-      created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-      updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
-    )
-  `);
-
-  // booking.booking_lines — placeholder until M07
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS booking.booking_lines (
-      id                    UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id             UUID          NOT NULL,
-      booking_id            UUID          NOT NULL,
-      service_id            UUID          NOT NULL,
-      price_amount          NUMERIC(10,2) NOT NULL,
-      price_currency        VARCHAR(10)   NOT NULL DEFAULT 'BRL',
-      loyalty_points_earned INTEGER       NOT NULL DEFAULT 0
-    )
-  `);
-
-  // loyalty.loyalty_entries — placeholder until M10
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS loyalty.loyalty_entries (
-      id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id        UUID        NOT NULL,
-      customer_id      UUID        NOT NULL,
-      booking_id       UUID        NOT NULL,
-      booking_line_id  UUID        NOT NULL,
-      points           INTEGER     NOT NULL,
-      expires_at       TIMESTAMPTZ NOT NULL,
-      earned_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-      CONSTRAINT "UQ_loyalty_entries_tenant_line" UNIQUE (tenant_id, booking_line_id)
-    )
-  `);
-}
-
-// ── Seed functions ────────────────────────────────────────────────────────────
+// ── Seed functions — pure data insertion, schema is owned by migrations ──────
 
 async function seedTenants(q: ReturnType<DataSource['createQueryRunner']>): Promise<void> {
   const settings = JSON.stringify(TENANT_SETTINGS);
@@ -287,7 +147,6 @@ async function seedHotsites(q: ReturnType<DataSource['createQueryRunner']>): Pro
     { type: 'HERO', order: 1 },
     { type: 'SERVICE_LIST', order: 2 },
   ]);
-
   await q.query(
     `INSERT INTO platform.hotsite_configs (id, tenant_id, branding, layout, is_published) VALUES
       ($1, $3, $5, $7, true),
