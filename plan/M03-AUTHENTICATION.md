@@ -11,7 +11,7 @@
 
 ---
 
-### M03-S01 — Customer domain layer + migration
+### M03-S01 — Customer domain layer + migration ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
