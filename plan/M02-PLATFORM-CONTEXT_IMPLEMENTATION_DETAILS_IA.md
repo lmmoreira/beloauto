@@ -35,6 +35,8 @@
 | HTTP test files | `apps/backend/http/platform/` | `internal-tenants.http`, `tenant-settings.http` |
 | Test builders | `src/test/builders/platform/` | `TenantBuilder`, `HotsiteConfigBuilder`, `TenantSettingsPropsBuilder`, `TenantEntityBuilder`, `HotsiteConfigEntityBuilder` |
 | In-memory repos | `src/test/repositories/platform/` | `InMemoryTenantRepository`, `InMemoryHotsiteConfigRepository` |
+| deepMerge utility | `src/shared/utils/deep-merge.ts` | Wraps `deepmerge` npm package; `DeepPartial<T>` typed — **import from here, never re-implement** |
+| Email value object | `src/shared/value-objects/email.vo.ts` | `Email.isValid(str)` + `Email.create(str)` — **import from here for all email validation across all contexts** |
 
 ---
 

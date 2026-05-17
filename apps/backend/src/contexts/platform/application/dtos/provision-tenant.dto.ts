@@ -1,24 +1,17 @@
 import { z } from 'zod';
 import { Email } from '../../../../shared/value-objects/email.vo';
-
-const isValidTimezone = (tz: string): boolean => {
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-};
+import { Slug } from '../../../../shared/value-objects/slug.vo';
+import { Timezone } from '../../../../shared/value-objects/timezone.vo';
 
 export const ProvisionTenantSchema = z.object({
   name: z.string().min(1, { message: 'name must not be empty' }),
-  slug: z.string().regex(/^[a-z0-9-]+$/, {
+  slug: z.string().refine(Slug.isValid, {
     message: 'slug must only contain lowercase letters, numbers, and hyphens',
   }),
   adminEmail: z.string().refine(Email.isValid, { message: 'adminEmail must be a valid email' }),
   timezone: z
     .string()
-    .refine(isValidTimezone, { message: 'timezone must be a valid IANA timezone' })
+    .refine(Timezone.isValid, { message: 'timezone must be a valid IANA timezone' })
     .optional(),
 });
 

@@ -171,6 +171,28 @@ src/contexts/<context>/
 ```
 Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, tenant-context).
 
+### Shared utilities and value objects (mandatory rules)
+
+**Utility functions used in more than one place MUST live in `src/shared/utils/`** — never duplicated inline.
+Examples already there: `deepMerge` (`src/shared/utils/deep-merge.ts`).
+When you find a helper (validation, formatting, transformation) repeated across files, extract it immediately.
+
+**Fields that carry their own validation MUST be value objects in `src/shared/value-objects/`**, not plain primitives.
+The rule: if a string needs to be validated before it is accepted anywhere in the domain, it is a value object.
+
+| Field | Value Object | Why |
+|---|---|---|
+| Email address | `Email` | format validation (`@`, domain, TLD) |
+| Phone number | `PhoneNumber` | format validation (digits, length, country code) |
+| Physical address | `Address` | structured fields (street, city, zip, country) |
+| Money amount | `Money` | currency code + decimal precision — never a plain `number` |
+| Hex colour | `HexColor` | must match `#RRGGBB` format |
+| IANA timezone | `Timezone` | must be a valid Olson tz identifier |
+
+These live in `src/shared/value-objects/` and are imported by any context that needs them.
+Every value object must have a `.spec.ts` unit test covering valid and invalid inputs.
+Never duplicate a `isValidXxx` function — extract it into the shared value object once.
+
 ### Code standards
 - `strict: true` TypeScript — no `any`, no `@ts-ignore`, no `// eslint-disable`
 - Functions ≤ 20 lines, classes ≤ 200 lines
@@ -345,6 +367,9 @@ const eventBus = { publish: jest.fn() };
 | Single `DATABASE_URL` connection string for TypeORM | `pg` parses credentials out of the URL — passwords with special characters (`@`, `:`, `/`) break silently; production passwords from GCP Secret Manager use arbitrary chars | Use five explicit vars: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` — always plain strings, no URL encoding |
 | `TypeOrmModule.forRoot({ … process.env['X'] … })` | Module decorator evaluated at import time, before dotenv runs — `process.env['X']` is always `undefined` | Use `TypeOrmModule.forRootAsync({ useFactory: () => ({ … }) })` — factory runs during DI build, after dotenv |
 | `{{$env varName}}` in `.http` REST Client files | `$env` reads OS-level env vars — REST Client environment values (e.g. `backendUrl`) live in `.vscode/settings.json`, not the OS env; resolves to empty string → "connection refused" even when server is running | Use `{{varName}}` for REST Client env vars; use `{{$dotenv VAR}}` only for `.env` secrets |
+| Duplicating a validation function (`isValidEmail`, `isValidTimezone`, etc.) across files | Validation drift — two copies diverge silently; bug fixed in one place, missed in another | Extract into a shared value object (`Email`, `Timezone`, etc.) in `src/shared/value-objects/` with a single `.spec.ts` |
+| Storing email, phone, address, money, colour as a plain `string` / `number` | Primitives carry no validation — invalid values reach the domain silently | Wrap in a value object (`Email`, `PhoneNumber`, `Address`, `Money`, `HexColor`) that validates on construction |
+| Duplicating a utility function (deep merge, formatting, etc.) across use cases or contexts | Two copies diverge; the second author doesn't know the first exists | Extract into `src/shared/utils/` with a unit test; all callers import from the same place |
 
 ---
 

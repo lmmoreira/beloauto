@@ -1,6 +1,7 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
 import { Email } from '../../../shared/value-objects/email.vo';
+import { PhoneNumber } from '../../../shared/value-objects/phone-number.vo';
 import { CustomerDomainError } from './errors/customer-domain.error';
 
 export interface CustomerProps {
@@ -81,8 +82,13 @@ export class Customer extends AggregateRoot {
     defaultAddress: Record<string, unknown> | null,
   ): void {
     if (!name || name.trim().length === 0) throw new CustomerDomainError('name must not be empty');
+    if (phone !== null && !PhoneNumber.isValid(phone)) {
+      throw new CustomerDomainError(
+        'phone must be a valid Brazilian phone number (10 or 11 digits)',
+      );
+    }
     this.props.name = name.trim();
-    this.props.phone = phone;
+    this.props.phone = phone !== null ? PhoneNumber.create(phone).value : null;
     this.props.defaultAddress = defaultAddress;
     this.props.updatedAt = new Date();
   }

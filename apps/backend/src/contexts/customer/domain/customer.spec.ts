@@ -49,9 +49,10 @@ describe('Customer', () => {
 
   it('updateProfile updates name, phone, and address', () => {
     const c = Customer.create(...validArgs);
-    c.updateProfile('Novo Nome', '+5511999990000', { street: 'Rua A' });
+    c.updateProfile('Novo Nome', '(11) 99999-0000', { street: 'Rua A' });
     expect(c.name).toBe('Novo Nome');
-    expect(c.phone).toBe('+5511999990000');
+    // PhoneNumber.create normalises to digits only
+    expect(c.phone).toBe('11999990000');
     expect(c.defaultAddress).toEqual({ street: 'Rua A' });
   });
 
@@ -65,5 +66,10 @@ describe('Customer', () => {
   it('updateProfile throws when name is empty', () => {
     const c = Customer.create(...validArgs);
     expect(() => c.updateProfile('', null, null)).toThrow(CustomerDomainError);
+  });
+
+  it('updateProfile throws when phone is invalid', () => {
+    const c = Customer.create(...validArgs);
+    expect(() => c.updateProfile('Nome', '123', null)).toThrow(CustomerDomainError);
   });
 });

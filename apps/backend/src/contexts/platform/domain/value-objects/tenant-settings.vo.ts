@@ -1,3 +1,5 @@
+import { TimeOfDay } from '../../../../shared/value-objects/time-of-day.vo';
+import { Timezone } from '../../../../shared/value-objects/timezone.vo';
 import { PlatformDomainError } from '../errors/platform-domain.error';
 
 export type DayHours = { open: string; close: string } | null;
@@ -40,19 +42,6 @@ export interface TenantSettingsProps {
   booking: BookingSettings;
   business_hours: BusinessHours;
   localization: LocalizationSettings;
-}
-
-function isValidIanaTimezone(tz: string): boolean {
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isValidHhmm(time: string): boolean {
-  return /^\d{2}:\d{2}$/.test(time);
 }
 
 export class TenantSettings {
@@ -154,7 +143,7 @@ export class TenantSettings {
       throw new PlatformDomainError('booking.slot_granularity_minutes must be 15, 30, or 60');
     }
 
-    if (!isValidIanaTimezone(business_hours.timezone)) {
+    if (!Timezone.isValid(business_hours.timezone)) {
       throw new PlatformDomainError(`Invalid IANA timezone: ${business_hours.timezone}`);
     }
 
@@ -170,7 +159,7 @@ export class TenantSettings {
     for (const day of days) {
       const hours = business_hours[day];
       if (hours !== null && hours !== undefined) {
-        if (!isValidHhmm(hours.open) || !isValidHhmm(hours.close)) {
+        if (!TimeOfDay.isValid(hours.open) || !TimeOfDay.isValid(hours.close)) {
           throw new PlatformDomainError(`business_hours.${day}: open/close must be HH:MM format`);
         }
         if (hours.close <= hours.open) {
