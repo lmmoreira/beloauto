@@ -88,7 +88,7 @@ export class Customer extends AggregateRoot {
       );
     }
     this.props.name = name.trim();
-    this.props.phone = phone !== null ? PhoneNumber.create(phone).value : null;
+    this.props.phone = phone === null ? null : PhoneNumber.create(phone).value;
     this.props.defaultAddress = defaultAddress;
     this.props.updatedAt = new Date();
   }

@@ -115,8 +115,12 @@ export class TenantSettings {
   }
 
   private static validate(props: TenantSettingsProps): void {
-    const { loyalty, booking, business_hours } = props;
+    TenantSettings.validateLoyalty(props.loyalty);
+    TenantSettings.validateBooking(props.booking);
+    TenantSettings.validateBusinessHours(props.business_hours);
+  }
 
+  private static validateLoyalty(loyalty: LoyaltySettings): void {
     if (loyalty.expiry_days < 1 || loyalty.expiry_days > 3650) {
       throw new PlatformDomainError('loyalty.expiry_days must be between 1 and 3650');
     }
@@ -126,7 +130,9 @@ export class TenantSettings {
     if (loyalty.expiry_warning_days >= loyalty.expiry_days) {
       throw new PlatformDomainError('loyalty.expiry_warning_days must be less than expiry_days');
     }
+  }
 
+  private static validateBooking(booking: BookingSettings): void {
     if (booking.cancellation_window_hours < 0 || booking.cancellation_window_hours > 720) {
       throw new PlatformDomainError('booking.cancellation_window_hours must be between 0 and 720');
     }
@@ -142,11 +148,12 @@ export class TenantSettings {
     if (![15, 30, 60].includes(booking.slot_granularity_minutes)) {
       throw new PlatformDomainError('booking.slot_granularity_minutes must be 15, 30, or 60');
     }
+  }
 
-    if (!Timezone.isValid(business_hours.timezone)) {
-      throw new PlatformDomainError(`Invalid IANA timezone: ${business_hours.timezone}`);
+  private static validateBusinessHours(businessHours: BusinessHours): void {
+    if (!Timezone.isValid(businessHours.timezone)) {
+      throw new PlatformDomainError(`Invalid IANA timezone: ${businessHours.timezone}`);
     }
-
     const days = [
       'monday',
       'tuesday',
@@ -157,15 +164,17 @@ export class TenantSettings {
       'sunday',
     ] as const;
     for (const day of days) {
-      const hours = business_hours[day];
-      if (hours !== null && hours !== undefined) {
-        if (!TimeOfDay.isValid(hours.open) || !TimeOfDay.isValid(hours.close)) {
-          throw new PlatformDomainError(`business_hours.${day}: open/close must be HH:MM format`);
-        }
-        if (hours.close <= hours.open) {
-          throw new PlatformDomainError(`business_hours.${day}: close must be after open`);
-        }
-      }
+      TenantSettings.validateDayHours(day, businessHours[day]);
+    }
+  }
+
+  private static validateDayHours(day: string, hours: DayHours): void {
+    if (hours === null || hours === undefined) return;
+    if (!TimeOfDay.isValid(hours.open) || !TimeOfDay.isValid(hours.close)) {
+      throw new PlatformDomainError(`business_hours.${day}: open/close must be HH:MM format`);
+    }
+    if (hours.close <= hours.open) {
+      throw new PlatformDomainError(`business_hours.${day}: close must be after open`);
     }
   }
 }
