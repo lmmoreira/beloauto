@@ -1,0 +1,15 @@
+import { Customer } from '../../domain/customer.aggregate';
+
+export const CUSTOMER_REPOSITORY = Symbol('ICustomerRepository');
+
+export interface CustomerTenantSummary {
+  tenantId: string;
+  tenantSlug: string;
+  activePoints: number;
+}
+
+export interface ICustomerRepository {
+  findByTenantAndOAuthId(tenantId: string, googleOAuthId: string): Promise<Customer | null>;
+  findAllTenantsByOAuthId(googleOAuthId: string): Promise<CustomerTenantSummary[]>;
+  save(customer: Customer): Promise<void>;
+}
