@@ -1,0 +1,32 @@
+import {
+  CustomerTenantSummary,
+  ICustomerRepository,
+} from '../../../contexts/customer/application/ports/customer-repository.port';
+import { Customer } from '../../../contexts/customer/domain/customer.aggregate';
+
+export class InMemoryCustomerRepository implements ICustomerRepository {
+  private readonly store = new Map<string, Customer>();
+
+  async findByTenantAndOAuthId(tenantId: string, googleOAuthId: string): Promise<Customer | null> {
+    for (const customer of this.store.values()) {
+      if (customer.tenantId === tenantId && customer.googleOAuthId === googleOAuthId) {
+        return customer;
+      }
+    }
+    return null;
+  }
+
+  async findAllTenantsByOAuthId(googleOAuthId: string): Promise<CustomerTenantSummary[]> {
+    const results: CustomerTenantSummary[] = [];
+    for (const customer of this.store.values()) {
+      if (customer.googleOAuthId === googleOAuthId) {
+        results.push({ tenantId: customer.tenantId, tenantSlug: '', activePoints: 0 });
+      }
+    }
+    return results;
+  }
+
+  async save(customer: Customer): Promise<void> {
+    this.store.set(customer.id, customer);
+  }
+}

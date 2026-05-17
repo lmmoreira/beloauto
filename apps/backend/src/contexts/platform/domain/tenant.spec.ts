@@ -7,7 +7,7 @@ describe('Tenant', () => {
     it('creates a valid tenant with all required fields', () => {
       const tenant = new TenantBuilder().build();
       expect(tenant.name).toBe('BeloAuto');
-      expect(tenant.slug).toBe('beloauto');
+      expect(tenant.slug.value).toBe('beloauto');
       expect(tenant.isActive).toBe(true);
       expect(tenant.id).toMatch(/^[0-9a-f-]{36}$/);
       expect(tenant.createdAt).toBeInstanceOf(Date);

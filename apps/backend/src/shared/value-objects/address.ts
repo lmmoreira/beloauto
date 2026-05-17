@@ -1,6 +1,6 @@
 import { ValueObject } from '../domain/value-object';
 
-interface AddressProps {
+export interface AddressProps {
   street: string;
   number: string;
   complement?: string;
@@ -19,6 +19,14 @@ export class Address extends ValueObject<AddressProps> {
     const zip = props.zipCode.replace(/\D/g, '');
     if (zip.length !== 8) throw new Error(`Invalid CEP: ${props.zipCode}`);
     return new Address({ ...props, zipCode: zip });
+  }
+
+  static reconstitute(props: AddressProps): Address {
+    return new Address(props);
+  }
+
+  toJSON(): AddressProps {
+    return { ...this.props };
   }
 
   get street(): string {

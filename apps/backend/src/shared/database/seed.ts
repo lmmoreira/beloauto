@@ -32,27 +32,57 @@ const IDS = {
   loyaltyEntry: '00000000-0000-7000-8007-000000000001',
 };
 
+// Matches TenantSettingsProps exactly — snake_case keys, null for closed days
 const TENANT_SETTINGS = {
-  timezone: 'America/Sao_Paulo',
-  booking: { cancellationWindowHours: 48, maxAdvanceBookingDays: 30 },
-  loyalty: { expiryDays: 180 },
-  businessHours: {
-    monday: { open: '08:00', close: '18:00', closed: false },
-    tuesday: { open: '08:00', close: '18:00', closed: false },
-    wednesday: { open: '08:00', close: '18:00', closed: false },
-    thursday: { open: '08:00', close: '18:00', closed: false },
-    friday: { open: '08:00', close: '18:00', closed: false },
-    saturday: { open: '08:00', close: '18:00', closed: false },
-    sunday: { open: '00:00', close: '00:00', closed: true },
+  loyalty: {
+    expiry_days: 180,
+    enable_notifications: true,
+    expiry_warning_days: 7,
+  },
+  booking: {
+    cancellation_window_hours: 48,
+    auto_approve_enabled: false,
+    min_booking_advance_hours: 0,
+    max_booking_advance_days: 90,
+    service_buffer_minutes: 60,
+    slot_granularity_minutes: 30,
+  },
+  business_hours: {
+    timezone: 'America/Sao_Paulo',
+    monday: { open: '08:00', close: '18:00' },
+    tuesday: { open: '08:00', close: '18:00' },
+    wednesday: { open: '08:00', close: '18:00' },
+    thursday: { open: '08:00', close: '18:00' },
+    friday: { open: '08:00', close: '18:00' },
+    saturday: { open: '08:00', close: '14:00' },
+    sunday: null,
+  },
+  localization: {
+    currency: 'BRL',
+    currency_symbol: 'R$',
+    language: 'pt-BR',
+    decimal_places: 2,
   },
 };
 
 async function seed(): Promise<void> {
-  if (!process.env['DATABASE_URL']) throw new Error('DATABASE_URL is required');
+  const host = process.env['DB_HOST'];
+  const port = Number(process.env['DB_PORT'] ?? 5432);
+  const username = process.env['DB_USER'];
+  const password = process.env['DB_PASSWORD'];
+  const database = process.env['DB_NAME'];
+
+  if (!host || !username || !password || !database) {
+    throw new Error('DB_HOST, DB_USER, DB_PASSWORD, DB_NAME are required');
+  }
 
   const ds = new DataSource({
     type: 'postgres',
-    url: process.env['DATABASE_URL'],
+    host,
+    port,
+    username,
+    password,
+    database,
     synchronize: false,
     migrationsRun: false,
   });
@@ -63,8 +93,6 @@ async function seed(): Promise<void> {
   await q.startTransaction();
 
   try {
-    await createSchema(q);
-
     const alreadySeeded = (await q.query(
       `SELECT EXISTS(SELECT 1 FROM platform.tenants WHERE id = $1) AS exists`,
       [IDS.tenantA],
@@ -73,14 +101,14 @@ async function seed(): Promise<void> {
     if (alreadySeeded[0]?.exists) {
       process.stdout.write('✓ Database already seeded — skipping.\n');
       await q.rollbackTransaction();
-      return; // finally block handles release + destroy
+      return;
     }
 
     await seedTenants(q);
+    await seedHotsites(q);
     await seedStaff(q);
     await seedCustomers(q);
     await seedServices(q);
-    await seedHotsites(q);
     await seedBookings(q);
 
     await q.commitTransaction();
@@ -94,140 +122,46 @@ async function seed(): Promise<void> {
   }
 }
 
-// ── Schema (CREATE TABLE IF NOT EXISTS — safe to run with or without migrations) ─
-
-async function createSchema(q: ReturnType<DataSource['createQueryRunner']>): Promise<void> {
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS platform.tenants (
-      id          UUID PRIMARY KEY,
-      slug        TEXT NOT NULL UNIQUE,
-      name        TEXT NOT NULL,
-      settings    JSONB NOT NULL DEFAULT '{}',
-      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS platform.hotsite_configs (
-      id              UUID PRIMARY KEY,
-      tenant_id       UUID NOT NULL REFERENCES platform.tenants(id),
-      tenant_slug     TEXT NOT NULL,
-      tenant_name     TEXT NOT NULL,
-      logo_url        TEXT,
-      primary_color   TEXT,
-      modules         JSONB NOT NULL DEFAULT '[]',
-      is_published    BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS staff.staff (
-      id               UUID PRIMARY KEY,
-      tenant_id        UUID NOT NULL,
-      email            TEXT NOT NULL,
-      name             TEXT NOT NULL,
-      role             TEXT NOT NULL,
-      google_oauth_id  TEXT,
-      is_active        BOOLEAN NOT NULL DEFAULT TRUE,
-      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(tenant_id, google_oauth_id)
-    )
-  `);
-
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS customer.customers (
-      id               UUID PRIMARY KEY,
-      tenant_id        UUID NOT NULL,
-      email            TEXT NOT NULL,
-      name             TEXT NOT NULL,
-      google_oauth_id  TEXT,
-      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS booking.services (
-      id                       UUID PRIMARY KEY,
-      tenant_id                UUID NOT NULL,
-      name                     TEXT NOT NULL,
-      description              TEXT,
-      price_amount             NUMERIC(10,2) NOT NULL,
-      price_currency           TEXT NOT NULL DEFAULT 'BRL',
-      duration_minutes         INTEGER NOT NULL,
-      loyalty_points           INTEGER NOT NULL DEFAULT 0,
-      requires_pickup_address  BOOLEAN NOT NULL DEFAULT FALSE,
-      is_active                BOOLEAN NOT NULL DEFAULT TRUE,
-      created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS booking.bookings (
-      id              UUID PRIMARY KEY,
-      tenant_id       UUID NOT NULL,
-      customer_id     UUID,
-      type            TEXT NOT NULL,
-      status          TEXT NOT NULL,
-      scheduled_at    TIMESTAMPTZ NOT NULL,
-      vehicle_plate   TEXT NOT NULL,
-      vehicle_model   TEXT,
-      notes           TEXT,
-      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS booking.booking_lines (
-      id                     UUID PRIMARY KEY,
-      tenant_id              UUID NOT NULL,
-      booking_id             UUID NOT NULL,
-      service_id             UUID NOT NULL,
-      price_amount           NUMERIC(10,2) NOT NULL,
-      price_currency         TEXT NOT NULL DEFAULT 'BRL',
-      loyalty_points_earned  INTEGER NOT NULL DEFAULT 0
-    )
-  `);
-
-  await q.query(`
-    CREATE TABLE IF NOT EXISTS loyalty.loyalty_entries (
-      id               UUID PRIMARY KEY,
-      tenant_id        UUID NOT NULL,
-      booking_id       UUID NOT NULL,
-      booking_line_id  UUID NOT NULL,
-      points           INTEGER NOT NULL,
-      expires_at       TIMESTAMPTZ NOT NULL,
-      earned_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(tenant_id, booking_line_id)
-    )
-  `);
-}
-
-// ── Seed functions ────────────────────────────────────────────────────────────
+// ── Seed functions — pure data insertion, schema is owned by migrations ──────
 
 async function seedTenants(q: ReturnType<DataSource['createQueryRunner']>): Promise<void> {
   const settings = JSON.stringify(TENANT_SETTINGS);
   await q.query(
-    `INSERT INTO platform.tenants (id, slug, name, settings) VALUES
-      ($1, 'lavacar-beloauto', 'Lavacar BeloAuto', $3),
-      ($2, 'autospa-premium',  'AutoSpa Premium',  $3)
+    `INSERT INTO platform.tenants (id, name, slug, settings, is_active) VALUES
+      ($1, 'Lavacar BeloAuto', 'lavacar-beloauto', $3, true),
+      ($2, 'AutoSpa Premium',  'autospa-premium',  $3, true)
     ON CONFLICT (id) DO NOTHING`,
     [IDS.tenantA, IDS.tenantB, settings],
   );
 }
 
+async function seedHotsites(q: ReturnType<DataSource['createQueryRunner']>): Promise<void> {
+  const brandingA = JSON.stringify({ primaryColor: '#0055A4', logoUrl: null });
+  const brandingB = JSON.stringify({ primaryColor: '#C8102E', logoUrl: null });
+  const layoutA = JSON.stringify([
+    { type: 'HERO', order: 1 },
+    { type: 'SERVICE_LIST', order: 2 },
+    { type: 'BOOKING_CTA', order: 3 },
+  ]);
+  const layoutB = JSON.stringify([
+    { type: 'HERO', order: 1 },
+    { type: 'SERVICE_LIST', order: 2 },
+  ]);
+  await q.query(
+    `INSERT INTO platform.hotsite_configs (id, tenant_id, branding, layout, is_published) VALUES
+      ($1, $3, $5, $7, true),
+      ($2, $4, $6, $8, true)
+    ON CONFLICT (id) DO NOTHING`,
+    [IDS.hotsiteA, IDS.hotsiteB, IDS.tenantA, IDS.tenantB, brandingA, brandingB, layoutA, layoutB],
+  );
+}
+
 async function seedStaff(q: ReturnType<DataSource['createQueryRunner']>): Promise<void> {
   await q.query(
-    `INSERT INTO staff.staff (id, tenant_id, email, name, role, google_oauth_id) VALUES
-      ($1, $4, 'admin@lavacar.com.br',       'Admin Lavacar',  'MANAGER', 'google-sub-admin-a'),
-      ($2, $4, 'funcionario@lavacar.com.br', 'Funcionário',    'STAFF',   'google-sub-worker-a'),
-      ($3, $5, 'admin@autospa.com.br',       'Admin AutoSpa',  'MANAGER', 'google-sub-admin-b')
+    `INSERT INTO staff.staff (id, tenant_id, email, role, google_oauth_id, is_active) VALUES
+      ($1, $4, 'admin@lavacar.com.br',       'MANAGER', 'google-sub-admin-a',  true),
+      ($2, $4, 'funcionario@lavacar.com.br', 'STAFF',   'google-sub-worker-a', true),
+      ($3, $5, 'admin@autospa.com.br',       'MANAGER', 'google-sub-admin-b',  true)
     ON CONFLICT (id) DO NOTHING`,
     [IDS.staffAdminA, IDS.staffWorkerA, IDS.staffAdminB, IDS.tenantA, IDS.tenantB],
   );
@@ -235,9 +169,10 @@ async function seedStaff(q: ReturnType<DataSource['createQueryRunner']>): Promis
 
 async function seedCustomers(q: ReturnType<DataSource['createQueryRunner']>): Promise<void> {
   await q.query(
-    `INSERT INTO customer.customers (id, tenant_id, email, name, google_oauth_id) VALUES
-      ($1, $3, 'cliente@email.com.br', 'Cliente Teste', 'google-sub-customer-a'),
-      ($2, $4, 'cliente@email.com.br', 'Cliente Teste', 'google-sub-customer-a')
+    `INSERT INTO customer.customers
+      (id, tenant_id, google_oauth_id, email, name, phone, default_address) VALUES
+      ($1, $3, 'google-sub-customer-a', 'cliente@email.com.br', 'Cliente Teste', NULL, NULL),
+      ($2, $4, 'google-sub-customer-a', 'cliente@email.com.br', 'Cliente Teste', NULL, NULL)
     ON CONFLICT (id) DO NOTHING`,
     [IDS.customerA1, IDS.customerA2, IDS.tenantA, IDS.tenantB],
   );
@@ -247,10 +182,10 @@ async function seedServices(q: ReturnType<DataSource['createQueryRunner']>): Pro
   await q.query(
     `INSERT INTO booking.services
       (id, tenant_id, name, price_amount, duration_minutes, loyalty_points, requires_pickup_address) VALUES
-      ($1, $5, 'Lavagem Simples',      80.00, 30,  5,  FALSE),
-      ($2, $5, 'Lavagem Completa',    150.00, 60,  10, FALSE),
-      ($3, $5, 'Polimento',           350.00, 120, 25, TRUE),
-      ($4, $6, 'Higienização Interna',200.00, 90,  15, FALSE)
+      ($1, $5, 'Lavagem Simples',       80.00,  30,  5,  false),
+      ($2, $5, 'Lavagem Completa',     150.00,  60,  10, false),
+      ($3, $5, 'Polimento',            350.00, 120,  25, true),
+      ($4, $6, 'Higienização Interna', 200.00,  90,  15, false)
     ON CONFLICT (id) DO NOTHING`,
     [
       IDS.serviceSimples,
@@ -260,26 +195,6 @@ async function seedServices(q: ReturnType<DataSource['createQueryRunner']>): Pro
       IDS.tenantA,
       IDS.tenantB,
     ],
-  );
-}
-
-async function seedHotsites(q: ReturnType<DataSource['createQueryRunner']>): Promise<void> {
-  const modulesA = JSON.stringify([
-    { type: 'HERO', order: 1, visible: true },
-    { type: 'SERVICE_LIST', order: 2, visible: true },
-    { type: 'BOOKING_CTA', order: 3, visible: true },
-  ]);
-  const modulesB = JSON.stringify([
-    { type: 'HERO', order: 1, visible: true },
-    { type: 'SERVICE_LIST', order: 2, visible: true },
-  ]);
-  await q.query(
-    `INSERT INTO platform.hotsite_configs
-      (id, tenant_id, tenant_slug, tenant_name, modules, is_published) VALUES
-      ($1, $3, 'lavacar-beloauto', 'Lavacar BeloAuto', $5, TRUE),
-      ($2, $4, 'autospa-premium',  'AutoSpa Premium',  $6, TRUE)
-    ON CONFLICT (id) DO NOTHING`,
-    [IDS.hotsiteA, IDS.hotsiteB, IDS.tenantA, IDS.tenantB, modulesA, modulesB],
   );
 }
 
@@ -323,12 +238,13 @@ async function seedBookings(q: ReturnType<DataSource['createQueryRunner']>): Pro
 
   await q.query(
     `INSERT INTO loyalty.loyalty_entries
-      (id, tenant_id, booking_id, booking_line_id, points, expires_at) VALUES
-      ($1, $2, $3, $4, 10, $5)
+      (id, tenant_id, customer_id, booking_id, booking_line_id, points, expires_at) VALUES
+      ($1, $2, $3, $4, $5, 10, $6)
     ON CONFLICT (id) DO NOTHING`,
     [
       IDS.loyaltyEntry,
       IDS.tenantA,
+      IDS.customerA1,
       IDS.bookingCompleted,
       IDS.lineCompleted,
       expiresAt.toISOString(),
@@ -353,13 +269,13 @@ function printSummary(): void {
     '╠══════════════════════════════════════════════════════════════╣',
     '║  Customer  │ cliente@email.com.br (exists in both tenants)   ║',
     '╠══════════════════════════════════════════════════════════════╣',
-    '║  OAuth IDs │ google-sub-admin-a   (admin, Tenant A)          ║',
-    '║            │ google-sub-worker-a  (staff, Tenant A)          ║',
-    '║            │ google-sub-admin-b   (admin, Tenant B)          ║',
-    '║            │ google-sub-customer-a (customer, both tenants)  ║',
+    '║  OAuth IDs │ google-sub-admin-a    (MANAGER, Tenant A)       ║',
+    '║            │ google-sub-worker-a   (STAFF,   Tenant A)       ║',
+    '║            │ google-sub-admin-b    (MANAGER, Tenant B)       ║',
+    '║            │ google-sub-customer-a (CUSTOMER, both tenants)  ║',
     '╠══════════════════════════════════════════════════════════════╣',
     '║  Bookings  │ 1 PENDING, 1 APPROVED (tomorrow), 1 COMPLETED   ║',
-    '║            │ Loyalty: 10pts earned on COMPLETED booking       ║',
+    '║            │ Loyalty: 10 pts earned on COMPLETED booking      ║',
     '╚══════════════════════════════════════════════════════════════╝',
     '',
   ];

@@ -6,7 +6,7 @@ export class InMemoryTenantRepository implements ITenantRepository {
 
   async findBySlug(slug: string): Promise<Tenant | null> {
     for (const tenant of this.store.values()) {
-      if (tenant.slug === slug) return tenant;
+      if (tenant.slug.value === slug) return tenant;
     }
     return null;
   }
@@ -21,7 +21,7 @@ export class InMemoryTenantRepository implements ITenantRepository {
 
   async existsBySlug(slug: string): Promise<boolean> {
     for (const tenant of this.store.values()) {
-      if (tenant.slug === slug) return true;
+      if (tenant.slug.value === slug) return true;
     }
     return false;
   }

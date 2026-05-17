@@ -1,14 +1,13 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
+import { Slug } from '../../../shared/value-objects/slug.vo';
 import { PlatformDomainError, TenantInactiveError } from './errors/platform-domain.error';
 import { TenantSettings } from './value-objects/tenant-settings.vo';
-
-const SLUG_PATTERN = /^[a-z0-9-]+$/;
 
 export interface TenantProps {
   id: string;
   name: string;
-  slug: string;
+  slug: Slug;
   settings: TenantSettings;
   isActive: boolean;
   createdAt: Date;
@@ -31,7 +30,7 @@ export class Tenant extends AggregateRoot {
     return this.props.name;
   }
 
-  get slug(): string {
+  get slug(): Slug {
     return this.props.slug;
   }
 
@@ -55,7 +54,7 @@ export class Tenant extends AggregateRoot {
     if (!name || name.trim().length === 0) {
       throw new PlatformDomainError('Tenant name must not be empty');
     }
-    if (!SLUG_PATTERN.test(slug)) {
+    if (!Slug.isValid(slug)) {
       throw new PlatformDomainError(
         'Tenant slug must only contain lowercase letters, numbers, and hyphens',
       );
@@ -64,7 +63,7 @@ export class Tenant extends AggregateRoot {
     return new Tenant({
       id: uuidv7(),
       name: name.trim(),
-      slug,
+      slug: Slug.create(slug),
       settings: TenantSettings.default(timezone),
       isActive: true,
       createdAt: now,

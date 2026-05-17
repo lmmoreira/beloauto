@@ -1,8 +1,7 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
+import { HexColor } from '../../../shared/value-objects/hex-color.vo';
 import { PlatformDomainError } from './errors/platform-domain.error';
-
-const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 export type LayoutModuleType =
   | 'HERO'
@@ -81,7 +80,7 @@ export class HotsiteConfig extends AggregateRoot {
   }
 
   updateContent(branding: HotsiteBranding, layout: LayoutModule[]): void {
-    if (branding.primaryColor !== undefined && !HEX_COLOR_PATTERN.test(branding.primaryColor)) {
+    if (branding.primaryColor !== undefined && !HexColor.isValid(branding.primaryColor)) {
       throw new PlatformDomainError('primaryColor must be a valid hex color (e.g. #FF5733)');
     }
     this.props.branding = branding;

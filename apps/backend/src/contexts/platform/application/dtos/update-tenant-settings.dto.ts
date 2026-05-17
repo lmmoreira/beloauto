@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { TimeOfDay } from '../../../../shared/value-objects/time-of-day.vo';
+import { Timezone } from '../../../../shared/value-objects/timezone.vo';
 
 const DayHoursSchema = z
   .object({
-    open: z.string().regex(/^\d{2}:\d{2}$/, 'must be HH:MM'),
-    close: z.string().regex(/^\d{2}:\d{2}$/, 'must be HH:MM'),
+    open: z.string().refine(TimeOfDay.isValid, { message: 'must be HH:MM (00:00–23:59)' }),
+    close: z.string().refine(TimeOfDay.isValid, { message: 'must be HH:MM (00:00–23:59)' }),
   })
   .nullable();
 
@@ -27,7 +29,10 @@ const BookingSchema = z
   .partial();
 
 const BusinessHoursSchema = z.object({
-  timezone: z.string().optional(),
+  timezone: z
+    .string()
+    .refine(Timezone.isValid, { message: 'must be a valid IANA timezone' })
+    .optional(),
   monday: DayHoursSchema.optional(),
   tuesday: DayHoursSchema.optional(),
   wednesday: DayHoursSchema.optional(),

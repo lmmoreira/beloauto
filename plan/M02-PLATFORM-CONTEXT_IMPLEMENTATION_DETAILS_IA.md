@@ -35,6 +35,65 @@
 | HTTP test files | `apps/backend/http/platform/` | `internal-tenants.http`, `tenant-settings.http` |
 | Test builders | `src/test/builders/platform/` | `TenantBuilder`, `HotsiteConfigBuilder`, `TenantSettingsPropsBuilder`, `TenantEntityBuilder`, `HotsiteConfigEntityBuilder` |
 | In-memory repos | `src/test/repositories/platform/` | `InMemoryTenantRepository`, `InMemoryHotsiteConfigRepository` |
+| deepMerge utility | `src/shared/utils/deep-merge.ts` | Wraps `deepmerge` npm package; `DeepPartial<T>` typed — **import from here, never re-implement** |
+| Email VO | `src/shared/value-objects/email.vo.ts` | `Email.isValid(str)` / `Email.create(str)` — normalises to lowercase; getter: `.address` |
+| PhoneNumber VO | `src/shared/value-objects/phone-number.vo.ts` | Brazilian 10–11 digits; strips non-digits on `create()`; `isValid()` for conditional construction; getter: `.value`; `format()` |
+| Slug VO | `src/shared/value-objects/slug.vo.ts` | `/^[a-z0-9-]+$/`; `Slug.create(str)` / `Slug.isValid(str)`; getter: `.value` — used for `Tenant.slug` |
+| Timezone VO | `src/shared/value-objects/timezone.vo.ts` | `Intl.supportedValuesOf('timeZone')` check; getter: `.value` |
+| TimeOfDay VO | `src/shared/value-objects/time-of-day.vo.ts` | HH:MM string; `isBefore()` comparison; getter: `.value` — used in TenantSettings business_hours |
+| HexColor VO | `src/shared/value-objects/hex-color.vo.ts` | `/#[0-9A-Fa-f]{6}/`; normalises to uppercase; getter: `.value` — used in HotsiteConfig branding |
+| Address VO | `src/shared/value-objects/address.ts` | `create()` validates CEP; `reconstitute()` skips validation (for DB reads); `toJSON()` → `AddressProps`; `AddressProps` exported |
+
+---
+
+## 1b. Shared Value Objects — Catalogue and Mapper Patterns
+
+### Standard toDomain / toEntity pattern
+
+```typescript
+// toDomain — DB primitive → VO (always construct from raw)
+email: Email.create(entity.email),
+phone: entity.phone ? PhoneNumber.create(entity.phone) : null,
+slug: Slug.create(entity.slug),
+
+// toEntity — VO → DB primitive (always extract)
+entity.email = customer.email.address;     // Email getter
+entity.phone = customer.phone?.value ?? null;  // PhoneNumber getter
+entity.slug  = tenant.slug.value;          // Slug getter
+```
+
+### JSONB columns (Address, branding objects)
+
+```typescript
+// toDomain — double cast, use reconstitute() to skip re-validation
+defaultAddress: entity.defaultAddress
+  ? Address.reconstitute(entity.defaultAddress as unknown as AddressProps)
+  : null,
+
+// toEntity — extract plain object, double cast for JSONB column type
+entity.defaultAddress =
+  (customer.defaultAddress?.toJSON() as unknown as Record<string, unknown>) ?? null;
+```
+
+**Why double cast?** TypeORM types JSONB columns as `Record<string, unknown>` but `AddressProps` is a typed interface. TypeScript won't allow a direct cast; `as unknown as T` is the correct escape hatch.
+
+### In-memory repo comparisons
+
+When an in-memory repo stores domain aggregates and searches by a VO field, compare using the primitive:
+```typescript
+findBySlug(slug: string): Tenant | null {
+  return this.tenants.find(t => t.slug.value === slug) ?? null;
+}
+```
+
+### CustomerEntityBuilder (added in M03-S01)
+
+```
+src/test/builders/customer/customer-entity.builder.ts
+src/test/builders/customer/index.ts   ← barrel: CustomerBuilder + CustomerEntityBuilder
+```
+
+Use `CustomerEntityBuilder` for any integration test that inserts a raw `CustomerEntity` row.
 
 ---
 

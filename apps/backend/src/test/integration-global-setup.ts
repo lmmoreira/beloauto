@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { DataSource } from 'typeorm';
+import { CustomerEntity } from '../contexts/customer/infrastructure/entities/customer.entity';
+import { CreateCustomerCustomers1716600000001 } from '../contexts/customer/infrastructure/migrations/1716600000001-CreateCustomerCustomers';
 import { HotsiteConfigEntity } from '../contexts/platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../contexts/platform/infrastructure/entities/tenant.entity';
 import { CreatePlatformHotsiteConfigs1716500000002 } from '../contexts/platform/infrastructure/migrations/1716500000002-CreatePlatformHotsiteConfigs';
@@ -20,8 +22,12 @@ export default async function globalSetup(): Promise<void> {
   const ds = new DataSource({
     type: 'postgres',
     url: container.getConnectionUri(),
-    entities: [TenantEntity, HotsiteConfigEntity],
-    migrations: [CreatePlatformTenants1716500000001, CreatePlatformHotsiteConfigs1716500000002],
+    entities: [TenantEntity, HotsiteConfigEntity, CustomerEntity],
+    migrations: [
+      CreatePlatformTenants1716500000001,
+      CreatePlatformHotsiteConfigs1716500000002,
+      CreateCustomerCustomers1716600000001,
+    ],
     synchronize: false,
     migrationsRun: false,
   });

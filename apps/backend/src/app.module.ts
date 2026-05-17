@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CustomerModule } from './contexts/customer/customer.module';
 import { PlatformModule } from './contexts/platform/platform.module';
 import { HealthController } from './health/health.controller';
 import { EventBusModule } from './shared/infrastructure/event-bus.module';
@@ -27,6 +28,7 @@ import { TenantModule } from './shared/tenant/tenant.module';
     TransactionManagerModule,
     TenantModule,
     PlatformModule,
+    CustomerModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: TenantInterceptor }],
