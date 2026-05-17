@@ -4,8 +4,6 @@ export const CUSTOMER_REPOSITORY = Symbol('ICustomerRepository');
 
 export interface CustomerTenantSummary {
   tenantId: string;
-  tenantSlug: string;
-  activePoints: number;
 }
 
 export interface ICustomerRepository {

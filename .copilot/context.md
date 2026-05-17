@@ -249,7 +249,7 @@ In-memory repos must also use `.value` / `.address` when comparing: `if (tenant.
 - Repository signature: `findByTenant(id, tenantId)`, `findAllByTenant(tenantId, filters)`, `save(entity, tenantId)`
 - No raw SQL outside repository adapters
 - No business logic in controllers — controllers call use cases only
-- No synchronous cross-context calls — use events. BFF is the only allowed orchestrator
+- No direct cross-context calls — data flows through the hierarchy described in "Cross-context data access" below
 - DI everywhere — no `new SomeRepository()` in services
 - No barrel `index.ts` in `ports/` or `shared/domain/` directories — always import from the specific file (e.g. `./ports/tenant-repository.port`). Test builder barrels (`src/test/builders/`) are the only exception. ESLint `no-restricted-imports` enforces this at CI.
 - All configurable values (48 h window, 180 d expiry) read from `tenants.settings`, never hardcoded
@@ -257,6 +257,30 @@ In-memory repos must also use `.value` / `.address` when comparing: `if (tenant.
 - Domain errors → HTTP status mapping belongs in a `mapXxxError(err: unknown): never` helper in `infrastructure/http/` — never multiple `if (err instanceof X)` chains inside a controller method. The controller method should be one line: `return this.useCase.execute(dto).catch(mapXxxError)`
 - Guards that protect a single context's endpoints belong in `src/contexts/<context>/infrastructure/guards/` — only truly cross-cutting guards (used by multiple contexts) go in `src/shared/guards/`
 - Every new REST endpoint must have a corresponding request block in `apps/backend/http/<context>/<resource>.http` — include the happy path, all 4xx error cases, and edge cases. Use the existing files as a template.
+
+### Cross-context data access (priority order — follow strictly)
+
+When a use case in Context A needs data owned by Context B, choose the **first** option that applies:
+
+1. **Domain events (preferred — async):** Context B publishes an event; Context A subscribes and projects the data it needs into its own read model. No runtime coupling.
+2. **BFF orchestration (preferred — sync read):** The BFF calls both contexts independently and assembles the response. No context knows about the other.
+3. **Port + adapter (last resort — sync, same process):** Define an interface (port) in Context A's `application/ports/` (e.g. `ILoyaltyPointsPort`). The infrastructure adapter in Context A implements it by injecting Context B's **service** (never its repository token). Context B must export the service — never the repository.
+
+**None of the above is ever a direct SQL JOIN across schemas inside a repository.** A repository may only query its own context's schema. Cross-schema SQL is the hardest coupling possible — it defeats schema independence, makes migrations risky, and cannot be swapped out via a port.
+
+```typescript
+// ❌ never — Customer repo joining loyalty schema
+.leftJoin('loyalty.loyalty_entries', 'le', 'le.customer_id = c.id …')
+
+// ✅ option 3 — port in Customer application layer
+export const LOYALTY_POINTS_PORT = Symbol('ILoyaltyPointsPort');
+export interface ILoyaltyPointsPort {
+  getActivePoints(tenantId: string, customerId: string): Promise<number>;
+}
+// adapter in Customer infrastructure injects LoyaltyService (exported by LoyaltyModule)
+```
+
+**Repository responsibility boundary:** a repository returns only what its own aggregate owns. Fields that belong to another context are **not** on the repository return type — they are assembled by the use case via the appropriate port.
 
 ### Transactions (multi-aggregate writes)
 
@@ -407,6 +431,7 @@ const eventBus = { publish: jest.fn() };
 | English copy in email templates | Wrong locale | All customer-facing text in pt-BR |
 | Money as plain `number` | Loses currency | Use `Money { amount: Decimal, currency: 'BRL' }` |
 | Import from `src/contexts/<B>/` inside Context A | Breaks context isolation | Only import from `src/shared/` or own context |
+| SQL JOIN into another context's schema inside a repository (e.g. Customer repo joining `loyalty.*` or `platform.*`) | Hardest possible coupling — defeats schema independence, makes migrations risky, bypasses ports entirely | Repository queries its own schema only; cross-context data assembled by the use case via events, BFF, or a port+adapter (see §7 "Cross-context data access") |
 | Cross-schema DB FK between contexts | Tight schema coupling | Store UUID only; no FK constraint across schemas |
 | Event consumer querying another context to fill missing data | Defeats self-contained events | Add the needed data to the event payload |
 | Placing a domain entity or use case in `src/shared/` | Blurs context ownership | Only ports, base classes, and multi-context VOs in shared |

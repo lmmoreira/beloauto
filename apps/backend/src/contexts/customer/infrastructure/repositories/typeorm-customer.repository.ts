@@ -25,27 +25,8 @@ export class TypeOrmCustomerRepository implements ICustomerRepository {
   }
 
   async findAllTenantsByOAuthId(googleOAuthId: string): Promise<CustomerTenantSummary[]> {
-    const rows = await this.repo
-      .createQueryBuilder('c')
-      .innerJoin('platform.tenants', 't', 't.id = c.tenant_id AND t.is_active = true')
-      .leftJoin(
-        'loyalty.loyalty_entries',
-        'le',
-        'le.tenant_id = c.tenant_id AND le.customer_id = c.id AND le.expires_at > now()',
-      )
-      .select('c.tenant_id', 'tenantId')
-      .addSelect('t.slug', 'tenantSlug')
-      .addSelect('COALESCE(SUM(le.points), 0)', 'activePoints')
-      .where('c.google_oauth_id = :googleOAuthId', { googleOAuthId })
-      .groupBy('c.tenant_id')
-      .addGroupBy('t.slug')
-      .getRawMany<{ tenantId: string; tenantSlug: string; activePoints: string }>();
-
-    return rows.map((r) => ({
-      tenantId: r.tenantId,
-      tenantSlug: r.tenantSlug,
-      activePoints: Number(r.activePoints),
-    }));
+    const rows = await this.repo.find({ where: { googleOAuthId } });
+    return rows.map((r) => ({ tenantId: r.tenantId }));
   }
 
   async save(customer: Customer): Promise<void> {
