@@ -7,7 +7,7 @@ import { TenantSettings } from './value-objects/tenant-settings.vo';
 export interface TenantProps {
   id: string;
   name: string;
-  slug: string;
+  slug: Slug;
   settings: TenantSettings;
   isActive: boolean;
   createdAt: Date;
@@ -30,7 +30,7 @@ export class Tenant extends AggregateRoot {
     return this.props.name;
   }
 
-  get slug(): string {
+  get slug(): Slug {
     return this.props.slug;
   }
 
@@ -63,7 +63,7 @@ export class Tenant extends AggregateRoot {
     return new Tenant({
       id: uuidv7(),
       name: name.trim(),
-      slug,
+      slug: Slug.create(slug),
       settings: TenantSettings.default(timezone),
       isActive: true,
       createdAt: now,

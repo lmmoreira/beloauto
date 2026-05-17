@@ -39,7 +39,7 @@ describe('Platform repositories (integration)', () => {
 
     // findById returns the same aggregate
     const byId = await tenantRepo.findById(tenant.id);
-    expect(byId!.slug).toBe('lavacar-estrela');
+    expect(byId!.slug.value).toBe('lavacar-estrela');
 
     // existsBySlug reflects reality
     expect(await tenantRepo.existsBySlug('lavacar-estrela')).toBe(true);

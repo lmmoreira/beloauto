@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
+import { Slug } from '../../../../shared/value-objects/slug.vo';
 import { ITenantRepository } from '../../application/ports/tenant-repository.port';
 import { Tenant } from '../../domain/tenant.aggregate';
 import { TenantSettings } from '../../domain/value-objects/tenant-settings.vo';
@@ -42,7 +43,7 @@ export class TypeOrmTenantRepository implements ITenantRepository {
     return Tenant.reconstitute({
       id: entity.id,
       name: entity.name,
-      slug: entity.slug,
+      slug: Slug.create(entity.slug),
       settings: TenantSettings.reconstitute(entity.settings),
       isActive: entity.isActive,
       createdAt: entity.createdAt,
@@ -54,7 +55,7 @@ export class TypeOrmTenantRepository implements ITenantRepository {
     const entity = new TenantEntity();
     entity.id = tenant.id;
     entity.name = tenant.name;
-    entity.slug = tenant.slug;
+    entity.slug = tenant.slug.value;
     entity.settings = tenant.settings.toJSON();
     entity.isActive = tenant.isActive;
     entity.createdAt = tenant.createdAt;

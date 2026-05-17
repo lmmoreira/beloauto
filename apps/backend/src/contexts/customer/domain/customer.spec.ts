@@ -1,14 +1,27 @@
+import { Address } from '../../../shared/value-objects/address';
+import { Email } from '../../../shared/value-objects/email.vo';
+import { PhoneNumber } from '../../../shared/value-objects/phone-number.vo';
 import { Customer } from './customer.aggregate';
 import { CustomerDomainError } from './errors/customer-domain.error';
 
-describe('Customer', () => {
-  const validArgs = ['tenant-1', 'google-sub-123', 'user@example.com', 'João Silva'] as const;
+const validArgs = ['tenant-1', 'google-sub-123', 'user@example.com', 'João Silva'] as const;
 
+const testAddress = Address.create({
+  street: 'Rua das Flores',
+  number: '123',
+  neighborhood: 'Centro',
+  city: 'Belo Horizonte',
+  state: 'MG',
+  zipCode: '30130-110',
+});
+
+describe('Customer', () => {
   it('creates a valid customer with correct defaults', () => {
     const c = Customer.create(...validArgs);
     expect(c.tenantId).toBe('tenant-1');
     expect(c.googleOAuthId).toBe('google-sub-123');
-    expect(c.email).toBe('user@example.com');
+    expect(c.email).toBeInstanceOf(Email);
+    expect(c.email.address).toBe('user@example.com');
     expect(c.name).toBe('João Silva');
     expect(c.phone).toBeNull();
     expect(c.defaultAddress).toBeNull();
@@ -47,13 +60,14 @@ describe('Customer', () => {
     expect(c2.tenantId).toBe('tenant-b');
   });
 
-  it('updateProfile updates name, phone, and address', () => {
+  it('updateProfile updates name, phone (normalised), and address', () => {
     const c = Customer.create(...validArgs);
-    c.updateProfile('Novo Nome', '(11) 99999-0000', { street: 'Rua A' });
+    c.updateProfile('Novo Nome', '(11) 99999-0000', testAddress);
     expect(c.name).toBe('Novo Nome');
-    // PhoneNumber.create normalises to digits only
-    expect(c.phone).toBe('11999990000');
-    expect(c.defaultAddress).toEqual({ street: 'Rua A' });
+    expect(c.phone).toBeInstanceOf(PhoneNumber);
+    expect(c.phone!.value).toBe('11999990000');
+    expect(c.defaultAddress).toBeInstanceOf(Address);
+    expect(c.defaultAddress!.toJSON().street).toBe('Rua das Flores');
   });
 
   it('updateProfile allows clearing phone and address with null', () => {

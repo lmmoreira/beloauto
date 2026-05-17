@@ -1,5 +1,6 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
+import { Address } from '../../../shared/value-objects/address';
 import { Email } from '../../../shared/value-objects/email.vo';
 import { PhoneNumber } from '../../../shared/value-objects/phone-number.vo';
 import { CustomerDomainError } from './errors/customer-domain.error';
@@ -8,10 +9,10 @@ export interface CustomerProps {
   id: string;
   tenantId: string;
   googleOAuthId: string;
-  email: string;
+  email: Email;
   name: string;
-  phone: string | null;
-  defaultAddress: Record<string, unknown> | null;
+  phone: PhoneNumber | null;
+  defaultAddress: Address | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,16 +34,16 @@ export class Customer extends AggregateRoot {
   get googleOAuthId(): string {
     return this.props.googleOAuthId;
   }
-  get email(): string {
+  get email(): Email {
     return this.props.email;
   }
   get name(): string {
     return this.props.name;
   }
-  get phone(): string | null {
+  get phone(): PhoneNumber | null {
     return this.props.phone;
   }
-  get defaultAddress(): Record<string, unknown> | null {
+  get defaultAddress(): Address | null {
     return this.props.defaultAddress;
   }
   get createdAt(): Date {
@@ -63,7 +64,7 @@ export class Customer extends AggregateRoot {
       id: uuidv7(),
       tenantId,
       googleOAuthId,
-      email,
+      email: Email.create(email),
       name: name.trim(),
       phone: null,
       defaultAddress: null,
@@ -76,11 +77,7 @@ export class Customer extends AggregateRoot {
     return new Customer(props);
   }
 
-  updateProfile(
-    name: string,
-    phone: string | null,
-    defaultAddress: Record<string, unknown> | null,
-  ): void {
+  updateProfile(name: string, phone: string | null, defaultAddress: Address | null): void {
     if (!name || name.trim().length === 0) throw new CustomerDomainError('name must not be empty');
     if (phone !== null && !PhoneNumber.isValid(phone)) {
       throw new CustomerDomainError(
@@ -88,7 +85,7 @@ export class Customer extends AggregateRoot {
       );
     }
     this.props.name = name.trim();
-    this.props.phone = phone === null ? null : PhoneNumber.create(phone).value;
+    this.props.phone = phone === null ? null : PhoneNumber.create(phone);
     this.props.defaultAddress = defaultAddress;
     this.props.updatedAt = new Date();
   }

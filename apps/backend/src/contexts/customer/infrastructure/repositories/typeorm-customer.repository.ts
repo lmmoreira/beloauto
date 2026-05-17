@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
+import { Address, AddressProps } from '../../../../shared/value-objects/address';
+import { Email } from '../../../../shared/value-objects/email.vo';
+import { PhoneNumber } from '../../../../shared/value-objects/phone-number.vo';
 import {
   CustomerTenantSummary,
   ICustomerRepository,
@@ -60,10 +63,12 @@ export class TypeOrmCustomerRepository implements ICustomerRepository {
       id: entity.id,
       tenantId: entity.tenantId,
       googleOAuthId: entity.googleOAuthId,
-      email: entity.email,
+      email: Email.create(entity.email),
       name: entity.name,
-      phone: entity.phone,
-      defaultAddress: entity.defaultAddress,
+      phone: entity.phone ? PhoneNumber.create(entity.phone) : null,
+      defaultAddress: entity.defaultAddress
+        ? Address.reconstitute(entity.defaultAddress as unknown as AddressProps)
+        : null,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     });
@@ -74,10 +79,11 @@ export class TypeOrmCustomerRepository implements ICustomerRepository {
     entity.id = customer.id;
     entity.tenantId = customer.tenantId;
     entity.googleOAuthId = customer.googleOAuthId;
-    entity.email = customer.email;
+    entity.email = customer.email.address;
     entity.name = customer.name;
-    entity.phone = customer.phone;
-    entity.defaultAddress = customer.defaultAddress;
+    entity.phone = customer.phone?.value ?? null;
+    entity.defaultAddress =
+      (customer.defaultAddress?.toJSON() as unknown as Record<string, unknown>) ?? null;
     entity.createdAt = customer.createdAt;
     entity.updatedAt = customer.updatedAt;
     return entity;

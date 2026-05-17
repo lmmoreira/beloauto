@@ -27,7 +27,7 @@ describe('TypeOrmTenantRepository', () => {
 
       expect(result).toBeInstanceOf(Tenant);
       expect(result!.id).toBe('tenant-id-1');
-      expect(result!.slug).toBe('beloauto');
+      expect(result!.slug.value).toBe('beloauto');
       expect(result!.name).toBe('BeloAuto');
       expect(result!.isActive).toBe(true);
       expect(mockRepo.findOne).toHaveBeenCalledWith({ where: { slug: 'beloauto' } });

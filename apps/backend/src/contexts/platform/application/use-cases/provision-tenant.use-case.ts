@@ -49,12 +49,12 @@ export class ProvisionTenantUseCase {
     await this.eventBus.publish(
       new TenantProvisioned(tenant.id, uuidv7(), {
         name: tenant.name,
-        slug: tenant.slug,
+        slug: tenant.slug.value,
         adminEmail: dto.adminEmail,
         timezone,
       }),
     );
 
-    return { tenantId: tenant.id, name: tenant.name, slug: tenant.slug };
+    return { tenantId: tenant.id, name: tenant.name, slug: tenant.slug.value };
   }
 }
