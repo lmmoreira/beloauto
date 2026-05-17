@@ -180,18 +180,68 @@ When you find a helper (validation, formatting, transformation) repeated across 
 **Fields that carry their own validation MUST be value objects in `src/shared/value-objects/`**, not plain primitives.
 The rule: if a string needs to be validated before it is accepted anywhere in the domain, it is a value object.
 
-| Field | Value Object | Why |
-|---|---|---|
-| Email address | `Email` | format validation (`@`, domain, TLD) |
-| Phone number | `PhoneNumber` | format validation (digits, length, country code) |
-| Physical address | `Address` | structured fields (street, city, zip, country) |
-| Money amount | `Money` | currency code + decimal precision — never a plain `number` |
-| Hex colour | `HexColor` | must match `#RRGGBB` format |
-| IANA timezone | `Timezone` | must be a valid Olson tz identifier |
+| Field | Value Object | File | Why |
+|---|---|---|---|
+| Email address | `Email` | `email.vo.ts` | format validation (`@`, domain, TLD); normalises to lowercase |
+| Phone number | `PhoneNumber` | `phone-number.vo.ts` | Brazilian 10–11 digits (no country code); strips non-digits on `create()`; `format()` → `(XX) XXXXX-XXXX` |
+| Physical address | `Address` | `address.ts` | structured fields; `create()` validates CEP length; `reconstitute()` skips validation (for DB reads) |
+| Money amount | `Money` | `money.vo.ts` (future) | currency code + decimal precision — never a plain `number` |
+| Hex colour | `HexColor` | `hex-color.vo.ts` | must match `#RRGGBB`; normalises to uppercase |
+| IANA timezone | `Timezone` | `timezone.vo.ts` | validates against `Intl.supportedValuesOf('timeZone')` |
+| HH:MM time | `TimeOfDay` | `time-of-day.vo.ts` | validates HH:MM string; `isBefore()` comparison |
+| URL-safe slug | `Slug` | `slug.vo.ts` | `/^[a-z0-9-]+$/`; used for tenant slugs |
 
 These live in `src/shared/value-objects/` and are imported by any context that needs them.
 Every value object must have a `.spec.ts` unit test covering valid and invalid inputs.
 Never duplicate a `isValidXxx` function — extract it into the shared value object once.
+
+### Value-object-typed aggregate fields (mandatory — Option A)
+
+Aggregate **props interfaces use VO types**, not plain primitives. **Getters return the VO** — not a derived string.
+
+```typescript
+// ✅ correct — props typed with VOs; getter returns VO
+export interface CustomerProps {
+  email: Email;
+  phone: PhoneNumber | null;
+  defaultAddress: Address | null;
+  slug: Slug;           // for aggregates that have slugs
+}
+get email(): Email { return this.props.email; }
+get phone(): PhoneNumber | null { return this.props.phone; }
+
+// ❌ wrong — aggregate typed as string; caller must revalidate
+export interface CustomerProps { email: string; }
+get email(): string { return this.props.email; }
+```
+
+**`create()` factory** receives raw strings from user input / DTOs and constructs VOs:
+```typescript
+static create(raw: { email: string; phone: string | null }): Customer {
+  return new Customer({
+    email: Email.create(raw.email),
+    phone: raw.phone === null ? null : PhoneNumber.create(raw.phone),
+  });
+}
+```
+
+**Repository mapper pattern — always:**
+- `toDomain()` reads DB primitives → constructs VOs: `email: Email.create(entity.email)`
+- `toEntity()` extracts primitives from VOs: `entity.email = customer.email.address`
+- JSONB columns (e.g. `defaultAddress`) require a double cast + `reconstitute()` to bypass re-validation:
+  ```typescript
+  // toDomain — JSONB → VO (skip validation; data was valid at write time)
+  defaultAddress: entity.defaultAddress
+    ? Address.reconstitute(entity.defaultAddress as unknown as AddressProps)
+    : null,
+  // toEntity — VO → JSONB (extract plain object)
+  entity.defaultAddress =
+    (customer.defaultAddress?.toJSON() as unknown as Record<string, unknown>) ?? null;
+  ```
+- VOs with `.value` getter (Slug, PhoneNumber): `entity.slug = tenant.slug.value`
+- VOs with named getter (Email): `entity.email = customer.email.address`
+
+In-memory repos must also use `.value` / `.address` when comparing: `if (tenant.slug.value === slug)`.
 
 ### Code standards
 - `strict: true` TypeScript — no `any`, no `@ts-ignore`, no `// eslint-disable`
@@ -264,7 +314,9 @@ const tenant = Tenant.create('BeloAuto', 'beloauto', 'America/Sao_Paulo');
 - One builder class per aggregate / value object / TypeORM entity
 - Sensible defaults for every field — tests only set what they care about
 - Builders live in `src/test/builders/<context>/index.ts` (barrel export)
-- Infrastructure tests (TypeORM entities) have their own entity builders in the same folder
+- Infrastructure tests (TypeORM entities) have their own **entity builders** in the same folder
+- **Every TypeORM entity used in a test MUST have an `XxxEntityBuilder`** — never construct entity objects inline with `makeXxx()` helpers or plain object literals. Inline helpers couple tests to the DB schema and bypass the builder pattern.
+- Naming: `CustomerEntityBuilder`, `TenantEntityBuilder`, `StaffEntityBuilder`, etc. — always suffix `EntityBuilder` to distinguish from domain aggregate builders.
 
 #### In-memory repository pattern (for use case tests)
 Each port has two implementations: the real TypeORM adapter and a test double:
@@ -370,6 +422,9 @@ const eventBus = { publish: jest.fn() };
 | Duplicating a validation function (`isValidEmail`, `isValidTimezone`, etc.) across files | Validation drift — two copies diverge silently; bug fixed in one place, missed in another | Extract into a shared value object (`Email`, `Timezone`, etc.) in `src/shared/value-objects/` with a single `.spec.ts` |
 | Storing email, phone, address, money, colour as a plain `string` / `number` | Primitives carry no validation — invalid values reach the domain silently | Wrap in a value object (`Email`, `PhoneNumber`, `Address`, `Money`, `HexColor`) that validates on construction |
 | Duplicating a utility function (deep merge, formatting, etc.) across use cases or contexts | Two copies diverge; the second author doesn't know the first exists | Extract into `src/shared/utils/` with a unit test; all callers import from the same place |
+| Aggregate field typed as `string` when a shared VO exists for it (e.g. `email: string`, `slug: string`) | The type system lies — invalid values can be stored in props; callers must re-validate | Type aggregate props with the VO (`email: Email`, `slug: Slug`); getters return the VO (not `.address` or `.value`) |
+| `makeEntity()` helper or plain object literal used in a test instead of `XxxEntityBuilder` | Couples the test directly to the TypeORM entity's constructor signature; bypasses the builder pattern | Create an `XxxEntityBuilder` (e.g. `CustomerEntityBuilder`) with sensible defaults in `src/test/builders/<context>/` |
+| Seed file calling `CREATE TABLE`, `CREATE SCHEMA`, or `DROP TABLE` | Drift from migrations — seeds and migrations diverge, leading to silent column/constraint mismatches | Seeds are data-only; schema is 100% owned by TypeORM migrations. If `ensureSchemas()` or DDL appears in seed, delete it |
 
 ---
 
@@ -428,12 +483,15 @@ Go through every changed file and verify **all** of the following:
 - [ ] Every use case that writes to two or more aggregates wraps all writes in `ITransactionManager.run()` — no compensating deletes.
 - [ ] Every new REST endpoint has a corresponding block in `apps/backend/http/<context>/<resource>.http` covering happy path + all error cases.
 - [ ] No redundant or duplicated test assertions — each test call to the system under test has a purpose.
+- [ ] Every aggregate field that corresponds to a shared value object is typed as that VO (not `string`/`number`). Getters return the VO.
+- [ ] Every TypeORM entity used in a test is built via `XxxEntityBuilder` — no inline `makeEntity()` helpers or object literals.
 - [ ] Every public method on a controller/service has an explicit return type annotation.
 - [ ] `@Global()` modules have a comment explaining why they are global and where they are imported.
 - [ ] Any new required env var is documented in `.env.example` AND added to the local `.env` (never committed).
 - [ ] No non-null assertions (`!`) or `any` casts in production code; minimised in test code.
 - [ ] All SonarCloud-prone patterns addressed: `!`, `as unknown`, `as any`, long functions, cognitive complexity.
 - [ ] §8 Anti-Patterns — check the list for anything introduced.
+- [ ] Ran `/domain-audit <context>` — zero findings in the changed context(s).
 
 **Do not open the PR until every item above is satisfied.** This review is the agent's responsibility, not the user's.
 
@@ -638,10 +696,24 @@ Only truly unresolved items remain here:
 
 ---
 
+## 17. Project Slash Commands (Claude Code)
+
+Commands live in `.claude/commands/`. Claude Code auto-discovers them — type `/` to see the list. Other agents (Cursor, Copilot, Gemini) don't execute these, but knowing they exist helps them suggest the right workflow.
+
+| Command | File | When to use |
+|---|---|---|
+| `/domain-audit [context-path]` | `.claude/commands/domain-audit.md` | Before opening a PR — scans for VO violations, missing `XxxEntityBuilder`, seed DDL, duplicated validators, inline `makeXxx()` helpers. Optional arg narrows scope to one context (e.g. `contexts/customer`). |
+
+**Adding new commands:** create `.claude/commands/<name>.md`. Use `$ARGUMENTS` as the placeholder for optional user-typed arguments. Document it in this table.
+
+---
+
 ## 16. Changelog
 
 | Date | Change |
 |---|---|
+| 2026-05-17 | **§17 Slash Commands added; `/domain-audit` skill created.** `.claude/commands/domain-audit.md` scans for VO violations, missing EntityBuilders, seed DDL, duplicated validators. §9 Step 7 checklist and §17 table document the command. Explained per-tool skill conventions (Copilot uses `.github/copilot-instructions.md`; Cursor uses `.cursor/rules/`). |
+| 2026-05-17 | **VO-typed aggregate fields, repository mapper pattern, XxxEntityBuilder rule.** §7 expanded with full VO catalog (Email, PhoneNumber, Address, Money, HexColor, Slug, Timezone, TimeOfDay + file paths), Option A VO-getter rule, repository mapper pattern (toDomain/toEntity), JSONB double-cast pattern. §8 anti-patterns: 3 new rows (aggregate typed as string, makeEntity inline, seed DDL). §9 Step 7 checklist: 2 new VO/builder items. |
 | 2026-05-15 | **§9 Story Implementation Workflow added.** Explicit branch-first, commit, push, ci:fast, ci:local, PR, CI monitor, squash-merge, mark-done sequence. §15 updated with branch-creation reminder. M00 IA doc §14 mirrors this. |
 | 2026-05-12 (wave 3) | **Platform Context added + LGPD removed.** Added Platform Context (UC-024 to UC-029, aggregates, events `StaffInvited`/`StaffDeactivated`) across docs 02, 03, 04, 05. Removed LGPD scope (localization only: BRL, pt-BR). Fixed UC-024/025/026 for Google OAuth-only auth and BRL currency. Added UC-028 (invite staff) and UC-029 (deactivate staff). CLAUDE.md now symlinks to this file. |
 | 2026-05-12 (wave 2) | **Doc fixes propagated.** Event bus (05, 11, 18) → GCP Pub/Sub; CI/CD (09) → Stage 4.5 migrations, coverage "changed code"; use cases (04) → cancellation window from settings; docs 01/07 → Brazil/BRL/pt-BR. All agent files (CLAUDE.md, claude.md, gemini.md) symlink to this file. |

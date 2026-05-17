@@ -37,3 +37,7 @@ Thumbs.db
 !.vscode/settings.json
 *.swp
 *.swo
+
+# Claude Code — local machine settings (paths, permission allow-lists)
+.claude/settings.local.json
+.claude/settings.json
