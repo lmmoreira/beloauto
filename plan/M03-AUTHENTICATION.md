@@ -213,6 +213,9 @@ Implement the three guards that protect every authenticated BFF endpoint. They e
 - [ ] A `@Public()` route bypasses all three guards
 - [ ] Unit tests cover all rejection scenarios
 
+**⚠️ Backend stub to enforce in this story:**
+`apps/backend/src/contexts/platform/infrastructure/guards/manager-role.guard.ts` is currently a passthrough stub (always returns `true`). It protects `PATCH /tenants/settings` (UC-026). Once this story wires up the BFF `RolesGuard`, decide and implement how the backend enforces the MANAGER role — the recommended approach is for the BFF to forward an `X-Staff-Role` header after JWT validation, and for the backend guard to verify that header. Update the guard, its unit test, and the integration spec accordingly.
+
 **Dependencies:** M03-S04
 
 ---
