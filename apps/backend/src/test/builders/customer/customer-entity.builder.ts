@@ -6,8 +6,8 @@ export class CustomerEntityBuilder {
   private googleOAuthId = 'google-sub-customer-a';
   private email = 'customer@example.com';
   private name = 'Cliente Teste';
-  private phone: string | null = null;
-  private defaultAddress: Record<string, unknown> | null = null;
+  private readonly phone: string | null = null;
+  private readonly defaultAddress: Record<string, unknown> | null = null;
   private readonly createdAt = new Date('2026-01-01T00:00:00Z');
   private readonly updatedAt = new Date('2026-01-01T00:00:00Z');
 

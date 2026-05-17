@@ -33,7 +33,7 @@ describe('TypeOrmCustomerRepository (integration)', () => {
     );
     expect(found).not.toBeNull();
     expect(found!.id).toBe(customer.id);
-    expect(found!.email).toBe('joao@lavacar.com.br');
+    expect(found!.email.address).toBe('joao@lavacar.com.br');
     expect(found!.name).toBe('João Silva');
     expect(found!.phone).toBeNull();
     expect(found!.defaultAddress).toBeNull();
