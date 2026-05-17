@@ -88,7 +88,10 @@ describe('TypeOrmCustomerRepository (integration)', () => {
   });
 
   it('returns null when customer does not exist', async () => {
-    const result = await repo.findByTenantAndOAuthId('no-tenant', 'no-sub');
+    const result = await repo.findByTenantAndOAuthId(
+      '00000000-0000-0000-0000-000000000000',
+      'google-sub-nonexistent',
+    );
     expect(result).toBeNull();
   });
 });
