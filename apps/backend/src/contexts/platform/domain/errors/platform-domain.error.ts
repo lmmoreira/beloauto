@@ -18,3 +18,10 @@ export class TenantNotFoundError extends PlatformDomainError {
     this.name = 'TenantNotFoundError';
   }
 }
+
+export class TenantInactiveError extends PlatformDomainError {
+  constructor(tenantId: string) {
+    super(`Tenant '${tenantId}' is inactive and cannot be modified`);
+    this.name = 'TenantInactiveError';
+  }
+}

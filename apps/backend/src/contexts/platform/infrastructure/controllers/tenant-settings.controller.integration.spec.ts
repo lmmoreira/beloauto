@@ -9,6 +9,7 @@ import { EventBusModule } from '../../../../shared/infrastructure/event-bus.modu
 import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { TenantInterceptor } from '../../../../shared/tenant/tenant.interceptor';
 import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
+import { TenantEntityBuilder } from '../../../../test/builders/platform/index';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TenantEntity } from '../entities/tenant.entity';
 import { PlatformModule } from '../../platform.module';
@@ -140,5 +141,23 @@ describe('TenantSettingsController (integration)', () => {
       .expect(400);
 
     expect(body.status).toBe(400);
+  });
+
+  it('returns 409 when the tenant is inactive', async () => {
+    const inactiveTenant = new TenantEntityBuilder()
+      .withId('00000000-0000-0000-0000-000000000001')
+      .withSlug('lavacar-inactive-integ-01')
+      .withIsActive(false)
+      .build();
+    await ds.getRepository(TenantEntity).save(inactiveTenant);
+
+    const { body } = await request(app.getHttpServer())
+      .patch('/tenants/settings')
+      .set('X-Tenant-ID', inactiveTenant.id)
+      .send({ settings: { loyalty: { expiry_days: 90 } } })
+      .expect(409);
+
+    expect(body.status).toBe(409);
+    expect(body.detail).toContain('inactive');
   });
 });

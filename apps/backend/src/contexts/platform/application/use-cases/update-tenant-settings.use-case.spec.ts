@@ -2,6 +2,7 @@ import { InMemoryTenantRepository } from '../../../../test/repositories/platform
 import { TenantBuilder } from '../../../../test/builders/platform/index';
 import {
   PlatformDomainError,
+  TenantInactiveError,
   TenantNotFoundError,
 } from '../../domain/errors/platform-domain.error';
 import { UpdateTenantSettingsUseCase } from './update-tenant-settings.use-case';
@@ -129,5 +130,25 @@ describe('UpdateTenantSettingsUseCase', () => {
 
     const reloadedB = await tenantRepo.findById(tenantB.id);
     expect(reloadedB!.settings.loyalty.expiry_days).toBe(180);
+  });
+
+  it('throws TenantInactiveError when updating settings on an inactive tenant', async () => {
+    const tenant = new TenantBuilder().withSlug('inactive-settings').build();
+    tenant.deactivate();
+    await tenantRepo.save(tenant);
+
+    await expect(
+      useCase.execute(tenant.id, { settings: { loyalty: { expiry_days: 90 } } }),
+    ).rejects.toThrow(TenantInactiveError);
+  });
+
+  it('throws TenantInactiveError when updating name on an inactive tenant', async () => {
+    const tenant = new TenantBuilder().withSlug('inactive-name').build();
+    tenant.deactivate();
+    await tenantRepo.save(tenant);
+
+    await expect(useCase.execute(tenant.id, { name: 'Novo Nome' })).rejects.toThrow(
+      TenantInactiveError,
+    );
   });
 });

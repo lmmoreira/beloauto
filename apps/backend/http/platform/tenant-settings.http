@@ -166,3 +166,15 @@ X-Tenant-ID: {{tenantId}}
 Content-Type: application/json
 
 {}
+
+###
+
+### 409 — Tenant is inactive (deactivated tenants cannot be modified)
+# Replace with the ID of a deactivated tenant to test this case
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: REPLACE-WITH-INACTIVE-TENANT-ID
+Content-Type: application/json
+
+{
+  "settings": { "loyalty": { "expiry_days": 90 } }
+}

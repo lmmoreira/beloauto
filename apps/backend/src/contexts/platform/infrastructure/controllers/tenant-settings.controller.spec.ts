@@ -79,4 +79,19 @@ describe('TenantSettingsController', () => {
       expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
     }
   });
+
+  it('maps TenantInactiveError to 409 HttpException', async () => {
+    const tenant = new TenantBuilder().withSlug('ctrl-settings-04').build();
+    tenant.deactivate();
+    await tenantRepo.save(tenant);
+    tenantContext.tenantId = tenant.id;
+
+    expect.assertions(2);
+    try {
+      await controller.updateSettings({ settings: { loyalty: { expiry_days: 90 } } });
+    } catch (err) {
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.CONFLICT);
+    }
+  });
 });
