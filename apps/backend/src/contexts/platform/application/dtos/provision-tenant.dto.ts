@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { Email } from '../../../../shared/value-objects/email.vo';
 
 const isValidTimezone = (tz: string): boolean => {
   try {
@@ -9,20 +10,12 @@ const isValidTimezone = (tz: string): boolean => {
   }
 };
 
-const isValidEmail = (val: string): boolean => {
-  const atIdx = val.indexOf('@');
-  if (atIdx <= 0) return false;
-  const domain = val.slice(atIdx + 1);
-  const dotIdx = domain.lastIndexOf('.');
-  return domain.length > 0 && dotIdx > 0 && dotIdx < domain.length - 1;
-};
-
 export const ProvisionTenantSchema = z.object({
   name: z.string().min(1, { message: 'name must not be empty' }),
   slug: z.string().regex(/^[a-z0-9-]+$/, {
     message: 'slug must only contain lowercase letters, numbers, and hyphens',
   }),
-  adminEmail: z.string().refine(isValidEmail, { message: 'adminEmail must be a valid email' }),
+  adminEmail: z.string().refine(Email.isValid, { message: 'adminEmail must be a valid email' }),
   timezone: z
     .string()
     .refine(isValidTimezone, { message: 'timezone must be a valid IANA timezone' })

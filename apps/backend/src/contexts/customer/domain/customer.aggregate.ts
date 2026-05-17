@@ -1,14 +1,7 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
+import { Email } from '../../../shared/value-objects/email.vo';
 import { CustomerDomainError } from './errors/customer-domain.error';
-
-function isValidEmail(email: string): boolean {
-  const atIdx = email.indexOf('@');
-  if (atIdx <= 0) return false;
-  const domain = email.slice(atIdx + 1);
-  const dotIdx = domain.lastIndexOf('.');
-  return domain.length > 0 && dotIdx > 0 && dotIdx < domain.length - 1;
-}
 
 export interface CustomerProps {
   id: string;
@@ -61,7 +54,7 @@ export class Customer extends AggregateRoot {
   static create(tenantId: string, googleOAuthId: string, email: string, name: string): Customer {
     if (!tenantId) throw new CustomerDomainError('tenantId is required');
     if (!googleOAuthId) throw new CustomerDomainError('googleOAuthId is required');
-    if (!isValidEmail(email)) throw new CustomerDomainError('email must be a valid email address');
+    if (!Email.isValid(email)) throw new CustomerDomainError('email must be a valid email address');
     if (!name || name.trim().length === 0) throw new CustomerDomainError('name must not be empty');
 
     const now = new Date();
