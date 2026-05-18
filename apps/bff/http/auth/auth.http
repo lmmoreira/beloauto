@@ -1,0 +1,98 @@
+# BFF — Authentication (UC-021 / UC-022 / UC-023)
+#
+# Prerequisites:
+#   1. Google OAuth credentials configured in GCP Console
+#      (Authorized redirect URI: http://localhost:3002/v1/auth/google/callback)
+#   2. pnpm infra:up  (PostgreSQL running)
+#   3. pnpm --filter @beloauto/backend run migration:run
+#   4. pnpm --filter @beloauto/backend run dev  (port 3001)
+#   5. pnpm --filter @beloauto/bff run dev      (port 3002)
+#   6. At least one tenant provisioned via apps/backend/http/platform/internal-tenants.http
+#
+# REST Client environment: select "local" in VS Code status bar.
+# The OAuth callback (step 2 of the flow) must be completed in a browser —
+# REST Client cannot follow Google's redirect chain.
+
+@bffUrl = {{bffUrl}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 — Open this URL in a browser (not REST Client)
+# UC-021: Customer login via a specific tenant's hotsite
+# UC-022: Staff login (same URL — backend distinguishes by Staff vs Customer record)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Browser URL (copy and paste):
+# http://localhost:3002/v1/auth/google?tenantSlug=lavacar-beloauto
+#
+# Flow:
+#   → BFF redirects to Google with state=lavacar-beloauto
+#   → Google authenticates → redirects back to /v1/auth/google/callback
+#   → BFF resolves tenant, finds or creates Customer, issues JWT
+#   → Cookie access_token is set; browser redirects to FRONTEND_URL/dashboard
+#
+# First login creates the Customer record automatically (FindOrCreateCustomerUseCase).
+# Subsequent logins return the same Customer (idempotent).
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MULTI-TENANT SELECTION — POST /v1/auth/token
+# UC-021 (2+ tenants): after browser redirects to /select-tenant?token=<...>,
+# the frontend POSTs here to exchange the short-lived selection token for a JWT.
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Exchange selection token for JWT (tenant selection step)
+# Replace selectionToken with the value from the ?token= query param in the redirect URL
+POST {{bffUrl}}/v1/auth/token
+Content-Type: application/json
+
+{
+  "selectionToken": "paste-selection-token-here",
+  "tenantId": "paste-target-tenant-uuid-here"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR CASES
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 400 — Missing selectionToken
+POST {{bffUrl}}/v1/auth/token
+Content-Type: application/json
+
+{
+  "tenantId": "10000000-0000-4000-8000-000000000001"
+}
+
+###
+
+### 400 — tenantId is not a valid UUID
+POST {{bffUrl}}/v1/auth/token
+Content-Type: application/json
+
+{
+  "selectionToken": "some.token.here",
+  "tenantId": "not-a-uuid"
+}
+
+###
+
+### 400 — Selection token is expired or tampered
+POST {{bffUrl}}/v1/auth/token
+Content-Type: application/json
+
+{
+  "selectionToken": "invalid.token.signature",
+  "tenantId": "10000000-0000-4000-8000-000000000001"
+}
+
+###
+
+### 403 — Customer has no record in the requested tenant
+# (valid selection token but tenantId not in the customer's tenant list)
+POST {{bffUrl}}/v1/auth/token
+Content-Type: application/json
+
+{
+  "selectionToken": "paste-valid-selection-token-here",
+  "tenantId": "10000000-0000-4000-8000-000000000099"
+}

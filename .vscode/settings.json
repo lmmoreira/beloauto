@@ -89,6 +89,7 @@
   "rest-client.environmentVariables": {
     "local": {
       "backendUrl": "http://localhost:3001",
+      "bffUrl": "http://localhost:3002",
       "tenantId": "replace-with-a-real-tenant-uuid"
     }
   },
