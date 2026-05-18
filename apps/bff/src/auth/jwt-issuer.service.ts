@@ -14,7 +14,7 @@ export interface JwtPayload {
 export class JwtIssuerService {
   constructor(private readonly jwt: JwtService) {}
 
-  issueToken(sub: string, tenantId: string, tenantSlug: string, role: JwtRole): string {
-    return this.jwt.sign({ sub, tenantId, tenantSlug, role });
+  issueToken(payload: JwtPayload): string {
+    return this.jwt.sign(payload);
   }
 }

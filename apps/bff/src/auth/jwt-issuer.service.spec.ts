@@ -24,63 +24,85 @@ describe('JwtIssuerService', () => {
   });
 
   it('issueToken() returns a JWT string', () => {
-    const token = service.issueToken(
-      'customer-uuid-1',
-      'tenant-uuid-1',
-      'lavacar-belo',
-      'CUSTOMER',
-    );
+    const token = service.issueToken({
+      sub: 'customer-uuid-1',
+      tenantId: 'tenant-uuid-1',
+      tenantSlug: 'lavacar-belo',
+      role: 'CUSTOMER',
+    });
     expect(typeof token).toBe('string');
     expect(token.split('.')).toHaveLength(3);
   });
 
   it('issued token decodes to the correct payload structure', () => {
-    const sub = 'customer-uuid-abc';
-    const tenantId = 'tenant-uuid-xyz';
-    const tenantSlug = 'lavacar-belo';
-    const role = 'CUSTOMER' as const;
+    const payload: JwtPayload = {
+      sub: 'customer-uuid-abc',
+      tenantId: 'tenant-uuid-xyz',
+      tenantSlug: 'lavacar-belo',
+      role: 'CUSTOMER',
+    };
 
-    const token = service.issueToken(sub, tenantId, tenantSlug, role);
-    const payload = jwtService.verify<JwtPayload & { iat: number; exp: number }>(token);
+    const token = service.issueToken(payload);
+    const decoded = jwtService.verify<JwtPayload & { iat: number; exp: number }>(token);
 
-    expect(payload.sub).toBe(sub);
-    expect(payload.tenantId).toBe(tenantId);
-    expect(payload.tenantSlug).toBe(tenantSlug);
-    expect(payload.role).toBe(role);
-    expect(payload.iat).toBeDefined();
-    expect(payload.exp).toBeDefined();
+    expect(decoded.sub).toBe(payload.sub);
+    expect(decoded.tenantId).toBe(payload.tenantId);
+    expect(decoded.tenantSlug).toBe(payload.tenantSlug);
+    expect(decoded.role).toBe(payload.role);
+    expect(decoded.iat).toBeDefined();
+    expect(decoded.exp).toBeDefined();
   });
 
   it('sub is the backend entity UUID — not a Google OAuth sub', () => {
     const backendUuid = '01961234-abcd-7000-8000-000000000001';
-    const token = service.issueToken(backendUuid, 'tenant-1', 'slug-1', 'STAFF');
-    const payload = jwtService.verify<JwtPayload>(token);
+    const token = service.issueToken({
+      sub: backendUuid,
+      tenantId: 'tenant-1',
+      tenantSlug: 'slug-1',
+      role: 'STAFF',
+    });
+    const decoded = jwtService.verify<JwtPayload>(token);
 
-    expect(payload.sub).toBe(backendUuid);
+    expect(decoded.sub).toBe(backendUuid);
   });
 
   it('issues tokens for all three roles', () => {
     for (const role of ['CUSTOMER', 'STAFF', 'MANAGER'] as const) {
-      const token = service.issueToken('uuid-1', 'tenant-1', 'slug-1', role);
-      const payload = jwtService.verify<JwtPayload>(token);
-      expect(payload.role).toBe(role);
+      const token = service.issueToken({
+        sub: 'uuid-1',
+        tenantId: 'tenant-1',
+        tenantSlug: 'slug-1',
+        role,
+      });
+      const decoded = jwtService.verify<JwtPayload>(token);
+      expect(decoded.role).toBe(role);
     }
   });
 
   it('token expires in ~7 days', () => {
     const before = Math.floor(Date.now() / 1000);
-    const token = service.issueToken('uuid-1', 'tenant-1', 'slug-1', 'MANAGER');
-    const payload = jwtService.verify<JwtPayload & { iat: number; exp: number }>(token);
+    const token = service.issueToken({
+      sub: 'uuid-1',
+      tenantId: 'tenant-1',
+      tenantSlug: 'slug-1',
+      role: 'MANAGER',
+    });
+    const decoded = jwtService.verify<JwtPayload & { iat: number; exp: number }>(token);
     const after = Math.floor(Date.now() / 1000);
 
     const sevenDaysInSeconds = 7 * 24 * 60 * 60;
-    expect(payload.exp - payload.iat).toBe(sevenDaysInSeconds);
-    expect(payload.exp).toBeGreaterThanOrEqual(before + sevenDaysInSeconds);
-    expect(payload.exp).toBeLessThanOrEqual(after + sevenDaysInSeconds);
+    expect(decoded.exp - decoded.iat).toBe(sevenDaysInSeconds);
+    expect(decoded.exp).toBeGreaterThanOrEqual(before + sevenDaysInSeconds);
+    expect(decoded.exp).toBeLessThanOrEqual(after + sevenDaysInSeconds);
   });
 
   it('a token with a tampered signature fails verification', () => {
-    const token = service.issueToken('uuid-1', 'tenant-1', 'slug-1', 'CUSTOMER');
+    const token = service.issueToken({
+      sub: 'uuid-1',
+      tenantId: 'tenant-1',
+      tenantSlug: 'slug-1',
+      role: 'CUSTOMER',
+    });
     const [header, payload] = token.split('.');
     const tamperedToken = `${header}.${payload}.invalidsignature`;
 
@@ -88,7 +110,12 @@ describe('JwtIssuerService', () => {
   });
 
   it('a token signed with a different secret fails verification', () => {
-    const token = service.issueToken('uuid-1', 'tenant-1', 'slug-1', 'CUSTOMER');
+    const token = service.issueToken({
+      sub: 'uuid-1',
+      tenantId: 'tenant-1',
+      tenantSlug: 'slug-1',
+      role: 'CUSTOMER',
+    });
 
     expect(() =>
       jwtService.verify(token, {
