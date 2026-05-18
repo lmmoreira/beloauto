@@ -11,3 +11,17 @@ export class StaffNotFoundError extends StaffDomainError {
     this.name = 'StaffNotFoundError';
   }
 }
+
+export class StaffAlreadyActiveError extends StaffDomainError {
+  constructor(staffId: string) {
+    super(`Staff member ${staffId} is already active`);
+    this.name = 'StaffAlreadyActiveError';
+  }
+}
+
+export class StaffEmailMismatchError extends StaffDomainError {
+  constructor() {
+    super('The Google account email does not match the invited email address');
+    this.name = 'StaffEmailMismatchError';
+  }
+}

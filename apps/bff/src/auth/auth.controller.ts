@@ -49,6 +49,20 @@ interface StaffInfoResponse {
   isActive: boolean;
 }
 
+interface StaffByEmailResponse {
+  staffId: string;
+  email: string;
+  role: 'STAFF' | 'MANAGER';
+  isActive: boolean;
+}
+
+interface ActivateStaffResponse {
+  staffId: string;
+  tenantId: string;
+  role: 'STAFF' | 'MANAGER';
+  isActive: true;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -72,7 +86,13 @@ export class AuthController {
     const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
 
     if (profile.loginType === 'staff') {
-      await this.handleStaffLogin(profile, res, frontendUrl);
+      if (profile.tenantSlug) {
+        // First login: invited staff activating their account via invite link
+        await this.handleStaffFirstLogin(profile, profile.tenantSlug, res, frontendUrl);
+      } else {
+        // Regular login: already-activated staff
+        await this.handleStaffLogin(profile, res, frontendUrl);
+      }
       return;
     }
 
@@ -151,6 +171,69 @@ export class AuthController {
     });
 
     return { accessToken, expiresIn: process.env['JWT_EXPIRES_IN'] ?? '7d' };
+  }
+
+  private async handleStaffFirstLogin(
+    profile: GoogleProfile,
+    tenantSlug: string,
+    res: Response,
+    frontendUrl: string,
+  ): Promise<void> {
+    const tenantInfo = await this.backendHttp
+      .get<TenantInfoResponse>(`/internal/tenants/by-slug/${tenantSlug}`)
+      .catch(() => null);
+    if (!tenantInfo) {
+      res.redirect(`${frontendUrl}/auth/error?reason=tenant-not-found`);
+      return;
+    }
+
+    const staffByEmail = await this.backendHttp
+      .get<StaffByEmailResponse>('/internal/staff/by-email', {
+        email: profile.email,
+        tenantId: tenantInfo.id,
+      })
+      .catch((err: unknown) => {
+        if (err instanceof HttpException && err.getStatus() === HttpStatus.NOT_FOUND) return null;
+        throw err;
+      });
+
+    if (!staffByEmail) {
+      res.redirect(`${frontendUrl}/auth/error?reason=invite-not-found`);
+      return;
+    }
+
+    // UC-025 A2: already active → treat as normal login
+    if (staffByEmail.isActive) {
+      await this.handleStaffLogin(profile, res, frontendUrl);
+      return;
+    }
+
+    const activated = await this.backendHttp
+      .post<ActivateStaffResponse>(`/internal/staff/${staffByEmail.staffId}/activate`, {
+        tenantId: tenantInfo.id,
+        googleOAuthId: profile.googleOAuthId,
+        email: profile.email,
+      })
+      .catch((err: unknown) => {
+        if (err instanceof HttpException && err.getStatus() === HttpStatus.UNPROCESSABLE_ENTITY) {
+          return null;
+        }
+        throw err;
+      });
+
+    if (!activated) {
+      res.redirect(`${frontendUrl}/auth/error?reason=email-mismatch`);
+      return;
+    }
+
+    const token = this.jwtIssuer.issueToken({
+      sub: activated.staffId,
+      tenantId: activated.tenantId,
+      tenantSlug: tenantInfo.slug,
+      role: activated.role,
+    });
+    res.cookie('access_token', token, JWT_COOKIE_OPTIONS);
+    res.redirect(`${frontendUrl}/dashboard`);
   }
 
   private async handleStaffLogin(

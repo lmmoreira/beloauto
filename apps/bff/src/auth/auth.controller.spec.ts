@@ -196,6 +196,135 @@ describe('AuthController', () => {
     });
   });
 
+  describe('handleGoogleCallback() — staff first-login path (loginType=staff + tenantSlug)', () => {
+    const staffProfileWithSlug = {
+      googleOAuthId: 'google-sub-staff-new',
+      email: 'gerente@lavacar.com.br',
+      name: 'Carlos Gerente',
+      loginType: 'staff' as const,
+      tenantSlug: 'lavacar-bh',
+    };
+    const makeStaffFirstLoginReq = () => ({ user: staffProfileWithSlug }) as unknown as Request;
+
+    it('activates invited staff and redirects to /dashboard', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValueOnce(tenantInfo).mockResolvedValueOnce({
+          staffId: STAFF_ID_A,
+          email: 'gerente@lavacar.com.br',
+          role: 'MANAGER',
+          isActive: false,
+        }),
+        post: jest.fn().mockResolvedValue({
+          staffId: STAFF_ID_A,
+          tenantId: TENANT_ID_A,
+          role: 'MANAGER',
+          isActive: true,
+        }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
+
+      expect(backendHttp.post).toHaveBeenCalledWith(
+        `/internal/staff/${STAFF_ID_A}/activate`,
+        expect.objectContaining({
+          tenantId: TENANT_ID_A,
+          googleOAuthId: 'google-sub-staff-new',
+          email: 'gerente@lavacar.com.br',
+        }),
+      );
+      expect(res.cookie).toHaveBeenCalledWith(
+        'access_token',
+        expect.any(String),
+        expect.objectContaining({ httpOnly: true }),
+      );
+      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/dashboard');
+    });
+
+    it('JWT payload has sub=staffId and role=MANAGER after activation', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValueOnce(tenantInfo).mockResolvedValueOnce({
+          staffId: STAFF_ID_A,
+          email: 'gerente@lavacar.com.br',
+          role: 'MANAGER',
+          isActive: false,
+        }),
+        post: jest.fn().mockResolvedValue({
+          staffId: STAFF_ID_A,
+          tenantId: TENANT_ID_A,
+          role: 'MANAGER',
+          isActive: true,
+        }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
+
+      const [, token] = (res.cookie as jest.Mock).mock.calls[0] as [string, string];
+      const decoded = jwtService.decode(token) as Record<string, unknown>;
+      expect(decoded['sub']).toBe(STAFF_ID_A);
+      expect(decoded['role']).toBe('MANAGER');
+      expect(decoded['tenantId']).toBe(TENANT_ID_A);
+    });
+
+    it('redirects to /auth/error?reason=tenant-not-found when slug is unknown', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockRejectedValue(new Error('not found')),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        'http://localhost:3000/auth/error?reason=tenant-not-found',
+      );
+    });
+
+    it('redirects to /auth/error?reason=invite-not-found when email is not invited', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest
+          .fn()
+          .mockResolvedValueOnce(tenantInfo)
+          .mockRejectedValueOnce(new HttpException({ status: 404 }, 404)),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        'http://localhost:3000/auth/error?reason=invite-not-found',
+      );
+    });
+
+    it('redirects to /auth/error?reason=email-mismatch when activate returns 422', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValueOnce(tenantInfo).mockResolvedValueOnce({
+          staffId: STAFF_ID_A,
+          email: 'gerente@lavacar.com.br',
+          role: 'MANAGER',
+          isActive: false,
+        }),
+        post: jest.fn().mockRejectedValue(new HttpException({ status: 422 }, 422)),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        'http://localhost:3000/auth/error?reason=email-mismatch',
+      );
+    });
+  });
+
   describe('handleGoogleCallback() — staff login path (loginType=staff)', () => {
     const staffProfile = {
       googleOAuthId: 'google-sub-staff-123',

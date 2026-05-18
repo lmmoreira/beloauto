@@ -1,5 +1,6 @@
 # Staff — Internal Endpoints
 # UC-022: BFF resolves which tenant a Google account belongs to (staff login)
+# UC-025: BFF activates a staff member on first login (accept invite)
 #
 # Prerequisites:
 #   1. pnpm infra:up           (start PostgreSQL + Pub/Sub emulator)
@@ -10,27 +11,85 @@
 
 @baseUrl = {{backendUrl}}
 @sub = google-sub-example-staff-123
+@tenantId = 10000000-0000-4000-8000-000000000001
+@staffId = 10000000-0000-4000-8000-000000000099
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HAPPY PATH
+# HAPPY PATH — by-oauth (UC-022)
 # ─────────────────────────────────────────────────────────────────────────────
 
 ### Get staff info for a known active Google OAuth ID
 GET {{baseUrl}}/internal/staff/by-oauth?googleOAuthId={{sub}}
 
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — by-email (UC-025 first-login lookup)
+# ─────────────────────────────────────────────────────────────────────────────
+
 ###
 
-### Get staff info for an inactive (deactivated) staff member
-GET {{baseUrl}}/internal/staff/by-oauth?googleOAuthId=google-sub-deactivated-staff
+### Find invited (inactive) staff by email + tenantId
+GET {{baseUrl}}/internal/staff/by-email?email=gerente@lavacar.com.br&tenantId={{tenantId}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — activate (UC-025)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### Activate staff on first Google login
+POST {{baseUrl}}/internal/staff/{{staffId}}/activate
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "googleOAuthId": "{{sub}}",
+  "email": "gerente@lavacar.com.br"
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ERROR CASES
 # ─────────────────────────────────────────────────────────────────────────────
+
+###
 
 ### 400 — Missing googleOAuthId query parameter
 GET {{baseUrl}}/internal/staff/by-oauth
 
 ###
 
-### 404 — Google account not registered as staff in any tenant
+### 400 — Missing email or tenantId for by-email
+GET {{baseUrl}}/internal/staff/by-email?tenantId={{tenantId}}
+
+###
+
+### 404 — Google account not registered as staff
 GET {{baseUrl}}/internal/staff/by-oauth?googleOAuthId=unknown-sub-not-staff
+
+###
+
+### 404 — No staff with that email in this tenant
+GET {{baseUrl}}/internal/staff/by-email?email=nobody@lavacar.com.br&tenantId={{tenantId}}
+
+###
+
+### 404 — staffId not found in tenant
+POST {{baseUrl}}/internal/staff/non-existent-id/activate
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "googleOAuthId": "{{sub}}",
+  "email": "gerente@lavacar.com.br"
+}
+
+###
+
+### 422 — Google email does not match invited email
+POST {{baseUrl}}/internal/staff/{{staffId}}/activate
+Content-Type: application/json
+
+{
+  "tenantId": "{{tenantId}}",
+  "googleOAuthId": "{{sub}}",
+  "email": "wrong@gmail.com"
+}
