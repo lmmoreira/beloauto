@@ -109,6 +109,27 @@ describe('TenantInterceptor', () => {
     expect(capturedActorRole).toBe('MANAGER');
   });
 
+  it('rejects unknown actorType values — only STAFF and CUSTOMER are accepted', async () => {
+    const ctx = makeContext({
+      'x-tenant-id': 'tid-1',
+      'x-actor-id': 'user-1',
+      'x-actor-type': 'ADMIN',
+      'x-actor-role': 'MANAGER',
+    });
+    const tenantContext = new TenantContext();
+    let capturedActorType: string | undefined;
+
+    const handler: CallHandler = {
+      handle: () => {
+        capturedActorType = tenantContext.actorType;
+        return of(null);
+      },
+    };
+
+    await lastValueFrom(interceptor.intercept(ctx, handler));
+    expect(capturedActorType).toBeUndefined();
+  });
+
   it('leaves actor fields undefined when X-Actor-* headers are absent (guest request)', async () => {
     const ctx = makeContext({ 'x-tenant-id': 'tid-1', 'x-correlation-id': 'corr-1' });
     const tenantContext = new TenantContext();
