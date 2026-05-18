@@ -67,6 +67,10 @@ export class BackendHttpService {
   private headers(): Record<string, string> {
     const user = this.req.user as CurrentUserPayload | undefined;
     const correlationId = this.req.headers['x-correlation-id'] as string | undefined;
+    // Empty strings are intentional: X-Tenant-ID is '' on guest routes (no JWT),
+    // X-Correlation-ID is always set by CorrelationInterceptor before any controller
+    // runs, so it is never empty in practice. The backend TenantInterceptor handles
+    // the absent-tenant case for public endpoints.
     return {
       'X-Tenant-ID': user?.tenantId ?? '',
       'X-Correlation-ID': correlationId ?? '',
