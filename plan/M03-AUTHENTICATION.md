@@ -185,7 +185,7 @@ Implement the `JwtService` in the BFF that signs JWTs containing the tenant and 
 
 ---
 
-### M03-S05 — BFF guards: JwtAuthGuard, TenantGuard, RolesGuard
+### M03-S05 — BFF guards: JwtAuthGuard, TenantGuard, RolesGuard ✅ Done
 
 **Agent:** `bff-ts`  
 **Complexity:** M  
