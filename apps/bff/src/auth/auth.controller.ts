@@ -32,7 +32,7 @@ interface TenantInfoResponse {
 
 const IssueTokenSchema = z.object({
   selectionToken: z.string().min(1),
-  tenantId: z.string().uuid(),
+  tenantId: z.uuid(),
 });
 
 @Controller('auth')

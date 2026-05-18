@@ -1,9 +1,8 @@
-import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
+import { Controller, Get, Inject, NotFoundException, Param } from '@nestjs/common';
 import {
-  TENANT_REPOSITORY,
   ITenantRepository,
+  TENANT_REPOSITORY,
 } from '../../application/ports/tenant-repository.port';
-import { Inject } from '@nestjs/common';
 
 export interface TenantInfoResponse {
   id: string;
