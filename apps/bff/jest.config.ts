@@ -5,12 +5,7 @@ const config: Config = {
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.test.json' }],
   },
-  collectCoverageFrom: [
-    '**/*.(t|j)s',
-    '!**/*.spec.ts',
-    '!**/main.ts',
-    '!**/*.module.ts',
-  ],
+  collectCoverageFrom: ['**/*.(t|j)s', '!**/*.spec.ts', '!**/main.ts', '!**/*.module.ts'],
   coverageDirectory: '../coverage',
   coverageReporters: ['lcov', 'text-summary'],
   moduleFileExtensions: ['js', 'json', 'ts'],
