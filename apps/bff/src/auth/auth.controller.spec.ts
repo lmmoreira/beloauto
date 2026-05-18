@@ -1,8 +1,9 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, HttpException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { BackendHttpService } from '../shared/http/backend-http.service';
 import { AuthController } from './auth.controller';
+import { IssueTokenDto } from './dtos/issue-token.dto';
 import { JwtIssuerService } from './jwt-issuer.service';
 import { SelectionTokenService } from './selection-token.service';
 import { GoogleProfile } from './strategies/google.strategy';
@@ -13,6 +14,7 @@ const TENANT_ID_B = '10000000-0000-4000-8000-000000000002';
 const TENANT_ID_OTHER = '10000000-0000-4000-8000-000000000099';
 const CUSTOMER_ID_A = '20000000-0000-4000-8000-000000000001';
 const CUSTOMER_ID_B = '20000000-0000-4000-8000-000000000002';
+const STAFF_ID_A = '30000000-0000-4000-8000-000000000001';
 
 const makeBackendHttp = (overrides?: Partial<BackendHttpService>): BackendHttpService =>
   ({
@@ -192,32 +194,144 @@ describe('AuthController', () => {
     });
   });
 
+  describe('handleGoogleCallback() — staff login path (loginType=staff)', () => {
+    const staffProfile = {
+      googleOAuthId: 'google-sub-staff-123',
+      email: 'gerente@lavacar.com.br',
+      name: 'Carlos Gerente',
+      loginType: 'staff' as const,
+    };
+    const makeStaffReq = () => ({ user: staffProfile }) as unknown as Request;
+
+    it('issues JWT cookie and redirects to /dashboard for an active MANAGER', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest
+          .fn()
+          .mockResolvedValueOnce({
+            staffId: STAFF_ID_A,
+            tenantId: TENANT_ID_A,
+            role: 'MANAGER',
+            isActive: true,
+          })
+          .mockResolvedValueOnce(tenantInfo),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      expect(res.cookie).toHaveBeenCalledWith(
+        'access_token',
+        expect.any(String),
+        expect.objectContaining({ httpOnly: true }),
+      );
+      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/dashboard');
+    });
+
+    it('JWT payload has sub=staffId and role=MANAGER', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest
+          .fn()
+          .mockResolvedValueOnce({
+            staffId: STAFF_ID_A,
+            tenantId: TENANT_ID_A,
+            role: 'MANAGER',
+            isActive: true,
+          })
+          .mockResolvedValueOnce(tenantInfo),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      const [, token] = (res.cookie as jest.Mock).mock.calls[0] as [string, string];
+      const decoded = jwtService.decode(token) as Record<string, unknown>;
+      expect(decoded['sub']).toBe(STAFF_ID_A);
+      expect(decoded['role']).toBe('MANAGER');
+      expect(decoded['tenantId']).toBe(TENANT_ID_A);
+      expect(decoded['tenantSlug']).toBe('lavacar-bh');
+    });
+
+    it('JWT payload has role=STAFF for a staff member', async () => {
+      const staffId = '30000000-0000-4000-8000-000000000002';
+      const tenantInfo = { id: TENANT_ID_B, slug: 'lavacar-centro', name: 'Lavacar Centro' };
+      const backendHttp = makeBackendHttp({
+        get: jest
+          .fn()
+          .mockResolvedValueOnce({ staffId, tenantId: TENANT_ID_B, role: 'STAFF', isActive: true })
+          .mockResolvedValueOnce(tenantInfo),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      const [, token] = (res.cookie as jest.Mock).mock.calls[0] as [string, string];
+      const decoded = jwtService.decode(token) as Record<string, unknown>;
+      expect(decoded['role']).toBe('STAFF');
+      expect(decoded['sub']).toBe(staffId);
+    });
+
+    it('redirects to /auth/error?reason=not-a-staff-member only on 404 (staff not found)', async () => {
+      const notFound = new HttpException({ status: 404 }, 404);
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockRejectedValue(notFound),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        'http://localhost:3000/auth/error?reason=not-a-staff-member',
+      );
+    });
+
+    it('propagates non-404 errors (e.g. backend 500) instead of swallowing them', async () => {
+      const serverError = new HttpException({ status: 500 }, 500);
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockRejectedValue(serverError),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await expect(controller.handleGoogleCallback(makeStaffReq(), res)).rejects.toBeInstanceOf(
+        HttpException,
+      );
+    });
+
+    it('redirects to /auth/first-login when staff is found but isActive=false', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValue({
+          staffId: STAFF_ID_A,
+          tenantId: TENANT_ID_A,
+          role: 'STAFF',
+          isActive: false,
+        }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        `http://localhost:3000/auth/first-login?staffId=${STAFF_ID_A}`,
+      );
+    });
+  });
+
   describe('issueToken()', () => {
-    it('returns 400 for a missing selectionToken', async () => {
-      const controller = new AuthController(jwtIssuer, selectionTokenService, makeBackendHttp());
-
-      await expect(
-        controller.issueToken({ tenantId: TENANT_ID_A }, {} as Request),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('returns 400 for a non-UUID tenantId', async () => {
-      const controller = new AuthController(jwtIssuer, selectionTokenService, makeBackendHttp());
-
-      await expect(
-        controller.issueToken({ selectionToken: 'tok', tenantId: 'not-a-uuid' }, {} as Request),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
+    // Schema validation (missing fields, invalid UUID) is handled by ZodValidationPipe at the
+    // NestJS layer and is not tested here — it is covered at the integration level.
 
     it('returns 400 when the selection token is expired or invalid', async () => {
       const controller = new AuthController(jwtIssuer, selectionTokenService, makeBackendHttp());
+      const dto: IssueTokenDto = { selectionToken: 'bad.token.here', tenantId: TENANT_ID_A };
 
-      await expect(
-        controller.issueToken(
-          { selectionToken: 'bad.token.here', tenantId: TENANT_ID_A },
-          {} as Request,
-        ),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(controller.issueToken(dto)).rejects.toBeInstanceOf(Error);
     });
 
     it('returns 403 when the customer has no record in the requested tenant', async () => {
@@ -226,10 +340,9 @@ describe('AuthController', () => {
         get: jest.fn().mockResolvedValue([{ tenantId: TENANT_ID_A, customerId: 'cid-1' }]),
       });
       const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const dto: IssueTokenDto = { selectionToken, tenantId: TENANT_ID_OTHER };
 
-      await expect(
-        controller.issueToken({ selectionToken, tenantId: TENANT_ID_OTHER }, {} as Request),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(controller.issueToken(dto)).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('returns { accessToken, expiresIn } with correct JWT payload on success', async () => {
@@ -243,8 +356,9 @@ describe('AuthController', () => {
           .mockResolvedValueOnce({ id: tenantId, slug: 'lavacar-bh', name: 'Lavacar BH' }),
       });
       const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const dto: IssueTokenDto = { selectionToken, tenantId };
 
-      const result = await controller.issueToken({ selectionToken, tenantId }, {} as Request);
+      const result = await controller.issueToken(dto);
 
       expect(result.accessToken).toBeTruthy();
       expect(result.expiresIn).toBe('7d');

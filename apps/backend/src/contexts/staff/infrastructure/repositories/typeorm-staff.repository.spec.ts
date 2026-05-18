@@ -67,6 +67,28 @@ describe('TypeOrmStaffRepository', () => {
     expect(result!.isActive).toBe(false);
   });
 
+  it('findByGoogleOAuthId returns null when no row found', async () => {
+    ormRepo.findOne.mockResolvedValue(null);
+    const result = await repo.findByGoogleOAuthId('unknown-sub');
+    expect(result).toBeNull();
+  });
+
+  it('findByGoogleOAuthId returns the mapped Staff when found', async () => {
+    const entity = new StaffEntityBuilder()
+      .withGoogleOAuthId('google-sub-1')
+      .withIsActive(true)
+      .withRole('MANAGER')
+      .build();
+    ormRepo.findOne.mockResolvedValue(entity);
+
+    const result = await repo.findByGoogleOAuthId('google-sub-1');
+
+    expect(result).toBeInstanceOf(Staff);
+    expect(result!.googleOAuthId).toBe('google-sub-1');
+    expect(result!.isActive).toBe(true);
+    expect(result!.role).toBe('MANAGER');
+  });
+
   it('findByTenantAndEmail returns null when not found', async () => {
     ormRepo.findOne.mockResolvedValue(null);
     const result = await repo.findByTenantAndEmail('tenant-1', 'a@b.com');

@@ -8,6 +8,7 @@ export interface GoogleProfile {
   email: string;
   name: string;
   tenantSlug?: string;
+  loginType?: 'staff';
 }
 
 @Injectable()
@@ -34,12 +35,16 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       done(new Error('Google account did not provide an email address'));
       return;
     }
-    const tenantSlug = (req.query['state'] as string) || undefined;
+    const state = (req.query['state'] as string) || '';
+    // '__staff__' cannot be a valid tenant slug ([a-z0-9-]+ only), so there is no collision
+    const loginType = state === '__staff__' ? ('staff' as const) : undefined;
+    const tenantSlug = loginType ? undefined : state || undefined;
     done(null, {
       googleOAuthId: profile.id,
       email,
       name: profile.displayName,
       tenantSlug,
+      loginType,
     });
   }
 }

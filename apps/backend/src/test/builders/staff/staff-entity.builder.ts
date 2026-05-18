@@ -1,7 +1,8 @@
+import { uuidv7 } from '../../../shared/domain/uuid-v7';
 import { StaffEntity } from '../../../contexts/staff/infrastructure/entities/staff.entity';
 
 export class StaffEntityBuilder {
-  private id = '00000000-0000-7000-8003-000000000001';
+  private id = uuidv7();
   private tenantId = '00000000-0000-7000-8000-000000000001';
   private googleOAuthId: string | null = null;
   private email = 'staff@example.com';

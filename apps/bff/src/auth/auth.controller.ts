@@ -1,21 +1,23 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
   Get,
+  HttpException,
   HttpStatus,
   Post,
   Req,
   Res,
   UseGuards,
+  UsePipes,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
-import { z } from 'zod';
 import { Public } from '../shared/decorators/public.decorator';
 import { BackendHttpService } from '../shared/http/backend-http.service';
+import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
 import { JWT_COOKIE_OPTIONS } from './cookie-options';
+import { IssueTokenDto, IssueTokenSchema } from './dtos/issue-token.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { JwtIssuerService } from './jwt-issuer.service';
 import { SelectionTokenService } from './selection-token.service';
@@ -37,10 +39,12 @@ interface FindOrCreateCustomerResult {
   created: boolean;
 }
 
-const IssueTokenSchema = z.object({
-  selectionToken: z.string().min(1),
-  tenantId: z.uuid(),
-});
+interface StaffInfoResponse {
+  staffId: string;
+  tenantId: string;
+  role: 'STAFF' | 'MANAGER';
+  isActive: boolean;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -54,7 +58,7 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   @Get('google')
   login(): void {
-    // GoogleAuthGuard passes tenantSlug as OAuth state → Google redirects
+    // GoogleAuthGuard passes tenantSlug or '__staff__' as OAuth state → Google redirects
   }
 
   @Public()
@@ -63,6 +67,11 @@ export class AuthController {
   async handleGoogleCallback(@Req() req: Request, @Res() res: Response): Promise<void> {
     const profile = req.user as GoogleProfile;
     const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
+
+    if (profile.loginType === 'staff') {
+      await this.handleStaffLogin(profile, res, frontendUrl);
+      return;
+    }
 
     if (profile.tenantSlug) {
       await this.handleTenantLogin(profile, profile.tenantSlug, res, frontendUrl);
@@ -74,28 +83,17 @@ export class AuthController {
 
   @Public()
   @Post('token')
+  @UsePipes(new ZodValidationPipe(IssueTokenSchema))
   async issueToken(
-    @Body() body: unknown,
-    @Req() _req: Request,
+    @Body() dto: IssueTokenDto,
   ): Promise<{ accessToken: string; expiresIn: string }> {
-    const parsed = IssueTokenSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new BadRequestException({
-        type: 'about:blank',
-        title: 'Bad Request',
-        status: HttpStatus.BAD_REQUEST,
-        detail: 'selectionToken (string) and tenantId (UUID) are required',
-      });
-    }
-
-    const { selectionToken, tenantId } = parsed.data;
-    const { googleOAuthId } = this.selectionToken.verifySelectionToken(selectionToken);
+    const { googleOAuthId } = this.selectionToken.verifySelectionToken(dto.selectionToken);
 
     const tenants = await this.backendHttp.get<CustomerTenantSummary[]>(
       '/internal/customers/tenants',
       { googleOAuthId },
     );
-    const match = tenants.find((t) => t.tenantId === tenantId);
+    const match = tenants.find((t) => t.tenantId === dto.tenantId);
     if (!match) {
       throw new ForbiddenException({
         type: 'about:blank',
@@ -106,16 +104,51 @@ export class AuthController {
     }
 
     const tenantInfo = await this.backendHttp.get<TenantInfoResponse>(
-      `/internal/tenants/${tenantId}`,
+      `/internal/tenants/${dto.tenantId}`,
     );
     const accessToken = this.jwtIssuer.issueToken({
       sub: match.customerId,
-      tenantId,
+      tenantId: dto.tenantId,
       tenantSlug: tenantInfo.slug,
       role: 'CUSTOMER',
     });
 
     return { accessToken, expiresIn: process.env['JWT_EXPIRES_IN'] ?? '7d' };
+  }
+
+  private async handleStaffLogin(
+    profile: GoogleProfile,
+    res: Response,
+    frontendUrl: string,
+  ): Promise<void> {
+    const staffInfo = await this.backendHttp
+      .get<StaffInfoResponse>('/internal/staff/by-oauth', { googleOAuthId: profile.googleOAuthId })
+      .catch((err: unknown) => {
+        if (err instanceof HttpException && err.getStatus() === HttpStatus.NOT_FOUND) return null;
+        throw err;
+      });
+
+    if (!staffInfo) {
+      res.redirect(`${frontendUrl}/auth/error?reason=not-a-staff-member`);
+      return;
+    }
+
+    if (!staffInfo.isActive) {
+      res.redirect(`${frontendUrl}/auth/first-login?staffId=${staffInfo.staffId}`);
+      return;
+    }
+
+    const tenantInfo = await this.backendHttp.get<TenantInfoResponse>(
+      `/internal/tenants/${staffInfo.tenantId}`,
+    );
+    const token = this.jwtIssuer.issueToken({
+      sub: staffInfo.staffId,
+      tenantId: staffInfo.tenantId,
+      tenantSlug: tenantInfo.slug,
+      role: staffInfo.role,
+    });
+    res.cookie('access_token', token, JWT_COOKIE_OPTIONS);
+    res.redirect(`${frontendUrl}/dashboard`);
   }
 
   private async handleTenantLogin(

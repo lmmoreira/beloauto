@@ -13,6 +13,13 @@ export class InMemoryStaffRepository implements IStaffRepository {
     return null;
   }
 
+  async findByGoogleOAuthId(googleOAuthId: string): Promise<Staff | null> {
+    for (const staff of this.store.values()) {
+      if (staff.googleOAuthId === googleOAuthId) return staff;
+    }
+    return null;
+  }
+
   async findByTenantAndEmail(tenantId: string, email: string): Promise<Staff | null> {
     for (const staff of this.store.values()) {
       if (staff.tenantId === tenantId && staff.email.address === email) {

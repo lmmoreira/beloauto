@@ -34,7 +34,7 @@ describe('GoogleStrategy', () => {
     });
   });
 
-  it('validate() includes tenantSlug when OAuth state is present', (done) => {
+  it('validate() includes tenantSlug when OAuth state is a slug', (done) => {
     const profile = {
       id: 'google-sub-123',
       displayName: 'João Silva',
@@ -49,6 +49,49 @@ describe('GoogleStrategy', () => {
       (err, user) => {
         expect(err).toBeNull();
         expect(user?.tenantSlug).toBe('lavacar-bh');
+        expect(user?.loginType).toBeUndefined();
+        done();
+      },
+    );
+  });
+
+  it('validate() sets loginType=staff and clears tenantSlug when state=__staff__', (done) => {
+    const profile = {
+      id: 'google-sub-staff',
+      displayName: 'Carlos Gerente',
+      emails: [{ value: 'gerente@lavacar.com.br' }],
+    };
+
+    strategy.validate(
+      makeReq('__staff__'),
+      'access-token',
+      'refresh-token',
+      profile as never,
+      (err, user) => {
+        expect(err).toBeNull();
+        expect(user?.loginType).toBe('staff');
+        expect(user?.tenantSlug).toBeUndefined();
+        done();
+      },
+    );
+  });
+
+  it('validate() treats a slug named "staff" as a tenant slug, not staff login', (done) => {
+    const profile = {
+      id: 'google-sub-123',
+      displayName: 'João Silva',
+      emails: [{ value: 'joao@lavacar.com.br' }],
+    };
+
+    strategy.validate(
+      makeReq('staff'),
+      'access-token',
+      'refresh-token',
+      profile as never,
+      (err, user) => {
+        expect(err).toBeNull();
+        expect(user?.loginType).toBeUndefined();
+        expect(user?.tenantSlug).toBe('staff');
         done();
       },
     );
