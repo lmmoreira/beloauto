@@ -1,8 +1,9 @@
 import { HttpService } from '@nestjs/axios';
-import { Inject, Injectable, Scope } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Scope } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
-import { firstValueFrom } from 'rxjs';
+import { AxiosError, AxiosResponse } from 'axios';
 import { Request } from 'express';
+import { Observable, firstValueFrom } from 'rxjs';
 import { CurrentUserPayload } from '../decorators/current-user.decorator';
 
 @Injectable({ scope: Scope.REQUEST })
@@ -15,44 +16,52 @@ export class BackendHttpService {
   ) {}
 
   async get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
-    const { data } = await firstValueFrom(
+    return this.call(
       this.http.get<T>(`${this.baseUrl}${path}`, {
         headers: this.headers(),
         params,
         timeout: 10_000,
       }),
     );
-    return data;
   }
 
   async post<T>(path: string, body: unknown): Promise<T> {
-    const { data } = await firstValueFrom(
+    return this.call(
       this.http.post<T>(`${this.baseUrl}${path}`, body, {
         headers: this.headers(),
         timeout: 10_000,
       }),
     );
-    return data;
   }
 
   async patch<T>(path: string, body: unknown): Promise<T> {
-    const { data } = await firstValueFrom(
+    return this.call(
       this.http.patch<T>(`${this.baseUrl}${path}`, body, {
         headers: this.headers(),
         timeout: 10_000,
       }),
     );
-    return data;
   }
 
   async delete<T>(path: string): Promise<T> {
-    const { data } = await firstValueFrom(
+    return this.call(
       this.http.delete<T>(`${this.baseUrl}${path}`, {
         headers: this.headers(),
         timeout: 10_000,
       }),
     );
-    return data;
+  }
+
+  private async call<T>(observable: Observable<AxiosResponse<T>>): Promise<T> {
+    try {
+      const { data } = await firstValueFrom(observable);
+      return data;
+    } catch (err) {
+      if (err instanceof AxiosError && err.response) {
+        throw new HttpException(err.response.data as object, err.response.status);
+      }
+      throw err;
+    }
   }
 
   private headers(): Record<string, string> {

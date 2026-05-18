@@ -5,7 +5,7 @@ import { AuthController } from './auth.controller';
 import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
-  imports: [PassportModule, BackendHttpModule],
+  imports: [PassportModule.register({ session: false }), BackendHttpModule],
   controllers: [AuthController],
   providers: [GoogleStrategy],
 })

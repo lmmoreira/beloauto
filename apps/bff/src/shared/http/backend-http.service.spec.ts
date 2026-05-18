@@ -1,7 +1,8 @@
 import { HttpService } from '@nestjs/axios';
-import { of } from 'rxjs';
-import { AxiosResponse } from 'axios';
+import { HttpException } from '@nestjs/common';
+import { AxiosError, AxiosResponse } from 'axios';
 import { Request } from 'express';
+import { throwError, of } from 'rxjs';
 import { BackendHttpService } from './backend-http.service';
 import { CurrentUserPayload } from '../decorators/current-user.decorator';
 
@@ -125,6 +126,28 @@ describe('BackendHttpService', () => {
           headers: expect.objectContaining({ 'X-Tenant-ID': 'tenant-del' }),
         }),
       );
+    });
+  });
+
+  describe('error handling', () => {
+    it('re-throws backend 4xx as HttpException with the original status and body', async () => {
+      const { service, http } = makeService({ tenantId: 'tenant-1' });
+      const axiosError = new AxiosError('Not Found', '404', undefined, undefined, {
+        status: 404,
+        data: { title: 'Not Found', status: 404 },
+      } as AxiosResponse);
+      http.get.mockReturnValue(throwError(() => axiosError));
+
+      await expect(service.get('/missing')).rejects.toBeInstanceOf(HttpException);
+      await expect(service.get('/missing')).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('re-throws non-Axios errors as-is', async () => {
+      const { service, http } = makeService({ tenantId: 'tenant-1' });
+      const networkError = new Error('ECONNREFUSED');
+      http.get.mockReturnValue(throwError(() => networkError));
+
+      await expect(service.get('/down')).rejects.toBe(networkError);
     });
   });
 
