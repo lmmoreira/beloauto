@@ -309,7 +309,7 @@ Implement UC-022: staff members belong to exactly one tenant. After Google OAuth
 
 ---
 
-### M03-S08 — UC-023: Customer switches tenant
+### M03-S08 — UC-023: Customer switches tenant ✅ Done
 
 **Agent:** `bff-ts`  
 **Complexity:** S  

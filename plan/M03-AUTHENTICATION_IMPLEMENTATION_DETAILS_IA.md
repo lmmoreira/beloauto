@@ -1,185 +1,195 @@
-# M03 — Implementation Details for AI Agents (partial — S01–S06)
+# M03 — Authentication Implementation Details (AI Agents)
 
-**Audience:** AI coding agents working on M04 and beyond, or finishing M03 (S07–S08).
-**Purpose:** Avoid re-learning what M03 already solved. Read when touching auth, OAuth, JWT, Customer login, or BFF guards.
-**Companion:** Always read `CLAUDE.md` first. Then load this file when working on any M04+ story that touches the auth layer or the BFF.
+**Audience:** AI coding agents working on M04+  
+**Purpose:** Avoid re-learning what M03 solved. Load when touching auth, OAuth, JWT, BFF guards, customer/staff login, or tenant switching.  
+**Companion:** Always read `CLAUDE.md` first. Load this file for any M04+ work that touches the auth layer or BFF.
 
 ---
 
-## 1. What M03 Built (S01–S06)
+## 1. Artifacts Table
 
 | Artifact | Location | Notes |
 |---|---|---|
-| Customer aggregate | `src/contexts/customer/domain/customer.aggregate.ts` | Multi-tenant — same Google `sub` = multiple Customer rows (one per tenant); `googleOAuthId` is NOT nullable — a Customer only exists after first Google login |
-| Staff aggregate | `src/contexts/staff/domain/staff.aggregate.ts` | Single-tenant; `UNIQUE(tenant_id, google_oauth_id)` at DB level; `googleOAuthId` nullable until first login via `Staff.activate()` |
-| GetCustomerTenantsUseCase | `src/contexts/customer/application/use-cases/` | Returns `{ tenantId, customerId }[]` for a Google OAuth ID — used by BFF to check tenant membership |
-| FindOrCreateCustomerUseCase | `src/contexts/customer/application/use-cases/` | Idempotent: finds existing Customer or creates on first Google login for a `(tenantId, googleOAuthId)` pair |
-| FindOrCreateCustomerDto | `src/contexts/customer/application/dtos/find-or-create-customer.dto.ts` | Zod schema + `z.infer<>` type; used with `ZodValidationPipe` on the controller method |
-| GetTenantByIdUseCase | `src/contexts/platform/application/use-cases/` | Returns `TenantInfoDto { id, slug, name }`; throws `TenantNotFoundError` → 404 via `mapPlatformError` |
-| GetTenantBySlugUseCase | `src/contexts/platform/application/use-cases/` | Same shape as above, by slug — BFF calls this after reading `tenantSlug` from OAuth state |
-| InternalCustomerController | `src/contexts/customer/infrastructure/controllers/` | `GET /internal/customers/tenants?googleOAuthId=<sub>` · `POST /internal/customers` |
-| InternalTenantReadController | `src/contexts/platform/infrastructure/controllers/` | `GET /internal/tenants/by-slug/:slug` (static route, declared FIRST) · `GET /internal/tenants/:tenantId` (dynamic route, declared SECOND) |
-| GoogleStrategy | `apps/bff/src/auth/strategies/google.strategy.ts` | `passReqToCallback: true` — validate signature is `(req, accessToken, refreshToken, profile, done)`; reads `req.query.state` → `GoogleProfile.tenantSlug?` |
-| GoogleAuthGuard | `apps/bff/src/auth/guards/google-auth.guard.ts` | Extends `AuthGuard('google')`; overrides `getAuthenticateOptions()` → `{ state: tenantSlug }` — used ONLY on `GET /auth/google`, not on the callback |
-| JwtIssuerService | `apps/bff/src/auth/jwt-issuer.service.ts` | `issueToken({ sub, tenantId, tenantSlug, role }): string`; `sub` is always the backend entity UUID (never Google's OAuth sub) |
-| SelectionTokenService | `apps/bff/src/auth/selection-token.service.ts` | Issues 5-min JWTs with `type: 'selection'` for the multi-tenant selection step; type field prevents misuse as an access token |
-| JwtStrategy | `apps/bff/src/auth/strategies/jwt.strategy.ts` | Reads from Bearer header AND `access_token` cookie (inline regex extractor — no `cookie-parser` dependency) |
-| JWT_COOKIE_OPTIONS | `apps/bff/src/auth/cookie-options.ts` | `{ httpOnly, secure, sameSite: 'lax', maxAge: 7d, path: '/' }` — import from here, **never from `main.ts`** |
-| AuthController | `apps/bff/src/auth/auth.controller.ts` | `GET /auth/google` · `GET /auth/google/callback` · `POST /auth/token` |
-| Guard suite | `apps/bff/src/shared/guards/` | `JwtAuthGuard` · `TenantGuard` (JWT `tenantSlug` vs `X-Tenant-Slug` header) · `RolesGuard` |
+| Customer aggregate | `src/contexts/customer/domain/customer.aggregate.ts` | Multi-tenant — same Google `sub` = multiple rows (one per tenant); `email: Email` VO |
+| Staff aggregate | `src/contexts/staff/domain/staff.aggregate.ts` | Single-tenant; `UNIQUE(tenant_id, google_oauth_id)` partial index (nullable); `email: Email` VO |
+| `FindOrCreateCustomerUseCase` | `src/contexts/customer/application/use-cases/` | Idempotent: finds or creates Customer for a `(tenantId, googleOAuthId)` pair |
+| `GetCustomerTenantsUseCase` | `src/contexts/customer/application/use-cases/` | All tenants for a googleOAuthId — used in multi-tenant login + `POST /auth/token` |
+| `GetCustomerTenantsByIdUseCase` | `src/contexts/customer/application/use-cases/` | Bridge for switch-tenant: `(customerId, tenantId)` → googleOAuthId → all tenants |
+| `GetStaffByOAuthIdUseCase` | `src/contexts/staff/application/use-cases/` | Throws `StaffNotFoundError` if not found; returns `{ staffId, tenantId, role, isActive }` |
+| `CustomerNotFoundError` | `src/contexts/customer/domain/errors/customer-domain.error.ts` | Extends `CustomerDomainError` |
+| `StaffNotFoundError` | `src/contexts/staff/domain/errors/staff-domain.error.ts` | Extends `StaffDomainError` |
+| `mapCustomerError` | `src/contexts/customer/infrastructure/http/customer-error.mapper.ts` | `CustomerNotFoundError`→404, `CustomerDomainError`→400 |
+| `mapStaffError` | `src/contexts/staff/infrastructure/http/staff-error.mapper.ts` | `StaffNotFoundError`→404, `StaffDomainError`→400 |
+| `InternalCustomerController` | `src/contexts/customer/infrastructure/controllers/` | `GET /internal/customers/tenants` · `GET /internal/customers/:customerId/tenants` · `POST /internal/customers` |
+| `InternalStaffController` | `src/contexts/staff/infrastructure/controllers/` | `GET /internal/staff/by-oauth?googleOAuthId=<sub>` |
+| `InternalTenantReadController` | `src/contexts/platform/infrastructure/controllers/` | `GET /internal/tenants/by-slug/:slug` (static first) · `GET /internal/tenants/:tenantId` |
+| `GoogleStrategy` | `apps/bff/src/auth/strategies/google.strategy.ts` | `passReqToCallback: true` — validate signature is `(req, access, refresh, profile, done)` |
+| `GoogleAuthGuard` | `apps/bff/src/auth/guards/google-auth.guard.ts` | Overrides `getAuthenticateOptions()` — `type=staff` → `state='__staff__'`, `tenantSlug` → `state=<slug>` |
+| `JwtStrategy` | `apps/bff/src/auth/strategies/jwt.strategy.ts` | Reads Bearer header AND `access_token` cookie (inline regex — no cookie-parser) |
+| `JwtIssuerService` | `apps/bff/src/auth/jwt-issuer.service.ts` | `issueToken({ sub, tenantId, tenantSlug, role }): string`; `sub` = backend entity UUID always |
+| `SelectionTokenService` | `apps/bff/src/auth/selection-token.service.ts` | 5-min JWTs with `type:'selection'` — prevents misuse as access token |
+| `JWT_COOKIE_OPTIONS` | `apps/bff/src/auth/cookie-options.ts` | `httpOnly, secure, sameSite:'lax', maxAge:7d, path:'/'` — import from here, never `main.ts` |
+| `IssueTokenDto` | `apps/bff/src/auth/dtos/issue-token.dto.ts` | Zod schema for `POST /auth/token` body |
+| `SwitchTenantDto` | `apps/bff/src/auth/dtos/switch-tenant.dto.ts` | Zod schema for `POST /auth/switch-tenant` body |
+| `AuthController` | `apps/bff/src/auth/auth.controller.ts` | `GET /auth/google` · `GET /auth/google/callback` · `POST /auth/token` · `POST /auth/switch-tenant` |
+| `ZodValidationPipe` (BFF) | `apps/bff/src/shared/http/zod-validation.pipe.ts` | Separate copy from backend — BFF has no shared package dependency |
+| `JwtAuthGuard` | `apps/bff/src/shared/guards/jwt-auth.guard.ts` | Global; `@Public()` bypasses it |
+| `TenantGuard` | `apps/bff/src/shared/guards/tenant.guard.ts` | Compares `X-Tenant-Slug` header with JWT `tenantSlug` |
+| `RolesGuard` | `apps/bff/src/shared/guards/roles.guard.ts` | `@Roles('CUSTOMER')` / `@Roles('MANAGER')` decorators |
+| `CurrentUser` / `CurrentUserPayload` | `apps/bff/src/shared/decorators/current-user.decorator.ts` | `{ sub, tenantId, tenantSlug, role }` — `sub` is backend entity UUID |
+| `BackendHttpService` | `apps/bff/src/shared/http/backend-http.service.ts` | REQUEST-scoped; injects `X-Actor-*` + `X-Tenant-ID` + `X-Correlation-ID` headers |
 
 ---
 
 ## 2. Critical Gotchas
 
-**#1 — Zod v4 deprecations and stricter UUID format**
-`z.string().uuid()` and `z.string().url()` are **deprecated** in Zod v4 → SonarCloud S1874.
-Use `z.uuid()` and `z.url()` directly.
+**#1 — OAuth state encoding (3 distinct cases)**
+```
+GET /auth/google                    → state=''          → general customer login (no tenant context)
+GET /auth/google?tenantSlug=<slug>  → state=<slug>      → hotsite customer login
+GET /auth/google?type=staff         → state=__staff__   → staff login
+```
+`'__staff__'` uses underscores (not in `[a-z0-9-]+` slug charset) — zero collision risk with real slugs. A plain slug `'staff'` routes to customer flow, not staff.
 
-Zod v4's `z.uuid()` also validates RFC 4122 version/variant bits:
-- segment-3 must start with `[1-8]`
-- segment-4 must start with `[89abAB]`
-
-`'00000000-0000-0000-0000-000000000001'` (segment-3 = `0000`) **fails** Zod v4's check even though it looks like a UUID. Use this format for test constants:
+**#2 — `passReqToCallback: true` changes validate() signature**
 ```typescript
-const TENANT_ID_A  = '10000000-0000-4000-8000-000000000001';  // ✓ v4 format
-const CUSTOMER_ID_A = '20000000-0000-4000-8000-000000000001'; // ✓ v4 format
+// req is FIRST when passReqToCallback: true
+validate(req, _access, _refresh, profile, done): void
 ```
+Without this, the signature is `(_access, _refresh, profile, done)` — wrong argument count causes silent failures.
 
-**#2 — OAuth `state` parameter carries tenantSlug (no cookie/session needed)**
-`GoogleAuthGuard.getAuthenticateOptions()` reads `req.query.tenantSlug` → returns `{ state: tenantSlug }`. passport-google-oauth20 appends `&state=lavacar-belo` to Google's auth URL. Google passes it through; on the callback `req.query.state = 'lavacar-belo'`. The strategy reads it with `passReqToCallback: true`.
+**#3 — `JWT_COOKIE_OPTIONS` must NOT be in `main.ts`**
+`import { X } from '../main'` triggers bootstrap → `validateEnv()` → `process.exit(1)` in tests. Constant lives in `apps/bff/src/auth/cookie-options.ts`.
 
-```
-GET /v1/auth/google?tenantSlug=lavacar-belo
-  → state=lavacar-belo sent to Google
-  → Google callback: /callback?code=...&state=lavacar-belo
-  → GoogleStrategy.validate(req, ...) → req.query.state = 'lavacar-belo'
-  → GoogleProfile.tenantSlug = 'lavacar-belo'
-```
+**#4 — `sub` is always backend entity UUID, never Google's OAuth sub**
+- Staff/Manager → `staffId` (from `staff.staff` table)
+- Customer → `customerId` (from `customer.customers` table, tenant-scoped)
 
-**#3 — `passReqToCallback: true` changes `validate()` signature**
-```typescript
-// WITHOUT passReqToCallback
-validate(_accessToken, _refreshToken, profile, done): void
+**#5 — `BackendHttpService` is REQUEST-scoped — use `jest.fn()` in BFF controller tests**
+No in-memory double exists. `jest.fn()` is correct here (exception to the general rule). Use case tests in backend still use `InMemoryXxxRepository`.
 
-// WITH passReqToCallback: true
-validate(req, _accessToken, _refreshToken, profile, done): void
-//       ^^^  req is first
-```
-The NestJS `PassportStrategy` wrapper maps these automatically — match the function length.
+**#6 — `actor` headers during OAuth callback**
+`req.user` is a `GoogleProfile` (truthy but no `sub`). `BackendHttpService.headers()` guards on `user?.sub` — not `user` — to avoid forwarding `X-Actor-Type: STAFF` with `X-Actor-ID: undefined`.
 
-**#4 — `JWT_COOKIE_OPTIONS` must NOT be exported from `main.ts`**
-`import { X } from '../main'` triggers the bootstrap function → `validateEnv()` → `process.exit(1)` in test environments. The constant lives in `apps/bff/src/auth/cookie-options.ts`; `main.ts` re-exports it for any legacy callers.
+**#7 — Cookie `path:'/'` is mandatory**
+Omitting `path` scopes the cookie to `/v1/auth/google/callback`. Frontend at `/dashboard` never sees it.
 
-**#5 — Actor headers during Google OAuth callback**
-During the callback, `req.user` is a `GoogleProfile` (truthy, but no `sub`/`role`). The `BackendHttpService.headers()` guard is `if (user?.sub)` — not just `if (user)`. Without the `?.sub` guard, `X-Actor-Type: STAFF` and `X-Actor-ID: undefined` would be forwarded to the backend.
+**#8 — Static routes before dynamic in the same controller**
+`@Get('by-slug/:slug')` before `@Get(':tenantId')`. `@Get('tenants')` before `@Get(':customerId/tenants')`. NestJS resolves in declaration order.
 
-**#6 — Cookie `path: '/'` is mandatory**
-Omitting `path` scopes the cookie to the callback path (`/v1/auth/google/callback`). The frontend at `/dashboard` never sees it. `JWT_COOKIE_OPTIONS` includes `path: '/'` — always use the shared constant, never inline cookie options.
+**#9 — Zod v4 UUID format**
+`z.string().uuid()` deprecated → use `z.uuid()`. Zod v4 validates RFC 4122 variant bits — segment-3 must start with `[1-8]`, segment-4 with `[89abAB]`. Test UUIDs must follow: `'10000000-0000-4000-8000-000000000001'`.
 
-**#7 — Static NestJS routes before dynamic ones in the same controller**
-`@Get('by-slug/:slug')` must be declared **before** `@Get(':tenantId')`. NestJS resolves routes in declaration order — the dynamic route swallows everything if declared first.
+**#10 — `StaffEntityBuilder` id must be `uuidv7()`**
+Fixed in M03-S07 (was hardcoded). Every second `save()` would silently upsert the first row.
 
-**#8 — `XxxEntityBuilder` default `id` must be `uuidv7()`**
-A hardcoded `id = '00000000-...'` means two builders share the same primary key. Second `save()` silently upserts over the first → row-count and tenant-isolation assertions fail. See `customer-entity.builder.ts` for the fixed pattern:
-```typescript
-private id = uuidv7();  // unique per builder instance
-```
+**#11 — SonarCloud S6582: optional chain over `||` null guards**
+`if (!customer || customer.tenantId !== tenantId)` → `if (customer?.tenantId === tenantId)` SonarCloud flags the `||` form as a major issue.
 
-**#9 — Controllers must not inject repositories directly**
-`InternalTenantReadController` was initially wired with `ITenantRepository`. Controllers inject use cases only. The use case throws domain errors (`TenantNotFoundError`); the controller maps them via `mapPlatformError`. Bypassing this skips the error→HTTP mapping.
+**#12 — `mapXxxError` dedicated spec required for SonarCloud coverage**
+Only the 404 branch is exercised by controller tests. Create `xxx-error.mapper.spec.ts` to cover all 4 branches: domain-specific error → 4xx, generic domain error → 400, `Error` re-throw, unknown → wrapped `Error`.
 
-**#10 — `jest.fn()` for `BackendHttpService` is correct; for use cases it is not**
-`BackendHttpService` is REQUEST-scoped with no in-memory double → `jest.fn()` is correct in BFF controller tests. Use cases have `InMemoryXxxRepository` → wire the real use case in controller tests, no mocking needed.
+**#13 — Inactive staff (isActive=false) flow**
+`findByGoogleOAuthId` finds staff only if `googleOAuthId` is set. Invited-but-not-yet-activated staff have `googleOAuthId=null` → `findByGoogleOAuthId` returns null → BFF redirects to `not-a-staff-member`. Deactivated staff (previously active → googleOAuthId set, isActive=false) → BFF redirects to `/auth/first-login?staffId=<id>` (UC-025, M04).
+
+**#14 — `.catch(() => null)` antipattern for backend HTTP calls**
+Only catch 404 specifically. `.catch(err => { if (err instanceof HttpException && err.getStatus() === 404) return null; throw err; })` — avoids swallowing 5xx/timeouts.
 
 ---
 
-## 3. UC-021 Auth Flow
+## 3. Auth Flows
 
+### UC-021 — Customer login (hotsite or general)
 ```
-Customer visits hotsite → clicks "Login"
-  ↓
-GET /v1/auth/google?tenantSlug=lavacar-belo
-  → GoogleAuthGuard passes state=lavacar-belo to Google
-  ↓
-Google authenticates → callback
-  ↓
-GET /v1/auth/google/callback?state=lavacar-belo&code=...
-  → GoogleStrategy.validate(req, ...) → GoogleProfile { googleOAuthId, email, name, tenantSlug }
-  ↓
-handleGoogleCallback():
-  if profile.tenantSlug:                                  ← hotsite flow (most common)
-    GET /internal/tenants/by-slug/lavacar-belo → tenantInfo
-    POST /internal/customers { tenantId, googleOAuthId, email, name }
-      → FindOrCreateCustomerUseCase (idempotent)
-      → { customerId, created }
-    JWT { sub: customerId, tenantId, tenantSlug, role: 'CUSTOMER' }
-    cookie access_token (JWT_COOKIE_OPTIONS)
-    redirect → FRONTEND_URL/dashboard
+GET /auth/google?tenantSlug=lavacar-bh   (hotsite)
+  → state=lavacar-bh → Google → callback
+  → GET /internal/tenants/by-slug/lavacar-bh
+  → POST /internal/customers { tenantId, googleOAuthId, email, name }  ← FindOrCreate (idempotent)
+  → JWT { sub: customerId, tenantId, tenantSlug, role: CUSTOMER }
+  → cookie + redirect /dashboard
 
-  else:                                                   ← general login (no hotsite context)
-    GET /internal/customers/tenants?googleOAuthId=<sub>
-    0 tenants → redirect /auth/error?reason=no-tenant
-    1 tenant  → GET /internal/tenants/:id → JWT → cookie → /dashboard
-    2+ tenants → SelectionTokenService.issueSelectionToken() → /select-tenant?token=...
-      POST /auth/token { selectionToken, tenantId } → verifies → issues JWT
+GET /auth/google   (no tenantSlug)
+  → GET /internal/customers/tenants?googleOAuthId=<sub>
+  → 0 tenants → /auth/error?reason=no-tenant
+  → 1 tenant  → JWT → /dashboard
+  → 2+ tenants → SelectionToken (5 min) → /select-tenant?token=...
+    → POST /auth/token { selectionToken, tenantId } → JWT → { accessToken, expiresIn }
 ```
 
-## 4. JWT Structure
+### UC-022 — Staff login
+```
+GET /auth/google?type=staff
+  → state=__staff__ → Google → callback
+  → GET /internal/staff/by-oauth?googleOAuthId=<sub>
+  → 404 (not found) → /auth/error?reason=not-a-staff-member
+  → found, isActive=false → /auth/first-login?staffId=<id>  (UC-025, M04)
+  → found, isActive=true  → GET /internal/tenants/:tenantId → JWT { sub: staffId, role: STAFF|MANAGER }
+```
 
+### UC-023 — Customer switches tenant
+```
+POST /auth/switch-tenant { targetTenantId }   [JWT required, role: CUSTOMER]
+  → GET /internal/customers/:sub/tenants?tenantId=:currentTenantId
+  → targetTenantId not in list → 403
+  → found → GET /internal/tenants/:targetTenantId
+  → new JWT { sub: targetCustomerId, tenantId: targetTenantId, tenantSlug, role: CUSTOMER }
+```
+
+---
+
+## 4. JWT Payload
 ```json
 {
   "sub":        "<backend-entity-uuid>",
   "tenantId":   "<uuid>",
-  "tenantSlug": "<url-safe-slug>",
+  "tenantSlug": "<slug>",
   "role":       "CUSTOMER | STAFF | MANAGER",
   "iat": 0,
   "exp": 0
 }
 ```
-`sub` = `customerId` for CUSTOMER, `staffId` for STAFF/MANAGER. **Never** Google's OAuth `sub`.
 
 ---
 
 ## 5. Environment Variables Added in M03
 
-| Var | App | Required | Notes |
-|---|---|---|---|
-| `GOOGLE_CLIENT_ID` | BFF | Yes | Google OAuth 2.0 client ID |
-| `GOOGLE_CLIENT_SECRET` | BFF | Yes | Google OAuth 2.0 client secret |
-| `GOOGLE_CALLBACK_URL` | BFF | Yes | Local dev: `http://localhost:3002/v1/auth/google/callback` |
-| `JWT_SECRET` | BFF | Yes | Min 64 chars — validated at startup |
-| `JWT_EXPIRES_IN` | BFF | No | Default `7d` |
-| `FRONTEND_URL` | BFF | No | Default `http://localhost:3000` — OAuth redirect target |
-| `CRON_SECRET` | BFF | Yes | Min 32 chars — protects cron trigger endpoints |
+| Var | App | Notes |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` | BFF | Google OAuth 2.0 client ID |
+| `GOOGLE_CLIENT_SECRET` | BFF | Google OAuth 2.0 client secret |
+| `GOOGLE_CALLBACK_URL` | BFF | Local dev: `http://localhost:3002/v1/auth/google/callback` |
+| `JWT_SECRET` | BFF | Min 64 chars — validated at startup |
+| `JWT_EXPIRES_IN` | BFF | Default `7d` |
+| `FRONTEND_URL` | BFF | Default `http://localhost:3000` |
 
 ---
 
 ## 6. Test Patterns Established in M03
 
-**Controller unit test — wire real use case, not jest.fn():**
-```typescript
-beforeEach(() => {
-  const repo = new InMemoryCustomerRepository();
-  controller = new InternalCustomerController(
-    new GetCustomerTenantsUseCase(repo),
-    new FindOrCreateCustomerUseCase(repo),
-  );
-});
-```
-
-**BFF controller test — BackendHttpService via jest.fn() (correct here):**
+**BFF controller test — `BackendHttpService` via `jest.fn()` (correct):**
 ```typescript
 const makeBackendHttp = (overrides?: Partial<BackendHttpService>): BackendHttpService =>
   ({ get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn(), ...overrides })
   as unknown as BackendHttpService;
 ```
 
+**Use `beforeEach` in all specs (not `makeXxx` helper functions):**
+```typescript
+describe('SomeController', () => {
+  let repo: InMemoryXxxRepository;
+  let controller: SomeController;
+
+  beforeEach(() => {
+    repo = new InMemoryXxxRepository();
+    controller = new SomeController(new SomeUseCase(repo));
+  });
+```
+
 **Zod v4-compliant test UUID constants:**
 ```typescript
 const TENANT_ID_A  = '10000000-0000-4000-8000-000000000001';
-const TENANT_ID_B  = '10000000-0000-4000-8000-000000000002';
 const CUSTOMER_ID_A = '20000000-0000-4000-8000-000000000001';
+const STAFF_ID_A   = '30000000-0000-4000-8000-000000000001';
 ```
 
 ---
@@ -190,12 +200,12 @@ const CUSTOMER_ID_A = '20000000-0000-4000-8000-000000000001';
 # Customer context unit tests
 pnpm --filter @beloauto/backend exec jest --testPathPatterns="contexts/customer" --no-coverage --selectProjects unit
 
-# Platform context unit tests
-pnpm --filter @beloauto/backend exec jest --testPathPatterns="contexts/platform" --no-coverage --selectProjects unit
+# Staff context unit tests
+pnpm --filter @beloauto/backend exec jest --testPathPatterns="contexts/staff" --no-coverage --selectProjects unit
 
 # All BFF tests
 pnpm --filter @beloauto/bff exec jest --no-coverage
 
-# Full type-check (both apps)
+# Full type-check
 pnpm --filter @beloauto/backend run type-check && pnpm --filter @beloauto/bff run type-check
 ```
