@@ -41,3 +41,4 @@ Thumbs.db
 # Claude Code — local machine settings (paths, permission allow-lists)
 .claude/settings.local.json
 .claude/settings.json
+.claude/scheduled_tasks.lock
