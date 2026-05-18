@@ -250,7 +250,7 @@ After a request passes the guards, a `BackendRequestInterceptor` (or equivalent)
 
 ---
 
-### M03-S06 — UC-021: Customer login + tenant selection
+### M03-S06 — UC-021: Customer login + tenant selection ✅ Done
 
 **Agent:** `bff-ts`  
 **Complexity:** M  
