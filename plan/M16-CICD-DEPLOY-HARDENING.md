@@ -442,3 +442,28 @@ Execute the final go-live checklist: configure production secrets, deploy to pro
 - [ ] Billing alert configured in GCP: notify at $50, $100, $200/month
 
 **Dependencies:** M16-S03, M16-S06, M16-S09, M15-S11
+
+---
+
+### M16-S11 — OAuth state parameter (stateless CSRF protection)
+
+**Agent:** `bff-ts`
+**Complexity:** S
+**Docs to load:** `docs/24-BFF_ARCHITECTURE.md` § Security Considerations
+
+**Description:**
+The `GoogleStrategy` currently omits the OAuth `state` parameter, leaving the login flow vulnerable to CSRF (an attacker can forge a callback that logs the victim into the attacker's session). This story implements a stateless signed nonce as the `state` value — no sessions required.
+
+**What to implement:**
+- On `GET /auth/google`: generate a short-lived signed JWT (`{ nonce: uuidv7() }`, 5-minute TTL) and pass it as `state` to Google via `passReqToCallback: true` + manual state injection, or by extending `GoogleStrategy` with a custom `authorizationParams()`.
+- On `GET /auth/google/callback`: extract and verify the `state` JWT. Reject with `400` if missing, tampered, or expired.
+- Use the existing `JwtIssuerService` (M03-S04) for signing/verifying the state nonce.
+
+**Acceptance criteria:**
+- [ ] `/auth/google` redirect URL includes a `state` query parameter containing a signed JWT
+- [ ] `/auth/google/callback` with a missing or invalid `state` returns `400`
+- [ ] `/auth/google/callback` with an expired `state` (> 5 min) returns `400`
+- [ ] Valid callback with correct `state` completes the OAuth flow normally
+- [ ] Unit tests cover all three rejection scenarios
+
+**Dependencies:** M03-S04 (JwtIssuerService), M16-S10

@@ -469,6 +469,34 @@ CMD ["node", "dist/main.js"]
 
 ---
 
+## Security Considerations / Known Limitations
+
+### OAuth state parameter (CSRF protection) — deferred to M16-S11
+
+The current `GoogleStrategy` does not validate an OAuth `state` parameter. The state parameter is the standard mechanism for preventing login CSRF attacks (an attacker forges a callback URL that logs the victim into the attacker's account).
+
+**Risk:** Without state validation, a malicious link can trick a user into completing an OAuth flow that was initiated by the attacker.
+
+**Deferred because:** Implementing a stateless state parameter correctly requires either:
+- Session support (`express-session`) — incompatible with the stateless JWT design, or
+- A stateless signed nonce: generate a short-lived signed JWT as `state` on `/auth/google`, pass it to Google, validate signature + expiry on `/auth/google/callback`. No server-side storage required.
+
+**Planned fix (M16-S11):** Implement stateless signed `state` nonce in `GoogleStrategy`:
+```typescript
+// In GoogleStrategy constructor:
+super({ ..., state: false });  // handle state manually
+
+// Generate state on initiation:
+const state = this.jwtService.sign({ nonce: randomUUID() }, { expiresIn: '5m' });
+
+// Validate on callback:
+this.jwtService.verify(state);  // throws if tampered or expired
+```
+
+**Must be resolved before production.** See `plan/M16-CICD-DEPLOY-HARDENING.md` § M16-S11.
+
+---
+
 ## References
 
 | Topic | Document |
