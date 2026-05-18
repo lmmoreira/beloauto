@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ActivateStaffDto } from '../dtos/activate-staff.dto';
 import {
   StaffAlreadyActiveError,
   StaffEmailMismatchError,
@@ -6,13 +7,6 @@ import {
 } from '../../domain/errors/staff-domain.error';
 import { StaffRole } from '../../domain/staff.aggregate';
 import { IStaffRepository, STAFF_REPOSITORY } from '../ports/staff-repository.port';
-
-export interface ActivateStaffDto {
-  staffId: string;
-  tenantId: string;
-  googleOAuthId: string;
-  email: string;
-}
 
 export interface ActivateStaffResult {
   staffId: string;
