@@ -1,13 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Customer } from '../../domain/customer.aggregate';
+import { FindOrCreateCustomerDto } from '../dtos/find-or-create-customer.dto';
 import { CUSTOMER_REPOSITORY, ICustomerRepository } from '../ports/customer-repository.port';
-
-export interface FindOrCreateCustomerDto {
-  tenantId: string;
-  googleOAuthId: string;
-  email: string;
-  name: string;
-}
 
 export interface FindOrCreateCustomerResult {
   customerId: string;

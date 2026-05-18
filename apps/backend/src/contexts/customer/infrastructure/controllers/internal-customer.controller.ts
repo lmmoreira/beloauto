@@ -7,21 +7,19 @@ import {
   HttpStatus,
   Post,
   Query,
+  UsePipes,
 } from '@nestjs/common';
-import { z } from 'zod';
+import {
+  FindOrCreateCustomerDto,
+  FindOrCreateCustomerSchema,
+} from '../../application/dtos/find-or-create-customer.dto';
 import { CustomerTenantSummary } from '../../application/ports/customer-repository.port';
 import {
   FindOrCreateCustomerResult,
   FindOrCreateCustomerUseCase,
 } from '../../application/use-cases/find-or-create-customer.use-case';
 import { GetCustomerTenantsUseCase } from '../../application/use-cases/get-customer-tenants.use-case';
-
-const FindOrCreateSchema = z.object({
-  tenantId: z.uuid(),
-  googleOAuthId: z.string().min(1),
-  email: z.string().min(1),
-  name: z.string().min(1),
-});
+import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
 
 // MVP: protected at network level (backend not exposed publicly — BFF-only access).
 // Future: add InternalApiGuard checking X-Internal-Key header.
@@ -47,16 +45,8 @@ export class InternalCustomerController {
 
   @Post()
   @HttpCode(HttpStatus.OK)
-  async findOrCreate(@Body() body: unknown): Promise<FindOrCreateCustomerResult> {
-    const parsed = FindOrCreateSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new BadRequestException({
-        type: 'about:blank',
-        title: 'Bad Request',
-        status: HttpStatus.BAD_REQUEST,
-        detail: 'tenantId (UUID), googleOAuthId, email, and name are required',
-      });
-    }
-    return this.findOrCreateCustomer.execute(parsed.data);
+  @UsePipes(new ZodValidationPipe(FindOrCreateCustomerSchema))
+  findOrCreate(@Body() dto: FindOrCreateCustomerDto): Promise<FindOrCreateCustomerResult> {
+    return this.findOrCreateCustomer.execute(dto);
   }
 }

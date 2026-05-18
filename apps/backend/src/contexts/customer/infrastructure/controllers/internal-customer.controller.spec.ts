@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { CustomerBuilder } from '../../../../test/builders/customer';
 import { InMemoryCustomerRepository } from '../../../../test/repositories/customer/in-memory-customer.repository';
+import { FindOrCreateCustomerDto } from '../../application/dtos/find-or-create-customer.dto';
 import { FindOrCreateCustomerUseCase } from '../../application/use-cases/find-or-create-customer.use-case';
 import { GetCustomerTenantsUseCase } from '../../application/use-cases/get-customer-tenants.use-case';
 import { InternalCustomerController } from './internal-customer.controller';
@@ -46,19 +47,12 @@ describe('InternalCustomerController', () => {
   });
 
   describe('findOrCreate()', () => {
-    const validBody = {
+    const validBody: FindOrCreateCustomerDto = {
       tenantId: '10000000-0000-4000-8000-000000000001',
       googleOAuthId: 'google-sub-456',
       email: 'maria@lavacar.com.br',
       name: 'Maria Silva',
     };
-
-    it('returns 400 for a missing required field', async () => {
-      const { controller } = makeController();
-      await expect(controller.findOrCreate({ ...validBody, tenantId: undefined })).rejects.toThrow(
-        BadRequestException,
-      );
-    });
 
     it('creates and returns a new customer on first call', async () => {
       const { controller, repo } = makeController();
