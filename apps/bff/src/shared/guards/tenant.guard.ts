@@ -1,9 +1,45 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
+import { CurrentUserPayload } from '../decorators/current-user.decorator';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
-  canActivate(_context: ExecutionContext): boolean {
-    // Implemented in M03 — Authentication
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return true;
+
+    const req = context.switchToHttp().getRequest<Request>();
+    const user = req.user as CurrentUserPayload | undefined;
+    if (!user) return true;
+
+    const tenantSlug = req.headers['x-tenant-slug'] as string | undefined;
+    if (!tenantSlug) return true;
+
+    if (tenantSlug !== user.tenantSlug) {
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Forbidden',
+          status: HttpStatus.FORBIDDEN,
+          detail: 'X-Tenant-Slug does not match the tenant in your JWT',
+        },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
     return true;
   }
 }

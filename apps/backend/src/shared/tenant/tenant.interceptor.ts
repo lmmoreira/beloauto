@@ -15,7 +15,7 @@ import { runWithTenantContext } from './tenant-context';
 export class TenantInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest<{
-      headers: Record<string, string | undefined>;
+      headers: Record<string, string | string[] | undefined>;
       path: string;
     }>();
 
@@ -23,7 +23,8 @@ export class TenantInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const tenantId = req.headers['x-tenant-id'];
+    const tenantId =
+      typeof req.headers['x-tenant-id'] === 'string' ? req.headers['x-tenant-id'] : undefined;
     if (!tenantId) {
       const body: ProblemDetail = {
         type: 'about:blank',
@@ -34,14 +35,32 @@ export class TenantInterceptor implements NestInterceptor {
       throw new HttpException(body, HttpStatus.BAD_REQUEST);
     }
 
-    const correlationId = req.headers['x-correlation-id'] ?? uuidv7();
+    const correlationId =
+      (typeof req.headers['x-correlation-id'] === 'string'
+        ? req.headers['x-correlation-id']
+        : undefined) ?? uuidv7();
+
+    const actorId =
+      typeof req.headers['x-actor-id'] === 'string' ? req.headers['x-actor-id'] : undefined;
+    const rawActorType =
+      typeof req.headers['x-actor-type'] === 'string' ? req.headers['x-actor-type'] : undefined;
+    const actorType: 'STAFF' | 'CUSTOMER' | undefined =
+      rawActorType === 'STAFF' || rawActorType === 'CUSTOMER' ? rawActorType : undefined;
+    const actorRole =
+      typeof req.headers['x-actor-role'] === 'string' ? req.headers['x-actor-role'] : undefined;
+    const actor = actorId && actorType && actorRole ? { actorId, actorType, actorRole } : undefined;
 
     // Wrap the entire request observable in AsyncLocalStorage context so that
-    // TenantContext.tenantId/correlationId are available anywhere in the call chain.
+    // TenantContext fields are available anywhere in the call chain.
     return new Observable((subscriber) => {
-      runWithTenantContext(tenantId, correlationId, () => {
-        next.handle().subscribe(subscriber);
-      });
+      runWithTenantContext(
+        tenantId,
+        correlationId,
+        () => {
+          next.handle().subscribe(subscriber);
+        },
+        actor,
+      );
     });
   }
 }

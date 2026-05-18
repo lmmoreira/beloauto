@@ -6,6 +6,7 @@ import { BackendHttpModule } from '../shared/http/backend-http.module';
 import { AuthController } from './auth.controller';
 import { JwtIssuerService } from './jwt-issuer.service';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
@@ -20,7 +21,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
     BackendHttpModule,
   ],
   controllers: [AuthController],
-  providers: [GoogleStrategy, JwtIssuerService],
+  providers: [GoogleStrategy, JwtStrategy, JwtIssuerService],
   exports: [JwtIssuerService],
 })
 export class AuthModule {}
