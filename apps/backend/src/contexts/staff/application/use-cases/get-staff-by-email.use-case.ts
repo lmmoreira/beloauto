@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { StaffNotFoundError } from '../../domain/errors/staff-domain.error';
 import { StaffRole } from '../../domain/staff.aggregate';
 import { IStaffRepository, STAFF_REPOSITORY } from '../ports/staff-repository.port';
 
@@ -13,9 +14,9 @@ export interface StaffByEmailInfo {
 export class GetStaffByEmailUseCase {
   constructor(@Inject(STAFF_REPOSITORY) private readonly staffRepo: IStaffRepository) {}
 
-  async execute(email: string, tenantId: string): Promise<StaffByEmailInfo | null> {
+  async execute(email: string, tenantId: string): Promise<StaffByEmailInfo> {
     const staff = await this.staffRepo.findByTenantAndEmail(tenantId, email);
-    if (!staff) return null;
+    if (!staff) throw new StaffNotFoundError(email);
     return {
       staffId: staff.id,
       email: staff.email.address,

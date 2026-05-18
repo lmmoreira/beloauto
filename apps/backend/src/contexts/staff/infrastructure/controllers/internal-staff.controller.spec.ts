@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { StaffBuilder } from '../../../../test/builders/staff';
 import { InMemoryStaffRepository } from '../../../../test/repositories/staff/in-memory-staff.repository';
 import { ActivateStaffUseCase } from '../../application/use-cases/activate-staff.use-case';
@@ -56,10 +56,13 @@ describe('InternalStaffController', () => {
       );
     });
 
-    it('throws NotFoundException when no staff found for the given email + tenantId', async () => {
-      await expect(
-        controller.getByEmail('nobody@lavacar.com.br', '10000000-0000-4000-8000-000000000001'),
-      ).rejects.toBeInstanceOf(NotFoundException);
+    it('maps StaffNotFoundError to 404 when no staff found for the given email + tenantId', async () => {
+      const err = await controller
+        .getByEmail('nobody@lavacar.com.br', '10000000-0000-4000-8000-000000000001')
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
     });
 
     it('returns StaffByEmailInfo for an invited (inactive) staff member', async () => {

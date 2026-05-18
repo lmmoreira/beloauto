@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  NotFoundException,
   Param,
   Post,
   Query,
@@ -66,16 +65,7 @@ export class InternalStaffController {
         detail: 'email and tenantId query parameters are required',
       });
     }
-    const result = await this.getStaffByEmail.execute(email, tenantId);
-    if (!result) {
-      throw new NotFoundException({
-        type: 'about:blank',
-        title: 'Not Found',
-        status: HttpStatus.NOT_FOUND,
-        detail: `No staff member found with email ${email} in this tenant`,
-      });
-    }
-    return result;
+    return this.getStaffByEmail.execute(email, tenantId).catch(mapStaffError);
   }
 
   @Post(':staffId/activate')
