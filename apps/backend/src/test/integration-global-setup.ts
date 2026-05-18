@@ -7,6 +7,8 @@ import { HotsiteConfigEntity } from '../contexts/platform/infrastructure/entitie
 import { TenantEntity } from '../contexts/platform/infrastructure/entities/tenant.entity';
 import { CreatePlatformHotsiteConfigs1716500000002 } from '../contexts/platform/infrastructure/migrations/1716500000002-CreatePlatformHotsiteConfigs';
 import { CreatePlatformTenants1716500000001 } from '../contexts/platform/infrastructure/migrations/1716500000001-CreatePlatformTenants';
+import { StaffEntity } from '../contexts/staff/infrastructure/entities/staff.entity';
+import { CreateStaffStaff1716600000002 } from '../contexts/staff/infrastructure/migrations/1716600000002-CreateStaffStaff';
 
 export default async function globalSetup(): Promise<void> {
   const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
@@ -22,11 +24,12 @@ export default async function globalSetup(): Promise<void> {
   const ds = new DataSource({
     type: 'postgres',
     url: container.getConnectionUri(),
-    entities: [TenantEntity, HotsiteConfigEntity, CustomerEntity],
+    entities: [TenantEntity, HotsiteConfigEntity, CustomerEntity, StaffEntity],
     migrations: [
       CreatePlatformTenants1716500000001,
       CreatePlatformHotsiteConfigs1716500000002,
       CreateCustomerCustomers1716600000001,
+      CreateStaffStaff1716600000002,
     ],
     synchronize: false,
     migrationsRun: false,
