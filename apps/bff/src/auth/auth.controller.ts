@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  HttpException,
   HttpStatus,
   Post,
   Req,
@@ -122,7 +123,10 @@ export class AuthController {
   ): Promise<void> {
     const staffInfo = await this.backendHttp
       .get<StaffInfoResponse>('/internal/staff/by-oauth', { googleOAuthId: profile.googleOAuthId })
-      .catch(() => null);
+      .catch((err: unknown) => {
+        if (err instanceof HttpException && err.getStatus() === HttpStatus.NOT_FOUND) return null;
+        throw err;
+      });
 
     if (!staffInfo) {
       res.redirect(`${frontendUrl}/auth/error?reason=not-a-staff-member`);

@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, HttpException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { BackendHttpService } from '../shared/http/backend-http.service';
@@ -275,9 +275,10 @@ describe('AuthController', () => {
       expect(decoded['sub']).toBe(staffId);
     });
 
-    it('redirects to /auth/error?reason=not-a-staff-member when Google account is unknown', async () => {
+    it('redirects to /auth/error?reason=not-a-staff-member only on 404 (staff not found)', async () => {
+      const notFound = new HttpException({ status: 404 }, 404);
       const backendHttp = makeBackendHttp({
-        get: jest.fn().mockRejectedValue(new Error('404')),
+        get: jest.fn().mockRejectedValue(notFound),
       });
       const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
       const res = makeRes();
@@ -286,6 +287,19 @@ describe('AuthController', () => {
 
       expect(res.redirect).toHaveBeenCalledWith(
         'http://localhost:3000/auth/error?reason=not-a-staff-member',
+      );
+    });
+
+    it('propagates non-404 errors (e.g. backend 500) instead of swallowing them', async () => {
+      const serverError = new HttpException({ status: 500 }, 500);
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockRejectedValue(serverError),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await expect(controller.handleGoogleCallback(makeStaffReq(), res)).rejects.toBeInstanceOf(
+        HttpException,
       );
     });
 

@@ -36,7 +36,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       return;
     }
     const state = (req.query['state'] as string) || '';
-    const loginType = state === 'staff' ? ('staff' as const) : undefined;
+    // '__staff__' cannot be a valid tenant slug ([a-z0-9-]+ only), so there is no collision
+    const loginType = state === '__staff__' ? ('staff' as const) : undefined;
     const tenantSlug = loginType ? undefined : state || undefined;
     done(null, {
       googleOAuthId: profile.id,
