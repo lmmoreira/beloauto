@@ -71,9 +71,17 @@ export class BackendHttpService {
     // X-Correlation-ID is always set by CorrelationInterceptor before any controller
     // runs, so it is never empty in practice. The backend TenantInterceptor handles
     // the absent-tenant case for public endpoints.
-    return {
+    const base: Record<string, string> = {
       'X-Tenant-ID': user?.tenantId ?? '',
       'X-Correlation-ID': correlationId ?? '',
     };
+
+    if (user) {
+      base['X-Actor-ID'] = user.sub;
+      base['X-Actor-Type'] = user.role === 'CUSTOMER' ? 'CUSTOMER' : 'STAFF';
+      base['X-Actor-Role'] = user.role;
+    }
+
+    return base;
   }
 }

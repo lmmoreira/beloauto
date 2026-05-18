@@ -182,5 +182,69 @@ describe('BackendHttpService', () => {
         }),
       );
     });
+
+    it('includes X-Actor-ID, X-Actor-Type, X-Actor-Role for authenticated requests', async () => {
+      const { service, http } = makeService({
+        sub: 'staff-uuid-1',
+        role: 'STAFF',
+        tenantId: 'tid',
+      });
+      http.get.mockReturnValue(axiosOf({}));
+
+      await service.get('/bookings');
+
+      expect(http.get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Actor-ID': 'staff-uuid-1',
+            'X-Actor-Type': 'STAFF',
+            'X-Actor-Role': 'STAFF',
+          }),
+        }),
+      );
+    });
+
+    it('sets X-Actor-Type to CUSTOMER for CUSTOMER role', async () => {
+      const { service, http } = makeService({ sub: 'customer-uuid-1', role: 'CUSTOMER' });
+      http.get.mockReturnValue(axiosOf({}));
+
+      await service.get('/me');
+
+      expect(http.get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'X-Actor-Type': 'CUSTOMER' }),
+        }),
+      );
+    });
+
+    it('sets X-Actor-Type to STAFF for MANAGER role', async () => {
+      const { service, http } = makeService({ sub: 'manager-uuid-1', role: 'MANAGER' });
+      http.get.mockReturnValue(axiosOf({}));
+
+      await service.get('/settings');
+
+      expect(http.get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'X-Actor-Type': 'STAFF', 'X-Actor-Role': 'MANAGER' }),
+        }),
+      );
+    });
+
+    it('does not include X-Actor-* headers for guest requests (no user)', async () => {
+      const { service, http } = makeService(undefined);
+      http.get.mockReturnValue(axiosOf({}));
+
+      await service.get('/public');
+
+      const callArgs = (http.get as jest.Mock).mock.calls[0][1] as {
+        headers: Record<string, string>;
+      };
+      expect(callArgs.headers['X-Actor-ID']).toBeUndefined();
+      expect(callArgs.headers['X-Actor-Type']).toBeUndefined();
+      expect(callArgs.headers['X-Actor-Role']).toBeUndefined();
+    });
   });
 });

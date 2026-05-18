@@ -36,12 +36,22 @@ export class TenantInterceptor implements NestInterceptor {
 
     const correlationId = req.headers['x-correlation-id'] ?? uuidv7();
 
+    const actorId = req.headers['x-actor-id'];
+    const actorType = req.headers['x-actor-type'] as 'STAFF' | 'CUSTOMER' | undefined;
+    const actorRole = req.headers['x-actor-role'];
+    const actor = actorId && actorType && actorRole ? { actorId, actorType, actorRole } : undefined;
+
     // Wrap the entire request observable in AsyncLocalStorage context so that
-    // TenantContext.tenantId/correlationId are available anywhere in the call chain.
+    // TenantContext fields are available anywhere in the call chain.
     return new Observable((subscriber) => {
-      runWithTenantContext(tenantId, correlationId, () => {
-        next.handle().subscribe(subscriber);
-      });
+      runWithTenantContext(
+        tenantId,
+        correlationId,
+        () => {
+          next.handle().subscribe(subscriber);
+        },
+        actor,
+      );
     });
   }
 }

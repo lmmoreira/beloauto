@@ -79,6 +79,54 @@ describe('TenantInterceptor', () => {
     expect(() => interceptor.intercept(ctx, mockCallHandler)).not.toThrow();
   });
 
+  it('populates actorId, actorType, actorRole when X-Actor-* headers are present', async () => {
+    const ctx = makeContext({
+      'x-tenant-id': 'tid-1',
+      'x-correlation-id': 'corr-1',
+      'x-actor-id': 'staff-uuid-1',
+      'x-actor-type': 'STAFF',
+      'x-actor-role': 'MANAGER',
+    });
+    const tenantContext = new TenantContext();
+
+    let capturedActorId: string | undefined;
+    let capturedActorType: string | undefined;
+    let capturedActorRole: string | undefined;
+
+    const handler: CallHandler = {
+      handle: () => {
+        capturedActorId = tenantContext.actorId;
+        capturedActorType = tenantContext.actorType;
+        capturedActorRole = tenantContext.actorRole;
+        return of(null);
+      },
+    };
+
+    await lastValueFrom(interceptor.intercept(ctx, handler));
+
+    expect(capturedActorId).toBe('staff-uuid-1');
+    expect(capturedActorType).toBe('STAFF');
+    expect(capturedActorRole).toBe('MANAGER');
+  });
+
+  it('leaves actor fields undefined when X-Actor-* headers are absent (guest request)', async () => {
+    const ctx = makeContext({ 'x-tenant-id': 'tid-1', 'x-correlation-id': 'corr-1' });
+    const tenantContext = new TenantContext();
+
+    let capturedActorId: string | undefined;
+
+    const handler: CallHandler = {
+      handle: () => {
+        capturedActorId = tenantContext.actorId;
+        return of(null);
+      },
+    };
+
+    await lastValueFrom(interceptor.intercept(ctx, handler));
+
+    expect(capturedActorId).toBeUndefined();
+  });
+
   it('concurrent requests store independent tenant contexts', async () => {
     const tenantContext = new TenantContext();
     const results: Array<{ tenantId: string; correlationId: string }> = [];

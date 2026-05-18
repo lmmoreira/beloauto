@@ -68,16 +68,29 @@ describe('TenantSettingsController (integration)', () => {
   it('returns 400 when X-Tenant-ID header is missing', async () => {
     const { body } = await request(app.getHttpServer())
       .patch('/tenants/settings')
+      .set('X-Actor-Role', 'MANAGER')
       .send({ settings: { loyalty: { expiry_days: 90 } } })
       .expect(400);
 
     expect(body.status).toBe(400);
   });
 
+  it('returns 403 when X-Actor-Role is not MANAGER', async () => {
+    const { body } = await request(app.getHttpServer())
+      .patch('/tenants/settings')
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-Role', 'STAFF')
+      .send({ settings: { loyalty: { expiry_days: 90 } } })
+      .expect(403);
+
+    expect(body.status).toBe(403);
+  });
+
   it('returns 400 for an invalid payload (cancellation_window_hours negative)', async () => {
     const { body } = await request(app.getHttpServer())
       .patch('/tenants/settings')
       .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-Role', 'MANAGER')
       .send({ settings: { booking: { cancellation_window_hours: -1 } } })
       .expect(400);
 
@@ -88,6 +101,7 @@ describe('TenantSettingsController (integration)', () => {
     const { body } = await request(app.getHttpServer())
       .patch('/tenants/settings')
       .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-Role', 'MANAGER')
       .send({ settings: { booking: { slot_granularity_minutes: 45 } } })
       .expect(400);
 
@@ -98,6 +112,7 @@ describe('TenantSettingsController (integration)', () => {
     const { body } = await request(app.getHttpServer())
       .patch('/tenants/settings')
       .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-Role', 'MANAGER')
       .send({ settings: { loyalty: { expiry_days: 365 } } })
       .expect(200);
 
@@ -113,6 +128,7 @@ describe('TenantSettingsController (integration)', () => {
     const { body } = await request(app.getHttpServer())
       .patch('/tenants/settings')
       .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-Role', 'MANAGER')
       .send({ settings: { booking: { cancellation_window_hours: 72 } } })
       .expect(200);
 
@@ -124,6 +140,7 @@ describe('TenantSettingsController (integration)', () => {
     const { body } = await request(app.getHttpServer())
       .patch('/tenants/settings')
       .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-Role', 'MANAGER')
       .send({ name: 'Lavacar Renomeado' })
       .expect(200);
 
@@ -137,6 +154,7 @@ describe('TenantSettingsController (integration)', () => {
     const { body } = await request(app.getHttpServer())
       .patch('/tenants/settings')
       .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-Role', 'MANAGER')
       .send({ settings: { business_hours: { timezone: 'Not/AZone' } } })
       .expect(400);
 
@@ -154,6 +172,7 @@ describe('TenantSettingsController (integration)', () => {
     const { body } = await request(app.getHttpServer())
       .patch('/tenants/settings')
       .set('X-Tenant-ID', inactiveTenant.id)
+      .set('X-Actor-Role', 'MANAGER')
       .send({ settings: { loyalty: { expiry_days: 90 } } })
       .expect(409);
 
