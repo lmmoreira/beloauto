@@ -18,8 +18,8 @@ export class InMemoryCustomerRepository implements ICustomerRepository {
 
   async findById(id: string, tenantId: string): Promise<Customer | null> {
     const customer = this.store.get(id);
-    if (!customer || customer.tenantId !== tenantId) return null;
-    return customer;
+    if (customer?.tenantId === tenantId) return customer;
+    return null;
   }
 
   async findAllTenantsByOAuthId(googleOAuthId: string): Promise<CustomerTenantSummary[]> {
