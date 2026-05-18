@@ -15,8 +15,9 @@ export class GetStaffByEmailUseCase {
   constructor(@Inject(STAFF_REPOSITORY) private readonly staffRepo: IStaffRepository) {}
 
   async execute(email: string, tenantId: string): Promise<StaffByEmailInfo> {
-    const staff = await this.staffRepo.findByTenantAndEmail(tenantId, email);
-    if (!staff) throw new StaffNotFoundError(email);
+    const normalizedEmail = email.toLowerCase().trim();
+    const staff = await this.staffRepo.findByTenantAndEmail(tenantId, normalizedEmail);
+    if (!staff) throw new StaffNotFoundError(normalizedEmail);
     return {
       staffId: staff.id,
       email: staff.email.address,

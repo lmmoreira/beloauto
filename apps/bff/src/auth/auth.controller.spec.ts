@@ -109,7 +109,7 @@ describe('AuthController', () => {
 
     it('redirects to /auth/error?reason=tenant-not-found when slug is unknown', async () => {
       const backendHttp = makeBackendHttp({
-        get: jest.fn().mockRejectedValue(new Error('not found')),
+        get: jest.fn().mockRejectedValue(new HttpException('Not Found', 404)),
       });
       const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
       const res = makeRes();
@@ -273,7 +273,7 @@ describe('AuthController', () => {
 
     it('redirects to /auth/error?reason=tenant-not-found when slug is unknown', async () => {
       const backendHttp = makeBackendHttp({
-        get: jest.fn().mockRejectedValue(new Error('not found')),
+        get: jest.fn().mockRejectedValue(new HttpException('Not Found', 404)),
       });
       const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
       const res = makeRes();

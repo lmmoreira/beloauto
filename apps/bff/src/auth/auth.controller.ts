@@ -181,7 +181,10 @@ export class AuthController {
   ): Promise<void> {
     const tenantInfo = await this.backendHttp
       .get<TenantInfoResponse>(`/internal/tenants/by-slug/${tenantSlug}`)
-      .catch(() => null);
+      .catch((err: unknown) => {
+        if (err instanceof HttpException && err.getStatus() === HttpStatus.NOT_FOUND) return null;
+        throw err;
+      });
     if (!tenantInfo) {
       res.redirect(`${frontendUrl}/auth/error?reason=tenant-not-found`);
       return;
@@ -214,13 +217,19 @@ export class AuthController {
         googleOAuthId: profile.googleOAuthId,
         email: profile.email,
       })
-      .catch((err: unknown) => {
-        if (err instanceof HttpException && err.getStatus() === HttpStatus.UNPROCESSABLE_ENTITY) {
-          return null;
+      .catch(async (err: unknown) => {
+        if (err instanceof HttpException) {
+          if (err.getStatus() === HttpStatus.CONFLICT) {
+            // 409 = already active; fall through to normal login
+            await this.handleStaffLogin(profile, res, frontendUrl);
+            return 'redirected' as const;
+          }
+          if (err.getStatus() === HttpStatus.UNPROCESSABLE_ENTITY) return null;
         }
         throw err;
       });
 
+    if (activated === 'redirected') return;
     if (!activated) {
       res.redirect(`${frontendUrl}/auth/error?reason=email-mismatch`);
       return;
@@ -279,7 +288,10 @@ export class AuthController {
   ): Promise<void> {
     const tenantInfo = await this.backendHttp
       .get<TenantInfoResponse>(`/internal/tenants/by-slug/${tenantSlug}`)
-      .catch(() => null);
+      .catch((err: unknown) => {
+        if (err instanceof HttpException && err.getStatus() === HttpStatus.NOT_FOUND) return null;
+        throw err;
+      });
 
     if (!tenantInfo) {
       res.redirect(`${frontendUrl}/auth/error?reason=tenant-not-found`);

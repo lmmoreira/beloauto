@@ -107,7 +107,7 @@ describe('InternalStaffController (integration)', () => {
   describe('GET /internal/staff/by-email', () => {
     it('returns 400 when email or tenantId is absent', async () => {
       await request(app.getHttpServer())
-        .get('/internal/staff/by-email?tenantId=00000000-0000-0000-0000-000000000060')
+        .get('/internal/staff/by-email?tenantId=10000000-0000-4000-8000-000000000060')
         .expect(400);
 
       await request(app.getHttpServer())
@@ -116,16 +116,18 @@ describe('InternalStaffController (integration)', () => {
     });
 
     it('returns 404 when no staff found for given email + tenantId', async () => {
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .get(
-          '/internal/staff/by-email?email=nobody-m04s01@lavacar.com.br&tenantId=00000000-0000-0000-0000-000000000060',
+          '/internal/staff/by-email?email=nobody-m04s01@lavacar.com.br&tenantId=10000000-0000-4000-8000-000000000060',
         )
         .expect(404);
+
+      expect(body.status).toBe(404);
     });
 
     it('returns StaffByEmailInfo for an invited (inactive) staff', async () => {
       const entity = new StaffEntityBuilder()
-        .withTenantId('00000000-0000-0000-0000-000000000060')
+        .withTenantId('10000000-0000-4000-8000-000000000060')
         .withEmail('invited-m04s01@lavacar.com.br')
         .withRole('MANAGER')
         .withIsActive(false)
@@ -134,7 +136,7 @@ describe('InternalStaffController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .get(
-          '/internal/staff/by-email?email=invited-m04s01@lavacar.com.br&tenantId=00000000-0000-0000-0000-000000000060',
+          '/internal/staff/by-email?email=invited-m04s01@lavacar.com.br&tenantId=10000000-0000-4000-8000-000000000060',
         )
         .expect(200);
 
@@ -146,53 +148,59 @@ describe('InternalStaffController (integration)', () => {
 
     it('tenant isolation: same email in different tenant returns 404', async () => {
       const entity = new StaffEntityBuilder()
-        .withTenantId('00000000-0000-0000-0000-000000000061')
+        .withTenantId('10000000-0000-4000-8000-000000000061')
         .withEmail('iso-m04s01@lavacar.com.br')
         .withIsActive(false)
         .build();
       await ds.getRepository(StaffEntity).save(entity);
 
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .get(
-          '/internal/staff/by-email?email=iso-m04s01@lavacar.com.br&tenantId=00000000-0000-0000-0000-000000000099',
+          '/internal/staff/by-email?email=iso-m04s01@lavacar.com.br&tenantId=10000000-0000-4000-8000-000000000099',
         )
         .expect(404);
+
+      expect(body.status).toBe(404);
     });
   });
 
   describe('POST /internal/staff/:staffId/activate', () => {
     it('returns 404 when staffId does not exist', async () => {
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .post('/internal/staff/non-existent-id/activate')
         .send({
-          tenantId: '00000000-0000-0000-0000-000000000070',
+          tenantId: '10000000-0000-4000-8000-000000000070',
           googleOAuthId: 'google-sub-m04s01-new',
           email: 'staff@lavacar.com.br',
         })
         .expect(404);
+
+      expect(body.status).toBe(404);
     });
 
     it('returns 422 when Google email does not match invited email', async () => {
       const entity = new StaffEntityBuilder()
-        .withTenantId('00000000-0000-0000-0000-000000000070')
+        .withTenantId('10000000-0000-4000-8000-000000000070')
         .withEmail('invited-m04s01-act@lavacar.com.br')
         .withIsActive(false)
         .build();
       await ds.getRepository(StaffEntity).save(entity);
 
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .post(`/internal/staff/${entity.id}/activate`)
         .send({
-          tenantId: '00000000-0000-0000-0000-000000000070',
+          tenantId: '10000000-0000-4000-8000-000000000070',
           googleOAuthId: 'google-sub-m04s01-act',
           email: 'wrong@gmail.com',
         })
         .expect(422);
+
+      expect(body.status).toBe(422);
     });
 
     it('activates staff and returns 200 with result', async () => {
       const entity = new StaffEntityBuilder()
-        .withTenantId('00000000-0000-0000-0000-000000000071')
+        .withTenantId('10000000-0000-4000-8000-000000000071')
         .withEmail('activate-m04s01@lavacar.com.br')
         .withRole('MANAGER')
         .withIsActive(false)
@@ -202,7 +210,7 @@ describe('InternalStaffController (integration)', () => {
       const { body } = await request(app.getHttpServer())
         .post(`/internal/staff/${entity.id}/activate`)
         .send({
-          tenantId: '00000000-0000-0000-0000-000000000071',
+          tenantId: '10000000-0000-4000-8000-000000000071',
           googleOAuthId: 'google-sub-m04s01-activated',
           email: 'activate-m04s01@lavacar.com.br',
         })
@@ -215,20 +223,22 @@ describe('InternalStaffController (integration)', () => {
 
     it('tenant isolation: cannot activate staff from a different tenant (404)', async () => {
       const entity = new StaffEntityBuilder()
-        .withTenantId('00000000-0000-0000-0000-000000000072')
+        .withTenantId('10000000-0000-4000-8000-000000000072')
         .withEmail('iso-activate-m04s01@lavacar.com.br')
         .withIsActive(false)
         .build();
       await ds.getRepository(StaffEntity).save(entity);
 
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .post(`/internal/staff/${entity.id}/activate`)
         .send({
-          tenantId: '00000000-0000-0000-0000-000000000099',
+          tenantId: '10000000-0000-4000-8000-000000000099',
           googleOAuthId: 'google-sub-m04s01-iso',
           email: 'iso-activate-m04s01@lavacar.com.br',
         })
         .expect(404);
+
+      expect(body.status).toBe(404);
     });
   });
 });

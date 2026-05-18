@@ -23,7 +23,7 @@ export class ActivateStaffUseCase {
     const staff = await this.staffRepo.findById(dto.staffId, dto.tenantId);
     if (!staff) throw new StaffNotFoundError(dto.staffId);
     if (staff.isActive) throw new StaffAlreadyActiveError(dto.staffId);
-    if (staff.email.address !== dto.email) throw new StaffEmailMismatchError();
+    if (staff.email.address !== dto.email.toLowerCase().trim()) throw new StaffEmailMismatchError();
 
     staff.activate(dto.googleOAuthId);
     await this.staffRepo.save(staff);

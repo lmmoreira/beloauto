@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -55,7 +56,8 @@ export class InternalStaffController {
   @Get('by-email')
   async getByEmail(
     @Query('email') email: string,
-    @Query('tenantId') tenantId: string,
+    @Query('tenantId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    tenantId: string,
   ): Promise<StaffByEmailInfo> {
     if (!email || !tenantId) {
       throw new BadRequestException({
