@@ -13,6 +13,7 @@ const TENANT_ID_B = '10000000-0000-4000-8000-000000000002';
 const TENANT_ID_OTHER = '10000000-0000-4000-8000-000000000099';
 const CUSTOMER_ID_A = '20000000-0000-4000-8000-000000000001';
 const CUSTOMER_ID_B = '20000000-0000-4000-8000-000000000002';
+const STAFF_ID_A = '30000000-0000-4000-8000-000000000001';
 
 const makeBackendHttp = (overrides?: Partial<BackendHttpService>): BackendHttpService =>
   ({
@@ -188,6 +189,121 @@ describe('AuthController', () => {
 
       expect(res.redirect).toHaveBeenCalledWith(
         expect.stringMatching(/^http:\/\/localhost:3000\/select-tenant\?token=.+/),
+      );
+    });
+  });
+
+  describe('handleGoogleCallback() — staff login path (loginType=staff)', () => {
+    const staffProfile = {
+      googleOAuthId: 'google-sub-staff-123',
+      email: 'gerente@lavacar.com.br',
+      name: 'Carlos Gerente',
+      loginType: 'staff' as const,
+    };
+    const makeStaffReq = () => ({ user: staffProfile }) as unknown as Request;
+
+    it('issues JWT cookie and redirects to /dashboard for an active MANAGER', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest
+          .fn()
+          .mockResolvedValueOnce({
+            staffId: STAFF_ID_A,
+            tenantId: TENANT_ID_A,
+            role: 'MANAGER',
+            isActive: true,
+          })
+          .mockResolvedValueOnce(tenantInfo),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      expect(res.cookie).toHaveBeenCalledWith(
+        'access_token',
+        expect.any(String),
+        expect.objectContaining({ httpOnly: true }),
+      );
+      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/dashboard');
+    });
+
+    it('JWT payload has sub=staffId and role=MANAGER', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest
+          .fn()
+          .mockResolvedValueOnce({
+            staffId: STAFF_ID_A,
+            tenantId: TENANT_ID_A,
+            role: 'MANAGER',
+            isActive: true,
+          })
+          .mockResolvedValueOnce(tenantInfo),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      const [, token] = (res.cookie as jest.Mock).mock.calls[0] as [string, string];
+      const decoded = jwtService.decode(token) as Record<string, unknown>;
+      expect(decoded['sub']).toBe(STAFF_ID_A);
+      expect(decoded['role']).toBe('MANAGER');
+      expect(decoded['tenantId']).toBe(TENANT_ID_A);
+      expect(decoded['tenantSlug']).toBe('lavacar-bh');
+    });
+
+    it('JWT payload has role=STAFF for a staff member', async () => {
+      const staffId = '30000000-0000-4000-8000-000000000002';
+      const tenantInfo = { id: TENANT_ID_B, slug: 'lavacar-centro', name: 'Lavacar Centro' };
+      const backendHttp = makeBackendHttp({
+        get: jest
+          .fn()
+          .mockResolvedValueOnce({ staffId, tenantId: TENANT_ID_B, role: 'STAFF', isActive: true })
+          .mockResolvedValueOnce(tenantInfo),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      const [, token] = (res.cookie as jest.Mock).mock.calls[0] as [string, string];
+      const decoded = jwtService.decode(token) as Record<string, unknown>;
+      expect(decoded['role']).toBe('STAFF');
+      expect(decoded['sub']).toBe(staffId);
+    });
+
+    it('redirects to /auth/error?reason=not-a-staff-member when Google account is unknown', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockRejectedValue(new Error('404')),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        'http://localhost:3000/auth/error?reason=not-a-staff-member',
+      );
+    });
+
+    it('redirects to /auth/first-login when staff is found but isActive=false', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValue({
+          staffId: STAFF_ID_A,
+          tenantId: TENANT_ID_A,
+          role: 'STAFF',
+          isActive: false,
+        }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffReq(), res);
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        `http://localhost:3000/auth/first-login?staffId=${STAFF_ID_A}`,
       );
     });
   });

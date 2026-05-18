@@ -17,10 +17,9 @@
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 1 — Open this URL in a browser (not REST Client)
-# UC-021: Customer login via a specific tenant's hotsite
-# UC-022: Staff login (same URL — backend distinguishes by Staff vs Customer record)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── UC-021: Customer login via a specific tenant's hotsite ──
 # Browser URL (copy and paste):
 # http://localhost:3002/v1/auth/google?tenantSlug=lavacar-beloauto
 #
@@ -32,6 +31,18 @@
 #
 # First login creates the Customer record automatically (FindOrCreateCustomerUseCase).
 # Subsequent logins return the same Customer (idempotent).
+
+# ── UC-022: Staff login ──
+# Browser URL (copy and paste):
+# http://localhost:3002/v1/auth/google?type=staff
+#
+# Flow:
+#   → BFF redirects to Google with state=staff
+#   → Google authenticates → redirects back to /v1/auth/google/callback
+#   → BFF calls GET /internal/staff/by-oauth?googleOAuthId=<sub>
+#   → Active staff found → issues JWT with role=STAFF|MANAGER, sets cookie, redirects to /dashboard
+#   → Staff found but isActive=false → redirects to /auth/first-login?staffId=<id> (UC-025, M04)
+#   → Staff not found → redirects to /auth/error?reason=not-a-staff-member
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MULTI-TENANT SELECTION — POST /v1/auth/token

@@ -37,6 +37,13 @@ interface FindOrCreateCustomerResult {
   created: boolean;
 }
 
+interface StaffAuthInfo {
+  staffId: string;
+  tenantId: string;
+  role: 'STAFF' | 'MANAGER';
+  isActive: boolean;
+}
+
 const IssueTokenSchema = z.object({
   selectionToken: z.string().min(1),
   tenantId: z.uuid(),
@@ -63,6 +70,11 @@ export class AuthController {
   async handleGoogleCallback(@Req() req: Request, @Res() res: Response): Promise<void> {
     const profile = req.user as GoogleProfile;
     const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
+
+    if (profile.loginType === 'staff') {
+      await this.handleStaffLogin(profile, res, frontendUrl);
+      return;
+    }
 
     if (profile.tenantSlug) {
       await this.handleTenantLogin(profile, profile.tenantSlug, res, frontendUrl);
@@ -116,6 +128,38 @@ export class AuthController {
     });
 
     return { accessToken, expiresIn: process.env['JWT_EXPIRES_IN'] ?? '7d' };
+  }
+
+  private async handleStaffLogin(
+    profile: GoogleProfile,
+    res: Response,
+    frontendUrl: string,
+  ): Promise<void> {
+    const staffInfo = await this.backendHttp
+      .get<StaffAuthInfo>('/internal/staff/by-oauth', { googleOAuthId: profile.googleOAuthId })
+      .catch(() => null);
+
+    if (!staffInfo) {
+      res.redirect(`${frontendUrl}/auth/error?reason=not-a-staff-member`);
+      return;
+    }
+
+    if (!staffInfo.isActive) {
+      res.redirect(`${frontendUrl}/auth/first-login?staffId=${staffInfo.staffId}`);
+      return;
+    }
+
+    const tenantInfo = await this.backendHttp.get<TenantInfoResponse>(
+      `/internal/tenants/${staffInfo.tenantId}`,
+    );
+    const token = this.jwtIssuer.issueToken({
+      sub: staffInfo.staffId,
+      tenantId: staffInfo.tenantId,
+      tenantSlug: tenantInfo.slug,
+      role: staffInfo.role,
+    });
+    res.cookie('access_token', token, JWT_COOKIE_OPTIONS);
+    res.redirect(`${frontendUrl}/dashboard`);
   }
 
   private async handleTenantLogin(
