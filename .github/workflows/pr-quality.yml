@@ -82,8 +82,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Generate coverage report
-        run: pnpm --filter @beloauto/backend test:cov
+      - name: Generate coverage reports
+        run: |
+          pnpm --filter @beloauto/backend test:cov
+          pnpm --filter @beloauto/bff test:cov
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
