@@ -24,7 +24,7 @@ export class InMemoryStaffRepository implements IStaffRepository {
 
   async findById(id: string, tenantId: string): Promise<Staff | null> {
     const staff = this.store.get(id);
-    if (!staff || staff.tenantId !== tenantId) return null;
+    if (staff?.tenantId !== tenantId) return null;
     return staff;
   }
 
