@@ -13,6 +13,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { JWT_COOKIE_OPTIONS } from './cookie-options';
 import { Public } from '../shared/decorators/public.decorator';
 import { BackendHttpService } from '../shared/http/backend-http.service';
 import { GoogleProfile } from './strategies/google.strategy';
@@ -78,12 +79,7 @@ export class AuthController {
         tenantSlug: tenantInfo.slug,
         role: 'CUSTOMER',
       });
-      res.cookie('access_token', token, {
-        httpOnly: true,
-        secure: process.env['NODE_ENV'] === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      res.cookie('access_token', token, JWT_COOKIE_OPTIONS);
       res.redirect(`${frontendUrl}/dashboard`);
       return;
     }

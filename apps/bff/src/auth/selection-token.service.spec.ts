@@ -44,4 +44,14 @@ describe('SelectionTokenService', () => {
 
     expect(() => service.verifySelectionToken(accessToken)).toThrow(BadRequestException);
   });
+
+  it('throws BadRequestException for an expired selection token', () => {
+    // expiresIn: -1 sets exp = now - 1s, so the token is immediately expired
+    const expiredToken = jwtService.sign(
+      { googleOAuthId: 'google-sub-123', type: 'selection' },
+      { expiresIn: -1 },
+    );
+
+    expect(() => service.verifySelectionToken(expiredToken)).toThrow(BadRequestException);
+  });
 });

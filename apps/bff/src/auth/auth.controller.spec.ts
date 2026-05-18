@@ -68,7 +68,7 @@ describe('AuthController', () => {
 
     it('issues a JWT cookie and redirects to /dashboard for a single-tenant customer', async () => {
       const tenantId = TENANT_ID_A;
-      const customerId = TENANT_ID_B;
+      const customerId = CUSTOMER_ID_A;
       const backendHttp = makeBackendHttp({
         get: jest
           .fn()
