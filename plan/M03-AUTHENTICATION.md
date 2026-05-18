@@ -59,7 +59,7 @@ INDEX (tenant_id, google_oauth_id)    ← lookup by OAuth ID per tenant
 
 ---
 
-### M03-S02 — Staff domain layer + migration
+### M03-S02 — Staff domain layer + migration ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
