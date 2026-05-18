@@ -1,32 +1,33 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
-import { TenantNotFoundError } from '../../domain/errors/platform-domain.error';
+import { TenantBuilder } from '../../../../test/builders/platform';
+import { InMemoryTenantRepository } from '../../../../test/repositories/platform/in-memory-tenant.repository';
 import { GetTenantByIdUseCase } from '../../application/use-cases/get-tenant-by-id.use-case';
 import { InternalTenantReadController } from './internal-tenant-read.controller';
 
 describe('InternalTenantReadController', () => {
-  let useCase: jest.Mocked<GetTenantByIdUseCase>;
+  let repo: InMemoryTenantRepository;
   let controller: InternalTenantReadController;
 
   beforeEach(() => {
-    useCase = { execute: jest.fn() } as unknown as jest.Mocked<GetTenantByIdUseCase>;
-    controller = new InternalTenantReadController(useCase);
+    repo = new InMemoryTenantRepository();
+    controller = new InternalTenantReadController(new GetTenantByIdUseCase(repo));
   });
 
-  it('returns the TenantInfoDto from the use case', async () => {
-    const dto = { id: 'tid-1', slug: 'lavacar-bh', name: 'Lavacar BH' };
-    useCase.execute.mockResolvedValue(dto);
+  it('maps TenantNotFoundError to 404 when tenant does not exist', async () => {
+    const err = await controller.getTenant('unknown-id').catch((e: unknown) => e);
 
-    const result = await controller.getTenant('tid-1');
-
-    expect(useCase.execute).toHaveBeenCalledWith('tid-1');
-    expect(result).toBe(dto);
-  });
-
-  it('maps TenantNotFoundError to 404 via mapPlatformError', async () => {
-    useCase.execute.mockRejectedValue(new TenantNotFoundError('tid-1'));
-
-    const err = await controller.getTenant('tid-1').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HttpException);
     expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+  });
+
+  it('returns id, slug, and name for a known tenant', async () => {
+    const tenant = new TenantBuilder().withSlug('lavacar-bh').withName('Lavacar BH').build();
+    await repo.save(tenant);
+
+    const result = await controller.getTenant(tenant.id);
+
+    expect(result.id).toBe(tenant.id);
+    expect(result.slug).toBe('lavacar-bh');
+    expect(result.name).toBe('Lavacar BH');
   });
 });
