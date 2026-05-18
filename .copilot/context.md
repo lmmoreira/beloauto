@@ -175,73 +175,27 @@ Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, ten
 
 **Utility functions used in more than one place MUST live in `src/shared/utils/`** — never duplicated inline.
 Examples already there: `deepMerge` (`src/shared/utils/deep-merge.ts`).
-When you find a helper (validation, formatting, transformation) repeated across files, extract it immediately.
 
 **Fields that carry their own validation MUST be value objects in `src/shared/value-objects/`**, not plain primitives.
-The rule: if a string needs to be validated before it is accepted anywhere in the domain, it is a value object.
 
-| Field | Value Object | File | Why |
-|---|---|---|---|
-| Email address | `Email` | `email.vo.ts` | format validation (`@`, domain, TLD); normalises to lowercase |
-| Phone number | `PhoneNumber` | `phone-number.vo.ts` | Brazilian 10–11 digits (no country code); strips non-digits on `create()`; `format()` → `(XX) XXXXX-XXXX` |
-| Physical address | `Address` | `address.ts` | structured fields; `create()` validates CEP length; `reconstitute()` skips validation (for DB reads) |
-| Money amount | `Money` | `money.vo.ts` (future) | currency code + decimal precision — never a plain `number` |
-| Hex colour | `HexColor` | `hex-color.vo.ts` | must match `#RRGGBB`; normalises to uppercase |
-| IANA timezone | `Timezone` | `timezone.vo.ts` | validates against `Intl.supportedValuesOf('timeZone')` |
-| HH:MM time | `TimeOfDay` | `time-of-day.vo.ts` | validates HH:MM string; `isBefore()` comparison |
-| URL-safe slug | `Slug` | `slug.vo.ts` | `/^[a-z0-9-]+$/`; used for tenant slugs |
+| Field | Value Object | File |
+|---|---|---|
+| Email address | `Email` | `email.vo.ts` |
+| Phone number | `PhoneNumber` | `phone-number.vo.ts` |
+| Physical address | `Address` | `address.ts` |
+| Money amount | `Money` | `money.vo.ts` (future) |
+| Hex colour | `HexColor` | `hex-color.vo.ts` |
+| IANA timezone | `Timezone` | `timezone.vo.ts` |
+| HH:MM time | `TimeOfDay` | `time-of-day.vo.ts` |
+| URL-safe slug | `Slug` | `slug.vo.ts` |
 
-These live in `src/shared/value-objects/` and are imported by any context that needs them.
-Every value object must have a `.spec.ts` unit test covering valid and invalid inputs.
-Never duplicate a `isValidXxx` function — extract it into the shared value object once.
+Every value object must have a `.spec.ts` unit test covering valid and invalid inputs. Never duplicate a `isValidXxx` function — put it in the VO once.
 
 ### Value-object-typed aggregate fields (mandatory — Option A)
 
-Aggregate **props interfaces use VO types**, not plain primitives. **Getters return the VO** — not a derived string.
+Aggregate **props interfaces use VO types**, not plain primitives. **Getters return the VO** — not a derived string. `create()` factory receives raw strings and constructs VOs; `reconstitute()` skips validation for DB reads. JSONB columns require a double cast (`as unknown as XxxProps`).
 
-```typescript
-// ✅ correct — props typed with VOs; getter returns VO
-export interface CustomerProps {
-  email: Email;
-  phone: PhoneNumber | null;
-  defaultAddress: Address | null;
-  slug: Slug;           // for aggregates that have slugs
-}
-get email(): Email { return this.props.email; }
-get phone(): PhoneNumber | null { return this.props.phone; }
-
-// ❌ wrong — aggregate typed as string; caller must revalidate
-export interface CustomerProps { email: string; }
-get email(): string { return this.props.email; }
-```
-
-**`create()` factory** receives raw strings from user input / DTOs and constructs VOs:
-```typescript
-static create(raw: { email: string; phone: string | null }): Customer {
-  return new Customer({
-    email: Email.create(raw.email),
-    phone: raw.phone === null ? null : PhoneNumber.create(raw.phone),
-  });
-}
-```
-
-**Repository mapper pattern — always:**
-- `toDomain()` reads DB primitives → constructs VOs: `email: Email.create(entity.email)`
-- `toEntity()` extracts primitives from VOs: `entity.email = customer.email.address`
-- JSONB columns (e.g. `defaultAddress`) require a double cast + `reconstitute()` to bypass re-validation:
-  ```typescript
-  // toDomain — JSONB → VO (skip validation; data was valid at write time)
-  defaultAddress: entity.defaultAddress
-    ? Address.reconstitute(entity.defaultAddress as unknown as AddressProps)
-    : null,
-  // toEntity — VO → JSONB (extract plain object)
-  entity.defaultAddress =
-    (customer.defaultAddress?.toJSON() as unknown as Record<string, unknown>) ?? null;
-  ```
-- VOs with `.value` getter (Slug, PhoneNumber): `entity.slug = tenant.slug.value`
-- VOs with named getter (Email): `entity.email = customer.email.address`
-
-In-memory repos must also use `.value` / `.address` when comparing: `if (tenant.slug.value === slug)`.
+→ For `create()`/`reconstitute()` code patterns, mapper examples, and in-memory repo comparisons see `docs/VALUE_OBJECTS_REFERENCE.md`.
 
 ### Code standards
 - `strict: true` TypeScript — no `any`, no `@ts-ignore`, no `// eslint-disable`
@@ -266,7 +220,7 @@ When a use case in Context A needs data owned by Context B, choose the **first**
 2. **BFF orchestration (preferred — sync read):** The BFF calls both contexts independently and assembles the response. No context knows about the other.
 3. **Port + adapter (last resort — sync, same process):** Define an interface (port) in Context A's `application/ports/` (e.g. `ILoyaltyPointsPort`). The infrastructure adapter in Context A implements it by injecting Context B's **service** (never its repository token). Context B must export the service — never the repository.
 
-**None of the above is ever a direct SQL JOIN across schemas inside a repository.** A repository may only query its own context's schema. Cross-schema SQL is the hardest coupling possible — it defeats schema independence, makes migrations risky, and cannot be swapped out via a port.
+**None of the above is ever a direct SQL JOIN across schemas inside a repository.** A repository may only query its own context's schema.
 
 ```typescript
 // ❌ never — Customer repo joining loyalty schema
@@ -277,36 +231,30 @@ export const LOYALTY_POINTS_PORT = Symbol('ILoyaltyPointsPort');
 export interface ILoyaltyPointsPort {
   getActivePoints(tenantId: string, customerId: string): Promise<number>;
 }
-// adapter in Customer infrastructure injects LoyaltyService (exported by LoyaltyModule)
 ```
 
-**Repository responsibility boundary:** a repository returns only what its own aggregate owns. Fields that belong to another context are **not** on the repository return type — they are assembled by the use case via the appropriate port.
+**Repository responsibility boundary:** a repository returns only what its own aggregate owns. Fields that belong to another context are assembled by the use case via the appropriate port.
 
 ### Transactions (multi-aggregate writes)
 
 Any use case that writes to two or more aggregates **must** wrap all writes in `ITransactionManager.run()`:
 
 ```typescript
-// ✅ atomic — both saves commit or both roll back
 await this.txManager.run(async () => {
   await this.tenantRepo.save(tenant);
   await this.hotsiteRepo.save(config);
 });
-
-// ❌ partial failure leaves DB inconsistent
-await this.tenantRepo.save(tenant);   // succeeds
-await this.hotsiteRepo.save(config);  // fails → orphaned tenant row
 ```
 
-| Artifact | Location | Notes |
-|---|---|---|
-| Port | `src/shared/ports/transaction-manager.port.ts` | `ITransactionManager { run<T>(work: () => Promise<T>): Promise<T> }` |
-| Real adapter | `src/shared/infrastructure/typeorm-transaction-manager.ts` | `DataSource.transaction()` + `AsyncLocalStorage` |
-| Global module | `src/shared/infrastructure/transaction-manager.module.ts` | `@Global()` — imported once in `AppModule` |
-| Test double | `src/test/infrastructure/in-memory-transaction-manager.ts` | Simply calls `work()` — no real transaction needed for in-memory repos |
-| Context propagation | `src/shared/infrastructure/transaction-context.ts` | `runWithEntityManager` / `getActiveEntityManager` via `AsyncLocalStorage` |
+| Artifact | Location |
+|---|---|
+| Port | `src/shared/ports/transaction-manager.port.ts` |
+| Real adapter | `src/shared/infrastructure/typeorm-transaction-manager.ts` |
+| Global module | `src/shared/infrastructure/transaction-manager.module.ts` |
+| Test double | `src/test/infrastructure/in-memory-transaction-manager.ts` |
+| Context propagation | `src/shared/infrastructure/transaction-context.ts` |
 
-**Repository transaction-awareness:** every TypeORM repo write method checks `getActiveEntityManager()` from `transaction-context.ts` — if a transaction is active it uses that `EntityManager`, otherwise falls back to `this.repo`. Read methods (`findById`, `existsBySlug`, etc.) do not need to be transaction-aware.
+**Repository transaction-awareness:** every TypeORM repo write method checks `getActiveEntityManager()` — if a transaction is active it uses that `EntityManager`, otherwise falls back to `this.repo`. Read methods do not need to be transaction-aware.
 
 ### Testing
 
@@ -324,85 +272,38 @@ await this.hotsiteRepo.save(config);  // fails → orphaned tenant row
 - No `.skip()`, `.only()`, `setTimeout` in tests
 
 #### Test Data Builder pattern (mandatory)
-Never construct domain objects inline in tests. Use builders in `src/test/builders/<context>/`:
-
-```typescript
-// ✅ correct
-const tenant = new TenantBuilder().withSlug('lavacar-belo').build();
-const config = new HotsiteConfigBuilder().withTenantId(tenant.id).buildWithContent();
-
-// ❌ wrong — couples tests to constructor signature
-const tenant = Tenant.create('BeloAuto', 'beloauto', 'America/Sao_Paulo');
-```
+Never construct domain objects inline in tests. Use builders in `src/test/builders/<context>/`.
 
 - One builder class per aggregate / value object / TypeORM entity
 - Sensible defaults for every field — tests only set what they care about
 - Builders live in `src/test/builders/<context>/index.ts` (barrel export)
-- Infrastructure tests (TypeORM entities) have their own **entity builders** in the same folder
-- **Every TypeORM entity used in a test MUST have an `XxxEntityBuilder`** — never construct entity objects inline with `makeXxx()` helpers or plain object literals. Inline helpers couple tests to the DB schema and bypass the builder pattern.
-- Naming: `CustomerEntityBuilder`, `TenantEntityBuilder`, `StaffEntityBuilder`, etc. — always suffix `EntityBuilder` to distinguish from domain aggregate builders.
-- **The `id` field in every `XxxEntityBuilder` MUST default to `uuidv7()`** — never a hardcoded string. Two builder instances sharing a hardcoded default `id` silently upsert over each other; the second `save()` overwrites the first, making row-count and tenant-isolation assertions unreliable.
+- **Every TypeORM entity used in a test MUST have an `XxxEntityBuilder`** — never construct entity objects inline with `makeXxx()` helpers or plain object literals.
+- Naming: `CustomerEntityBuilder`, `TenantEntityBuilder`, `StaffEntityBuilder`, etc.
+- **The `id` field in every `XxxEntityBuilder` MUST default to `uuidv7()`** — never a hardcoded string.
 
 #### In-memory repository pattern (for use case tests)
-Each port has two implementations: the real TypeORM adapter and a test double:
-
-```
-ITenantRepository (port)
-├── TypeOrmTenantRepository  ← real adapter, tested by integration tests
-└── InMemoryTenantRepository ← test double, used by use case unit tests
-```
-
-In-memory repos live in `src/test/repositories/<context>/`. Use them in use case unit tests so no DB is needed:
-
-```typescript
-const tenantRepo = new InMemoryTenantRepository();
-const useCase = new ProvisionTenantUseCase(tenantRepo, ...);
-await useCase.execute({ slug: 'lavacar-belo' });
-expect(await tenantRepo.findBySlug('lavacar-belo')).not.toBeNull();
-```
+Each port has two implementations: the real TypeORM adapter and a test double.
+In-memory repos live in `src/test/repositories/<context>/`. Use them in use case unit tests — no DB needed.
 
 **Do NOT delete TypeORM adapter unit tests** — they provide coverage that SonarCloud requires (integration test coverage is not merged into the lcov report).
 
-**SonarCloud only ingests lcov from unit tests** (`--selectProjects unit`). Integration tests give you DB-level confidence but are invisible to the coverage gate. Every new controller and use case must have a `.spec.ts` unit test to satisfy the ≥ 80% new-code threshold — integration tests alone are not sufficient.
+**SonarCloud only ingests lcov from unit tests** (`--selectProjects unit`). Every new controller and use case must have a `.spec.ts` unit test to satisfy the ≥ 80% new-code threshold — integration tests alone are not sufficient.
 
 #### In-memory infrastructure test doubles
 
-Every shared port that produces side effects has an in-memory double in `src/test/infrastructure/`. **Always prefer these over `jest.fn()` mocks** — they capture state, make assertions more readable, and never leak between tests.
+Every shared port that produces side effects has an in-memory double in `src/test/infrastructure/`. **Always prefer these over `jest.fn()` mocks.**
 
-**Controller unit tests** should wire the real use case with an `InMemoryXxxRepository` rather than mocking the use case with `jest.fn()`. This tests the actual controller→use-case→repo slice at unit-test speed, without a DB.
-
-```typescript
-// ✅ preferred — real use case, in-memory repo
-beforeEach(() => {
-  const repo = new InMemoryCustomerRepository();
-  controller = new InternalCustomerController(new GetCustomerTenantsUseCase(repo));
-});
-
-// ❌ avoid — jest.fn() on the use case hides real behaviour
-const useCase = { execute: jest.fn() } as unknown as GetCustomerTenantsUseCase;
-```
-
-Exception: when a dependency has no in-memory double (e.g. `BackendHttpService` in BFF controllers), `jest.fn()` is the correct approach.
+**Controller unit tests** should wire the real use case with an `InMemoryXxxRepository` rather than mocking the use case with `jest.fn()`. Exception: when a dependency has no in-memory double (e.g. `BackendHttpService` in BFF controllers), `jest.fn()` is correct.
 
 | Port | In-memory double | Key feature |
 |---|---|---|
 | `IEventBus` | `InMemoryEventBus` | `published: DomainEvent[]` — assert on `.published` array |
-| `ITransactionManager` | `InMemoryTransactionManager` | Simply calls `work()` — no real transaction, in-memory repos don't need one |
-
-```typescript
-// ✅ preferred
-const eventBus = new InMemoryEventBus();
-await useCase.execute(dto);
-expect(eventBus.published[0].eventName).toBe('TenantProvisioned');
-
-// ❌ avoid — jest.fn() gives no state to assert on
-const eventBus = { publish: jest.fn() };
-```
+| `ITransactionManager` | `InMemoryTransactionManager` | Simply calls `work()` — no real transaction needed |
 
 #### Integration test rules
 - **Singleton Testcontainers** — one PostgreSQL container per `jest --selectProjects integration` run, started in `src/test/integration-global-setup.ts` via Jest `globalSetup`. Never create a container inside a test file.
-- **Story-based tests** — each `it()` tells a meaningful sequence of domain operations (create → update → verify → assert isolation). Avoid narrow method-verification tests ("does `save()` call `repo.save()`?").
-- **File-local slug prefixes** — since all integration files share one DB, each file uses unique slugs to avoid UNIQUE constraint conflicts when tests run in parallel.
+- **Story-based tests** — each `it()` tells a meaningful sequence of domain operations. Avoid narrow method-verification tests.
+- **File-local slug prefixes** — each integration file uses unique slugs to avoid UNIQUE constraint conflicts.
 - Each integration spec calls `createTestDataSource()` in `beforeAll` and `dataSource.destroy()` in `afterAll`.
 
 ### CI gates (block merge)
@@ -449,32 +350,32 @@ const eventBus = { publish: jest.fn() };
 | English copy in email templates | Wrong locale | All customer-facing text in pt-BR |
 | Money as plain `number` | Loses currency | Use `Money { amount: Decimal, currency: 'BRL' }` |
 | Import from `src/contexts/<B>/` inside Context A | Breaks context isolation | Only import from `src/shared/` or own context |
-| SQL JOIN into another context's schema inside a repository (e.g. Customer repo joining `loyalty.*` or `platform.*`) | Hardest possible coupling — defeats schema independence, makes migrations risky, bypasses ports entirely | Repository queries its own schema only; cross-context data assembled by the use case via events, BFF, or a port+adapter (see §7 "Cross-context data access") |
+| SQL JOIN into another context's schema inside a repository | Hardest coupling — defeats schema independence, blocks port swapping | Repository queries its own schema only; cross-context data via events, BFF, or port+adapter (see §7) |
 | Cross-schema DB FK between contexts | Tight schema coupling | Store UUID only; no FK constraint across schemas |
 | Event consumer querying another context to fill missing data | Defeats self-contained events | Add the needed data to the event payload |
 | Placing a domain entity or use case in `src/shared/` | Blurs context ownership | Only ports, base classes, and multi-context VOs in shared |
-| Exporting repository tokens from a `*.module.ts` (e.g. `exports: [TENANT_REPOSITORY]`) | Makes the repo injectable by any importing module — a direct BC isolation violation | Never export repository tokens; cross-context data goes through BFF orchestration, self-contained events, or a shared read-only port in `src/shared/ports/` |
-| Writing to two or more aggregates without `ITransactionManager.run()` | Partial DB failure leaves inconsistent state (orphaned rows) — compensating deletes are not atomic | Wrap all writes in `txManager.run(async () => { ... })` |
+| Exporting repository tokens from a `*.module.ts` | Makes repo injectable cross-module — BC isolation violation | Never export repository tokens; use BFF orchestration, events, or shared read-only port |
+| Writing to two or more aggregates without `ITransactionManager.run()` | Partial DB failure leaves inconsistent state | Wrap all writes in `txManager.run(async () => { ... })` |
 | Using `jest.fn()` to stub `IEventBus` or `ITransactionManager` | Misses state assertions; mock expectations are brittle | Use `InMemoryEventBus` / `InMemoryTransactionManager` from `src/test/infrastructure/` |
-| Multiple `if (err instanceof X)` chains inside a controller method | Noisy, hard to read, inflates cognitive complexity | Extract into a `mapXxxError(err: unknown): never` helper in `infrastructure/http/` |
-| Placing a context-specific guard in `src/shared/guards/` | Implies the guard is cross-cutting when it isn't — misleads future agents | Guards protecting a single context live in `src/contexts/<context>/infrastructure/guards/` |
-| Barrel `index.ts` in `ports/` or `shared/domain/` directories | Hides which symbols come from where; grows into circular dependency risk as the codebase scales | Import directly from the specific file; blocked by `no-restricted-imports` ESLint rule (regex on import path ending) |
-| Single `DATABASE_URL` connection string for TypeORM | `pg` parses credentials out of the URL — passwords with special characters (`@`, `:`, `/`) break silently; production passwords from GCP Secret Manager use arbitrary chars | Use five explicit vars: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` — always plain strings, no URL encoding |
-| `TypeOrmModule.forRoot({ … process.env['X'] … })` | Module decorator evaluated at import time, before dotenv runs — `process.env['X']` is always `undefined` | Use `TypeOrmModule.forRootAsync({ useFactory: () => ({ … }) })` — factory runs during DI build, after dotenv |
-| `{{$env varName}}` in `.http` REST Client files | `$env` reads OS-level env vars — REST Client environment values (e.g. `backendUrl`) live in `.vscode/settings.json`, not the OS env; resolves to empty string → "connection refused" even when server is running | Use `{{varName}}` for REST Client env vars; use `{{$dotenv VAR}}` only for `.env` secrets |
-| Duplicating a validation function (`isValidEmail`, `isValidTimezone`, etc.) across files | Validation drift — two copies diverge silently; bug fixed in one place, missed in another | Extract into a shared value object (`Email`, `Timezone`, etc.) in `src/shared/value-objects/` with a single `.spec.ts` |
-| Storing email, phone, address, money, colour as a plain `string` / `number` | Primitives carry no validation — invalid values reach the domain silently | Wrap in a value object (`Email`, `PhoneNumber`, `Address`, `Money`, `HexColor`) that validates on construction |
-| Duplicating a utility function (deep merge, formatting, etc.) across use cases or contexts | Two copies diverge; the second author doesn't know the first exists | Extract into `src/shared/utils/` with a unit test; all callers import from the same place |
-| Aggregate field typed as `string` when a shared VO exists for it (e.g. `email: string`, `slug: string`) | The type system lies — invalid values can be stored in props; callers must re-validate | Type aggregate props with the VO (`email: Email`, `slug: Slug`); getters return the VO (not `.address` or `.value`) |
-| `makeEntity()` helper or plain object literal used in a test instead of `XxxEntityBuilder` | Couples the test directly to the TypeORM entity's constructor signature; bypasses the builder pattern | Create an `XxxEntityBuilder` (e.g. `CustomerEntityBuilder`) with sensible defaults in `src/test/builders/<context>/` |
-| Seed file calling `CREATE TABLE`, `CREATE SCHEMA`, or `DROP TABLE` | Drift from migrations — seeds and migrations diverge, leading to silent column/constraint mismatches | Seeds are data-only; schema is 100% owned by TypeORM migrations. If `ensureSchemas()` or DDL appears in seed, delete it |
-| `XxxEntityBuilder` with a hardcoded default `id` (e.g. `private id = '00000000-...'`) | Two builder instances in the same test share the same primary key; second `save()` silently upserts over the first — row-count and tenant-isolation assertions produce false positives | Default `id` to `uuidv7()` in every `XxxEntityBuilder` constructor: `private id = uuidv7()` |
-| Controller directly injecting a repository token | Bypasses the use-case layer — domain errors are never thrown, HTTP→error mapping is skipped, persistence is coupled to the HTTP layer | Controllers inject use cases only. The use case throws domain errors; the controller maps them via `mapXxxError` |
-| `jest.fn()` mock for a use case in a controller unit test | Hides real behaviour; only verifies delegation, not the controller→use-case→repo slice | Wire the real use case with `InMemoryXxxRepository` — same test speed, tests the actual integrated slice |
-| Exporting constants or helpers from `main.ts` | `import { X } from '../main'` triggers the bootstrap function, which calls `validateEnv()` / `process.exit(1)` in test environments | Move shared constants to a dedicated module file (e.g. `auth/cookie-options.ts`); `main.ts` may re-export them |
-| Inline `schema.safeParse(body)` inside a controller method | Inconsistent with the `ZodValidationPipe` + DTO pattern used everywhere else; inflates the controller method; loses the typed `@Body()` parameter | Define schema + `z.infer<>` type in `application/dtos/`; apply `@UsePipes(new ZodValidationPipe(schema))` on the method; type `@Body() dto: DtoType` |
-| `z.string().uuid()` / `z.string().url()` | Deprecated in Zod v4 (SonarCloud S1874). Zod v4's `z.uuid()` is also stricter — it enforces RFC 4122 version/variant bits, so test values like `'00000000-0000-0000-0000-000000000001'` fail (segment-3 must start with `[1-8]`) | Use `z.uuid()` and `z.url()` directly; use RFC 4122-compliant test UUIDs: `'10000000-0000-4000-8000-000000000001'` |
-| Declaring a dynamic route (`@Get(':id')`) before a static route (`@Get('by-slug/:slug')`) in the same NestJS controller | NestJS resolves routes in declaration order — the dynamic route matches all requests before the static route is ever reached | Always declare static/prefix routes first, then parameterized ones |
+| Multiple `if (err instanceof X)` chains inside a controller method | Noisy, inflates cognitive complexity | Extract into a `mapXxxError(err: unknown): never` helper in `infrastructure/http/` |
+| Placing a context-specific guard in `src/shared/guards/` | Misleads future agents — implies cross-cutting | Guards for a single context live in `src/contexts/<context>/infrastructure/guards/` |
+| Barrel `index.ts` in `ports/` or `shared/domain/` directories | Hides symbol origins; circular dep risk | Import directly from the specific file; `no-restricted-imports` ESLint rule enforces this |
+| Single `DATABASE_URL` connection string for TypeORM | Passwords with special chars (`@`, `:`, `/`) break silently | Use five explicit vars: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` |
+| `TypeOrmModule.forRoot({ … process.env['X'] … })` | Env vars are `undefined` at import time (before dotenv) | Use `TypeOrmModule.forRootAsync({ useFactory: () => ({ … }) })` |
+| `{{$env varName}}` in `.http` REST Client files | Reads OS env — REST Client vars live in `.vscode/settings.json`; resolves to empty string | Use `{{varName}}` for REST Client env vars; `{{$dotenv VAR}}` only for `.env` secrets |
+| Duplicating a validation function (`isValidEmail`, `isValidTimezone`, etc.) across files | Two copies diverge silently | Extract into a shared value object in `src/shared/value-objects/` |
+| Storing email, phone, address, money, colour as a plain `string` / `number` | Invalid values reach the domain silently | Wrap in a value object that validates on construction |
+| Duplicating a utility function (deep merge, formatting, etc.) | Two copies diverge | Extract into `src/shared/utils/` |
+| Aggregate field typed as `string` when a shared VO exists | Type system lies — invalid values stored in props | Type props with the VO; getters return the VO |
+| `makeEntity()` helper or plain object literal used in a test | Couples test to TypeORM entity constructor; bypasses builder pattern | Create an `XxxEntityBuilder` in `src/test/builders/<context>/` |
+| Seed file calling `CREATE TABLE`, `CREATE SCHEMA`, or `DROP TABLE` | Drift from migrations | Seeds are data-only; schema owned 100% by TypeORM migrations |
+| `XxxEntityBuilder` with a hardcoded default `id` | Second `save()` silently upserts over first — isolation assertions fail | Default `id` to `uuidv7()` in every `XxxEntityBuilder` constructor |
+| Controller directly injecting a repository token | Bypasses use-case layer — domain errors never thrown, HTTP mapping skipped | Controllers inject use cases only |
+| `jest.fn()` mock for a use case in a controller unit test | Hides real behaviour; tests only delegation | Wire the real use case with `InMemoryXxxRepository` |
+| Exporting constants or helpers from `main.ts` | `import { X } from '../main'` triggers bootstrap / `process.exit(1)` in tests | Move shared constants to a dedicated module file; `main.ts` may re-export them |
+| Inline `schema.safeParse(body)` inside a controller method | Inconsistent with `ZodValidationPipe` + DTO pattern; loses typed `@Body()` | Define schema + `z.infer<>` type in `application/dtos/`; apply `@UsePipes(new ZodValidationPipe(schema))` |
+| `z.string().uuid()` / `z.string().url()` | Deprecated in Zod v4 (SonarCloud S1874); `z.uuid()` rejects non-RFC-4122 test UUIDs | Use `z.uuid()` and `z.url()` directly; use RFC 4122-compliant UUIDs: `'10000000-0000-4000-8000-000000000001'` |
+| Declaring a dynamic route (`@Get(':id')`) before a static route | NestJS resolves in declaration order — dynamic matches first | Always declare static/prefix routes first, then parameterized ones |
 
 ---
 
@@ -483,71 +384,37 @@ const eventBus = { publish: jest.fn() };
 Every story follows this sequence. Skipping steps — especially branch creation — is a defect in agent behaviour.
 
 ### Step 1 — Create feature branch (BEFORE writing any code)
-```bash
-git checkout -b feat/M0X-SYY-<short-description>
-# e.g. feat/M02-S01-platform-domain
-```
+`git checkout -b feat/M0X-SYY-<short-description>`
+
 Never write code on `main`. If you are already on `main` with uncommitted changes, stash first.
 
 ### Step 2 — Implement the story
 Write all files defined in the story spec. See §0 for permission rules (code files = autonomous once story is approved; `.md` / architecture docs still require explicit approval).
 
 ### Step 3 — Verify locally before committing
-```bash
-pnpm --filter @beloauto/backend run type-check   # zero errors
-pnpm --filter @beloauto/backend run lint          # zero warnings
-pnpm --filter @beloauto/backend exec jest --testPathPatterns="<context>" --no-coverage
-```
+Run type-check, lint, and jest for the changed context — zero errors and warnings required.
 
 ### Step 4 — Commit with Conventional Commit
-```bash
-git add <specific files — never git add -A or git add .>
-git commit -m "feat(<context>): <description> (M0X-SYY)
+Stage specific files only (never `git add -A` or `git add .`). Message format:
+```
+feat(<context>): <description> (M0X-SYY)
 
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 ```
 
 ### Step 5 — Push (pre-push hook runs `ci:fast` automatically)
-```bash
-git push -u origin feat/M0X-SYY-<short-description>
-# ci:fast = lint + prettier + type-check + unit tests (~15 s)
-```
-If `ci:fast` fails the push is blocked. Fix, re-commit, re-push.
+`git push -u origin feat/M0X-SYY-<short-description>`
+
+`ci:fast` = lint + prettier + type-check + unit tests (~15 s). If it fails the push is blocked. Fix, re-commit, re-push.
 
 ### Step 6 — Run `ci:local` (optional — developer decides)
-```bash
-pnpm ci:local   # ~5 min — Docker must be running (pnpm infra:up)
-# lint → type-check → unit tests → integration tests →
-# gitleaks → docker build ×3 → trivy ×3
-```
-This is **not mandatory**. GitHub CI will catch the same issues. Run it when you want early feedback before the PR (e.g. touching Dockerfiles, infra, or integration-test paths). Skip it for pure domain/unit-test changes.
+`pnpm ci:local` (~5 min, Docker must be running). Not mandatory — GitHub CI catches the same issues. Run when touching Dockerfiles, infra, or integration-test paths.
 
 ### Step 7 — Self-review the full diff (MANDATORY — before every PR)
 
-Read the complete diff of the branch before opening any PR:
-```bash
-git diff main...HEAD
-```
-Go through every changed file and verify **all** of the following:
-- [ ] No framework imports (`HttpException`, NestJS decorators) in domain or application layers — only controllers/guards/pipes may use them. Use domain errors instead; the controller maps them to HTTP status codes.
-- [ ] Every use case that writes to two or more aggregates wraps all writes in `ITransactionManager.run()` — no compensating deletes.
-- [ ] Every new REST endpoint has a corresponding block in `apps/backend/http/<context>/<resource>.http` covering happy path + all error cases.
-- [ ] No redundant or duplicated test assertions — each test call to the system under test has a purpose.
-- [ ] Every aggregate field that corresponds to a shared value object is typed as that VO (not `string`/`number`). Getters return the VO.
-- [ ] Every TypeORM entity used in a test is built via `XxxEntityBuilder` — no inline `makeEntity()` helpers or object literals.
-- [ ] Every public method on a controller/service has an explicit return type annotation.
-- [ ] `@Global()` modules have a comment explaining why they are global and where they are imported.
-- [ ] Any new required env var is documented in `.env.example` AND added to the local `.env` (never committed).
-- [ ] No non-null assertions (`!`) or `any` casts in production code; minimised in test code.
-- [ ] All SonarCloud-prone patterns addressed: `!`, `as unknown`, `as any`, long functions, cognitive complexity.
-- [ ] §8 Anti-Patterns — check the list for anything introduced.
-- [ ] Every controller injects use cases only — no repository tokens, `DataSource`, or `EntityManager` directly.
-- [ ] `@Body()` validation uses `ZodValidationPipe` + a DTO file — no inline `safeParse()` in controller methods.
-- [ ] Ran `/domain-audit <context>` — zero findings in the changed context(s).
+Run `/pre-pr` — must report **zero issues** before the PR is opened. This skill runs all 14 checks (framework imports, transaction wrapping, .http blocks, return types, VO typing, EntityBuilders, ZodValidationPipe, SonarCloud patterns, and domain-audit) against the branch diff.
 
-**Do not open the PR until every item above is satisfied.** This review is the agent's responsibility, not the user's.
-
-### Step 8 — Open the PR  _(was Step 7)_
+### Step 8 — Open the PR
 ```bash
 gh pr create \
   --title "feat(<context>): <description> (M0X-SYY)" \
@@ -568,10 +435,9 @@ M0X-SYY — <title>
 ### Step 9 — Monitor CI; self-fix any failure
 ```bash
 gh pr checks <PR-number> --repo lmmoreira/beloauto
-# On failure:
 gh run view <run-id> --repo lmmoreira/beloauto --log-failed
-# Fix → commit → push → re-check. Loop until all checks are green.
 ```
+Fix → commit → push → re-check. Loop until all checks are green.
 
 ### Step 10 — Ask user before merging (MANDATORY)
 Once all CI checks are green, report the result and ask:
@@ -584,14 +450,10 @@ git checkout main && git pull origin main
 ```
 
 ### Step 11 — Mark story done (only after the squash commit is on `main`)
-In `plan/M0X-<NAME>.md`:
-```
-### M0X-SYY — title  →  ### M0X-SYY — title ✅ Done
-```
-Commit this change to `main` directly (`chore(plan): mark M0X-SYY done`).
+Run `/mark-done M0X-SYY`. The skill updates the plan file, commits to main, and alerts if all stories in the milestone are now done.
 
 ### Step 12 — Milestone complete? Create wrap-up docs
-If every story in the milestone is now `✅ Done`, see §15 item 16 for the two wrap-up files to create.
+If every story in the milestone is now `✅ Done`, see §15 item 15 for the two wrap-up files to create.
 
 ---
 
@@ -612,6 +474,7 @@ If every story in the milestone is now `✅ Done`, see §15 item 16 for the two 
 | Architecture question | `docs/11-ARCHITECTURE.md` + `docs/05-BOUNDED_CONTEXTS.md` | 5 |
 | Multi-tenancy / isolation | `docs/06-TENANT_ISOLATION_STRATEGY.md` | 2 |
 | Testing patterns | `docs/08-TESTING_STRATEGY.md` | 3 |
+| Value objects / aggregate mappers | `docs/VALUE_OBJECTS_REFERENCE.md` | 1 |
 | CI / pipelines | `docs/09-CI_CD_PIPELINE.md` + `docs/17-GITHUB_WORKFLOWS_GUIDELINES.md` | 4 |
 | Deployment / infra | `docs/12-DEPLOYMENT_STRATEGY.md` + `docs/22-TECH_STACK_DECISIONS.md` | 5 |
 | Observability | `docs/10-OBSERVABILITY_STRATEGY.md` | 2 |
@@ -680,31 +543,6 @@ Only truly unresolved items remain here:
 
 ---
 
-## 13. Doc Contradictions — This File Overrides Until Fixed
-
-| # | Topic | Canonical answer | Fix status |
-|---|---|---|---|
-| 1 | Event bus | GCP Pub/Sub + emulator locally | ✅ Fixed in docs 05, 11, 18 |
-| 2 | DB migrations | Separate CI job (Stage 4.5), never at app startup | ✅ Fixed in doc 09 |
-| 3 | Brazil/BRL/pt-BR | Currency BRL, locale pt-BR, America/Sao_Paulo | ✅ Fixed in docs 01, 07, 21 |
-| 4 | Coverage threshold | ≥80% on **changed code** | ✅ Fixed in docs 07, 08, 09 |
-| 5 | Cancellation window | Read from `tenants.settings.booking.cancellation_window_hours` | ✅ Fixed |
-| 6 | Booking status enum | `PENDING/INFO_REQUESTED/APPROVED/REJECTED/COMPLETED/CANCELLED` | ✅ Resolved |
-| 7 | Event envelope | Standard 7-field envelope (see §4) | ✅ Resolved |
-| 8 | BFF | Separate NestJS service in `apps/bff/` | ✅ Fixed in doc 22 |
-| 9 | Monorepo paths | `apps/backend/src/contexts/` canonical | ✅ Fixed in docs 22, 11 |
-| 10 | UC-014/UC-015 | Superseded by UC-021/UC-022 | ✅ Noted clearly in doc 04 |
-| 11 | Loyalty expiry | Read from `tenants.settings.loyalty.expiry_days` | ✅ Fixed in doc 21 |
-| 12 | Platform context | 6th context: `Tenant`, `HotsiteConfig`; UC-024–029 | ✅ Fixed in docs 02, 03, 04, 05 |
-| 13 | Component library | **shadcn/ui** (Radix UI + Tailwind) | ✅ Fixed in docs 16, 22 |
-| 14 | Email service | **SendGrid** (default adapter); `IEmailSender` port for swappability | ✅ Fixed in docs 05, 10, 22 |
-| 15 | Reminder events | `BookingReminderDue` / `BookingReminderDueToday`; cron emits, Notification sends | ✅ Fixed in docs 03, 04, 05 |
-| 16 | Loyalty idempotency key | `UNIQUE(tenant_id, booking_line_id)` — not `booking_id` | ✅ Fixed in doc 05 |
-| 17 | Reschedule event | `BookingRescheduled` event added; Notification sends email | ✅ Fixed in docs 03, 04, 05, 14 |
-| 18 | Error tracking | No Sentry in MVP; Loki + Grafana | ✅ Fixed in docs 10, 18 |
-
----
-
 ## 14. Glossary
 
 | Term | Definition |
@@ -733,19 +571,19 @@ Only truly unresolved items remain here:
 4. Is the change scoped to one UC cited in the PR? ✓
 5. Does coverage delta stay ≥ 80% on changed code? ✓
 6. Did I follow Conventional Commits? ✓
-7. Did I check §13 for overrides before trusting individual docs? ✓
-8. For any item in §12 (Open Decisions), did I stop and ask instead of guessing? ✓
-9. Are functions ≤ 20 lines, no `any`, no hardcoded config values? ✓
-10. Is all customer-facing text in pt-BR, money in BRL? ✓
-11. Does the integration test include a tenant-isolation assertion? ✓
-12. Did I run `pnpm ci:fast` before pushing? (lint + prettier + type-check + unit tests — auto-runs via pre-push hook if `git config core.hooksPath .githooks` is set) ✓
-13. (Optional) Did I run `pnpm ci:local` if the change touches Dockerfiles, infra, or integration-test paths? GitHub CI catches this regardless — skip for pure domain/unit changes. ✓
-14. After opening the PR, did I verify all CI checks passed (`gh pr checks <N> --repo lmmoreira/beloauto`)? If any failed — fix, commit, push, re-verify. Once all checks are green, merge: `gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch`. Do not report done until the squash commit is on `main`. ✓
-15. After merging, did I mark the story as `✅ Done` in `plan/<milestone>.md`? (heading: `### MXX-SYY — title ✅ Done`) ✓
-16. Are ALL stories in this milestone now `✅ Done`? If yes — the milestone is complete. Before reporting done, create both wrap-up files:
-    - `plan/MXX-<NAME>_IMPLEMENTATION_DETAILS_IA.md` — token-efficient: artifacts table, critical gotchas, version facts, structural decisions, common commands. For AI agents only.
-    - `plan/MXX-<NAME>_IMPLEMENTATION_DETAILS_DEVELOPER.md` — detailed: concepts explained with rationale, code examples from the actual codebase. For the human developer only.
-    - Add the IA file to §10 of this file (Dynamic Context Loading table) so future agents know to load it. ✓
+7. Did I check §12 (Open Decisions) and stop on anything unresolved? ✓
+8. Are functions ≤ 20 lines, no `any`, no hardcoded config values? ✓
+9. Is all customer-facing text in pt-BR, money in BRL? ✓
+10. Does the integration test include a tenant-isolation assertion? ✓
+11. Did `/pre-pr` report zero issues before opening the PR? ✓
+12. Did I run `pnpm ci:fast` before pushing? (auto-runs via pre-push hook if `git config core.hooksPath .githooks` is set) ✓
+13. (Optional) Did I run `pnpm ci:local` if the change touches Dockerfiles, infra, or integration-test paths? ✓
+14. After opening the PR, did I verify all CI checks passed (`gh pr checks <N> --repo lmmoreira/beloauto`)? If any failed — fix, commit, push, re-verify. Once all checks are green, merge: `gh pr merge <N> --repo lmmoreira/beloauto --squash --delete-branch`. ✓
+15. After merging, did I run `/mark-done M0X-SYY`? ✓
+16. Are ALL stories in this milestone now `✅ Done`? If yes — create both wrap-up files:
+    - `plan/MXX-<NAME>_IMPLEMENTATION_DETAILS_IA.md` — token-efficient reference for AI agents: artifacts table, critical gotchas, version facts, structural decisions. No prose, no tutorials.
+    - `plan/MXX-<NAME>_IMPLEMENTATION_DETAILS_DEVELOPER.md` — detailed learning doc for the human developer: every concept explained with rationale, real code examples from this codebase, enough depth that a developer can learn NestJS, DDD, and the engineering patterns used here just by reading it.
+    - Add the IA file to §10 of this file. ✓
 
 ---
 
@@ -755,22 +593,8 @@ Commands live in `.claude/commands/`. Claude Code auto-discovers them — type `
 
 | Command | File | When to use |
 |---|---|---|
-| `/domain-audit [context-path]` | `.claude/commands/domain-audit.md` | Before opening a PR — scans for VO violations, missing `XxxEntityBuilder`, seed DDL, duplicated validators, inline `makeXxx()` helpers. Optional arg narrows scope to one context (e.g. `contexts/customer`). |
+| `/pre-pr` | `.claude/commands/pre-pr.md` | **Before every PR** — runs all 14 checks (framework imports, transactions, .http blocks, return types, VO typing, EntityBuilders, ZodValidationPipe, SonarCloud patterns) + domain-audit. Must report zero issues. |
+| `/domain-audit [context-path]` | `.claude/commands/domain-audit.md` | Structural VO/builder scan. Called automatically by `/pre-pr`; run standalone for a quicker focused check. |
+| `/mark-done M0X-SYY` | `.claude/commands/mark-done.md` | **After merge to main** — marks the story `✅ Done` in the plan file, commits, and alerts if the milestone is now complete. |
 
 **Adding new commands:** create `.claude/commands/<name>.md`. Use `$ARGUMENTS` as the placeholder for optional user-typed arguments. Document it in this table.
-
----
-
-## 16. Changelog
-
-| Date | Change |
-|---|---|
-| 2026-05-18 | **M03-S06 lessons captured.** §7 Testing: `XxxEntityBuilder.id` must default to `uuidv7()`; SonarCloud only counts unit test lcov; controller unit tests should wire real use case + InMemoryRepo. §8 Anti-patterns: 8 new rows (hardcoded builder `id`, controller injecting repo, use-case mocking with `jest.fn()`, exporting from `main.ts`, inline `safeParse`, `z.string().uuid()/url()` deprecated in Zod v4, static route after dynamic). §9 Step 7: 2 new checklist items. §10: M03 IA doc added. Created `plan/M03-AUTHENTICATION_IMPLEMENTATION_DETAILS_IA.md`. |
-| 2026-05-17 | **§17 Slash Commands added; `/domain-audit` skill created.** `.claude/commands/domain-audit.md` scans for VO violations, missing EntityBuilders, seed DDL, duplicated validators. §9 Step 7 checklist and §17 table document the command. Explained per-tool skill conventions (Copilot uses `.github/copilot-instructions.md`; Cursor uses `.cursor/rules/`). |
-| 2026-05-17 | **VO-typed aggregate fields, repository mapper pattern, XxxEntityBuilder rule.** §7 expanded with full VO catalog (Email, PhoneNumber, Address, Money, HexColor, Slug, Timezone, TimeOfDay + file paths), Option A VO-getter rule, repository mapper pattern (toDomain/toEntity), JSONB double-cast pattern. §8 anti-patterns: 3 new rows (aggregate typed as string, makeEntity inline, seed DDL). §9 Step 7 checklist: 2 new VO/builder items. |
-| 2026-05-15 | **§9 Story Implementation Workflow added.** Explicit branch-first, commit, push, ci:fast, ci:local, PR, CI monitor, squash-merge, mark-done sequence. §15 updated with branch-creation reminder. M00 IA doc §14 mirrors this. |
-| 2026-05-12 (wave 3) | **Platform Context added + LGPD removed.** Added Platform Context (UC-024 to UC-029, aggregates, events `StaffInvited`/`StaffDeactivated`) across docs 02, 03, 04, 05. Removed LGPD scope (localization only: BRL, pt-BR). Fixed UC-024/025/026 for Google OAuth-only auth and BRL currency. Added UC-028 (invite staff) and UC-029 (deactivate staff). CLAUDE.md now symlinks to this file. |
-| 2026-05-12 (wave 2) | **Doc fixes propagated.** Event bus (05, 11, 18) → GCP Pub/Sub; CI/CD (09) → Stage 4.5 migrations, coverage "changed code"; use cases (04) → cancellation window from settings; docs 01/07 → Brazil/BRL/pt-BR. All agent files (CLAUDE.md, claude.md, gemini.md) symlink to this file. |
-| 2026-05-12 (wave 1) | **Full rewrite of this file.** Resolved: event bus → GCP Pub/Sub + emulator; BFF → separate NestJS service; monorepo → pnpm workspaces; DB migrations → separate CI job; feature flags → env vars; rate limiting → NestJS ThrottlerModule. Added: Brazil market, BRL currency, pt-BR locale, LGPD. Archived root-level audit files. Rewrote for dynamic-loading-first structure. |
-| 2026-05-11 (pm) | Wave 1: branch `main`, `INFO_REQUESTED` state, 80% coverage on changed code, event envelope, `LoyaltyEntry` model, photo fields plural. |
-| 2026-05-11 (am) | First CLI-agnostic rewrite. Added permission protocol, invariants, anti-patterns, self-check. |
