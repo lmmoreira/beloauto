@@ -1,0 +1,87 @@
+import { AggregateRoot } from '../../../shared/domain/aggregate-root';
+import { uuidv7 } from '../../../shared/domain/uuid-v7';
+import { Email } from '../../../shared/value-objects/email.vo';
+import { StaffDomainError } from './errors/staff-domain.error';
+
+export type StaffRole = 'MANAGER' | 'STAFF';
+
+export interface StaffProps {
+  id: string;
+  tenantId: string;
+  googleOAuthId: string | null;
+  email: Email;
+  role: StaffRole;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export class Staff extends AggregateRoot {
+  private readonly props: StaffProps;
+
+  private constructor(props: StaffProps) {
+    super();
+    this.props = props;
+  }
+
+  get id(): string {
+    return this.props.id;
+  }
+  get tenantId(): string {
+    return this.props.tenantId;
+  }
+  get googleOAuthId(): string | null {
+    return this.props.googleOAuthId;
+  }
+  get email(): Email {
+    return this.props.email;
+  }
+  get role(): StaffRole {
+    return this.props.role;
+  }
+  get isActive(): boolean {
+    return this.props.isActive;
+  }
+  get createdAt(): Date {
+    return this.props.createdAt;
+  }
+  get updatedAt(): Date {
+    return this.props.updatedAt;
+  }
+
+  static invite(tenantId: string, email: string, role: StaffRole): Staff {
+    if (!tenantId) throw new StaffDomainError('tenantId is required');
+    if (!Email.isValid(email)) throw new StaffDomainError('email must be a valid email address');
+    if (role !== 'MANAGER' && role !== 'STAFF') {
+      throw new StaffDomainError('role must be MANAGER or STAFF');
+    }
+
+    const now = new Date();
+    return new Staff({
+      id: uuidv7(),
+      tenantId,
+      googleOAuthId: null,
+      email: Email.create(email),
+      role,
+      isActive: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  static reconstitute(props: StaffProps): Staff {
+    return new Staff(props);
+  }
+
+  activate(googleOAuthId: string): void {
+    if (!googleOAuthId) throw new StaffDomainError('googleOAuthId is required to activate staff');
+    this.props.googleOAuthId = googleOAuthId;
+    this.props.isActive = true;
+    this.props.updatedAt = new Date();
+  }
+
+  deactivate(): void {
+    this.props.isActive = false;
+    this.props.updatedAt = new Date();
+  }
+}
