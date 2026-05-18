@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantModule } from '../../shared/tenant/tenant.module';
 import { HOTSITE_CONFIG_REPOSITORY } from './application/ports/hotsite-config-repository.port';
 import { TENANT_REPOSITORY } from './application/ports/tenant-repository.port';
+import { GetTenantByIdUseCase } from './application/use-cases/get-tenant-by-id.use-case';
 import { ProvisionTenantUseCase } from './application/use-cases/provision-tenant.use-case';
 import { UpdateTenantSettingsUseCase } from './application/use-cases/update-tenant-settings.use-case';
 import { HotsiteConfigEntity } from './infrastructure/entities/hotsite-config.entity';
@@ -19,6 +20,7 @@ import { TypeOrmTenantRepository } from './infrastructure/repositories/typeorm-t
   providers: [
     { provide: TENANT_REPOSITORY, useClass: TypeOrmTenantRepository },
     { provide: HOTSITE_CONFIG_REPOSITORY, useClass: TypeOrmHotsiteConfigRepository },
+    GetTenantByIdUseCase,
     ProvisionTenantUseCase,
     UpdateTenantSettingsUseCase,
   ],
