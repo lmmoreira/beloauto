@@ -53,7 +53,72 @@ describe('AuthController', () => {
 
   const makeReq = (user: GoogleProfile): Request => ({ user }) as unknown as Request;
 
-  describe('handleGoogleCallback()', () => {
+  describe('handleGoogleCallback() — tenant-aware path (tenantSlug in OAuth state)', () => {
+    const profileWithSlug: GoogleProfile = {
+      ...profile,
+      tenantSlug: 'lavacar-bh',
+    };
+
+    it('issues JWT cookie and redirects to /dashboard on first customer login', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValue(tenantInfo),
+        post: jest.fn().mockResolvedValue({ customerId: CUSTOMER_ID_A, created: true }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeReq(profileWithSlug), res);
+
+      expect(backendHttp.post).toHaveBeenCalledWith(
+        '/internal/customers',
+        expect.objectContaining({
+          tenantId: TENANT_ID_A,
+          googleOAuthId: profile.googleOAuthId,
+        }),
+      );
+      expect(res.cookie).toHaveBeenCalledWith(
+        'access_token',
+        expect.any(String),
+        expect.objectContaining({ httpOnly: true }),
+      );
+      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/dashboard');
+    });
+
+    it('JWT payload has correct sub=customerId and tenantSlug', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValue(tenantInfo),
+        post: jest.fn().mockResolvedValue({ customerId: CUSTOMER_ID_A, created: true }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeReq(profileWithSlug), res);
+
+      const [, token] = (res.cookie as jest.Mock).mock.calls[0] as [string, string];
+      const decoded = jwtService.decode(token) as Record<string, unknown>;
+      expect(decoded['sub']).toBe(CUSTOMER_ID_A);
+      expect(decoded['tenantSlug']).toBe('lavacar-bh');
+      expect(decoded['role']).toBe('CUSTOMER');
+    });
+
+    it('redirects to /auth/error?reason=tenant-not-found when slug is unknown', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockRejectedValue(new Error('not found')),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeReq(profileWithSlug), res);
+
+      expect(res.redirect).toHaveBeenCalledWith(
+        'http://localhost:3000/auth/error?reason=tenant-not-found',
+      );
+    });
+  });
+
+  describe('handleGoogleCallback() — multi-tenant path (no tenantSlug)', () => {
     it('redirects to /auth/error when no tenant is found', async () => {
       const backendHttp = makeBackendHttp({ get: jest.fn().mockResolvedValue([]) });
       const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
