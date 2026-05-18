@@ -282,7 +282,7 @@ Implement the full UC-021 flow: after Google OAuth callback, find all tenants wh
 
 ---
 
-### M03-S07 — UC-022: Staff login
+### M03-S07 — UC-022: Staff login ✅ Done
 
 **Agent:** `bff-ts`  
 **Complexity:** S  
