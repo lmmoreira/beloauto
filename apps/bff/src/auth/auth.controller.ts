@@ -1,11 +1,48 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Request } from 'express';
+import { Request, Response } from 'express';
+import { z } from 'zod';
 import { Public } from '../shared/decorators/public.decorator';
+import { BackendHttpService } from '../shared/http/backend-http.service';
 import { GoogleProfile } from './strategies/google.strategy';
+import { JwtIssuerService } from './jwt-issuer.service';
+import { SelectionTokenService } from './selection-token.service';
+
+interface CustomerTenantSummary {
+  tenantId: string;
+  customerId: string;
+}
+
+interface TenantInfoResponse {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+const IssueTokenSchema = z.object({
+  selectionToken: z.string().min(1),
+  tenantId: z.string().uuid(),
+});
 
 @Controller('auth')
 export class AuthController {
+  constructor(
+    private readonly jwtIssuer: JwtIssuerService,
+    private readonly selectionToken: SelectionTokenService,
+    private readonly backendHttp: BackendHttpService,
+  ) {}
+
   @Public()
   @UseGuards(AuthGuard('google'))
   @Get('google')
@@ -16,9 +53,88 @@ export class AuthController {
   @Public()
   @UseGuards(AuthGuard('google'))
   @Get('google/callback')
-  handleGoogleCallback(@Req() req: Request): GoogleProfile {
-    // GoogleStrategy.validate() populates req.user with the Google profile.
-    // JWT issuance and redirect logic are added in M03-S04/S06/S07.
-    return req.user as GoogleProfile;
+  async handleGoogleCallback(@Req() req: Request, @Res() res: Response): Promise<void> {
+    const profile = req.user as GoogleProfile;
+    const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
+
+    const tenants = await this.backendHttp.get<CustomerTenantSummary[]>(
+      '/internal/customers/tenants',
+      { googleOAuthId: profile.googleOAuthId },
+    );
+
+    if (tenants.length === 0) {
+      res.redirect(`${frontendUrl}/auth/error?reason=no-tenant`);
+      return;
+    }
+
+    if (tenants.length === 1) {
+      const { tenantId, customerId } = tenants[0];
+      const tenantInfo = await this.backendHttp.get<TenantInfoResponse>(
+        `/internal/tenants/${tenantId}`,
+      );
+      const token = this.jwtIssuer.issueToken({
+        sub: customerId,
+        tenantId,
+        tenantSlug: tenantInfo.slug,
+        role: 'CUSTOMER',
+      });
+      res.cookie('access_token', token, {
+        httpOnly: true,
+        secure: process.env['NODE_ENV'] === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+      res.redirect(`${frontendUrl}/dashboard`);
+      return;
+    }
+
+    const selectionToken = this.selectionToken.issueSelectionToken(profile.googleOAuthId);
+    res.redirect(`${frontendUrl}/select-tenant?token=${selectionToken}`);
+  }
+
+  @Public()
+  @Post('token')
+  async issueToken(
+    @Body() body: unknown,
+    @Req() _req: Request,
+  ): Promise<{ accessToken: string; expiresIn: string }> {
+    const parsed = IssueTokenSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        type: 'about:blank',
+        title: 'Bad Request',
+        status: HttpStatus.BAD_REQUEST,
+        detail: 'selectionToken (string) and tenantId (UUID) are required',
+      });
+    }
+
+    const { selectionToken, tenantId } = parsed.data;
+    const { googleOAuthId } = this.selectionToken.verifySelectionToken(selectionToken);
+
+    const tenants = await this.backendHttp.get<CustomerTenantSummary[]>(
+      '/internal/customers/tenants',
+      { googleOAuthId },
+    );
+    const match = tenants.find((t) => t.tenantId === tenantId);
+    if (!match) {
+      throw new ForbiddenException({
+        type: 'about:blank',
+        title: 'Forbidden',
+        status: HttpStatus.FORBIDDEN,
+        detail: 'Customer is not registered in this tenant',
+      });
+    }
+
+    const tenantInfo = await this.backendHttp.get<TenantInfoResponse>(
+      `/internal/tenants/${tenantId}`,
+    );
+    const accessToken = this.jwtIssuer.issueToken({
+      sub: match.customerId,
+      tenantId,
+      tenantSlug: tenantInfo.slug,
+      role: 'CUSTOMER',
+    });
+
+    return { accessToken, expiresIn: process.env['JWT_EXPIRES_IN'] ?? '7d' };
   }
 }
