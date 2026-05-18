@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -9,13 +8,15 @@ import {
   Req,
   Res,
   UseGuards,
+  UsePipes,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
-import { z } from 'zod';
 import { Public } from '../shared/decorators/public.decorator';
 import { BackendHttpService } from '../shared/http/backend-http.service';
+import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
 import { JWT_COOKIE_OPTIONS } from './cookie-options';
+import { IssueTokenDto, IssueTokenSchema } from './dtos/issue-token.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { JwtIssuerService } from './jwt-issuer.service';
 import { SelectionTokenService } from './selection-token.service';
@@ -37,17 +38,12 @@ interface FindOrCreateCustomerResult {
   created: boolean;
 }
 
-interface StaffAuthInfo {
+interface StaffInfoResponse {
   staffId: string;
   tenantId: string;
   role: 'STAFF' | 'MANAGER';
   isActive: boolean;
 }
-
-const IssueTokenSchema = z.object({
-  selectionToken: z.string().min(1),
-  tenantId: z.uuid(),
-});
 
 @Controller('auth')
 export class AuthController {
@@ -61,7 +57,7 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   @Get('google')
   login(): void {
-    // GoogleAuthGuard passes tenantSlug as OAuth state → Google redirects
+    // GoogleAuthGuard passes tenantSlug or 'staff' as OAuth state → Google redirects
   }
 
   @Public()
@@ -86,28 +82,17 @@ export class AuthController {
 
   @Public()
   @Post('token')
+  @UsePipes(new ZodValidationPipe(IssueTokenSchema))
   async issueToken(
-    @Body() body: unknown,
-    @Req() _req: Request,
+    @Body() dto: IssueTokenDto,
   ): Promise<{ accessToken: string; expiresIn: string }> {
-    const parsed = IssueTokenSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new BadRequestException({
-        type: 'about:blank',
-        title: 'Bad Request',
-        status: HttpStatus.BAD_REQUEST,
-        detail: 'selectionToken (string) and tenantId (UUID) are required',
-      });
-    }
-
-    const { selectionToken, tenantId } = parsed.data;
-    const { googleOAuthId } = this.selectionToken.verifySelectionToken(selectionToken);
+    const { googleOAuthId } = this.selectionToken.verifySelectionToken(dto.selectionToken);
 
     const tenants = await this.backendHttp.get<CustomerTenantSummary[]>(
       '/internal/customers/tenants',
       { googleOAuthId },
     );
-    const match = tenants.find((t) => t.tenantId === tenantId);
+    const match = tenants.find((t) => t.tenantId === dto.tenantId);
     if (!match) {
       throw new ForbiddenException({
         type: 'about:blank',
@@ -118,11 +103,11 @@ export class AuthController {
     }
 
     const tenantInfo = await this.backendHttp.get<TenantInfoResponse>(
-      `/internal/tenants/${tenantId}`,
+      `/internal/tenants/${dto.tenantId}`,
     );
     const accessToken = this.jwtIssuer.issueToken({
       sub: match.customerId,
-      tenantId,
+      tenantId: dto.tenantId,
       tenantSlug: tenantInfo.slug,
       role: 'CUSTOMER',
     });
@@ -136,7 +121,7 @@ export class AuthController {
     frontendUrl: string,
   ): Promise<void> {
     const staffInfo = await this.backendHttp
-      .get<StaffAuthInfo>('/internal/staff/by-oauth', { googleOAuthId: profile.googleOAuthId })
+      .get<StaffInfoResponse>('/internal/staff/by-oauth', { googleOAuthId: profile.googleOAuthId })
       .catch(() => null);
 
     if (!staffInfo) {

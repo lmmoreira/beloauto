@@ -1,19 +1,22 @@
 import { StaffBuilder } from '../../../../test/builders/staff';
 import { InMemoryStaffRepository } from '../../../../test/repositories/staff/in-memory-staff.repository';
+import { StaffNotFoundError } from '../../domain/errors/staff-domain.error';
 import { GetStaffByOAuthIdUseCase } from './get-staff-by-oauth-id.use-case';
 
-function makeUseCase(repo = new InMemoryStaffRepository()) {
-  return { useCase: new GetStaffByOAuthIdUseCase(repo), repo };
-}
-
 describe('GetStaffByOAuthIdUseCase', () => {
-  it('returns null when no staff exists for the given googleOAuthId', async () => {
-    const { useCase } = makeUseCase();
-    expect(await useCase.execute('google-sub-unknown')).toBeNull();
+  let repo: InMemoryStaffRepository;
+  let useCase: GetStaffByOAuthIdUseCase;
+
+  beforeEach(() => {
+    repo = new InMemoryStaffRepository();
+    useCase = new GetStaffByOAuthIdUseCase(repo);
   });
 
-  it('returns StaffAuthInfo with correct fields for an active staff member', async () => {
-    const { useCase, repo } = makeUseCase();
+  it('throws StaffNotFoundError when no staff exists for the given googleOAuthId', async () => {
+    await expect(useCase.execute('google-sub-unknown')).rejects.toThrow(StaffNotFoundError);
+  });
+
+  it('returns StaffAuthInfo with correct fields for an active MANAGER', async () => {
     const staff = new StaffBuilder()
       .withTenantId('10000000-0000-4000-8000-000000000001')
       .withRole('MANAGER')
@@ -23,15 +26,13 @@ describe('GetStaffByOAuthIdUseCase', () => {
 
     const result = await useCase.execute('google-sub-manager');
 
-    expect(result).not.toBeNull();
-    expect(result!.staffId).toBe(staff.id);
-    expect(result!.tenantId).toBe('10000000-0000-4000-8000-000000000001');
-    expect(result!.role).toBe('MANAGER');
-    expect(result!.isActive).toBe(true);
+    expect(result.staffId).toBe(staff.id);
+    expect(result.tenantId).toBe('10000000-0000-4000-8000-000000000001');
+    expect(result.role).toBe('MANAGER');
+    expect(result.isActive).toBe(true);
   });
 
-  it('returns isActive=false for a deactivated staff member (still has googleOAuthId set)', async () => {
-    const { useCase, repo } = makeUseCase();
+  it('returns isActive=false for a deactivated staff member (googleOAuthId retained)', async () => {
     const staff = new StaffBuilder()
       .withTenantId('10000000-0000-4000-8000-000000000002')
       .withRole('STAFF')
@@ -42,16 +43,14 @@ describe('GetStaffByOAuthIdUseCase', () => {
 
     const result = await useCase.execute('google-sub-deactivated');
 
-    expect(result).not.toBeNull();
-    expect(result!.isActive).toBe(false);
-    expect(result!.role).toBe('STAFF');
+    expect(result.isActive).toBe(false);
+    expect(result.role).toBe('STAFF');
   });
 
-  it('returns null for invited-but-not-yet-activated staff (googleOAuthId is null)', async () => {
-    const { useCase, repo } = makeUseCase();
+  it('throws StaffNotFoundError for invited-but-not-yet-activated staff (googleOAuthId is null)', async () => {
     const invited = new StaffBuilder().withTenantId('10000000-0000-4000-8000-000000000003').build();
     await repo.save(invited);
 
-    expect(await useCase.execute('any-sub')).toBeNull();
+    await expect(useCase.execute('any-sub')).rejects.toThrow(StaffNotFoundError);
   });
 });

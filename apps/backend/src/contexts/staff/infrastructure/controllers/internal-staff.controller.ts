@@ -1,8 +1,9 @@
-import { BadRequestException, Controller, Get, NotFoundException, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import {
   GetStaffByOAuthIdUseCase,
   StaffAuthInfo,
 } from '../../application/use-cases/get-staff-by-oauth-id.use-case';
+import { mapStaffError } from '../http/staff-error.mapper';
 
 // MVP: protected at network level (backend not exposed publicly — BFF-only access).
 // Future: add InternalApiGuard checking X-Internal-Key header.
@@ -20,15 +21,6 @@ export class InternalStaffController {
         detail: 'googleOAuthId query parameter is required',
       });
     }
-    const result = await this.getStaffByOAuthId.execute(googleOAuthId);
-    if (!result) {
-      throw new NotFoundException({
-        type: 'about:blank',
-        title: 'Not Found',
-        status: 404,
-        detail: 'No staff member found for this Google account',
-      });
-    }
-    return result;
+    return this.getStaffByOAuthId.execute(googleOAuthId).catch(mapStaffError);
   }
 }

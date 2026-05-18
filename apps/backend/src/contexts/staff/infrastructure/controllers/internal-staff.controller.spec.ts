@@ -1,33 +1,31 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { StaffBuilder } from '../../../../test/builders/staff';
 import { InMemoryStaffRepository } from '../../../../test/repositories/staff/in-memory-staff.repository';
 import { GetStaffByOAuthIdUseCase } from '../../application/use-cases/get-staff-by-oauth-id.use-case';
 import { InternalStaffController } from './internal-staff.controller';
 
-function makeController(repo = new InMemoryStaffRepository()): {
-  controller: InternalStaffController;
-  repo: InMemoryStaffRepository;
-} {
-  return {
-    controller: new InternalStaffController(new GetStaffByOAuthIdUseCase(repo)),
-    repo,
-  };
-}
-
 describe('InternalStaffController', () => {
+  let repo: InMemoryStaffRepository;
+  let controller: InternalStaffController;
+
+  beforeEach(() => {
+    repo = new InMemoryStaffRepository();
+    controller = new InternalStaffController(new GetStaffByOAuthIdUseCase(repo));
+  });
+
   describe('getByOAuth()', () => {
     it('throws BadRequestException when googleOAuthId is missing', async () => {
-      const { controller } = makeController();
       await expect(controller.getByOAuth('')).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('throws NotFoundException when no staff is found for the given sub', async () => {
-      const { controller } = makeController();
-      await expect(controller.getByOAuth('unknown-sub')).rejects.toBeInstanceOf(NotFoundException);
+    it('maps StaffNotFoundError to 404 when no staff is found', async () => {
+      const err = await controller.getByOAuth('unknown-sub').catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
     });
 
     it('returns StaffAuthInfo for an active staff member', async () => {
-      const { controller, repo } = makeController();
       const staff = new StaffBuilder()
         .withTenantId('10000000-0000-4000-8000-000000000001')
         .withRole('MANAGER')
@@ -44,7 +42,6 @@ describe('InternalStaffController', () => {
     });
 
     it('returns isActive=false for a deactivated staff member', async () => {
-      const { controller, repo } = makeController();
       const staff = new StaffBuilder()
         .withTenantId('10000000-0000-4000-8000-000000000002')
         .withRole('STAFF')
