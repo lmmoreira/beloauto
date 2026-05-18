@@ -37,7 +37,7 @@
 # http://localhost:3002/v1/auth/google?type=staff
 #
 # Flow:
-#   → BFF redirects to Google with state=staff
+#   → BFF redirects to Google with state=__staff__
 #   → Google authenticates → redirects back to /v1/auth/google/callback
 #   → BFF calls GET /internal/staff/by-oauth?googleOAuthId=<sub>
 #   → Active staff found → issues JWT with role=STAFF|MANAGER, sets cookie, redirects to /dashboard

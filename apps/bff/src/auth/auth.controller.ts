@@ -58,7 +58,7 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   @Get('google')
   login(): void {
-    // GoogleAuthGuard passes tenantSlug or 'staff' as OAuth state → Google redirects
+    // GoogleAuthGuard passes tenantSlug or '__staff__' as OAuth state → Google redirects
   }
 
   @Public()
