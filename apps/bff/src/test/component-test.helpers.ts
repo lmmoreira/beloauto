@@ -48,7 +48,23 @@ export async function createTestApp(): Promise<{
   httpService: MockHttpService;
   // backendHttpService is used by controllers via BackendHttpService — returns Promises
   backendHttpService: MockBackendHttpService;
+  // Call in afterAll to restore process.env to its pre-test state
+  restoreEnv: () => void;
 }> {
+  const TEST_ENV_KEYS = [
+    'JWT_SECRET',
+    'BACKEND_INTERNAL_URL',
+    'FRONTEND_URL',
+    'JWT_EXPIRES_IN',
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET',
+    'GOOGLE_CALLBACK_URL',
+    'ALLOWED_ORIGINS',
+    'CRON_SECRET',
+  ] as const;
+
+  const originalEnv = Object.fromEntries(TEST_ENV_KEYS.map((k) => [k, process.env[k]]));
+
   process.env['JWT_SECRET'] = TEST_JWT_SECRET;
   process.env['BACKEND_INTERNAL_URL'] = BACKEND_URL;
   process.env['FRONTEND_URL'] = 'http://localhost:3000';
@@ -92,12 +108,23 @@ export async function createTestApp(): Promise<{
   app.setGlobalPrefix('v1');
   await app.init();
 
+  const restoreEnv = (): void => {
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  };
+
   return {
     app,
     jwtService: module.get(JwtService),
     selectionTokenService: module.get(SelectionTokenService),
     httpService,
     backendHttpService,
+    restoreEnv,
   };
 }
 

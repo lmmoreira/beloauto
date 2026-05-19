@@ -19,13 +19,16 @@ describe('AuthController (component) — non-OAuth routes', () => {
   let jwtService: JwtService;
   let selectionTokenService: SelectionTokenService;
   let backendHttpService: MockBackendHttpService;
+  let restoreEnv: () => void;
 
   beforeAll(async () => {
-    ({ app, jwtService, selectionTokenService, backendHttpService } = await createTestApp());
+    ({ app, jwtService, selectionTokenService, backendHttpService, restoreEnv } =
+      await createTestApp());
   });
 
   afterAll(async () => {
     await app.close();
+    restoreEnv();
   });
 
   afterEach(() => {
@@ -94,7 +97,7 @@ describe('AuthController (component) — non-OAuth routes', () => {
       expect(res.body.accessToken).toBeDefined();
       expect(res.body.expiresIn).toBe('7d');
 
-      const decoded = jwtService.decode(res.body.accessToken as string) as Record<string, unknown>;
+      const decoded = jwtService.verify(res.body.accessToken as string) as Record<string, unknown>;
       expect(decoded['sub']).toBe(CUSTOMER_ID);
       expect(decoded['tenantId']).toBe(TENANT_ID);
       expect(decoded['role']).toBe('CUSTOMER');
@@ -171,7 +174,7 @@ describe('AuthController (component) — non-OAuth routes', () => {
       expect(res.status).toBe(201);
       expect(res.body.accessToken).toBeDefined();
 
-      const decoded = jwtService.decode(res.body.accessToken as string) as Record<string, unknown>;
+      const decoded = jwtService.verify(res.body.accessToken as string) as Record<string, unknown>;
       expect(decoded['sub']).toBe(targetCustomerId);
       expect(decoded['tenantId']).toBe(TENANT_ID_2);
       expect(decoded['tenantSlug']).toBe('lavacar-sp');

@@ -27,13 +27,15 @@ describe('StaffController (component)', () => {
   let jwtService: JwtService;
   let httpService: MockHttpService;
   let backendHttpService: MockBackendHttpService;
+  let restoreEnv: () => void;
 
   beforeAll(async () => {
-    ({ app, jwtService, httpService, backendHttpService } = await createTestApp());
+    ({ app, jwtService, httpService, backendHttpService, restoreEnv } = await createTestApp());
   });
 
   afterAll(async () => {
     await app.close();
+    restoreEnv();
   });
 
   afterEach(() => {
