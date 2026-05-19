@@ -25,3 +25,10 @@ export class StaffEmailMismatchError extends StaffDomainError {
     this.name = 'StaffEmailMismatchError';
   }
 }
+
+export class StaffAlreadyExistsError extends StaffDomainError {
+  constructor(email: string) {
+    super(`Este e-mail já está cadastrado na sua equipe: ${email}`);
+    this.name = 'StaffAlreadyExistsError';
+  }
+}
