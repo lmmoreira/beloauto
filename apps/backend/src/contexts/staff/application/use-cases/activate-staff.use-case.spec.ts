@@ -1,4 +1,5 @@
 import { StaffBuilder } from '../../../../test/builders/staff';
+import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryStaffRepository } from '../../../../test/repositories/staff/in-memory-staff.repository';
 import {
   StaffAlreadyActiveError,
@@ -13,7 +14,7 @@ describe('ActivateStaffUseCase', () => {
 
   beforeEach(() => {
     repo = new InMemoryStaffRepository();
-    useCase = new ActivateStaffUseCase(repo);
+    useCase = new ActivateStaffUseCase(repo, new InMemoryTransactionManager());
   });
 
   it('throws StaffNotFoundError when staffId does not exist in the tenant', async () => {

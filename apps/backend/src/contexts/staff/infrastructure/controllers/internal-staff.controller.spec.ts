@@ -1,5 +1,6 @@
 import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { StaffBuilder } from '../../../../test/builders/staff';
+import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryStaffRepository } from '../../../../test/repositories/staff/in-memory-staff.repository';
 import { ActivateStaffUseCase } from '../../application/use-cases/activate-staff.use-case';
 import { GetStaffByEmailUseCase } from '../../application/use-cases/get-staff-by-email.use-case';
@@ -20,7 +21,7 @@ describe('InternalStaffController', () => {
     controller = new InternalStaffController(
       new GetStaffByOAuthIdUseCase(repo),
       new GetStaffByEmailUseCase(repo),
-      new ActivateStaffUseCase(repo),
+      new ActivateStaffUseCase(repo, new InMemoryTransactionManager()),
       new ListStaffUseCase(repo),
       new GetStaffByIdUseCase(repo),
     );

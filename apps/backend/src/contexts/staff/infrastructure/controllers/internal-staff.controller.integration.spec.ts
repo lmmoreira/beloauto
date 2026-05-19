@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { StaffEntityBuilder } from '../../../../test/builders/staff';
 import { StaffEntity } from '../entities/staff.entity';
 import { StaffModule } from '../../staff.module';
@@ -20,6 +21,7 @@ describe('InternalStaffController (integration)', () => {
           entities: [StaffEntity],
           synchronize: false,
         }),
+        TransactionManagerModule,
         StaffModule,
       ],
     }).compile();
