@@ -3,7 +3,7 @@ import type { Config } from 'jest';
 const config: Config = {
   rootDir: 'src',
   transform: {
-    '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.test.json' }],
+    '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.json' }],
   },
   collectCoverageFrom: [
     '**/*.(t|j)s',
