@@ -114,9 +114,8 @@ export class AuthController {
 
   @Post('switch-tenant')
   @Roles('CUSTOMER')
-  @UsePipes(new ZodValidationPipe(SwitchTenantSchema))
   async switchTenant(
-    @Body() dto: SwitchTenantDto,
+    @Body(new ZodValidationPipe(SwitchTenantSchema)) dto: SwitchTenantDto,
     @CurrentUser() user: CurrentUserPayload,
   ): Promise<{ accessToken: string; expiresIn: string }> {
     const tenants = await this.backendHttp.get<CustomerTenantSummaryResponse[]>(
