@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { CustomerEntityBuilder } from '../../../../test/builders/customer';
 import { CustomerEntity } from '../entities/customer.entity';
 import { CustomerModule } from '../../customer.module';
@@ -20,6 +21,7 @@ describe('InternalCustomerController (integration)', () => {
           entities: [CustomerEntity],
           synchronize: false,
         }),
+        TransactionManagerModule,
         CustomerModule,
       ],
     }).compile();

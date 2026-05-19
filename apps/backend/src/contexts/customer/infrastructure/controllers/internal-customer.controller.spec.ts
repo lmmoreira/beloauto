@@ -1,5 +1,6 @@
 import { BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { CustomerBuilder } from '../../../../test/builders/customer';
+import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryCustomerRepository } from '../../../../test/repositories/customer/in-memory-customer.repository';
 import { FindOrCreateCustomerDto } from '../../application/dtos/find-or-create-customer.dto';
 import { FindOrCreateCustomerUseCase } from '../../application/use-cases/find-or-create-customer.use-case';
@@ -16,7 +17,7 @@ describe('InternalCustomerController', () => {
     controller = new InternalCustomerController(
       new GetCustomerTenantsUseCase(repo),
       new GetCustomerTenantsByIdUseCase(repo),
-      new FindOrCreateCustomerUseCase(repo),
+      new FindOrCreateCustomerUseCase(repo, new InMemoryTransactionManager()),
     );
   });
 

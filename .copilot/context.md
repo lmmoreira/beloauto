@@ -225,9 +225,36 @@ When a use case in Context A needs data owned by Context B, choose the **first**
 
 **None of the above is ever a direct SQL JOIN across schemas inside a repository.** A repository may only query its own context's schema. Fields that belong to another context are assembled by the use case via the appropriate port.
 
-### Transactions (multi-aggregate writes)
+### Transactions (every write — no exceptions)
 
-Any use case that writes to two or more aggregates **must** wrap all writes in `ITransactionManager.run()`.
+**Every `save()` call in every use case must be wrapped in `ITransactionManager.run()`**, including single-aggregate writes. TypeORM's `save()` is a merge operation (internal SELECT + UPDATE/INSERT); without a transaction those two DB operations are not atomic.
+
+**Scope rule — keep transactions short:** wrap only the `save()` call(s), not the entire use case body. Reads, validations, and domain mutations happen *before* `txManager.run()` opens.
+
+```typescript
+// ✅ CORRECT — read/validate outside, only the save inside
+const entity = await this.repo.findById(id, tenantId);
+if (!entity) throw new NotFoundError(id);
+entity.doSomething();
+await this.txManager.run(async () => {
+  await this.repo.save(entity);
+});
+
+// ❌ WRONG — wrapping the entire use case body (long transaction)
+return this.txManager.run(async () => {
+  const entity = await this.repo.findById(id, tenantId);
+  entity.doSomething();
+  await this.repo.save(entity);
+});
+
+// ❌ WRONG — no transaction at all
+entity.doSomething();
+await this.repo.save(entity);  // TypeORM merge not atomic
+```
+
+**Multi-aggregate writes** (two or more `save()` calls) must wrap all saves together in a single `txManager.run()` to ensure atomicity across aggregates.
+
+**Test wiring (mandatory):** inject `new InMemoryTransactionManager()` as the second constructor argument in every unit spec and controller spec that constructs a write use case directly. For `Test.createTestingModule`, provide `{ provide: TRANSACTION_MANAGER, useValue: new InMemoryTransactionManager() }`. For integration specs that bootstrap a full NestJS module, import `TransactionManagerModule`.
 
 | Artifact | Location |
 |---|---|

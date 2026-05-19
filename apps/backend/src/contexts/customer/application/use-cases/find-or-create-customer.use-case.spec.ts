@@ -1,4 +1,5 @@
 import { CustomerBuilder } from '../../../../test/builders/customer';
+import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryCustomerRepository } from '../../../../test/repositories/customer/in-memory-customer.repository';
 import { FindOrCreateCustomerUseCase } from './find-or-create-customer.use-case';
 
@@ -15,7 +16,7 @@ describe('FindOrCreateCustomerUseCase', () => {
 
   beforeEach(() => {
     repo = new InMemoryCustomerRepository();
-    useCase = new FindOrCreateCustomerUseCase(repo);
+    useCase = new FindOrCreateCustomerUseCase(repo, new InMemoryTransactionManager());
   });
 
   it('creates a new customer when none exists for the tenant + oauth id', async () => {

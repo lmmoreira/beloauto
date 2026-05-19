@@ -23,7 +23,8 @@
 | Event consumer querying another context to fill missing data | Defeats self-contained events | Add the needed data to the event payload |
 | Placing a domain entity or use case in `src/shared/` | Blurs context ownership | Only ports, base classes, and multi-context VOs in shared |
 | Exporting repository tokens from a `*.module.ts` | Makes repo injectable cross-module — BC isolation violation | Never export repository tokens; use BFF orchestration, events, or shared read-only port |
-| Writing to two or more aggregates without `ITransactionManager.run()` | Partial DB failure leaves inconsistent state | Wrap all writes in `txManager.run(async () => { ... })` |
+| Calling `save()` in a use case without `ITransactionManager.run()` | TypeORM's `save()` is a merge (internal SELECT + UPDATE/INSERT) — not atomic without a transaction. Single-aggregate writes have this problem too. | Wrap every `save()` in `txManager.run(async () => { await repo.save(entity); })`. Reads and business logic stay **outside** the transaction to keep it short. |
+| Writing to two or more aggregates without `ITransactionManager.run()` | Partial DB failure leaves inconsistent state across aggregates | Wrap all saves together in one `txManager.run(async () => { ... })` call |
 | Using `jest.fn()` to stub `IEventBus` or `ITransactionManager` | Misses state assertions; mock expectations are brittle | Use `InMemoryEventBus` / `InMemoryTransactionManager` from `src/test/infrastructure/` |
 | Multiple `if (err instanceof X)` chains inside a controller method | Noisy, inflates cognitive complexity | Extract into a `mapXxxError(err: unknown): never` helper in `infrastructure/http/` |
 | Placing a context-specific guard in `src/shared/guards/` | Misleads future agents — implies cross-cutting | Guards for a single context live in `src/contexts/<context>/infrastructure/guards/` |
