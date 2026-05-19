@@ -1,6 +1,6 @@
 import { ExecutionContext, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { CallHandler } from '@nestjs/common';
-import { Observable, of, throwError } from 'rxjs';
+import { lastValueFrom, Observable, of, throwError } from 'rxjs';
 import { ErrorInterceptor } from './error.interceptor';
 
 function makeContext(path = '/v1/test', method = 'GET'): ExecutionContext {
@@ -30,7 +30,7 @@ describe('ErrorInterceptor', () => {
     const httpErr = new HttpException({ title: 'Not Found', status: 404 }, 404);
     const result$ = interceptor.intercept(makeContext(), makeHandler(throwError(() => httpErr)));
 
-    await expect(result$.toPromise()).rejects.toBe(httpErr);
+    await expect(lastValueFrom(result$)).rejects.toBe(httpErr);
     expect(loggerErrorSpy).not.toHaveBeenCalled();
   });
 
@@ -40,7 +40,7 @@ describe('ErrorInterceptor', () => {
       makeHandler(throwError(() => new Error('database down'))),
     );
 
-    await expect(result$.toPromise()).rejects.toMatchObject({
+    await expect(lastValueFrom(result$)).rejects.toMatchObject({
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       response: expect.objectContaining({
         type: 'https://beloauto.com/errors/internal',
@@ -79,7 +79,7 @@ describe('ErrorInterceptor', () => {
   it('passes through successful responses unchanged', async () => {
     const payload = { ok: true };
     const result$ = interceptor.intercept(makeContext(), makeHandler(of(payload)));
-    await expect(result$.toPromise()).resolves.toBe(payload);
+    await expect(lastValueFrom(result$)).resolves.toBe(payload);
     expect(loggerErrorSpy).not.toHaveBeenCalled();
   });
 });

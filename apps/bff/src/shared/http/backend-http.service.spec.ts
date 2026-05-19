@@ -172,7 +172,7 @@ describe('BackendHttpService', () => {
       );
     });
 
-    it('uses empty string for X-Correlation-ID when header is absent', async () => {
+    it('omits X-Correlation-ID when header is absent so backend generates its own', async () => {
       const http = { get: jest.fn() } as jest.Mocked<Pick<HttpService, 'get'>>;
       const req = { user: undefined, headers: {} } as unknown as Request;
       const service = new BackendHttpService(
@@ -184,12 +184,11 @@ describe('BackendHttpService', () => {
 
       await service.get('/public');
 
-      expect(http.get).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          headers: expect.objectContaining({ 'X-Correlation-ID': '' }),
-        }),
-      );
+      const callHeaders = (http.get as jest.Mock).mock.calls[0][1].headers as Record<
+        string,
+        string
+      >;
+      expect(callHeaders['X-Correlation-ID']).toBeUndefined();
     });
 
     it('includes X-Actor-ID, X-Actor-Type, X-Actor-Role for authenticated requests', async () => {

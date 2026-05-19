@@ -16,9 +16,9 @@ describe('buildBackendHeaders()', () => {
       expect(headers['X-Tenant-ID']).toBe('');
     });
 
-    it('sets X-Correlation-ID to empty string when header is absent', () => {
+    it('omits X-Correlation-ID when header is absent so backend generates its own', () => {
       const headers = buildBackendHeaders(makeReq(undefined, undefined));
-      expect(headers['X-Correlation-ID']).toBe('');
+      expect(headers['X-Correlation-ID']).toBeUndefined();
     });
 
     it('propagates X-Correlation-ID when present on the request', () => {
