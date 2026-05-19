@@ -84,7 +84,7 @@ Expose the staff list and detail endpoints so the dashboard frontend can render 
 
 ---
 
-### M04-S03 — UC-028: Admin invites new staff member
+### M04-S03 — UC-028: Admin invites new staff member ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
