@@ -44,7 +44,10 @@ describe('buildBackendHeaders()', () => {
 
     it('does not include X-Actor-* when user has no sub (GoogleProfile during OAuth callback)', () => {
       const headers = buildBackendHeaders(
-        makeReq({ googleOAuthId: 'g-sub', email: 'a@b.com' } as unknown as Partial<CurrentUserPayload>),
+        makeReq({
+          googleOAuthId: 'g-sub',
+          email: 'a@b.com',
+        } as unknown as Partial<CurrentUserPayload>),
       );
       expect(headers['X-Actor-ID']).toBeUndefined();
       expect(headers['X-Actor-Type']).toBeUndefined();
@@ -61,25 +64,19 @@ describe('buildBackendHeaders()', () => {
     });
 
     it('sets X-Actor-Type to STAFF and X-Actor-Role to STAFF for STAFF role', () => {
-      const headers = buildBackendHeaders(
-        makeReq({ sub: 'u1', tenantId: 't1', role: 'STAFF' }),
-      );
+      const headers = buildBackendHeaders(makeReq({ sub: 'u1', tenantId: 't1', role: 'STAFF' }));
       expect(headers['X-Actor-Type']).toBe('STAFF');
       expect(headers['X-Actor-Role']).toBe('STAFF');
     });
 
     it('sets X-Actor-Type to STAFF and X-Actor-Role to MANAGER for MANAGER role', () => {
-      const headers = buildBackendHeaders(
-        makeReq({ sub: 'u1', tenantId: 't1', role: 'MANAGER' }),
-      );
+      const headers = buildBackendHeaders(makeReq({ sub: 'u1', tenantId: 't1', role: 'MANAGER' }));
       expect(headers['X-Actor-Type']).toBe('STAFF');
       expect(headers['X-Actor-Role']).toBe('MANAGER');
     });
 
     it('sets X-Actor-Type to CUSTOMER and X-Actor-Role to CUSTOMER for CUSTOMER role', () => {
-      const headers = buildBackendHeaders(
-        makeReq({ sub: 'u1', tenantId: 't1', role: 'CUSTOMER' }),
-      );
+      const headers = buildBackendHeaders(makeReq({ sub: 'u1', tenantId: 't1', role: 'CUSTOMER' }));
       expect(headers['X-Actor-Type']).toBe('CUSTOMER');
       expect(headers['X-Actor-Role']).toBe('CUSTOMER');
     });

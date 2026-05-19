@@ -22,7 +22,9 @@ describe('validateEnv()', () => {
   });
 
   it('throws when a required var is missing', () => {
-    const { JWT_SECRET: _, ...withoutSecret } = valid;
+    const withoutSecret = Object.fromEntries(
+      Object.entries(valid).filter(([k]) => k !== 'JWT_SECRET'),
+    );
     expect(() => validateEnv(withoutSecret)).toThrow('ENV validation failed');
   });
 

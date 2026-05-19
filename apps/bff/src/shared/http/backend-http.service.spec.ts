@@ -42,11 +42,7 @@ function makeService(
     headers: { 'x-correlation-id': correlationId },
   } as unknown as Request;
 
-  const service = new BackendHttpService(
-    http as unknown as HttpService,
-    makeConfigService(),
-    req,
-  );
+  const service = new BackendHttpService(http as unknown as HttpService, makeConfigService(), req);
   return { service, http };
 }
 
@@ -179,7 +175,11 @@ describe('BackendHttpService', () => {
     it('uses empty string for X-Correlation-ID when header is absent', async () => {
       const http = { get: jest.fn() } as jest.Mocked<Pick<HttpService, 'get'>>;
       const req = { user: undefined, headers: {} } as unknown as Request;
-      const service = new BackendHttpService(http as unknown as HttpService, makeConfigService(), req);
+      const service = new BackendHttpService(
+        http as unknown as HttpService,
+        makeConfigService(),
+        req,
+      );
       http.get.mockReturnValue(axiosOf({}));
 
       await service.get('/public');
@@ -249,7 +249,11 @@ describe('BackendHttpService', () => {
         user: { googleOAuthId: 'google-sub-1', email: 'a@b.com', name: 'A' },
         headers: { 'x-correlation-id': 'corr-1' },
       } as unknown as Request;
-      const service = new BackendHttpService(http as unknown as HttpService, makeConfigService(), req);
+      const service = new BackendHttpService(
+        http as unknown as HttpService,
+        makeConfigService(),
+        req,
+      );
       http.get.mockReturnValue(axiosOf({}));
 
       await service.get('/internal/customers/tenants');

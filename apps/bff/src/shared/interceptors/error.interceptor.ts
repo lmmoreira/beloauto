@@ -21,11 +21,10 @@ export class ErrorInterceptor implements NestInterceptor {
       catchError((err: unknown) => {
         if (err instanceof HttpException) return throwError(() => err);
 
-        this.logger.error(
-          'Unhandled exception',
-          err instanceof Error ? err.stack : String(err),
-          { path: req.path, method: req.method },
-        );
+        this.logger.error('Unhandled exception', err instanceof Error ? err.stack : String(err), {
+          path: req.path,
+          method: req.method,
+        });
 
         const status = HttpStatus.INTERNAL_SERVER_ERROR;
         const problem = {

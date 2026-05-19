@@ -28,10 +28,7 @@ describe('ErrorInterceptor', () => {
 
   it('passes through HttpExceptions without logging', async () => {
     const httpErr = new HttpException({ title: 'Not Found', status: 404 }, 404);
-    const result$ = interceptor.intercept(
-      makeContext(),
-      makeHandler(throwError(() => httpErr)),
-    );
+    const result$ = interceptor.intercept(makeContext(), makeHandler(throwError(() => httpErr)));
 
     await expect(result$.toPromise()).rejects.toBe(httpErr);
     expect(loggerErrorSpy).not.toHaveBeenCalled();
@@ -56,10 +53,9 @@ describe('ErrorInterceptor', () => {
 
   it('logs the error message and stack for unknown errors', async () => {
     const err = new Error('something went wrong');
-    interceptor.intercept(
-      makeContext('/v1/staff', 'POST'),
-      makeHandler(throwError(() => err)),
-    ).subscribe({ error: () => undefined });
+    interceptor
+      .intercept(makeContext('/v1/staff', 'POST'), makeHandler(throwError(() => err)))
+      .subscribe({ error: () => undefined });
 
     expect(loggerErrorSpy).toHaveBeenCalledWith(
       'Unhandled exception',
@@ -69,10 +65,9 @@ describe('ErrorInterceptor', () => {
   });
 
   it('logs stringified non-Error throws', async () => {
-    interceptor.intercept(
-      makeContext(),
-      makeHandler(throwError(() => 'string error')),
-    ).subscribe({ error: () => undefined });
+    interceptor
+      .intercept(makeContext(), makeHandler(throwError(() => 'string error')))
+      .subscribe({ error: () => undefined });
 
     expect(loggerErrorSpy).toHaveBeenCalledWith(
       'Unhandled exception',
