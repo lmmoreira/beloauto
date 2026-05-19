@@ -27,17 +27,16 @@ export class ActivateStaffUseCase {
   ) {}
 
   async execute(staffId: string, dto: ActivateStaffDto): Promise<ActivateStaffUseCaseResult> {
-    return this.txManager.run(async () => {
-      const staff = await this.staffRepo.findById(staffId, dto.tenantId);
-      if (!staff) throw new StaffNotFoundError(staffId);
-      if (staff.isActive) throw new StaffAlreadyActiveError(staffId);
-      if (staff.email.address !== dto.email.toLowerCase().trim())
-        throw new StaffEmailMismatchError();
+    const staff = await this.staffRepo.findById(staffId, dto.tenantId);
+    if (!staff) throw new StaffNotFoundError(staffId);
+    if (staff.isActive) throw new StaffAlreadyActiveError(staffId);
+    if (staff.email.address !== dto.email.toLowerCase().trim()) throw new StaffEmailMismatchError();
 
-      staff.activate(dto.googleOAuthId, dto.name);
+    staff.activate(dto.googleOAuthId, dto.name);
+    await this.txManager.run(async () => {
       await this.staffRepo.save(staff);
-
-      return { staffId: staff.id, tenantId: staff.tenantId, role: staff.role, isActive: true };
     });
+
+    return { staffId: staff.id, tenantId: staff.tenantId, role: staff.role, isActive: true };
   }
 }
