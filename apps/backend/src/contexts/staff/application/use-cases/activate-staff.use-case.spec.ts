@@ -18,8 +18,7 @@ describe('ActivateStaffUseCase', () => {
 
   it('throws StaffNotFoundError when staffId does not exist in the tenant', async () => {
     await expect(
-      useCase.execute({
-        staffId: 'non-existent',
+      useCase.execute('non-existent', {
         tenantId: '10000000-0000-4000-8000-000000000001',
         googleOAuthId: 'google-sub-123',
         email: 'staff@lavacar.com.br',
@@ -35,8 +34,7 @@ describe('ActivateStaffUseCase', () => {
     await repo.save(staff);
 
     await expect(
-      useCase.execute({
-        staffId: staff.id,
+      useCase.execute(staff.id, {
         tenantId: '10000000-0000-4000-8000-000000000002',
         googleOAuthId: 'google-sub-123',
         email: 'staff@lavacar.com.br',
@@ -53,8 +51,7 @@ describe('ActivateStaffUseCase', () => {
     await repo.save(staff);
 
     await expect(
-      useCase.execute({
-        staffId: staff.id,
+      useCase.execute(staff.id, {
         tenantId: '10000000-0000-4000-8000-000000000001',
         googleOAuthId: 'google-sub-new',
         email: 'staff@lavacar.com.br',
@@ -70,8 +67,7 @@ describe('ActivateStaffUseCase', () => {
     await repo.save(staff);
 
     await expect(
-      useCase.execute({
-        staffId: staff.id,
+      useCase.execute(staff.id, {
         tenantId: '10000000-0000-4000-8000-000000000001',
         googleOAuthId: 'google-sub-123',
         email: 'different@gmail.com',
@@ -87,8 +83,7 @@ describe('ActivateStaffUseCase', () => {
       .build();
     await repo.save(staff);
 
-    const result = await useCase.execute({
-      staffId: staff.id,
+    const result = await useCase.execute(staff.id, {
       tenantId: '10000000-0000-4000-8000-000000000001',
       googleOAuthId: 'google-sub-new',
       email: 'gerente@lavacar.com.br',

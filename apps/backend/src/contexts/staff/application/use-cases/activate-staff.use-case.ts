@@ -19,10 +19,10 @@ export interface ActivateStaffUseCaseResult {
 export class ActivateStaffUseCase {
   constructor(@Inject(STAFF_REPOSITORY) private readonly staffRepo: IStaffRepository) {}
 
-  async execute(dto: ActivateStaffDto): Promise<ActivateStaffUseCaseResult> {
-    const staff = await this.staffRepo.findById(dto.staffId, dto.tenantId);
-    if (!staff) throw new StaffNotFoundError(dto.staffId);
-    if (staff.isActive) throw new StaffAlreadyActiveError(dto.staffId);
+  async execute(staffId: string, dto: ActivateStaffDto): Promise<ActivateStaffUseCaseResult> {
+    const staff = await this.staffRepo.findById(staffId, dto.tenantId);
+    if (!staff) throw new StaffNotFoundError(staffId);
+    if (staff.isActive) throw new StaffAlreadyActiveError(staffId);
     if (staff.email.address !== dto.email.toLowerCase().trim()) throw new StaffEmailMismatchError();
 
     staff.activate(dto.googleOAuthId);

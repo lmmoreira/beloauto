@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
 import {
-  ActivateStaffRequestDto,
+  ActivateStaffDto,
   ActivateStaffSchema,
 } from '../../application/dtos/activate-staff.dto';
 import {
@@ -77,8 +77,8 @@ export class InternalStaffController {
   activate(
     @Param('staffId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
     staffId: string,
-    @Body(new ZodValidationPipe(ActivateStaffSchema)) dto: ActivateStaffRequestDto,
+    @Body(new ZodValidationPipe(ActivateStaffSchema)) dto: ActivateStaffDto,
   ): Promise<ActivateStaffUseCaseResult> {
-    return this.activateStaff.execute({ staffId, ...dto }).catch(mapStaffError);
+    return this.activateStaff.execute(staffId, dto).catch(mapStaffError);
   }
 }

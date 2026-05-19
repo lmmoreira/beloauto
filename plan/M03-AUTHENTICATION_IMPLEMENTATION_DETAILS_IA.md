@@ -98,6 +98,9 @@ Only catch 404 specifically. `.catch(err => { if (err instanceof HttpException &
 **#15 — Use case result type naming**
 Every use case `execute()` return type must be named `{UseCaseClassName}Result` and exported from the same `.use-case.ts` file. Never `*Info`, `*Dto`, or raw `T[]`. All use cases in M03 follow this pattern — see artifact table above.
 
+**#16 — Request DTO naming and split-DTO pattern**
+Input DTOs are named `{Action}Dto`; Zod schema is `{Action}Schema`. Never use a `{Action}RequestDto` suffix. When a path param must accompany a body (e.g. `staffId` from `@Param` + body fields), pass them as **separate arguments**: `execute(staffId, dto: ActivateStaffDto)` — not merged via `{ staffId, ...dto }`. The `ActivateStaffDto` in this milestone is `z.infer<typeof ActivateStaffSchema>` (body only); `staffId` is the first parameter.
+
 ---
 
 ## 3. Auth Flows
