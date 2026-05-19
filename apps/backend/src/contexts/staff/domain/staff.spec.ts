@@ -55,6 +55,17 @@ describe('Staff', () => {
       const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
       expect(() => staff.activate('google-sub-456', '')).toThrow(StaffDomainError);
     });
+
+    it('throws when name is whitespace-only', () => {
+      const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
+      expect(() => staff.activate('google-sub-456', '   ')).toThrow(StaffDomainError);
+    });
+
+    it('trims whitespace from name before storing', () => {
+      const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
+      staff.activate('google-sub-456', '  Ana Silva  ');
+      expect(staff.name).toBe('Ana Silva');
+    });
   });
 
   describe('deactivate()', () => {

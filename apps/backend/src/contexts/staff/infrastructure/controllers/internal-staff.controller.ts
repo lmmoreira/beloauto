@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  DefaultValuePipe,
   Get,
   HttpCode,
   HttpStatus,
@@ -52,8 +53,8 @@ export class InternalStaffController {
   list(
     @Query('tenantId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
     tenantId: string,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit = 50,
-    @Query('offset', new ParseIntPipe({ optional: true })) offset = 0,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
   ): Promise<ListStaffUseCaseResult> {
     return this.listStaff.execute(tenantId, limit, offset).catch(mapStaffError);
   }

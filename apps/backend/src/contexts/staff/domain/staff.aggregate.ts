@@ -80,9 +80,10 @@ export class Staff extends AggregateRoot {
 
   activate(googleOAuthId: string, name: string): void {
     if (!googleOAuthId) throw new StaffDomainError('googleOAuthId is required to activate staff');
-    if (!name) throw new StaffDomainError('name is required to activate staff');
+    const trimmedName = name?.trim();
+    if (!trimmedName) throw new StaffDomainError('name is required to activate staff');
     this.props.googleOAuthId = googleOAuthId;
-    this.props.name = name;
+    this.props.name = trimmedName;
     this.props.isActive = true;
     this.props.updatedAt = new Date();
   }

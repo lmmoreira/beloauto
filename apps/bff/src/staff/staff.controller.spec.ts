@@ -25,7 +25,10 @@ const makeBackendHttp = (overrides?: Partial<BackendHttpService>): BackendHttpSe
 describe('StaffController', () => {
   describe('list()', () => {
     it('calls GET /internal/staff with tenantId, limit, and offset from the JWT', async () => {
-      const expectedResult = { items: [], pagination: { total: 0, hasMore: false } };
+      const expectedResult = {
+        items: [],
+        pagination: { limit: 10, offset: 5, total: 0, hasMore: false, nextOffset: null },
+      };
       const backendHttp = makeBackendHttp({ get: jest.fn().mockResolvedValue(expectedResult) });
       const controller = new StaffController(backendHttp);
 

@@ -43,7 +43,7 @@ export class ListStaffUseCase {
         offset,
         total,
         hasMore,
-        nextOffset: hasMore ? offset + limit : null,
+        nextOffset: hasMore ? offset + items.length : null,
       },
     };
   }
