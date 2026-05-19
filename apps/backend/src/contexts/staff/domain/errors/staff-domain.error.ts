@@ -28,7 +28,7 @@ export class StaffEmailMismatchError extends StaffDomainError {
 
 export class StaffAlreadyExistsError extends StaffDomainError {
   constructor(email: string) {
-    super(`Este e-mail já está cadastrado na sua equipe: ${email}`);
+    super(`Staff with email ${email} already exists in this tenant`);
     this.name = 'StaffAlreadyExistsError';
   }
 }
