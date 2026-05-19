@@ -206,7 +206,7 @@ describe('StaffController', () => {
         .withEmail('actor@lavacar.com.br')
         .withGoogleOAuthId('google-actor')
         .build();
-      actor.deactivate();
+      actor.deactivate(manager.id);
       await repo.save(manager);
       await repo.save(actor);
 

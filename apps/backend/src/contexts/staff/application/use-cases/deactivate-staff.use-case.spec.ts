@@ -121,7 +121,7 @@ describe('DeactivateStaffUseCase', () => {
     // the case where actor tries to deactivate a different manager who is the last
     await repo.save(actor);
     // Deactivate actor first so manager is the only one left
-    actor.deactivate();
+    actor.deactivate(manager.id);
     await repo.save(actor);
 
     await expect(useCase.execute(manager.id, TENANT_A, actor.id)).rejects.toThrow(

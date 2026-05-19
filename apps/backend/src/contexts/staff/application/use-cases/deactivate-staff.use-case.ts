@@ -34,6 +34,7 @@ export class DeactivateStaffUseCase {
     const staff = await this.staffRepo.findById(id, tenantId);
     if (!staff) throw new StaffNotFoundError(id);
 
+    // Early-exit before the DB query — aggregate enforces the same invariant in deactivate()
     if (staff.id === deactivatedBy) throw new StaffSelfDeactivationError();
 
     if (staff.role === 'MANAGER' && staff.isActive) {
@@ -41,7 +42,7 @@ export class DeactivateStaffUseCase {
       if (activeManagers <= 1) throw new LastActiveManagerError();
     }
 
-    staff.deactivate();
+    staff.deactivate(deactivatedBy);
 
     await this.txManager.run(async () => {
       await this.staffRepo.save(staff);
