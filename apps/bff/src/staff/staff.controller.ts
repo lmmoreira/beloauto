@@ -59,17 +59,13 @@ export class StaffController {
   }
 
   @Get(':id')
-  getById(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<StaffResponse> {
+  getById(@Param('id', ParseUUIDPipe) id: string): Promise<StaffResponse> {
     return this.backendHttp.get<StaffResponse>(`/staff/${id}`);
   }
 
   @Patch(':id/deactivate')
   @HttpCode(HttpStatus.OK)
-  deactivate(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<DeactivateStaffResponse> {
+  deactivate(@Param('id', ParseUUIDPipe) id: string): Promise<DeactivateStaffResponse> {
     return this.backendHttp.patch<DeactivateStaffResponse>(`/staff/${id}/deactivate`, {});
   }
 }
