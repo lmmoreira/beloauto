@@ -9,7 +9,7 @@ import { AppModule } from '../app.module';
 import { BackendHttpService } from '../shared/http/backend-http.service';
 import { SelectionTokenService } from '../auth/selection-token.service';
 
-export const BACKEND_URL = 'http://backend-test:3001';
+export const BACKEND_URL = 'https://backend-test:3001';
 
 export const TENANT_ID = '10000000-0000-4000-8000-000000000001';
 export const TENANT_ID_2 = '10000000-0000-4000-8000-000000000002';
