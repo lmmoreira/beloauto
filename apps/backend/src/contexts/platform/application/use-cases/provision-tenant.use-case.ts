@@ -16,7 +16,7 @@ import {
 import { ITenantRepository, TENANT_REPOSITORY } from '../ports/tenant-repository.port';
 import { ProvisionTenantDto } from '../dtos/provision-tenant.dto';
 
-export interface ProvisionTenantResult {
+export interface ProvisionTenantUseCaseResult {
   tenantId: string;
   name: string;
   slug: string;
@@ -31,7 +31,7 @@ export class ProvisionTenantUseCase {
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
   ) {}
 
-  async execute(dto: ProvisionTenantDto): Promise<ProvisionTenantResult> {
+  async execute(dto: ProvisionTenantDto): Promise<ProvisionTenantUseCaseResult> {
     const timezone = dto.timezone ?? 'America/Sao_Paulo';
 
     if (await this.tenantRepo.existsBySlug(dto.slug)) {

@@ -5,7 +5,7 @@ import {
   ProvisionTenantSchema,
 } from '../../application/dtos/provision-tenant.dto';
 import {
-  ProvisionTenantResult,
+  ProvisionTenantUseCaseResult,
   ProvisionTenantUseCase,
 } from '../../application/use-cases/provision-tenant.use-case';
 import { PlatformAdminGuard } from '../guards/platform-admin.guard';
@@ -19,7 +19,7 @@ export class InternalTenantController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UsePipes(new ZodValidationPipe(ProvisionTenantSchema))
-  provision(@Body() dto: ProvisionTenantDto): Promise<ProvisionTenantResult> {
+  provision(@Body() dto: ProvisionTenantDto): Promise<ProvisionTenantUseCaseResult> {
     return this.provisionTenant.execute(dto).catch(mapPlatformError);
   }
 }

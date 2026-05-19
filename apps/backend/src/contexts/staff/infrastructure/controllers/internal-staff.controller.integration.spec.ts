@@ -49,7 +49,7 @@ describe('InternalStaffController (integration)', () => {
     expect(body.status).toBe(404);
   });
 
-  it('returns StaffAuthInfo for an active staff member', async () => {
+  it('returns GetStaffByOAuthIdUseCaseResult for an active staff member', async () => {
     const entity = new StaffEntityBuilder()
       .withTenantId('00000000-0000-0000-0000-000000000050')
       .withGoogleOAuthId('google-sub-m03s07-active')
@@ -125,7 +125,7 @@ describe('InternalStaffController (integration)', () => {
       expect(body.status).toBe(404);
     });
 
-    it('returns StaffByEmailInfo for an invited (inactive) staff', async () => {
+    it('returns GetStaffByEmailUseCaseResult for an invited (inactive) staff', async () => {
       const entity = new StaffEntityBuilder()
         .withTenantId('10000000-0000-4000-8000-000000000060')
         .withEmail('invited-m04s01@lavacar.com.br')

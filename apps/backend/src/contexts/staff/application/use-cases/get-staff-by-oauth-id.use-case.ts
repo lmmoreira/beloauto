@@ -3,7 +3,7 @@ import { StaffNotFoundError } from '../../domain/errors/staff-domain.error';
 import { StaffRole } from '../../domain/staff.aggregate';
 import { IStaffRepository, STAFF_REPOSITORY } from '../ports/staff-repository.port';
 
-export interface StaffAuthInfo {
+export interface GetStaffByOAuthIdUseCaseResult {
   staffId: string;
   tenantId: string;
   role: StaffRole;
@@ -14,7 +14,7 @@ export interface StaffAuthInfo {
 export class GetStaffByOAuthIdUseCase {
   constructor(@Inject(STAFF_REPOSITORY) private readonly staffRepo: IStaffRepository) {}
 
-  async execute(googleOAuthId: string): Promise<StaffAuthInfo> {
+  async execute(googleOAuthId: string): Promise<GetStaffByOAuthIdUseCaseResult> {
     const staff = await this.staffRepo.findByGoogleOAuthId(googleOAuthId);
     if (!staff) throw new StaffNotFoundError(googleOAuthId);
     return {

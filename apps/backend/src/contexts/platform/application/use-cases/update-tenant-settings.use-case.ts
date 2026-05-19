@@ -5,7 +5,7 @@ import { TenantSettings, TenantSettingsProps } from '../../domain/value-objects/
 import { ITenantRepository, TENANT_REPOSITORY } from '../ports/tenant-repository.port';
 import { UpdateTenantSettingsDto } from '../dtos/update-tenant-settings.dto';
 
-export interface UpdateTenantSettingsResult {
+export interface UpdateTenantSettingsUseCaseResult {
   tenantId: string;
   name: string;
   settings: TenantSettingsProps;
@@ -18,7 +18,7 @@ export class UpdateTenantSettingsUseCase {
   async execute(
     tenantId: string,
     dto: UpdateTenantSettingsDto,
-  ): Promise<UpdateTenantSettingsResult> {
+  ): Promise<UpdateTenantSettingsUseCaseResult> {
     const tenant = await this.tenantRepo.findById(tenantId);
     if (!tenant) throw new TenantNotFoundError(tenantId);
 

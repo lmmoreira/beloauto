@@ -16,16 +16,16 @@ import {
   ActivateStaffSchema,
 } from '../../application/dtos/activate-staff.dto';
 import {
-  ActivateStaffResult,
+  ActivateStaffUseCaseResult,
   ActivateStaffUseCase,
 } from '../../application/use-cases/activate-staff.use-case';
 import {
   GetStaffByEmailUseCase,
-  StaffByEmailInfo,
+  GetStaffByEmailUseCaseResult,
 } from '../../application/use-cases/get-staff-by-email.use-case';
 import {
   GetStaffByOAuthIdUseCase,
-  StaffAuthInfo,
+  GetStaffByOAuthIdUseCaseResult,
 } from '../../application/use-cases/get-staff-by-oauth-id.use-case';
 import { mapStaffError } from '../http/staff-error.mapper';
 
@@ -41,7 +41,7 @@ export class InternalStaffController {
 
   // Static routes must be declared before parameterised routes
   @Get('by-oauth')
-  async getByOAuth(@Query('googleOAuthId') googleOAuthId: string): Promise<StaffAuthInfo> {
+  async getByOAuth(@Query('googleOAuthId') googleOAuthId: string): Promise<GetStaffByOAuthIdUseCaseResult> {
     if (!googleOAuthId) {
       throw new BadRequestException({
         type: 'about:blank',
@@ -58,7 +58,7 @@ export class InternalStaffController {
     @Query('email') email: string,
     @Query('tenantId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
     tenantId: string,
-  ): Promise<StaffByEmailInfo> {
+  ): Promise<GetStaffByEmailUseCaseResult> {
     if (!email || !tenantId) {
       throw new BadRequestException({
         type: 'about:blank',
@@ -76,7 +76,7 @@ export class InternalStaffController {
     @Param('staffId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
     staffId: string,
     @Body(new ZodValidationPipe(ActivateStaffSchema)) dto: ActivateStaffRequestDto,
-  ): Promise<ActivateStaffResult> {
+  ): Promise<ActivateStaffUseCaseResult> {
     return this.activateStaff.execute({ staffId, ...dto }).catch(mapStaffError);
   }
 }

@@ -30,7 +30,7 @@ describe('InternalStaffController', () => {
       expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
     });
 
-    it('returns StaffAuthInfo for an active staff member', async () => {
+    it('returns GetStaffByOAuthIdUseCaseResult for an active staff member', async () => {
       const staff = new StaffBuilder()
         .withTenantId('10000000-0000-4000-8000-000000000001')
         .withRole('MANAGER')
@@ -66,7 +66,7 @@ describe('InternalStaffController', () => {
       expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
     });
 
-    it('returns StaffByEmailInfo for an invited (inactive) staff member', async () => {
+    it('returns GetStaffByEmailUseCaseResult for an invited (inactive) staff member', async () => {
       const staff = new StaffBuilder()
         .withTenantId('10000000-0000-4000-8000-000000000001')
         .withEmail('gerente@lavacar.com.br')

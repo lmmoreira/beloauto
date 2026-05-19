@@ -1,9 +1,12 @@
 import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import {
   GetTenantByIdUseCase,
-  TenantInfoDto,
+  GetTenantByIdUseCaseResult,
 } from '../../application/use-cases/get-tenant-by-id.use-case';
-import { GetTenantBySlugUseCase } from '../../application/use-cases/get-tenant-by-slug.use-case';
+import {
+  GetTenantBySlugUseCase,
+  GetTenantBySlugUseCaseResult,
+} from '../../application/use-cases/get-tenant-by-slug.use-case';
 import { mapPlatformError } from '../http/platform-error.mapper';
 
 // MVP: protected at network level (backend not exposed publicly — BFF-only access).
@@ -17,12 +20,12 @@ export class InternalTenantReadController {
 
   // Static route must be declared before the dynamic :tenantId route
   @Get('by-slug/:slug')
-  getTenantBySlugRoute(@Param('slug') slug: string): Promise<TenantInfoDto> {
+  getTenantBySlugRoute(@Param('slug') slug: string): Promise<GetTenantBySlugUseCaseResult> {
     return this.getTenantBySlug.execute(slug).catch(mapPlatformError);
   }
 
   @Get(':tenantId')
-  getTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string): Promise<TenantInfoDto> {
+  getTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string): Promise<GetTenantByIdUseCaseResult> {
     return this.getTenantById.execute(tenantId).catch(mapPlatformError);
   }
 }

@@ -12,10 +12,10 @@
 |---|---|---|
 | Customer aggregate | `src/contexts/customer/domain/customer.aggregate.ts` | Multi-tenant — same Google `sub` = multiple rows (one per tenant); `email: Email` VO |
 | Staff aggregate | `src/contexts/staff/domain/staff.aggregate.ts` | Single-tenant; `UNIQUE(tenant_id, google_oauth_id)` partial index (nullable); `email: Email` VO |
-| `FindOrCreateCustomerUseCase` | `src/contexts/customer/application/use-cases/` | Idempotent: finds or creates Customer for a `(tenantId, googleOAuthId)` pair |
-| `GetCustomerTenantsUseCase` | `src/contexts/customer/application/use-cases/` | All tenants for a googleOAuthId — used in multi-tenant login + `POST /auth/token` |
-| `GetCustomerTenantsByIdUseCase` | `src/contexts/customer/application/use-cases/` | Bridge for switch-tenant: `(customerId, tenantId)` → googleOAuthId → all tenants |
-| `GetStaffByOAuthIdUseCase` | `src/contexts/staff/application/use-cases/` | Throws `StaffNotFoundError` if not found; returns `{ staffId, tenantId, role, isActive }` |
+| `FindOrCreateCustomerUseCase` → `FindOrCreateCustomerUseCaseResult` | `src/contexts/customer/application/use-cases/` | Idempotent: finds or creates Customer for a `(tenantId, googleOAuthId)` pair |
+| `GetCustomerTenantsUseCase` → `GetCustomerTenantsUseCaseResult` | `src/contexts/customer/application/use-cases/` | All tenants for a googleOAuthId — used in multi-tenant login + `POST /auth/token` |
+| `GetCustomerTenantsByIdUseCase` → `GetCustomerTenantsByIdUseCaseResult` | `src/contexts/customer/application/use-cases/` | Bridge for switch-tenant: `(customerId, tenantId)` → googleOAuthId → all tenants |
+| `GetStaffByOAuthIdUseCase` → `GetStaffByOAuthIdUseCaseResult` | `src/contexts/staff/application/use-cases/` | Throws `StaffNotFoundError` if not found; returns `{ staffId, tenantId, role, isActive }` |
 | `CustomerNotFoundError` | `src/contexts/customer/domain/errors/customer-domain.error.ts` | Extends `CustomerDomainError` |
 | `StaffNotFoundError` | `src/contexts/staff/domain/errors/staff-domain.error.ts` | Extends `StaffDomainError` |
 | `mapCustomerError` | `src/contexts/customer/infrastructure/http/customer-error.mapper.ts` | `CustomerNotFoundError`→404, `CustomerDomainError`→400 |
@@ -94,6 +94,9 @@ Only the 404 branch is exercised by controller tests. Create `xxx-error.mapper.s
 
 **#14 — `.catch(() => null)` antipattern for backend HTTP calls**
 Only catch 404 specifically. `.catch(err => { if (err instanceof HttpException && err.getStatus() === 404) return null; throw err; })` — avoids swallowing 5xx/timeouts.
+
+**#15 — Use case result type naming**
+Every use case `execute()` return type must be named `{UseCaseClassName}Result` and exported from the same `.use-case.ts` file. Never `*Info`, `*Dto`, or raw `T[]`. All use cases in M03 follow this pattern — see artifact table above.
 
 ---
 

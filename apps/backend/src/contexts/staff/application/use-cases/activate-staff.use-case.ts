@@ -8,7 +8,7 @@ import {
 import { StaffRole } from '../../domain/staff.aggregate';
 import { IStaffRepository, STAFF_REPOSITORY } from '../ports/staff-repository.port';
 
-export interface ActivateStaffResult {
+export interface ActivateStaffUseCaseResult {
   staffId: string;
   tenantId: string;
   role: StaffRole;
@@ -19,7 +19,7 @@ export interface ActivateStaffResult {
 export class ActivateStaffUseCase {
   constructor(@Inject(STAFF_REPOSITORY) private readonly staffRepo: IStaffRepository) {}
 
-  async execute(dto: ActivateStaffDto): Promise<ActivateStaffResult> {
+  async execute(dto: ActivateStaffDto): Promise<ActivateStaffUseCaseResult> {
     const staff = await this.staffRepo.findById(dto.staffId, dto.tenantId);
     if (!staff) throw new StaffNotFoundError(dto.staffId);
     if (staff.isActive) throw new StaffAlreadyActiveError(dto.staffId);

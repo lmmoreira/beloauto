@@ -30,7 +30,7 @@ describe('GetStaffByEmailUseCase', () => {
     ).rejects.toThrow(StaffNotFoundError);
   });
 
-  it('returns StaffByEmailInfo for an invited (inactive) staff member', async () => {
+  it('returns GetStaffByEmailUseCaseResult for an invited (inactive) staff member', async () => {
     const staff = new StaffBuilder()
       .withTenantId('10000000-0000-4000-8000-000000000001')
       .withEmail('gerente@lavacar.com.br')
