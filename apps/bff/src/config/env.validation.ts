@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const schema = z.object({
-  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3002),
   BACKEND_INTERNAL_URL: z.url(),
   JWT_SECRET: z.string().min(64, 'JWT_SECRET must be at least 64 characters'),
