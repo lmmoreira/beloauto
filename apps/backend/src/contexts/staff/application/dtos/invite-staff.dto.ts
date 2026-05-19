@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const InviteStaffSchema = z.object({
   tenantId: z.uuid(),
-  email: z.string().email(),
+  email: z.email(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   role: z.enum(['MANAGER', 'STAFF']),
