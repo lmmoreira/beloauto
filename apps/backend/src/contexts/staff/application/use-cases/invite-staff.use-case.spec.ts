@@ -88,9 +88,9 @@ describe('InviteStaffUseCase', () => {
     expect(result.isActive).toBe(false);
     expect(result.role).toBe('MANAGER');
     expect(eventBus.published).toHaveLength(1);
-    expect(
-      (eventBus.published[0] as unknown as { data: { role: string } }).data.role,
-    ).toBe('MANAGER');
+    expect((eventBus.published[0] as unknown as { data: { role: string } }).data.role).toBe(
+      'MANAGER',
+    );
 
     const allStaff = await repo.findAllByTenant(TENANT_A, 100, 0);
     expect(allStaff.total).toBe(1);
