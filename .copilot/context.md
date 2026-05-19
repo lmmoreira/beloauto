@@ -3,7 +3,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-05-18
+**Last updated:** 2026-05-19
 
 ---
 
@@ -209,6 +209,9 @@ Aggregate **props interfaces use VO types**, not plain primitives. **Getters ret
 - All configurable values (48 h window, 180 d expiry) read from `tenants.settings`, never hardcoded
 - Email templates in pt-BR; Money display as `R$ 1.234,56`
 - Domain errors → HTTP status mapping belongs in a `mapXxxError(err: unknown): never` helper in `infrastructure/http/` — never multiple `if (err instanceof X)` chains inside a controller method. The controller method should be one line: `return this.useCase.execute(dto).catch(mapXxxError)`
+- **Use case domain error contract (mandatory):** Before writing any use case, define its failure modes as domain errors in `domain/errors/<context>-domain.error.ts` and register them in `infrastructure/http/<context>-error.mapper.ts`. Use cases throw these domain errors for every non-happy-path condition. They **never** return `null`/`undefined` to signal "not found", never throw `HttpException`, and never return a Result/Either type. The controller's `.catch(mapXxxError)` is the sole HTTP translation point — the controller itself contains zero error-checking logic.
+- **Use case result type naming (mandatory):** Every use case `execute()` method must return a named exported type following the pattern `{UseCaseClassName}Result` — defined and exported in the same `.use-case.ts` file. Never use `*Info`, `*Dto`, raw arrays (`T[]`), or any other ad-hoc name. Example: `GetTenantByIdUseCase` → `GetTenantByIdUseCaseResult`; `FindOrCreateCustomerUseCase` → `FindOrCreateCustomerUseCaseResult`.
+- **Request DTO naming (mandatory):** Input DTOs for use cases and controllers are named `{Action}Dto` — never `{Action}RequestDto`, `{Action}InputDto`, or any other suffix. The Zod schema is named `{Action}Schema`. When a path param must be combined with a request body (e.g. `staffId` from `@Param` + body fields), pass them as **separate arguments** to the use case (`execute(staffId, dto)`) rather than merging into a composite DTO. One DTO per use case — no split `RequestDto` + merged `Dto` pattern.
 - Guards that protect a single context's endpoints belong in `src/contexts/<context>/infrastructure/guards/` — only truly cross-cutting guards (used by multiple contexts) go in `src/shared/guards/`
 - Every new REST endpoint must have a corresponding request block in `apps/backend/http/<context>/<resource>.http` — include the happy path, all 4xx error cases, and edge cases. Use the existing files as a template.
 
@@ -376,6 +379,15 @@ Every shared port that produces side effects has an in-memory double in `src/tes
 | Inline `schema.safeParse(body)` inside a controller method | Inconsistent with `ZodValidationPipe` + DTO pattern; loses typed `@Body()` | Define schema + `z.infer<>` type in `application/dtos/`; apply `@UsePipes(new ZodValidationPipe(schema))` |
 | `z.string().uuid()` / `z.string().url()` | Deprecated in Zod v4 (SonarCloud S1874); `z.uuid()` rejects non-RFC-4122 test UUIDs | Use `z.uuid()` and `z.url()` directly; use RFC 4122-compliant UUIDs: `'10000000-0000-4000-8000-000000000001'` |
 | Declaring a dynamic route (`@Get(':id')`) before a static route | NestJS resolves in declaration order — dynamic matches first | Always declare static/prefix routes first, then parameterized ones |
+| Use case returns `null` / `undefined` instead of throwing a domain error | Controller must inspect the return value and decide HTTP status — business logic in the wrong layer | Use cases always throw domain errors (`StaffNotFoundError`, `StaffAlreadyActiveError`, etc.) for every non-happy-path; controller is one line: `return this.useCase.execute(dto).catch(mapXxxError)` |
+| Throwing `HttpException` directly from a use case | Couples the application layer to HTTP — use cases must be framework-agnostic | Throw domain errors only; `mapXxxError` in the infrastructure layer converts them to `HttpException` |
+| Non-UUID string (e.g., `'non-existent-id'`) as path/query param for a PostgreSQL UUID column | PostgreSQL throws `QueryFailedError: invalid input syntax for type uuid` → 500 instead of expected 404/400 | Add `ParseUUIDPipe` to every `@Param`/`@Query` that maps to a UUID column; in integration tests, use valid-UUID-format IDs for non-existent cases (e.g., `'10000000-0000-4000-8000-999999999999'`) |
+| Integration test `it()` with only supertest `.expect(status)` and no Jest `expect()` call | SonarCloud S6957 BLOCKER — supertest's `.expect()` is invisible to Jest's assertion counter | Every `it()` must have at least one `expect()` call: `const { body } = await request(app)…expect(404); expect(body.status).toBe(404)` |
+| `.catch(() => null)` on BFF backend HTTP calls | Swallows 5xx errors and timeouts — a backend outage silently misdirects users (e.g., shows `tenant-not-found` when the DB is down) | Only catch the expected failure status: `.catch(err => { if (err instanceof HttpException && err.getStatus() === HttpStatus.NOT_FOUND) return null; throw err; })` |
+| `new Error('msg')` to mock `BackendHttpService` errors in BFF tests | Plain `Error` is not caught by `instanceof HttpException` checks; the real service always wraps non-2xx responses as `HttpException` | Mock errors as `new HttpException('Not Found', 404)` to match real service behaviour |
+| Use case `execute()` return type named `*Info`, `*Dto`, raw `T[]`, or any ad-hoc name | Callers can't predict the type name from the class name; codebase surface becomes inconsistent | Name the result `{UseCaseClassName}Result`; define and export it in the same `.use-case.ts` file |
+| Request DTO named `{Action}RequestDto`, `{Action}InputDto`, or any suffix other than `Dto` | Inconsistent naming — callers can't predict the DTO name | Use `{Action}Dto` only; Zod schema is `{Action}Schema` |
+| Split DTO pattern: `{Action}RequestDto` (body) + `{Action}Dto` (body + path param) merged via `{ pathParam, ...dto }` | Two types for one use case input — unnecessary complexity | Pass path param and body as separate arguments: `execute(pathParam, dto)` |
 
 ---
 

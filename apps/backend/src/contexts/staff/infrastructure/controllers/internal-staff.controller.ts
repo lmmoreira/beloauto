@@ -1,7 +1,28 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
+import { ActivateStaffDto, ActivateStaffSchema } from '../../application/dtos/activate-staff.dto';
+import {
+  ActivateStaffUseCaseResult,
+  ActivateStaffUseCase,
+} from '../../application/use-cases/activate-staff.use-case';
+import {
+  GetStaffByEmailUseCase,
+  GetStaffByEmailUseCaseResult,
+} from '../../application/use-cases/get-staff-by-email.use-case';
 import {
   GetStaffByOAuthIdUseCase,
-  StaffAuthInfo,
+  GetStaffByOAuthIdUseCaseResult,
 } from '../../application/use-cases/get-staff-by-oauth-id.use-case';
 import { mapStaffError } from '../http/staff-error.mapper';
 
@@ -9,10 +30,17 @@ import { mapStaffError } from '../http/staff-error.mapper';
 // Future: add InternalApiGuard checking X-Internal-Key header.
 @Controller('internal/staff')
 export class InternalStaffController {
-  constructor(private readonly getStaffByOAuthId: GetStaffByOAuthIdUseCase) {}
+  constructor(
+    private readonly getStaffByOAuthId: GetStaffByOAuthIdUseCase,
+    private readonly getStaffByEmail: GetStaffByEmailUseCase,
+    private readonly activateStaff: ActivateStaffUseCase,
+  ) {}
 
+  // Static routes must be declared before parameterised routes
   @Get('by-oauth')
-  async getByOAuth(@Query('googleOAuthId') googleOAuthId: string): Promise<StaffAuthInfo> {
+  async getByOAuth(
+    @Query('googleOAuthId') googleOAuthId: string,
+  ): Promise<GetStaffByOAuthIdUseCaseResult> {
     if (!googleOAuthId) {
       throw new BadRequestException({
         type: 'about:blank',
@@ -22,5 +50,32 @@ export class InternalStaffController {
       });
     }
     return this.getStaffByOAuthId.execute(googleOAuthId).catch(mapStaffError);
+  }
+
+  @Get('by-email')
+  async getByEmail(
+    @Query('email') email: string,
+    @Query('tenantId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    tenantId: string,
+  ): Promise<GetStaffByEmailUseCaseResult> {
+    if (!email || !tenantId) {
+      throw new BadRequestException({
+        type: 'about:blank',
+        title: 'Bad Request',
+        status: 400,
+        detail: 'email and tenantId query parameters are required',
+      });
+    }
+    return this.getStaffByEmail.execute(email, tenantId).catch(mapStaffError);
+  }
+
+  @Post(':staffId/activate')
+  @HttpCode(HttpStatus.OK)
+  activate(
+    @Param('staffId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    staffId: string,
+    @Body(new ZodValidationPipe(ActivateStaffSchema)) dto: ActivateStaffDto,
+  ): Promise<ActivateStaffUseCaseResult> {
+    return this.activateStaff.execute(staffId, dto).catch(mapStaffError);
   }
 }

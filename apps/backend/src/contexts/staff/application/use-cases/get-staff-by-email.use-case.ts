@@ -3,23 +3,24 @@ import { StaffNotFoundError } from '../../domain/errors/staff-domain.error';
 import { StaffRole } from '../../domain/staff.aggregate';
 import { IStaffRepository, STAFF_REPOSITORY } from '../ports/staff-repository.port';
 
-export interface GetStaffByOAuthIdUseCaseResult {
+export interface GetStaffByEmailUseCaseResult {
   staffId: string;
-  tenantId: string;
+  email: string;
   role: StaffRole;
   isActive: boolean;
 }
 
 @Injectable()
-export class GetStaffByOAuthIdUseCase {
+export class GetStaffByEmailUseCase {
   constructor(@Inject(STAFF_REPOSITORY) private readonly staffRepo: IStaffRepository) {}
 
-  async execute(googleOAuthId: string): Promise<GetStaffByOAuthIdUseCaseResult> {
-    const staff = await this.staffRepo.findByGoogleOAuthId(googleOAuthId);
-    if (!staff) throw new StaffNotFoundError(googleOAuthId);
+  async execute(email: string, tenantId: string): Promise<GetStaffByEmailUseCaseResult> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const staff = await this.staffRepo.findByTenantAndEmail(tenantId, normalizedEmail);
+    if (!staff) throw new StaffNotFoundError(normalizedEmail);
     return {
       staffId: staff.id,
-      tenantId: staff.tenantId,
+      email: staff.email.address,
       role: staff.role,
       isActive: staff.isActive,
     };

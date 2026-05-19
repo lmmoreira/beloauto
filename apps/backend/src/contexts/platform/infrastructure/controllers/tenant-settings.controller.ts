@@ -6,7 +6,7 @@ import {
   UpdateTenantSettingsSchema,
 } from '../../application/dtos/update-tenant-settings.dto';
 import {
-  UpdateTenantSettingsResult,
+  UpdateTenantSettingsUseCaseResult,
   UpdateTenantSettingsUseCase,
 } from '../../application/use-cases/update-tenant-settings.use-case';
 import { ManagerRoleGuard } from '../guards/manager-role.guard';
@@ -23,7 +23,7 @@ export class TenantSettingsController {
   @Patch('settings')
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ZodValidationPipe(UpdateTenantSettingsSchema))
-  updateSettings(@Body() dto: UpdateTenantSettingsDto): Promise<UpdateTenantSettingsResult> {
+  updateSettings(@Body() dto: UpdateTenantSettingsDto): Promise<UpdateTenantSettingsUseCaseResult> {
     return this.updateTenantSettings
       .execute(this.tenantContext.tenantId, dto)
       .catch(mapPlatformError);

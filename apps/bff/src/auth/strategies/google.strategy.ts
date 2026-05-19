@@ -36,9 +36,19 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       return;
     }
     const state = (req.query['state'] as string) || '';
-    // '__staff__' cannot be a valid tenant slug ([a-z0-9-]+ only), so there is no collision
-    const loginType = state === '__staff__' ? ('staff' as const) : undefined;
-    const tenantSlug = loginType ? undefined : state || undefined;
+    // '__staff__' and '__staff__:<slug>' cannot be valid tenant slugs ([a-z0-9-]+ only)
+    const SLUG_REGEX = /^[a-z0-9-]+$/;
+    let loginType: 'staff' | undefined;
+    let tenantSlug: string | undefined;
+    if (state === '__staff__') {
+      loginType = 'staff';
+    } else if (state.startsWith('__staff__:')) {
+      loginType = 'staff';
+      const extracted = state.slice('__staff__:'.length);
+      tenantSlug = extracted && SLUG_REGEX.test(extracted) ? extracted : undefined;
+    } else {
+      tenantSlug = state && SLUG_REGEX.test(state) ? state : undefined;
+    }
     done(null, {
       googleOAuthId: profile.id,
       email,

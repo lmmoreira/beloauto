@@ -44,6 +44,10 @@
 | HexColor VO | `src/shared/value-objects/hex-color.vo.ts` | `/#[0-9A-Fa-f]{6}/`; normalises to uppercase; getter: `.value` — used in HotsiteConfig branding |
 | Address VO | `src/shared/value-objects/address.ts` | `create()` validates CEP; `reconstitute()` skips validation (for DB reads); `toJSON()` → `AddressProps`; `AddressProps` exported |
 
+> **Use case result naming rule (mandatory — introduced M02):** Every use case `execute()` return type must be named `{UseCaseClassName}Result` and exported from the same `.use-case.ts` file. Never `*Info`, `*Dto`, or raw `T[]`. Examples from this milestone: `ProvisionTenantUseCaseResult`, `UpdateTenantSettingsUseCaseResult`, `GetTenantByIdUseCaseResult`, `GetTenantBySlugUseCaseResult`.
+
+> **Request DTO naming rule (mandatory — introduced M02):** Input DTOs are named `{Action}Dto`; Zod schema is `{Action}Schema`. Never `{Action}RequestDto` or any other suffix. When a path param must accompany a body (e.g. `staffId` from `@Param`), pass them as **separate arguments** to the use case — `execute(staffId, dto)` — never merge into a composite DTO. Examples: `ProvisionTenantDto` / `ProvisionTenantSchema`, `UpdateTenantSettingsDto` / `UpdateTenantSettingsSchema`.
+
 ---
 
 ## 1b. Shared Value Objects — Catalogue and Mapper Patterns

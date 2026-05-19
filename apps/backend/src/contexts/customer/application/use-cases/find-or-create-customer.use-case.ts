@@ -3,7 +3,7 @@ import { Customer } from '../../domain/customer.aggregate';
 import { FindOrCreateCustomerDto } from '../dtos/find-or-create-customer.dto';
 import { CUSTOMER_REPOSITORY, ICustomerRepository } from '../ports/customer-repository.port';
 
-export interface FindOrCreateCustomerResult {
+export interface FindOrCreateCustomerUseCaseResult {
   customerId: string;
   created: boolean;
 }
@@ -12,7 +12,7 @@ export interface FindOrCreateCustomerResult {
 export class FindOrCreateCustomerUseCase {
   constructor(@Inject(CUSTOMER_REPOSITORY) private readonly customerRepo: ICustomerRepository) {}
 
-  async execute(dto: FindOrCreateCustomerDto): Promise<FindOrCreateCustomerResult> {
+  async execute(dto: FindOrCreateCustomerDto): Promise<FindOrCreateCustomerUseCaseResult> {
     const existing = await this.customerRepo.findByTenantAndOAuthId(
       dto.tenantId,
       dto.googleOAuthId,

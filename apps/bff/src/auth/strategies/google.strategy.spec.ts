@@ -55,6 +55,27 @@ describe('GoogleStrategy', () => {
     );
   });
 
+  it('validate() sets loginType=staff with tenantSlug when state=__staff__:<slug>', (done) => {
+    const profile = {
+      id: 'google-sub-staff',
+      displayName: 'Carlos Gerente',
+      emails: [{ value: 'gerente@lavacar.com.br' }],
+    };
+
+    strategy.validate(
+      makeReq('__staff__:lavacar-bh'),
+      'access-token',
+      'refresh-token',
+      profile as never,
+      (err, user) => {
+        expect(err).toBeNull();
+        expect(user?.loginType).toBe('staff');
+        expect(user?.tenantSlug).toBe('lavacar-bh');
+        done();
+      },
+    );
+  });
+
   it('validate() sets loginType=staff and clears tenantSlug when state=__staff__', (done) => {
     const profile = {
       id: 'google-sub-staff',

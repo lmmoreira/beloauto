@@ -15,13 +15,18 @@ import {
   FindOrCreateCustomerDto,
   FindOrCreateCustomerSchema,
 } from '../../application/dtos/find-or-create-customer.dto';
-import { CustomerTenantSummary } from '../../application/ports/customer-repository.port';
 import {
-  FindOrCreateCustomerResult,
+  FindOrCreateCustomerUseCaseResult,
   FindOrCreateCustomerUseCase,
 } from '../../application/use-cases/find-or-create-customer.use-case';
-import { GetCustomerTenantsByIdUseCase } from '../../application/use-cases/get-customer-tenants-by-id.use-case';
-import { GetCustomerTenantsUseCase } from '../../application/use-cases/get-customer-tenants.use-case';
+import {
+  GetCustomerTenantsByIdUseCase,
+  GetCustomerTenantsByIdUseCaseResult,
+} from '../../application/use-cases/get-customer-tenants-by-id.use-case';
+import {
+  GetCustomerTenantsUseCase,
+  GetCustomerTenantsUseCaseResult,
+} from '../../application/use-cases/get-customer-tenants.use-case';
 import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
 import { mapCustomerError } from '../http/customer-error.mapper';
 
@@ -37,7 +42,9 @@ export class InternalCustomerController {
 
   // Static routes must be declared before parameterised routes
   @Get('tenants')
-  getTenants(@Query('googleOAuthId') googleOAuthId: string): Promise<CustomerTenantSummary[]> {
+  getTenants(
+    @Query('googleOAuthId') googleOAuthId: string,
+  ): Promise<GetCustomerTenantsUseCaseResult> {
     if (!googleOAuthId) {
       throw new BadRequestException({
         type: 'about:blank',
@@ -53,7 +60,7 @@ export class InternalCustomerController {
   async getTenantsById(
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @Query('tenantId') tenantId: string,
-  ): Promise<CustomerTenantSummary[]> {
+  ): Promise<GetCustomerTenantsByIdUseCaseResult> {
     if (!tenantId) {
       throw new BadRequestException({
         type: 'about:blank',
@@ -68,7 +75,7 @@ export class InternalCustomerController {
   @Post()
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ZodValidationPipe(FindOrCreateCustomerSchema))
-  findOrCreate(@Body() dto: FindOrCreateCustomerDto): Promise<FindOrCreateCustomerResult> {
+  findOrCreate(@Body() dto: FindOrCreateCustomerDto): Promise<FindOrCreateCustomerUseCaseResult> {
     return this.findOrCreateCustomer.execute(dto);
   }
 }

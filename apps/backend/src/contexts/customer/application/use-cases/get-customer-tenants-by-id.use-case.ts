@@ -6,11 +6,16 @@ import {
   ICustomerRepository,
 } from '../ports/customer-repository.port';
 
+export type GetCustomerTenantsByIdUseCaseResult = CustomerTenantSummary[];
+
 @Injectable()
 export class GetCustomerTenantsByIdUseCase {
   constructor(@Inject(CUSTOMER_REPOSITORY) private readonly customerRepo: ICustomerRepository) {}
 
-  async execute(customerId: string, tenantId: string): Promise<CustomerTenantSummary[]> {
+  async execute(
+    customerId: string,
+    tenantId: string,
+  ): Promise<GetCustomerTenantsByIdUseCaseResult> {
     const customer = await this.customerRepo.findById(customerId, tenantId);
     if (!customer) throw new CustomerNotFoundError(customerId);
     return this.customerRepo.findAllTenantsByOAuthId(customer.googleOAuthId);

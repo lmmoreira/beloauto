@@ -32,7 +32,7 @@
 # First login creates the Customer record automatically (FindOrCreateCustomerUseCase).
 # Subsequent logins return the same Customer (idempotent).
 
-# ── UC-022: Staff login ──
+# ── UC-022: Staff login (already activated) ──
 # Browser URL (copy and paste):
 # http://localhost:3002/v1/auth/google?type=staff
 #
@@ -41,8 +41,21 @@
 #   → Google authenticates → redirects back to /v1/auth/google/callback
 #   → BFF calls GET /internal/staff/by-oauth?googleOAuthId=<sub>
 #   → Active staff found → issues JWT with role=STAFF|MANAGER, sets cookie, redirects to /dashboard
-#   → Staff found but isActive=false → redirects to /auth/first-login?staffId=<id> (UC-025, M04)
 #   → Staff not found → redirects to /auth/error?reason=not-a-staff-member
+
+# ── UC-025: Staff first login / accept invite ──
+# Browser URL (copy and paste — from invite email link):
+# http://localhost:3002/v1/auth/google?type=staff&tenantSlug=lavacar-beloauto
+#
+# Flow:
+#   → BFF redirects to Google with state=__staff__:lavacar-beloauto
+#   → Google authenticates → redirects back to /v1/auth/google/callback
+#   → BFF: GET /internal/tenants/by-slug/lavacar-beloauto → tenantInfo
+#   → BFF: GET /internal/staff/by-email?email=<google_email>&tenantId=<id>
+#   → Staff found + isActive=false → POST /internal/staff/:staffId/activate
+#   → JWT issued → cookie set → redirects to /dashboard
+#   → Email mismatch → /auth/error?reason=email-mismatch
+#   → Not invited → /auth/error?reason=invite-not-found
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MULTI-TENANT SELECTION — POST /v1/auth/token

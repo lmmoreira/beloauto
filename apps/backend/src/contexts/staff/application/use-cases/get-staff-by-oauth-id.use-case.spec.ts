@@ -16,7 +16,7 @@ describe('GetStaffByOAuthIdUseCase', () => {
     await expect(useCase.execute('google-sub-unknown')).rejects.toThrow(StaffNotFoundError);
   });
 
-  it('returns StaffAuthInfo with correct fields for an active MANAGER', async () => {
+  it('returns GetStaffByOAuthIdUseCaseResult with correct fields for an active MANAGER', async () => {
     const staff = new StaffBuilder()
       .withTenantId('10000000-0000-4000-8000-000000000001')
       .withRole('MANAGER')
