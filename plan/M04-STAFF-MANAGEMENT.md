@@ -117,7 +117,7 @@ Implement the invite staff flow. A MANAGER sends an invitation to an email addre
 
 ---
 
-### M04-S04 — UC-029: Admin deactivates staff member
+### M04-S04 — UC-029: Admin deactivates staff member ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
