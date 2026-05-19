@@ -73,7 +73,8 @@ export class InternalStaffController {
   @Post(':staffId/activate')
   @HttpCode(HttpStatus.OK)
   activate(
-    @Param('staffId') staffId: string,
+    @Param('staffId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    staffId: string,
     @Body(new ZodValidationPipe(ActivateStaffSchema)) dto: ActivateStaffRequestDto,
   ): Promise<ActivateStaffResult> {
     return this.activateStaff.execute({ staffId, ...dto }).catch(mapStaffError);

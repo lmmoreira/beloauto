@@ -41,6 +41,7 @@ describe('InternalStaffController', () => {
       const result = await controller.getByOAuth('google-sub-test');
 
       expect(result.staffId).toBe(staff.id);
+      expect(result.tenantId).toBe(staff.tenantId);
       expect(result.role).toBe('MANAGER');
       expect(result.isActive).toBe(true);
     });
