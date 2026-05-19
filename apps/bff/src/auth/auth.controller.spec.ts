@@ -1,4 +1,5 @@
 import { ForbiddenException, HttpException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { CurrentUserPayload } from '../shared/decorators/current-user.decorator';
@@ -30,23 +31,28 @@ const makeBackendHttp = (overrides?: Partial<BackendHttpService>): BackendHttpSe
 const makeRes = (): jest.Mocked<Response> =>
   ({ redirect: jest.fn(), cookie: jest.fn() }) as unknown as jest.Mocked<Response>;
 
+function makeConfigService(): ConfigService {
+  return {
+    getOrThrow: jest.fn().mockImplementation((key: string) => {
+      if (key === 'FRONTEND_URL') return 'http://localhost:3000';
+      if (key === 'JWT_EXPIRES_IN') return '7d';
+      return undefined;
+    }),
+  } as unknown as ConfigService;
+}
+
 describe('AuthController', () => {
   const jwtSecret = 'test-secret-64-chars-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
   let jwtService: JwtService;
   let jwtIssuer: JwtIssuerService;
   let selectionTokenService: SelectionTokenService;
+  let configService: ConfigService;
 
   beforeEach(() => {
     jwtService = new JwtService({ secret: jwtSecret, signOptions: { expiresIn: '7d' } });
     jwtIssuer = new JwtIssuerService(jwtService);
     selectionTokenService = new SelectionTokenService(jwtService);
-    process.env['FRONTEND_URL'] = 'http://localhost:3000';
-    process.env['JWT_EXPIRES_IN'] = '7d';
-  });
-
-  afterEach(() => {
-    delete process.env['FRONTEND_URL'];
-    delete process.env['JWT_EXPIRES_IN'];
+    configService = makeConfigService();
   });
 
   const profile: GoogleProfile = {
@@ -69,7 +75,7 @@ describe('AuthController', () => {
         get: jest.fn().mockResolvedValue(tenantInfo),
         post: jest.fn().mockResolvedValue({ customerId: CUSTOMER_ID_A, created: true }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeReq(profileWithSlug), res);
@@ -95,7 +101,7 @@ describe('AuthController', () => {
         get: jest.fn().mockResolvedValue(tenantInfo),
         post: jest.fn().mockResolvedValue({ customerId: CUSTOMER_ID_A, created: true }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeReq(profileWithSlug), res);
@@ -111,7 +117,7 @@ describe('AuthController', () => {
       const backendHttp = makeBackendHttp({
         get: jest.fn().mockRejectedValue(new HttpException('Not Found', 404)),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeReq(profileWithSlug), res);
@@ -125,7 +131,7 @@ describe('AuthController', () => {
   describe('handleGoogleCallback() — multi-tenant path (no tenantSlug)', () => {
     it('redirects to /auth/error when no tenant is found', async () => {
       const backendHttp = makeBackendHttp({ get: jest.fn().mockResolvedValue([]) });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeReq(profile), res);
@@ -144,7 +150,7 @@ describe('AuthController', () => {
           .mockResolvedValueOnce([{ tenantId, customerId }])
           .mockResolvedValueOnce({ id: tenantId, slug: 'lavacar-bh', name: 'Lavacar BH' }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeReq(profile), res);
@@ -166,7 +172,7 @@ describe('AuthController', () => {
           .mockResolvedValueOnce([{ tenantId, customerId }])
           .mockResolvedValueOnce({ id: tenantId, slug: 'lavacar-bh', name: 'Lavacar BH' }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeReq(profile), res);
@@ -185,7 +191,7 @@ describe('AuthController', () => {
           { tenantId: TENANT_ID_B, customerId: 'cid-2' },
         ]),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeReq(profile), res);
@@ -222,7 +228,7 @@ describe('AuthController', () => {
           isActive: true,
         }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
@@ -260,7 +266,7 @@ describe('AuthController', () => {
           isActive: true,
         }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
@@ -276,7 +282,7 @@ describe('AuthController', () => {
       const backendHttp = makeBackendHttp({
         get: jest.fn().mockRejectedValue(new HttpException('Not Found', 404)),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
@@ -294,7 +300,7 @@ describe('AuthController', () => {
           .mockResolvedValueOnce(tenantInfo)
           .mockRejectedValueOnce(new HttpException({ status: 404 }, 404)),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
@@ -315,7 +321,7 @@ describe('AuthController', () => {
         }),
         post: jest.fn().mockRejectedValue(new HttpException({ status: 422 }, 422)),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
@@ -323,6 +329,27 @@ describe('AuthController', () => {
       expect(res.redirect).toHaveBeenCalledWith(
         'http://localhost:3000/auth/error?reason=email-mismatch',
       );
+    });
+
+    it('treats 409 from activate as already-active and falls through to normal staff login', async () => {
+      const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+      const staffInfo = { staffId: STAFF_ID_A, tenantId: TENANT_ID_A, role: 'MANAGER', isActive: true };
+      const backendHttp = makeBackendHttp({
+        get: jest
+          .fn()
+          .mockResolvedValueOnce(tenantInfo)                      // by-slug
+          .mockResolvedValueOnce({ staffId: STAFF_ID_A, email: 'gerente@lavacar.com.br', role: 'MANAGER', isActive: false }) // by-email
+          .mockResolvedValueOnce(staffInfo)                       // by-oauth (inside handleStaffLogin)
+          .mockResolvedValueOnce(tenantInfo),                     // tenant lookup (inside handleStaffLogin)
+        post: jest.fn().mockRejectedValue(new HttpException({ status: 409 }, 409)),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const res = makeRes();
+
+      await controller.handleGoogleCallback(makeStaffFirstLoginReq(), res);
+
+      expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/dashboard');
+      expect(res.cookie).toHaveBeenCalledWith('access_token', expect.any(String), expect.objectContaining({ httpOnly: true }));
     });
   });
 
@@ -348,7 +375,7 @@ describe('AuthController', () => {
           })
           .mockResolvedValueOnce(tenantInfo),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffReq(), res);
@@ -374,7 +401,7 @@ describe('AuthController', () => {
           })
           .mockResolvedValueOnce(tenantInfo),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffReq(), res);
@@ -396,7 +423,7 @@ describe('AuthController', () => {
           .mockResolvedValueOnce({ staffId, tenantId: TENANT_ID_B, role: 'STAFF', isActive: true })
           .mockResolvedValueOnce(tenantInfo),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffReq(), res);
@@ -412,7 +439,7 @@ describe('AuthController', () => {
       const backendHttp = makeBackendHttp({
         get: jest.fn().mockRejectedValue(notFound),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffReq(), res);
@@ -427,7 +454,7 @@ describe('AuthController', () => {
       const backendHttp = makeBackendHttp({
         get: jest.fn().mockRejectedValue(serverError),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await expect(controller.handleGoogleCallback(makeStaffReq(), res)).rejects.toBeInstanceOf(
@@ -444,7 +471,7 @@ describe('AuthController', () => {
           isActive: false,
         }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
 
       await controller.handleGoogleCallback(makeStaffReq(), res);
@@ -477,7 +504,7 @@ describe('AuthController', () => {
             name: 'Lavacar Centro',
           }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const dto: SwitchTenantDto = { targetTenantId: TENANT_ID_B };
 
       const result = await controller.switchTenant(dto, currentUser);
@@ -495,7 +522,7 @@ describe('AuthController', () => {
       const backendHttp = makeBackendHttp({
         get: jest.fn().mockResolvedValue([{ tenantId: TENANT_ID_A, customerId: CUSTOMER_ID_A }]),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const dto: SwitchTenantDto = { targetTenantId: TENANT_ID_OTHER };
 
       await expect(controller.switchTenant(dto, currentUser)).rejects.toBeInstanceOf(
@@ -514,7 +541,7 @@ describe('AuthController', () => {
             name: 'Lavacar Centro',
           }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const dto: SwitchTenantDto = { targetTenantId: TENANT_ID_B };
 
       await controller.switchTenant(dto, currentUser);
@@ -530,7 +557,7 @@ describe('AuthController', () => {
     // NestJS layer and is not tested here — it is covered at the integration level.
 
     it('returns 400 when the selection token is expired or invalid', async () => {
-      const controller = new AuthController(jwtIssuer, selectionTokenService, makeBackendHttp());
+      const controller = new AuthController(jwtIssuer, selectionTokenService, makeBackendHttp(), configService);
       const dto: IssueTokenDto = { selectionToken: 'bad.token.here', tenantId: TENANT_ID_A };
 
       await expect(controller.issueToken(dto)).rejects.toBeInstanceOf(Error);
@@ -541,7 +568,7 @@ describe('AuthController', () => {
       const backendHttp = makeBackendHttp({
         get: jest.fn().mockResolvedValue([{ tenantId: TENANT_ID_A, customerId: 'cid-1' }]),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const dto: IssueTokenDto = { selectionToken, tenantId: TENANT_ID_OTHER };
 
       await expect(controller.issueToken(dto)).rejects.toBeInstanceOf(ForbiddenException);
@@ -557,7 +584,7 @@ describe('AuthController', () => {
           .mockResolvedValueOnce([{ tenantId, customerId }])
           .mockResolvedValueOnce({ id: tenantId, slug: 'lavacar-bh', name: 'Lavacar BH' }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp);
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const dto: IssueTokenDto = { selectionToken, tenantId };
 
       const result = await controller.issueToken(dto);

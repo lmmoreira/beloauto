@@ -16,15 +16,17 @@ describe('validateEnv()', () => {
   };
 
   it('returns parsed env when all required vars are present and valid', () => {
-    const original = { ...process.env };
-    Object.assign(process.env, valid);
-
-    const result = validateEnv();
-
+    const result = validateEnv(valid);
     expect(result.PORT).toBe(3002);
     expect(result.FRONTEND_URL).toBe('http://localhost:3000');
+  });
 
-    Object.keys(valid).forEach((k) => delete process.env[k]);
-    Object.assign(process.env, original);
+  it('throws when a required var is missing', () => {
+    const { JWT_SECRET: _, ...withoutSecret } = valid;
+    expect(() => validateEnv(withoutSecret)).toThrow('ENV validation failed');
+  });
+
+  it('throws when JWT_SECRET is too short', () => {
+    expect(() => validateEnv({ ...valid, JWT_SECRET: 'short' })).toThrow('ENV validation failed');
   });
 });
