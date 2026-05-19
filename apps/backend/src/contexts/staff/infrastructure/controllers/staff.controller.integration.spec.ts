@@ -280,15 +280,17 @@ describe('StaffController (integration) — management endpoints', () => {
     });
 
     it('returns 409 when deactivating the last active MANAGER', async () => {
+      // Isolated tenant to avoid contamination from other tests that create MANAGERs in TENANT_A
+      const lastMgrTenant = '10000000-0000-4000-8000-000000000110';
       const onlyManager = new StaffEntityBuilder()
-        .withTenantId(TENANT_A)
+        .withTenantId(lastMgrTenant)
         .withEmail('last-mgr-m04s04@lavacar.com.br')
         .withRole('MANAGER')
         .withGoogleOAuthId('google-last-mgr-m04s04')
         .withIsActive(true)
         .build();
       const actor = new StaffEntityBuilder()
-        .withTenantId(TENANT_A)
+        .withTenantId(lastMgrTenant)
         .withEmail('actor-m04s04@lavacar.com.br')
         .withRole('MANAGER')
         .withGoogleOAuthId('google-actor-m04s04')
@@ -299,7 +301,7 @@ describe('StaffController (integration) — management endpoints', () => {
 
       const { body } = await request(app.getHttpServer())
         .patch(`/staff/${onlyManager.id}/deactivate`)
-        .set(actorHeaders(TENANT_A, actor.id))
+        .set(actorHeaders(lastMgrTenant, actor.id))
         .expect(409);
 
       expect(body.status).toBe(409);
