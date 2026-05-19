@@ -66,7 +66,10 @@ export class TypeOrmStaffRepository implements IStaffRepository {
         await this.repo.save(entity);
       }
     } catch (err) {
-      if (err instanceof QueryFailedError && (err as QueryFailedError & { code: string }).code === '23505') {
+      if (
+        err instanceof QueryFailedError &&
+        (err as QueryFailedError & { code: string }).code === '23505'
+      ) {
         throw new StaffAlreadyExistsError(staff.email.address);
       }
       throw err;
