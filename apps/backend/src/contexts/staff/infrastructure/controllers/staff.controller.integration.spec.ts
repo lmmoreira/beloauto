@@ -323,9 +323,7 @@ describe('StaffController (integration) — management endpoints', () => {
       expect(body.status).toBe(404);
     });
 
-    it('deactivated actor gets 400 from TenantInterceptor on subsequent call (missing X-Tenant-ID demo)', async () => {
-      // With ActiveStaffGuard on BFF, deactivated staff are blocked before reaching backend.
-      // This test documents the backend behaviour: TenantInterceptor enforces X-Tenant-ID header.
+    it('returns 400 when X-Tenant-ID header is missing (TenantInterceptor guard)', async () => {
       const { body } = await request(app.getHttpServer()).get('/staff').expect(400);
       expect(body.status ?? body.statusCode).toBe(400);
     });

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TenantModule } from '../../shared/tenant/tenant.module';
 import { STAFF_REPOSITORY } from './application/ports/staff-repository.port';
 import { ActivateStaffUseCase } from './application/use-cases/activate-staff.use-case';
 import { DeactivateStaffUseCase } from './application/use-cases/deactivate-staff.use-case';
@@ -14,7 +15,7 @@ import { StaffEntity } from './infrastructure/entities/staff.entity';
 import { TypeOrmStaffRepository } from './infrastructure/repositories/typeorm-staff.repository';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StaffEntity])],
+  imports: [TypeOrmModule.forFeature([StaffEntity]), TenantModule],
   controllers: [InternalStaffController, StaffController],
   providers: [
     { provide: STAFF_REPOSITORY, useClass: TypeOrmStaffRepository },

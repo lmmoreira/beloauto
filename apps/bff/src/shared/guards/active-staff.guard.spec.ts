@@ -109,7 +109,7 @@ describe('ActiveStaffGuard', () => {
     expect(result).toBe(true);
   });
 
-  it('re-throws non-404 backend errors', async () => {
+  it('throws 503 for non-404 backend Axios errors', async () => {
     const http = {
       get: jest.fn().mockReturnValue(
         throwError(() => {
@@ -121,6 +121,11 @@ describe('ActiveStaffGuard', () => {
     } as unknown as HttpService;
     const guard = makeGuard(http);
 
-    await expect(guard.canActivate(makeContext(activeUser))).rejects.toThrow(AxiosError);
+    await expect(guard.canActivate(makeContext(activeUser))).rejects.toThrow(HttpException);
+    try {
+      await guard.canActivate(makeContext(activeUser));
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+    }
   });
 });

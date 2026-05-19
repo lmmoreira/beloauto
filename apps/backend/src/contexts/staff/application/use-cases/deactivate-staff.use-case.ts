@@ -36,7 +36,7 @@ export class DeactivateStaffUseCase {
 
     if (staff.id === deactivatedBy) throw new StaffSelfDeactivationError();
 
-    if (staff.role === 'MANAGER') {
+    if (staff.role === 'MANAGER' && staff.isActive) {
       const activeManagers = await this.staffRepo.countActiveManagersByTenant(tenantId);
       if (activeManagers <= 1) throw new LastActiveManagerError();
     }

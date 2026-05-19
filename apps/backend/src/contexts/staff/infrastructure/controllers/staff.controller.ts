@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   DefaultValuePipe,
@@ -64,6 +65,8 @@ export class StaffController {
   invite(
     @Body(new ZodValidationPipe(InviteStaffSchema)) body: InviteStaffBodyDto,
   ): Promise<InviteStaffUseCaseResult> {
+    const actorId = this.tenantContext.actorId;
+    if (!actorId) throw new BadRequestException('X-Actor-ID header is required');
     return this.inviteStaff
       .execute({
         tenantId: this.tenantContext.tenantId,
@@ -71,7 +74,7 @@ export class StaffController {
         firstName: body.firstName,
         lastName: body.lastName,
         role: body.role,
-        invitedBy: this.tenantContext.actorId ?? '',
+        invitedBy: actorId,
       })
       .catch(mapStaffError);
   }
@@ -81,8 +84,10 @@ export class StaffController {
   deactivate(
     @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST })) id: string,
   ): Promise<DeactivateStaffUseCaseResult> {
+    const actorId = this.tenantContext.actorId;
+    if (!actorId) throw new BadRequestException('X-Actor-ID header is required');
     return this.deactivateStaff
-      .execute(id, this.tenantContext.tenantId, this.tenantContext.actorId ?? '')
+      .execute(id, this.tenantContext.tenantId, actorId)
       .catch(mapStaffError);
   }
 }

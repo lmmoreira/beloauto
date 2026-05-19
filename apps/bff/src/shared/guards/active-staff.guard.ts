@@ -40,7 +40,12 @@ export class ActiveStaffGuard implements CanActivate {
 
     const tenantId = user.tenantId;
     const staffId = user.sub;
+    // CorrelationInterceptor runs after guards; omit header when not yet set
+    // so the backend generates its own correlation id for this sub-request.
     const correlationId = req.headers['x-correlation-id'] as string | undefined;
+    const extraHeaders: Record<string, string> = correlationId
+      ? { 'X-Correlation-ID': correlationId }
+      : {};
 
     try {
       const { data } = await firstValueFrom(
@@ -50,7 +55,7 @@ export class ActiveStaffGuard implements CanActivate {
             'X-Actor-ID': staffId,
             'X-Actor-Type': 'STAFF',
             'X-Actor-Role': user.role,
-            'X-Correlation-ID': correlationId ?? '',
+            ...extraHeaders,
           },
           timeout: 5_000,
         }),
@@ -71,7 +76,19 @@ export class ActiveStaffGuard implements CanActivate {
       return true;
     } catch (err) {
       if (err instanceof HttpException) throw err;
-      if (err instanceof AxiosError && err.response?.status === 404) return true;
+      if (err instanceof AxiosError) {
+        const status = err.response?.status;
+        if (status === 404) return true;
+        throw new HttpException(
+          {
+            type: 'about:blank',
+            title: 'Service Unavailable',
+            status: HttpStatus.SERVICE_UNAVAILABLE,
+            detail: 'Could not verify staff account status',
+          },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
       throw err;
     }
   }

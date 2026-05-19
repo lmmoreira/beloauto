@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
 import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { StaffEntityBuilder } from '../../../../test/builders/staff';
 import { StaffEntity } from '../entities/staff.entity';
@@ -21,6 +22,7 @@ describe('InternalStaffController (integration) — auth-flow endpoints', () => 
           entities: [StaffEntity],
           synchronize: false,
         }),
+        EventBusModule,
         TransactionManagerModule,
         StaffModule,
       ],
