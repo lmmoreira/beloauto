@@ -36,8 +36,9 @@ export class InviteStaffUseCase {
       throw new StaffAlreadyExistsError(normalizedEmail);
     }
 
-    // A2: inactive staff exists — reuse the row, resend invite
+    // A2: inactive staff exists — reuse the row, update role, resend invite
     const staff = existing ?? Staff.invite(tenantId, normalizedEmail, role);
+    if (existing) staff.reinvite(role);
 
     await this.txManager.run(async () => {
       await this.staffRepo.save(staff);

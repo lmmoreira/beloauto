@@ -78,14 +78,17 @@ describe('InviteStaffUseCase', () => {
     const inactive = new StaffBuilder()
       .withTenantId(TENANT_A)
       .withEmail('novo@lavacar.com.br')
+      .withRole('STAFF')
       .build();
     await repo.save(inactive);
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute({ ...baseDto, role: 'MANAGER' });
 
     expect(result.staffId).toBe(inactive.id);
     expect(result.isActive).toBe(false);
+    expect(result.role).toBe('MANAGER');
     expect(eventBus.published).toHaveLength(1);
+    expect((eventBus.published[0] as unknown as { data: { role: string } }).data.role).toBe('MANAGER');
 
     const allStaff = await repo.findAllByTenant(TENANT_A, 100, 0);
     expect(allStaff.total).toBe(1);
