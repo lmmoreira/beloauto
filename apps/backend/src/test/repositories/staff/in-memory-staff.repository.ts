@@ -1,4 +1,7 @@
-import { IStaffRepository } from '../../../contexts/staff/application/ports/staff-repository.port';
+import {
+  FindAllByTenantResult,
+  IStaffRepository,
+} from '../../../contexts/staff/application/ports/staff-repository.port';
 import { Staff } from '../../../contexts/staff/domain/staff.aggregate';
 
 export class InMemoryStaffRepository implements IStaffRepository {
@@ -35,8 +38,15 @@ export class InMemoryStaffRepository implements IStaffRepository {
     return staff;
   }
 
-  async findAllByTenant(tenantId: string): Promise<Staff[]> {
-    return Array.from(this.store.values()).filter((s) => s.tenantId === tenantId);
+  async findAllByTenant(
+    tenantId: string,
+    limit: number,
+    offset: number,
+  ): Promise<FindAllByTenantResult> {
+    const all = Array.from(this.store.values()).filter((s) => s.tenantId === tenantId);
+    const total = all.length;
+    const items = all.slice(offset, offset + limit);
+    return { items, total };
   }
 
   async countActiveManagersByTenant(tenantId: string): Promise<number> {

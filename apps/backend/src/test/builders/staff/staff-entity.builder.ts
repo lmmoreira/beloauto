@@ -5,6 +5,7 @@ export class StaffEntityBuilder {
   private id = uuidv7();
   private tenantId = '00000000-0000-7000-8000-000000000001';
   private googleOAuthId: string | null = null;
+  private name: string | null = null;
   private email = 'staff@example.com';
   private role = 'STAFF';
   private isActive = false;
@@ -23,6 +24,11 @@ export class StaffEntityBuilder {
 
   withGoogleOAuthId(googleOAuthId: string | null): this {
     this.googleOAuthId = googleOAuthId;
+    return this;
+  }
+
+  withName(name: string | null): this {
+    this.name = name;
     return this;
   }
 
@@ -46,6 +52,7 @@ export class StaffEntityBuilder {
     e.id = this.id;
     e.tenantId = this.tenantId;
     e.googleOAuthId = this.googleOAuthId;
+    e.name = this.name;
     e.email = this.email;
     e.role = this.role;
     e.isActive = this.isActive;

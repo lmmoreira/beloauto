@@ -233,6 +233,7 @@ describe('AuthController', () => {
           tenantId: TENANT_ID_A,
           googleOAuthId: 'google-sub-staff-new',
           email: 'gerente@lavacar.com.br',
+          name: 'Carlos Gerente',
         }),
       );
       expect(res.cookie).toHaveBeenCalledWith(

@@ -15,6 +15,27 @@
 @staffId = 10000000-0000-4000-8000-000000000099
 
 # ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — list staff (M04-S02)
+# ─────────────────────────────────────────────────────────────────────────────
+
+### List all staff for a tenant (default limit=50, offset=0)
+GET {{baseUrl}}/internal/staff?tenantId={{tenantId}}
+
+###
+
+### List staff with explicit pagination
+GET {{baseUrl}}/internal/staff?tenantId={{tenantId}}&limit=10&offset=0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — get staff by id (M04-S02)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### Get a specific staff member by id
+GET {{baseUrl}}/internal/staff/{{staffId}}?tenantId={{tenantId}}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — by-oauth (UC-022)
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -49,6 +70,18 @@ Content-Type: application/json
 # ─────────────────────────────────────────────────────────────────────────────
 # ERROR CASES
 # ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### 400 — Missing tenantId on list endpoint
+GET {{baseUrl}}/internal/staff
+
+###
+
+### 404 — Staff id not found
+GET {{baseUrl}}/internal/staff/10000000-0000-4000-8000-000000000099?tenantId={{tenantId}}
+
+###
 
 ###
 

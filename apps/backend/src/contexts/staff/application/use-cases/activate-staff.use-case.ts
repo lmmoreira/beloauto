@@ -25,7 +25,7 @@ export class ActivateStaffUseCase {
     if (staff.isActive) throw new StaffAlreadyActiveError(staffId);
     if (staff.email.address !== dto.email.toLowerCase().trim()) throw new StaffEmailMismatchError();
 
-    staff.activate(dto.googleOAuthId);
+    staff.activate(dto.googleOAuthId, dto.name);
     await this.staffRepo.save(staff);
 
     return { staffId: staff.id, tenantId: staff.tenantId, role: staff.role, isActive: true };

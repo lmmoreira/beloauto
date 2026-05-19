@@ -18,6 +18,9 @@ export class StaffEntity {
   @Column({ name: 'google_oauth_id', type: 'varchar', length: 255, nullable: true })
   googleOAuthId!: string | null;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  name!: string | null;
+
   @Column({ type: 'varchar', length: 255 })
   email!: string;
 
