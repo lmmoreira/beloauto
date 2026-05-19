@@ -167,7 +167,7 @@ describe('InternalStaffController (integration)', () => {
   describe('POST /internal/staff/:staffId/activate', () => {
     it('returns 404 when staffId does not exist', async () => {
       const { body } = await request(app.getHttpServer())
-        .post('/internal/staff/non-existent-id/activate')
+        .post('/internal/staff/10000000-0000-4000-8000-000000009999/activate')
         .send({
           tenantId: '10000000-0000-4000-8000-000000000070',
           googleOAuthId: 'google-sub-m04s01-new',
