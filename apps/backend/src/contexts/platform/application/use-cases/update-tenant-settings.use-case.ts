@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  ITransactionManager,
+  TRANSACTION_MANAGER,
+} from '../../../../shared/ports/transaction-manager.port';
 import { deepMerge } from '../../../../shared/utils/deep-merge';
 import { TenantNotFoundError } from '../../domain/errors/platform-domain.error';
 import { TenantSettings, TenantSettingsProps } from '../../domain/value-objects/tenant-settings.vo';
@@ -13,7 +17,10 @@ export interface UpdateTenantSettingsUseCaseResult {
 
 @Injectable()
 export class UpdateTenantSettingsUseCase {
-  constructor(@Inject(TENANT_REPOSITORY) private readonly tenantRepo: ITenantRepository) {}
+  constructor(
+    @Inject(TENANT_REPOSITORY) private readonly tenantRepo: ITenantRepository,
+    @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
+  ) {}
 
   async execute(
     tenantId: string,
@@ -34,7 +41,9 @@ export class UpdateTenantSettingsUseCase {
       tenant.updateSettings(TenantSettings.create(merged));
     }
 
-    await this.tenantRepo.save(tenant);
+    await this.txManager.run(async () => {
+      await this.tenantRepo.save(tenant);
+    });
 
     return {
       tenantId: tenant.id,

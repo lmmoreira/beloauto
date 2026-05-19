@@ -1,4 +1,5 @@
 import { StaffBuilder } from '../../../../test/builders/staff';
+import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryStaffRepository } from '../../../../test/repositories/staff/in-memory-staff.repository';
 import {
   StaffAlreadyActiveError,
@@ -13,7 +14,7 @@ describe('ActivateStaffUseCase', () => {
 
   beforeEach(() => {
     repo = new InMemoryStaffRepository();
-    useCase = new ActivateStaffUseCase(repo);
+    useCase = new ActivateStaffUseCase(repo, new InMemoryTransactionManager());
   });
 
   it('throws StaffNotFoundError when staffId does not exist in the tenant', async () => {
@@ -22,6 +23,7 @@ describe('ActivateStaffUseCase', () => {
         tenantId: '10000000-0000-4000-8000-000000000001',
         googleOAuthId: 'google-sub-123',
         email: 'staff@lavacar.com.br',
+        name: 'Staff User',
       }),
     ).rejects.toThrow(StaffNotFoundError);
   });
@@ -38,6 +40,7 @@ describe('ActivateStaffUseCase', () => {
         tenantId: '10000000-0000-4000-8000-000000000002',
         googleOAuthId: 'google-sub-123',
         email: 'staff@lavacar.com.br',
+        name: 'Staff User',
       }),
     ).rejects.toThrow(StaffNotFoundError);
   });
@@ -55,6 +58,7 @@ describe('ActivateStaffUseCase', () => {
         tenantId: '10000000-0000-4000-8000-000000000001',
         googleOAuthId: 'google-sub-new',
         email: 'staff@lavacar.com.br',
+        name: 'Staff User',
       }),
     ).rejects.toThrow(StaffAlreadyActiveError);
   });
@@ -71,11 +75,12 @@ describe('ActivateStaffUseCase', () => {
         tenantId: '10000000-0000-4000-8000-000000000001',
         googleOAuthId: 'google-sub-123',
         email: 'different@gmail.com',
+        name: 'Staff User',
       }),
     ).rejects.toThrow(StaffEmailMismatchError);
   });
 
-  it('activates the staff, persists, and returns the result', async () => {
+  it('activates the staff, persists name, and returns the result', async () => {
     const staff = new StaffBuilder()
       .withTenantId('10000000-0000-4000-8000-000000000001')
       .withEmail('gerente@lavacar.com.br')
@@ -87,6 +92,7 @@ describe('ActivateStaffUseCase', () => {
       tenantId: '10000000-0000-4000-8000-000000000001',
       googleOAuthId: 'google-sub-new',
       email: 'gerente@lavacar.com.br',
+      name: 'Gerente Silva',
     });
 
     expect(result.staffId).toBe(staff.id);
@@ -96,5 +102,6 @@ describe('ActivateStaffUseCase', () => {
     const saved = await repo.findById(staff.id, '10000000-0000-4000-8000-000000000001');
     expect(saved!.isActive).toBe(true);
     expect(saved!.googleOAuthId).toBe('google-sub-new');
+    expect(saved!.name).toBe('Gerente Silva');
   });
 });

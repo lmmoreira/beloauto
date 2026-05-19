@@ -1,3 +1,4 @@
+import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryTenantRepository } from '../../../../test/repositories/platform/in-memory-tenant.repository';
 import { TenantBuilder } from '../../../../test/builders/platform/index';
 import {
@@ -13,7 +14,7 @@ describe('UpdateTenantSettingsUseCase', () => {
 
   beforeEach(() => {
     tenantRepo = new InMemoryTenantRepository();
-    useCase = new UpdateTenantSettingsUseCase(tenantRepo);
+    useCase = new UpdateTenantSettingsUseCase(tenantRepo, new InMemoryTransactionManager());
   });
 
   it('throws TenantNotFoundError when the tenant does not exist', async () => {

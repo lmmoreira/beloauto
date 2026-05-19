@@ -9,6 +9,7 @@ export interface StaffProps {
   id: string;
   tenantId: string;
   googleOAuthId: string | null;
+  name: string | null;
   email: Email;
   role: StaffRole;
   isActive: boolean;
@@ -32,6 +33,9 @@ export class Staff extends AggregateRoot {
   }
   get googleOAuthId(): string | null {
     return this.props.googleOAuthId;
+  }
+  get name(): string | null {
+    return this.props.name;
   }
   get email(): Email {
     return this.props.email;
@@ -61,6 +65,7 @@ export class Staff extends AggregateRoot {
       id: uuidv7(),
       tenantId,
       googleOAuthId: null,
+      name: null,
       email: Email.create(email),
       role,
       isActive: false,
@@ -73,9 +78,12 @@ export class Staff extends AggregateRoot {
     return new Staff(props);
   }
 
-  activate(googleOAuthId: string): void {
+  activate(googleOAuthId: string, name: string): void {
     if (!googleOAuthId) throw new StaffDomainError('googleOAuthId is required to activate staff');
+    const trimmedName = name?.trim();
+    if (!trimmedName) throw new StaffDomainError('name is required to activate staff');
     this.props.googleOAuthId = googleOAuthId;
+    this.props.name = trimmedName;
     this.props.isActive = true;
     this.props.updatedAt = new Date();
   }

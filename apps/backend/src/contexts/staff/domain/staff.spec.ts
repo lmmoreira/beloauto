@@ -4,7 +4,7 @@ import { StaffDomainError } from './errors/staff-domain.error';
 
 describe('Staff', () => {
   describe('invite()', () => {
-    it('creates a staff member with isActive=false and null googleOAuthId', () => {
+    it('creates a staff member with isActive=false, null googleOAuthId, and null name', () => {
       const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
       expect(staff.tenantId).toBe('tenant-1');
       expect(staff.email).toBeInstanceOf(Email);
@@ -12,6 +12,7 @@ describe('Staff', () => {
       expect(staff.role).toBe('STAFF');
       expect(staff.isActive).toBe(false);
       expect(staff.googleOAuthId).toBeNull();
+      expect(staff.name).toBeNull();
       expect(staff.id).toBeDefined();
     });
 
@@ -37,23 +38,40 @@ describe('Staff', () => {
   });
 
   describe('activate()', () => {
-    it('sets googleOAuthId and isActive=true', () => {
+    it('sets googleOAuthId, name, and isActive=true', () => {
       const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
-      staff.activate('google-sub-456');
+      staff.activate('google-sub-456', 'Ana Silva');
       expect(staff.googleOAuthId).toBe('google-sub-456');
+      expect(staff.name).toBe('Ana Silva');
       expect(staff.isActive).toBe(true);
     });
 
     it('throws when googleOAuthId is empty', () => {
       const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
-      expect(() => staff.activate('')).toThrow(StaffDomainError);
+      expect(() => staff.activate('', 'Ana Silva')).toThrow(StaffDomainError);
+    });
+
+    it('throws when name is empty', () => {
+      const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
+      expect(() => staff.activate('google-sub-456', '')).toThrow(StaffDomainError);
+    });
+
+    it('throws when name is whitespace-only', () => {
+      const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
+      expect(() => staff.activate('google-sub-456', '   ')).toThrow(StaffDomainError);
+    });
+
+    it('trims whitespace from name before storing', () => {
+      const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
+      staff.activate('google-sub-456', '  Ana Silva  ');
+      expect(staff.name).toBe('Ana Silva');
     });
   });
 
   describe('deactivate()', () => {
     it('sets isActive=false', () => {
       const staff = Staff.invite('tenant-1', 'ana@lavacar.com.br', 'STAFF');
-      staff.activate('google-sub-789');
+      staff.activate('google-sub-789', 'Ana Silva');
       staff.deactivate();
       expect(staff.isActive).toBe(false);
     });
@@ -63,8 +81,8 @@ describe('Staff', () => {
     it('two Staff instances with same googleOAuthId and tenantId are separate in-memory objects', () => {
       const s1 = Staff.invite('tenant-a', 'x@a.com', 'STAFF');
       const s2 = Staff.invite('tenant-a', 'y@a.com', 'MANAGER');
-      s1.activate('same-sub');
-      s2.activate('same-sub');
+      s1.activate('same-sub', 'X User');
+      s2.activate('same-sub', 'Y User');
       expect(s1.id).not.toBe(s2.id);
       expect(s1.tenantId).toBe(s2.tenantId);
     });

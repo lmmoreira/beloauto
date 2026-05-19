@@ -37,7 +37,7 @@ describe('TypeOrmStaffRepository (integration)', () => {
     expect(found!.googleOAuthId).toBeNull();
   });
 
-  it('activate sets googleOAuthId and isActive=true — both persist correctly', async () => {
+  it('activate sets googleOAuthId, name, and isActive=true — all persist correctly', async () => {
     const staff = new StaffBuilder()
       .withTenantId('00000000-0000-0000-0000-000000000021')
       .withEmail('staff@lavacar-m03s02.com.br')
@@ -45,7 +45,7 @@ describe('TypeOrmStaffRepository (integration)', () => {
       .build();
     await repo.save(staff);
 
-    staff.activate('google-sub-m03s02-activate');
+    staff.activate('google-sub-m03s02-activate', 'Staff Ativado');
     await repo.save(staff);
 
     const found = await repo.findByTenantAndOAuthId(
@@ -54,6 +54,7 @@ describe('TypeOrmStaffRepository (integration)', () => {
     );
     expect(found).not.toBeNull();
     expect(found!.googleOAuthId).toBe('google-sub-m03s02-activate');
+    expect(found!.name).toBe('Staff Ativado');
     expect(found!.isActive).toBe(true);
   });
 
@@ -101,7 +102,7 @@ describe('TypeOrmStaffRepository (integration)', () => {
     expect(wrongTenant).toBeNull();
   });
 
-  it('findAllByTenant returns only staff for the given tenant', async () => {
+  it('findAllByTenant returns only staff for the given tenant with pagination', async () => {
     const tenantId = '00000000-0000-0000-0000-000000000026';
 
     const s1 = new StaffBuilder().withTenantId(tenantId).withEmail('s1@lavacar.com.br').build();
@@ -115,9 +116,30 @@ describe('TypeOrmStaffRepository (integration)', () => {
     await repo.save(s2);
     await repo.save(other);
 
-    const results = await repo.findAllByTenant(tenantId);
-    expect(results.length).toBeGreaterThanOrEqual(2);
-    expect(results.every((s) => s.tenantId === tenantId)).toBe(true);
+    const { items, total } = await repo.findAllByTenant(tenantId, 50, 0);
+    expect(items.length).toBeGreaterThanOrEqual(2);
+    expect(items.every((s) => s.tenantId === tenantId)).toBe(true);
+    expect(total).toBeGreaterThanOrEqual(2);
+  });
+
+  it('findAllByTenant respects limit and offset', async () => {
+    const tenantId = '00000000-0000-0000-0000-000000000029';
+
+    for (let i = 1; i <= 3; i++) {
+      const s = new StaffBuilder()
+        .withTenantId(tenantId)
+        .withEmail(`page${i}@lavacar.com.br`)
+        .build();
+      await repo.save(s);
+    }
+
+    const page1 = await repo.findAllByTenant(tenantId, 2, 0);
+    expect(page1.items).toHaveLength(2);
+    expect(page1.total).toBe(3);
+
+    const page2 = await repo.findAllByTenant(tenantId, 2, 2);
+    expect(page2.items).toHaveLength(1);
+    expect(page2.total).toBe(3);
   });
 
   it('countActiveManagersByTenant counts only active managers for the tenant', async () => {

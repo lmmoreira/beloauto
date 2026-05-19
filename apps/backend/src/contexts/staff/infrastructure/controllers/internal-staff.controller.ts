@@ -2,10 +2,12 @@ import {
   BadRequestException,
   Body,
   Controller,
+  DefaultValuePipe,
   Get,
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Post,
   Query,
@@ -21,9 +23,17 @@ import {
   GetStaffByEmailUseCaseResult,
 } from '../../application/use-cases/get-staff-by-email.use-case';
 import {
+  GetStaffByIdUseCase,
+  GetStaffByIdUseCaseResult,
+} from '../../application/use-cases/get-staff-by-id.use-case';
+import {
   GetStaffByOAuthIdUseCase,
   GetStaffByOAuthIdUseCaseResult,
 } from '../../application/use-cases/get-staff-by-oauth-id.use-case';
+import {
+  ListStaffUseCase,
+  ListStaffUseCaseResult,
+} from '../../application/use-cases/list-staff.use-case';
 import { mapStaffError } from '../http/staff-error.mapper';
 
 // MVP: protected at network level (backend not exposed publicly — BFF-only access).
@@ -34,9 +44,21 @@ export class InternalStaffController {
     private readonly getStaffByOAuthId: GetStaffByOAuthIdUseCase,
     private readonly getStaffByEmail: GetStaffByEmailUseCase,
     private readonly activateStaff: ActivateStaffUseCase,
+    private readonly listStaff: ListStaffUseCase,
+    private readonly getStaffById: GetStaffByIdUseCase,
   ) {}
 
   // Static routes must be declared before parameterised routes
+  @Get()
+  list(
+    @Query('tenantId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    tenantId: string,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+  ): Promise<ListStaffUseCaseResult> {
+    return this.listStaff.execute(tenantId, limit, offset).catch(mapStaffError);
+  }
+
   @Get('by-oauth')
   async getByOAuth(
     @Query('googleOAuthId') googleOAuthId: string,
@@ -67,6 +89,15 @@ export class InternalStaffController {
       });
     }
     return this.getStaffByEmail.execute(email, tenantId).catch(mapStaffError);
+  }
+
+  @Get(':id')
+  getById(
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST })) id: string,
+    @Query('tenantId', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST }))
+    tenantId: string,
+  ): Promise<GetStaffByIdUseCaseResult> {
+    return this.getStaffById.execute(id, tenantId).catch(mapStaffError);
   }
 
   @Post(':staffId/activate')

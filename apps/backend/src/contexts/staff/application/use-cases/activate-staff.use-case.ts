@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  ITransactionManager,
+  TRANSACTION_MANAGER,
+} from '../../../../shared/ports/transaction-manager.port';
 import { ActivateStaffDto } from '../dtos/activate-staff.dto';
 import {
   StaffAlreadyActiveError,
@@ -17,7 +21,10 @@ export interface ActivateStaffUseCaseResult {
 
 @Injectable()
 export class ActivateStaffUseCase {
-  constructor(@Inject(STAFF_REPOSITORY) private readonly staffRepo: IStaffRepository) {}
+  constructor(
+    @Inject(STAFF_REPOSITORY) private readonly staffRepo: IStaffRepository,
+    @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
+  ) {}
 
   async execute(staffId: string, dto: ActivateStaffDto): Promise<ActivateStaffUseCaseResult> {
     const staff = await this.staffRepo.findById(staffId, dto.tenantId);
@@ -25,8 +32,10 @@ export class ActivateStaffUseCase {
     if (staff.isActive) throw new StaffAlreadyActiveError(staffId);
     if (staff.email.address !== dto.email.toLowerCase().trim()) throw new StaffEmailMismatchError();
 
-    staff.activate(dto.googleOAuthId);
-    await this.staffRepo.save(staff);
+    staff.activate(dto.googleOAuthId, dto.name);
+    await this.txManager.run(async () => {
+      await this.staffRepo.save(staff);
+    });
 
     return { staffId: staff.id, tenantId: staff.tenantId, role: staff.role, isActive: true };
   }

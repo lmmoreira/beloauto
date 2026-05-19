@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import { Email } from '../../../../shared/value-objects/email.vo';
-import { IStaffRepository } from '../../application/ports/staff-repository.port';
+import {
+  FindAllByTenantResult,
+  IStaffRepository,
+} from '../../application/ports/staff-repository.port';
 import { Staff, StaffRole } from '../../domain/staff.aggregate';
 import { StaffEntity } from '../entities/staff.entity';
 
@@ -34,9 +37,18 @@ export class TypeOrmStaffRepository implements IStaffRepository {
     return entity ? this.toDomain(entity) : null;
   }
 
-  async findAllByTenant(tenantId: string): Promise<Staff[]> {
-    const entities = await this.repo.find({ where: { tenantId } });
-    return entities.map((e) => this.toDomain(e));
+  async findAllByTenant(
+    tenantId: string,
+    limit: number,
+    offset: number,
+  ): Promise<FindAllByTenantResult> {
+    const [entities, total] = await this.repo.findAndCount({
+      where: { tenantId },
+      order: { createdAt: 'ASC' },
+      take: limit,
+      skip: offset,
+    });
+    return { items: entities.map((e) => this.toDomain(e)), total };
   }
 
   async countActiveManagersByTenant(tenantId: string): Promise<number> {
@@ -58,6 +70,7 @@ export class TypeOrmStaffRepository implements IStaffRepository {
       id: entity.id,
       tenantId: entity.tenantId,
       googleOAuthId: entity.googleOAuthId,
+      name: entity.name,
       email: Email.create(entity.email),
       role: entity.role as StaffRole,
       isActive: entity.isActive,
@@ -71,6 +84,7 @@ export class TypeOrmStaffRepository implements IStaffRepository {
     entity.id = staff.id;
     entity.tenantId = staff.tenantId;
     entity.googleOAuthId = staff.googleOAuthId;
+    entity.name = staff.name;
     entity.email = staff.email.address;
     entity.role = staff.role;
     entity.isActive = staff.isActive;

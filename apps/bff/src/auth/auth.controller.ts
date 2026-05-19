@@ -216,6 +216,7 @@ export class AuthController {
         tenantId: tenantInfo.id,
         googleOAuthId: profile.googleOAuthId,
         email: profile.email,
+        name: profile.name,
       })
       .catch(async (err: unknown) => {
         if (err instanceof HttpException) {

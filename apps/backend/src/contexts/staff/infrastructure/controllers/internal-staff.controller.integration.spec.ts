@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { StaffEntityBuilder } from '../../../../test/builders/staff';
 import { StaffEntity } from '../entities/staff.entity';
 import { StaffModule } from '../../staff.module';
@@ -20,6 +21,7 @@ describe('InternalStaffController (integration)', () => {
           entities: [StaffEntity],
           synchronize: false,
         }),
+        TransactionManagerModule,
         StaffModule,
       ],
     }).compile();
@@ -172,6 +174,7 @@ describe('InternalStaffController (integration)', () => {
           tenantId: '10000000-0000-4000-8000-000000000070',
           googleOAuthId: 'google-sub-m04s01-new',
           email: 'staff@lavacar.com.br',
+          name: 'Staff User',
         })
         .expect(404);
 
@@ -192,13 +195,14 @@ describe('InternalStaffController (integration)', () => {
           tenantId: '10000000-0000-4000-8000-000000000070',
           googleOAuthId: 'google-sub-m04s01-act',
           email: 'wrong@gmail.com',
+          name: 'Staff User',
         })
         .expect(422);
 
       expect(body.status).toBe(422);
     });
 
-    it('activates staff and returns 200 with result', async () => {
+    it('activates staff, persists name, and returns 200 with result', async () => {
       const entity = new StaffEntityBuilder()
         .withTenantId('10000000-0000-4000-8000-000000000071')
         .withEmail('activate-m04s01@lavacar.com.br')
@@ -213,6 +217,7 @@ describe('InternalStaffController (integration)', () => {
           tenantId: '10000000-0000-4000-8000-000000000071',
           googleOAuthId: 'google-sub-m04s01-activated',
           email: 'activate-m04s01@lavacar.com.br',
+          name: 'Gerente Ativado',
         })
         .expect(200);
 
@@ -235,7 +240,134 @@ describe('InternalStaffController (integration)', () => {
           tenantId: '10000000-0000-4000-8000-000000000099',
           googleOAuthId: 'google-sub-m04s01-iso',
           email: 'iso-activate-m04s01@lavacar.com.br',
+          name: 'Staff User',
         })
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+  });
+
+  describe('GET /internal/staff', () => {
+    it('returns 400 when tenantId is missing', async () => {
+      const { body } = await request(app.getHttpServer()).get('/internal/staff').expect(400);
+
+      expect(body.status ?? body.statusCode).toBe(400);
+    });
+
+    it('returns empty list when tenant has no staff', async () => {
+      const { body } = await request(app.getHttpServer())
+        .get('/internal/staff?tenantId=10000000-0000-4000-8000-000000000080')
+        .expect(200);
+
+      expect(body.items).toHaveLength(0);
+      expect(body.pagination.total).toBe(0);
+      expect(body.pagination.hasMore).toBe(false);
+    });
+
+    it('returns staff for the given tenant with pagination metadata', async () => {
+      const tenantId = '10000000-0000-4000-8000-000000000081';
+      const e1 = new StaffEntityBuilder()
+        .withTenantId(tenantId)
+        .withEmail('list1-m04s02@lavacar.com.br')
+        .withRole('MANAGER')
+        .withIsActive(false)
+        .build();
+      const e2 = new StaffEntityBuilder()
+        .withTenantId(tenantId)
+        .withEmail('list2-m04s02@lavacar.com.br')
+        .withIsActive(false)
+        .build();
+      await ds.getRepository(StaffEntity).save(e1);
+      await ds.getRepository(StaffEntity).save(e2);
+
+      const { body } = await request(app.getHttpServer())
+        .get(`/internal/staff?tenantId=${tenantId}`)
+        .expect(200);
+
+      expect(body.items.length).toBeGreaterThanOrEqual(2);
+      expect(body.items.every((i: { tenantId?: string }) => i.tenantId === undefined)).toBe(true);
+      expect(body.pagination.total).toBeGreaterThanOrEqual(2);
+    });
+
+    it('tenant isolation: does not return staff from other tenants', async () => {
+      const tenantA = '10000000-0000-4000-8000-000000000082';
+      const tenantB = '10000000-0000-4000-8000-000000000083';
+
+      const eA = new StaffEntityBuilder()
+        .withTenantId(tenantA)
+        .withEmail('iso-list-a-m04s02@lavacar.com.br')
+        .withIsActive(false)
+        .build();
+      const eB = new StaffEntityBuilder()
+        .withTenantId(tenantB)
+        .withEmail('iso-list-b-m04s02@lavacar.com.br')
+        .withIsActive(false)
+        .build();
+      await ds.getRepository(StaffEntity).save(eA);
+      await ds.getRepository(StaffEntity).save(eB);
+
+      const { body } = await request(app.getHttpServer())
+        .get(`/internal/staff?tenantId=${tenantA}`)
+        .expect(200);
+
+      expect(body.items.every((i: { id: string }) => i.id !== eB.id)).toBe(true);
+    });
+  });
+
+  describe('GET /internal/staff/:id', () => {
+    it('returns 400 when tenantId is missing', async () => {
+      const { body } = await request(app.getHttpServer())
+        .get('/internal/staff/10000000-0000-4000-8000-000000000090')
+        .expect(400);
+
+      expect(body.status ?? body.statusCode).toBe(400);
+    });
+
+    it('returns 404 when staff does not exist', async () => {
+      const { body } = await request(app.getHttpServer())
+        .get(
+          '/internal/staff/10000000-0000-4000-8000-000000000099?tenantId=10000000-0000-4000-8000-000000000090',
+        )
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+
+    it('returns staff member with correct shape', async () => {
+      const tenantId = '10000000-0000-4000-8000-000000000090';
+      const entity = new StaffEntityBuilder()
+        .withTenantId(tenantId)
+        .withEmail('detail-m04s02@lavacar.com.br')
+        .withRole('MANAGER')
+        .withIsActive(false)
+        .build();
+      await ds.getRepository(StaffEntity).save(entity);
+
+      const { body } = await request(app.getHttpServer())
+        .get(`/internal/staff/${entity.id}?tenantId=${tenantId}`)
+        .expect(200);
+
+      expect(body.id).toBe(entity.id);
+      expect(body.email).toBe('detail-m04s02@lavacar.com.br');
+      expect(body.role).toBe('MANAGER');
+      expect(body.isActive).toBe(false);
+      expect(body.name).toBeNull();
+    });
+
+    it('tenant isolation: returns 404 for staff belonging to another tenant', async () => {
+      const tenantA = '10000000-0000-4000-8000-000000000091';
+      const tenantB = '10000000-0000-4000-8000-000000000092';
+
+      const entity = new StaffEntityBuilder()
+        .withTenantId(tenantA)
+        .withEmail('iso-detail-m04s02@lavacar.com.br')
+        .withIsActive(false)
+        .build();
+      await ds.getRepository(StaffEntity).save(entity);
+
+      const { body } = await request(app.getHttpServer())
+        .get(`/internal/staff/${entity.id}?tenantId=${tenantB}`)
         .expect(404);
 
       expect(body.status).toBe(404);

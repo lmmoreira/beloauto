@@ -3,6 +3,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { HealthController } from './health/health.controller';
 import { AuthModule } from './auth/auth.module';
+import { StaffModule } from './staff/staff.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
 import { TenantGuard } from './shared/guards/tenant.guard';
@@ -25,6 +26,7 @@ import { ErrorInterceptor } from './shared/interceptors/error.interceptor';
       },
     ]),
     AuthModule,
+    StaffModule,
     UploadsModule,
   ],
   controllers: [HealthController],

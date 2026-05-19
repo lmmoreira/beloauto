@@ -5,6 +5,7 @@ export class StaffBuilder {
   private email = 'staff@example.com';
   private role: StaffRole = 'STAFF';
   private googleOAuthId: string | null = null;
+  private name: string | null = null;
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;
@@ -26,10 +27,15 @@ export class StaffBuilder {
     return this;
   }
 
+  withName(name: string): this {
+    this.name = name;
+    return this;
+  }
+
   build(): Staff {
     const staff = Staff.invite(this.tenantId, this.email, this.role);
     if (this.googleOAuthId) {
-      staff.activate(this.googleOAuthId);
+      staff.activate(this.googleOAuthId, this.name ?? 'Test User');
     }
     return staff;
   }

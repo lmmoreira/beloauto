@@ -19,6 +19,7 @@ describe('TypeOrmStaffRepository', () => {
           useValue: {
             findOne: jest.fn(),
             find: jest.fn(),
+            findAndCount: jest.fn(),
             count: jest.fn(),
             save: jest.fn(),
           },
@@ -101,18 +102,22 @@ describe('TypeOrmStaffRepository', () => {
     expect(result).toBeNull();
   });
 
-  it('findAllByTenant returns mapped domain objects', async () => {
+  it('findAllByTenant returns mapped domain objects with total', async () => {
     const entities = [
       new StaffEntityBuilder().withId('id-1').withEmail('a@b.com').build(),
       new StaffEntityBuilder().withId('id-2').withEmail('c@d.com').build(),
     ];
-    ormRepo.find.mockResolvedValue(entities);
+    (ormRepo as unknown as { findAndCount: jest.Mock }).findAndCount.mockResolvedValue([
+      entities,
+      2,
+    ]);
 
-    const result = await repo.findAllByTenant('tenant-1');
+    const result = await repo.findAllByTenant('tenant-1', 50, 0);
 
-    expect(result).toHaveLength(2);
-    expect(result[0]).toBeInstanceOf(Staff);
-    expect(result[1]).toBeInstanceOf(Staff);
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0]).toBeInstanceOf(Staff);
+    expect(result.items[1]).toBeInstanceOf(Staff);
+    expect(result.total).toBe(2);
   });
 
   it('countActiveManagersByTenant returns count', async () => {
