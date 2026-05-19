@@ -11,10 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
-import {
-  ActivateStaffDto,
-  ActivateStaffSchema,
-} from '../../application/dtos/activate-staff.dto';
+import { ActivateStaffDto, ActivateStaffSchema } from '../../application/dtos/activate-staff.dto';
 import {
   ActivateStaffUseCaseResult,
   ActivateStaffUseCase,
