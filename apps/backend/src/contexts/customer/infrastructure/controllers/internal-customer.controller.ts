@@ -42,7 +42,9 @@ export class InternalCustomerController {
 
   // Static routes must be declared before parameterised routes
   @Get('tenants')
-  getTenants(@Query('googleOAuthId') googleOAuthId: string): Promise<GetCustomerTenantsUseCaseResult> {
+  getTenants(
+    @Query('googleOAuthId') googleOAuthId: string,
+  ): Promise<GetCustomerTenantsUseCaseResult> {
     if (!googleOAuthId) {
       throw new BadRequestException({
         type: 'about:blank',

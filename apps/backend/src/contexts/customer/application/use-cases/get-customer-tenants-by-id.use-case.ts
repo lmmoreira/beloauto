@@ -12,7 +12,10 @@ export type GetCustomerTenantsByIdUseCaseResult = CustomerTenantSummary[];
 export class GetCustomerTenantsByIdUseCase {
   constructor(@Inject(CUSTOMER_REPOSITORY) private readonly customerRepo: ICustomerRepository) {}
 
-  async execute(customerId: string, tenantId: string): Promise<GetCustomerTenantsByIdUseCaseResult> {
+  async execute(
+    customerId: string,
+    tenantId: string,
+  ): Promise<GetCustomerTenantsByIdUseCaseResult> {
     const customer = await this.customerRepo.findById(customerId, tenantId);
     if (!customer) throw new CustomerNotFoundError(customerId);
     return this.customerRepo.findAllTenantsByOAuthId(customer.googleOAuthId);

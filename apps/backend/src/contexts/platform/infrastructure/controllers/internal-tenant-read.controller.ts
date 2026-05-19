@@ -25,7 +25,9 @@ export class InternalTenantReadController {
   }
 
   @Get(':tenantId')
-  getTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string): Promise<GetTenantByIdUseCaseResult> {
+  getTenant(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+  ): Promise<GetTenantByIdUseCaseResult> {
     return this.getTenantById.execute(tenantId).catch(mapPlatformError);
   }
 }

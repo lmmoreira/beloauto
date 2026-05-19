@@ -41,7 +41,9 @@ export class InternalStaffController {
 
   // Static routes must be declared before parameterised routes
   @Get('by-oauth')
-  async getByOAuth(@Query('googleOAuthId') googleOAuthId: string): Promise<GetStaffByOAuthIdUseCaseResult> {
+  async getByOAuth(
+    @Query('googleOAuthId') googleOAuthId: string,
+  ): Promise<GetStaffByOAuthIdUseCaseResult> {
     if (!googleOAuthId) {
       throw new BadRequestException({
         type: 'about:blank',
