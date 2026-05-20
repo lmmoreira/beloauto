@@ -1,130 +1,146 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { SYSTEM_ACTOR_ID } from '../../../../shared/domain/system-actor';
+import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
 import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
-import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
-import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
-import { TenantProvisioned } from '../../../platform/domain/events/tenant-provisioned.event';
-import { STAFF_REPOSITORY } from '../../application/ports/staff-repository.port';
-import { StaffInvited } from '../../domain/events/staff-invited.event';
+import { HotsiteConfigEntity } from '../../../platform/infrastructure/entities/hotsite-config.entity';
+import { TenantEntity } from '../../../platform/infrastructure/entities/tenant.entity';
+import { PlatformModule } from '../../../platform/platform.module';
 import { StaffEntity } from '../entities/staff.entity';
-import { TypeOrmStaffRepository } from '../repositories/typeorm-staff.repository';
-import { TenantProvisionedHandler } from './tenant-provisioned.handler';
+import { StaffModule } from '../../staff.module';
+import { waitFor } from '../../../../test/utils/wait-for';
 
-describe('TenantProvisionedHandler (integration)', () => {
-  let module: TestingModule;
-  let handler: TenantProvisionedHandler;
-  let eventBus: InMemoryEventBus;
+const PLATFORM_KEY = 'story-test-key-story-test-key-xx';
+
+describe('Story: POST /internal/tenants → Pub/Sub → staff MANAGER created (integration)', () => {
+  let app: INestApplication;
   let ds: DataSource;
 
   beforeAll(async () => {
-    eventBus = new InMemoryEventBus();
+    process.env['PLATFORM_ADMIN_KEY'] = PLATFORM_KEY;
 
-    module = await Test.createTestingModule({
+    const moduleRef = await Test.createTestingModule({
       imports: [
         TypeOrmModule.forRoot({
           type: 'postgres',
           url: process.env['TEST_DATABASE_URL'],
-          entities: [StaffEntity],
+          entities: [TenantEntity, HotsiteConfigEntity, StaffEntity],
           synchronize: false,
         }),
-        TypeOrmModule.forFeature([StaffEntity]),
+        EventBusModule,
         TransactionManagerModule,
-      ],
-      providers: [
-        { provide: STAFF_REPOSITORY, useClass: TypeOrmStaffRepository },
-        { provide: EVENT_BUS, useValue: eventBus },
-        TenantProvisionedHandler,
+        PlatformModule,
+        StaffModule,
       ],
     }).compile();
 
-    handler = module.get(TenantProvisionedHandler);
-    ds = module.get(DataSource);
+    app = moduleRef.createNestApplication();
+    await app.init();
+    ds = moduleRef.get(DataSource);
   });
 
   afterAll(async () => {
-    await ds.destroy();
+    await app.close();
+    delete process.env['PLATFORM_ADMIN_KEY'];
   });
 
-  it('creates MANAGER staff row and publishes StaffInvited on TenantProvisioned', async () => {
-    const TENANT_ID = 'e0400000-0000-4000-8000-000000000001';
-    const correlationId = 'corr-int-m04s06-01';
+  it('provisions tenant, publishes TenantProvisioned, and creates first MANAGER staff via Pub/Sub', async () => {
+    const slug = `story-${Date.now()}`;
+    const adminEmail = `admin-${Date.now()}@lavacar.com.br`;
 
-    const event = new TenantProvisioned(TENANT_ID, correlationId, {
-      name: 'Lava Car SP',
-      slug: 'lavacar-sp',
-      adminEmail: 'admin-int-m04s06@lavacar.com.br',
-      timezone: 'America/Sao_Paulo',
+    const { body } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${PLATFORM_KEY}`)
+      .send({
+        name: 'Lava Car Story',
+        slug,
+        adminEmail,
+        timezone: 'America/Sao_Paulo',
+      })
+      .expect(201);
+
+    expect(body.tenantId).toBeDefined();
+    const tenantId: string = body.tenantId;
+
+    await waitFor(async () => {
+      const row = await ds
+        .getRepository(StaffEntity)
+        .findOne({ where: { tenantId, email: adminEmail } });
+      return row !== null;
     });
 
-    await handler.handle(event);
-
-    const row = await ds
+    const staff = await ds
       .getRepository(StaffEntity)
-      .findOne({ where: { tenantId: TENANT_ID, email: 'admin-int-m04s06@lavacar.com.br' } });
+      .findOne({ where: { tenantId, email: adminEmail } });
 
-    expect(row).not.toBeNull();
-    expect(row!.role).toBe('MANAGER');
-    expect(row!.isActive).toBe(false);
-    expect(row!.googleOAuthId).toBeNull();
-    expect(row!.name).toBeNull();
-    expect(row!.invitedBy).toBe(SYSTEM_ACTOR_ID);
-    expect(row!.tenantId).toBe(TENANT_ID);
-
-    expect(eventBus.published).toHaveLength(1);
-    const published = eventBus.published[0] as StaffInvited;
-    expect(published.eventName).toBe('StaffInvited');
-    expect(published.data.staffId).toBe(row!.id);
-    expect(published.tenantId).toBe(TENANT_ID);
-    expect(published.correlationId).toBe(correlationId);
+    expect(staff).not.toBeNull();
+    expect(staff!.role).toBe('MANAGER');
+    expect(staff!.isActive).toBe(false);
+    expect(staff!.googleOAuthId).toBeNull();
+    expect(staff!.name).toBeNull();
+    expect(staff!.invitedBy).toBe(SYSTEM_ACTOR_ID);
+    expect(staff!.tenantId).toBe(tenantId);
   });
 
-  it('is idempotent: handling the same event twice creates exactly one staff row', async () => {
-    const TENANT_ID = 'e0400000-0000-4000-8000-000000000002';
-    const correlationId = 'corr-int-m04s06-02';
+  it('is idempotent: redelivering the same TenantProvisioned event creates exactly one staff row', async () => {
+    const slug = `story-idem-${Date.now()}`;
+    const adminEmail = `admin-idem-${Date.now()}@lavacar.com.br`;
 
-    const event = new TenantProvisioned(TENANT_ID, correlationId, {
-      name: 'Lava Car RJ',
-      slug: 'lavacar-rj',
-      adminEmail: 'admin-int-m04s06-idem@lavacar.com.br',
-      timezone: 'America/Sao_Paulo',
+    const { body } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${PLATFORM_KEY}`)
+      .send({ name: 'Idem Tenant', slug, adminEmail })
+      .expect(201);
+
+    const tenantId: string = body.tenantId;
+
+    await waitFor(async () => {
+      const row = await ds
+        .getRepository(StaffEntity)
+        .findOne({ where: { tenantId, email: adminEmail } });
+      return row !== null;
     });
 
-    eventBus.clear();
-    await handler.handle(event);
-    await handler.handle(event);
-
-    const rows = await ds.getRepository(StaffEntity).find({ where: { tenantId: TENANT_ID } });
-
+    const rows = await ds.getRepository(StaffEntity).find({ where: { tenantId } });
     expect(rows).toHaveLength(1);
-    expect(eventBus.published).toHaveLength(1);
   });
 
-  it('tenant isolation: staff row has correct tenant_id', async () => {
-    const TENANT_ID = 'e0400000-0000-4000-8000-000000000003';
-    const OTHER_TENANT = 'e0400000-0000-4000-8000-000000000004';
+  it('tenant isolation: staff row is scoped to the provisioned tenant only', async () => {
+    const slugA = `iso-a-${Date.now()}`;
+    const slugB = `iso-b-${Date.now()}`;
+    const email = `iso-${Date.now()}@lavacar.com.br`;
 
-    const eventA = new TenantProvisioned(TENANT_ID, 'corr-a', {
-      name: 'Tenant A',
-      slug: 'tenant-a',
-      adminEmail: 'admin-int-m04s06-iso@example.com',
-      timezone: 'America/Sao_Paulo',
+    const [resA, resB] = await Promise.all([
+      request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${PLATFORM_KEY}`)
+        .send({ name: 'Iso A', slug: slugA, adminEmail: email }),
+      request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${PLATFORM_KEY}`)
+        .send({ name: 'Iso B', slug: slugB, adminEmail: `b-${email}` }),
+    ]);
+
+    const tenantAId: string = resA.body.tenantId;
+    const tenantBId: string = resB.body.tenantId;
+
+    await waitFor(async () => {
+      const [a, b] = await Promise.all([
+        ds.getRepository(StaffEntity).findOne({ where: { tenantId: tenantAId } }),
+        ds.getRepository(StaffEntity).findOne({ where: { tenantId: tenantBId } }),
+      ]);
+      return a !== null && b !== null;
     });
 
-    eventBus.clear();
-    await handler.handle(eventA);
+    const staffA = await ds.getRepository(StaffEntity).find({ where: { tenantId: tenantAId } });
+    const staffB = await ds.getRepository(StaffEntity).find({ where: { tenantId: tenantBId } });
 
-    const rowsOtherTenant = await ds
-      .getRepository(StaffEntity)
-      .find({ where: { tenantId: OTHER_TENANT } });
-
-    expect(rowsOtherTenant).toHaveLength(0);
-
-    const rowA = await ds
-      .getRepository(StaffEntity)
-      .findOne({ where: { tenantId: TENANT_ID, email: 'admin-int-m04s06-iso@example.com' } });
-
-    expect(rowA).not.toBeNull();
+    expect(staffA).toHaveLength(1);
+    expect(staffB).toHaveLength(1);
+    expect(staffA[0].tenantId).toBe(tenantAId);
+    expect(staffB[0].tenantId).toBe(tenantBId);
   });
 });

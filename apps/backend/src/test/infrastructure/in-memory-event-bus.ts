@@ -11,6 +11,7 @@ export class InMemoryEventBus implements IEventBus {
   subscribe<T extends DomainEvent>(
     _eventName: string,
     _handler: (event: T) => Promise<void>,
+    _consumerName: string,
   ): void {
     // no-op: unit tests call handlers directly, not via event routing
   }
