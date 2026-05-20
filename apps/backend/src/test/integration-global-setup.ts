@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { GenericContainer, Wait } from 'testcontainers';
 import { DataSource } from 'typeorm';
 import { CustomerEntity } from '../contexts/customer/infrastructure/entities/customer.entity';
@@ -33,7 +33,7 @@ export default async function globalSetup(): Promise<void> {
       .start(),
   ]);
 
-  process.env['TEST_DATABASE_URL'] = (pgContainer as StartedPostgreSqlContainer).getConnectionUri();
+  process.env['TEST_DATABASE_URL'] = pgContainer.getConnectionUri();
   process.env['PUBSUB_EMULATOR_HOST'] =
     `${pubsubContainer.getHost()}:${pubsubContainer.getMappedPort(8085)}`;
   process.env['PUBSUB_PROJECT_ID'] = 'beloauto-local';
@@ -43,7 +43,7 @@ export default async function globalSetup(): Promise<void> {
 
   const ds = new DataSource({
     type: 'postgres',
-    url: (pgContainer as StartedPostgreSqlContainer).getConnectionUri(),
+    url: pgContainer.getConnectionUri(),
     entities: [TenantEntity, HotsiteConfigEntity, CustomerEntity, StaffEntity],
     migrations: [
       CreatePlatformTenants1716500000001,
