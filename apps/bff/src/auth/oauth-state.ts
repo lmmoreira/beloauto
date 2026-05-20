@@ -19,7 +19,7 @@ export function encodeOAuthState(type: 'staff' | 'customer', tenantSlug?: string
 
 export function decodeOAuthState(state: string): OAuthState {
   if (state === '__staff__') {
-    return { loginType: 'staff' };
+    return { loginType: 'staff', tenantSlug: undefined };
   }
   if (state.startsWith('__staff__:')) {
     const extracted = state.slice('__staff__:'.length);

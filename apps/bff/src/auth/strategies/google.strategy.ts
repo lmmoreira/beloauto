@@ -37,7 +37,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       done(new Error('Google account did not provide an email address'));
       return;
     }
-    const state = (req.query['state'] as string) || '';
+    const raw = req.query['state'];
+    const state = typeof raw === 'string' ? raw : '';
     const { loginType, tenantSlug } = decodeOAuthState(state);
     done(null, {
       googleOAuthId: profile.id,

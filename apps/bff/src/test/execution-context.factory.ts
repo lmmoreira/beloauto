@@ -27,5 +27,5 @@ interface RequestOptions {
 
 export function makeRequest(options: RequestOptions = {}): Request {
   const { user, headers = {} } = options;
-  return { user, headers } as unknown as Request;
+  return { user, headers } as Request;
 }
