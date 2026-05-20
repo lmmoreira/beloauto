@@ -3,7 +3,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-05-19 (M04-S04)
+**Last updated:** 2026-05-20 (post-review refactor)
 
 ---
 
@@ -217,6 +217,12 @@ Aggregate **props interfaces use VO types**, not plain primitives. **Getters ret
 - **Domain error messages are English only.** pt-BR copy in UC specs is frontend UI copy — it never goes in domain error constructors. All existing domain errors (`StaffNotFoundError`, etc.) are English; follow the same pattern.
 - **Zod v4 format validators:** use `z.uuid()` and `z.email()` — never `z.string().uuid()` / `z.string().email()`. The chained forms are deprecated in Zod v4 and flagged by SonarCloud as issues.
 - **Domain events belong in the publishing context.** Define `StaffInvited`, `StaffDeactivated` etc. in `staff/domain/events/`, not in `platform/`. Duplicate class definitions across contexts cause SonarCloud duplication failures. When moving an event from the wrong context, verify no imports remain before deleting.
+- **Aggregate-driven events (mandatory):** Aggregates record domain events via `this.addDomainEvent()` inside their domain methods. Use cases flush via `aggregate.clearDomainEvents()` **after** `txManager.run()` completes — never construct or publish events directly from a use case. The `AggregateRoot` base class provides `addDomainEvent()` and `clearDomainEvents()` — always use them.
+- **Thin vs fat events:** if the data needed by subscribers is persistently stored on the entity, the event carries only the ID — subscribers query for the rest. If the data is transient (not stored in the entity, or represents state at a specific point in time that may change before the subscriber runs), it must be in the event payload. Example: `StaffInvited` is thin (`staffId` only) because name/email/invitedBy are now stored on the entity. `TenantProvisioned` is fat because `adminEmail` is not stored on `Tenant`.
+- **`correlationId` in domain events must come from `TenantContext.correlationId`**, not from `uuidv7()`. Pass it from the use case into the aggregate method that records the event. For `/internal` routes (no `TenantContext`), generate one `uuidv7()` at the top of the use case and pass it through — never re-generate it per event.
+- **Domain error base classes must include `Object.setPrototypeOf(this, new.target.prototype)`** immediately after `super()`. Without it, `instanceof` checks silently fail in compiled TypeScript — error mappers fall through to 500 instead of the correct 4xx. Every `XxxDomainError extends Error` base class needs this line.
+- **Controller early-exit guards must use `return Promise.reject(...)` not `throw`** when the controller method signature returns `Promise<T>`. A synchronous `throw` does not become a Promise rejection and bypasses the `.catch(mapXxxError)` chain. Use `return Promise.reject(new HttpException({...}, status))` for all early validation checks in controller methods.
+- **Default parameters must come after required parameters** (SonarCloud S1788 MAJOR). Never declare a method/function with a default param followed by a required one: `create(name, slug, timezone = '...', adminEmail)` is invalid — move the default to last position.
 - Every new REST endpoint must have a corresponding request block in `apps/backend/http/<context>/<resource>.http` — include the happy path, all 4xx error cases, and edge cases. Use the existing files as a template.
 
 ### Cross-context data access (priority order — follow strictly)
@@ -324,6 +330,8 @@ Full list in `docs/ANTI_PATTERNS.md` (checked by `/pre-pr`). Highest-severity pa
 | Defining a domain event in the wrong bounded context (e.g. `StaffInvited` in `platform/`) | SonarCloud duplication when the correct context also defines it | Events live in the context that publishes them |
 | Using `z.string().uuid()` or `z.string().email()` in Zod schemas | Deprecated in Zod v4 — SonarCloud MINOR issue blocks `ci:fast` | Use `z.uuid()` / `z.email()` |
 | `TenantModule` missing from a module that injects `TenantContext` | NestJS DI fails to compile — integration tests crash with `TypeError: Cannot read properties of undefined` | Every module with a controller that injects `TenantContext` must import `TenantModule` |
+| Publishing events directly from a use case (`await this.eventBus.publish(new XxxEvent(...))`) | Bypasses aggregate encapsulation; `correlationId` ends up as a fresh `uuidv7()` instead of the request's; use case must know event internals | Record in aggregate via `addDomainEvent()`; flush with `clearDomainEvents()` after `txManager.run()` |
+| Missing `Object.setPrototypeOf(this, new.target.prototype)` in domain error base class | `instanceof` checks fail silently in compiled TypeScript — every error mapper falls through to 500 | Add `Object.setPrototypeOf(this, new.target.prototype)` immediately after `super()` in every `XxxDomainError extends Error` base class |
 
 ---
 
