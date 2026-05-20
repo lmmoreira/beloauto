@@ -26,5 +26,6 @@ import { TypeOrmTenantRepository } from './infrastructure/repositories/typeorm-t
     ProvisionTenantUseCase,
     UpdateTenantSettingsUseCase,
   ],
+  exports: [GetTenantByIdUseCase],
 })
 export class PlatformModule {}
