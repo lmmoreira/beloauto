@@ -15,23 +15,19 @@ const TENANT_B = '10000000-0000-4000-8000-000000000002';
 const MANAGER_ID = '20000000-0000-4000-8000-000000000001';
 const CORRELATION_ID = 'corr-ctrl-test';
 
-function makeTenantContext(tenantId: string, actorId: string): TenantContext {
-  return {
+function makeController(
+  repo: InMemoryStaffRepository,
+  eventBus: InMemoryEventBus,
+  tenantId = TENANT_A,
+  actorId: string | undefined = MANAGER_ID,
+): StaffController {
+  const ctx = {
     tenantId,
     actorId,
     correlationId: CORRELATION_ID,
     actorType: 'STAFF',
     actorRole: 'MANAGER',
   } as unknown as TenantContext;
-}
-
-function makeController(
-  repo: InMemoryStaffRepository,
-  eventBus: InMemoryEventBus,
-  tenantId = TENANT_A,
-  actorId = MANAGER_ID,
-): StaffController {
-  const ctx = makeTenantContext(tenantId, actorId);
   return new StaffController(
     ctx,
     new ListStaffUseCase(repo),
@@ -146,6 +142,25 @@ describe('StaffController', () => {
   });
 
   describe('deactivate()', () => {
+    it('returns 400 when X-Actor-ID header is missing', async () => {
+      const ctxNoActor = {
+        tenantId: TENANT_A,
+        correlationId: CORRELATION_ID,
+        actorId: undefined,
+      } as unknown as TenantContext;
+      const txMgr = new InMemoryTransactionManager();
+      const ctrl = new StaffController(
+        ctxNoActor,
+        new ListStaffUseCase(repo),
+        new GetStaffByIdUseCase(repo),
+        new InviteStaffUseCase(repo, txMgr, eventBus, ctxNoActor),
+        new DeactivateStaffUseCase(repo, txMgr, eventBus, ctxNoActor),
+      );
+      const err = await ctrl.deactivate('10000000-0000-4000-8000-000000000001').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    });
+
     it('deactivates a STAFF member using tenantId from TenantContext', async () => {
       const manager = new StaffBuilder()
         .withTenantId(TENANT_A)

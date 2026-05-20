@@ -9,7 +9,6 @@ export class StaffBuilder {
   private name = 'Test User';
   private invitedBy: string | null = null;
   private googleOAuthId: string | null = null;
-  private overrideName: string | null = null;
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;
@@ -52,7 +51,7 @@ export class StaffBuilder {
     );
     staff.clearDomainEvents(); // builders don't produce events in tests
     if (this.googleOAuthId) {
-      staff.activate(this.googleOAuthId, this.overrideName ?? this.name);
+      staff.activate(this.googleOAuthId, this.name);
     }
     return staff;
   }

@@ -4,6 +4,7 @@ import {
   DefaultValuePipe,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
   Param,
   ParseIntPipe,
@@ -86,8 +87,17 @@ export class StaffController {
   deactivate(
     @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST })) id: string,
   ): Promise<DeactivateStaffUseCaseResult> {
+    const actorId = this.tenantContext.actorId;
+    if (!actorId) {
+      return Promise.reject(
+        new HttpException(
+          { type: 'about:blank', title: 'Bad Request', status: 400, detail: 'X-Actor-ID header is required' },
+          HttpStatus.BAD_REQUEST,
+        ),
+      );
+    }
     return this.deactivateStaff
-      .execute(id, this.tenantContext.tenantId, this.tenantContext.actorId!)
+      .execute(id, this.tenantContext.tenantId, actorId)
       .catch(mapStaffError);
   }
 }

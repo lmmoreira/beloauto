@@ -60,7 +60,7 @@ export class TenantSettings {
   }
 
   get business_hours(): BusinessHours {
-    return { ...this.props.business_hours };
+    return structuredClone(this.props.business_hours);
   }
 
   get localization(): LocalizationSettings {
