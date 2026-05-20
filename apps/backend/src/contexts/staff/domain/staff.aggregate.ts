@@ -120,7 +120,9 @@ export class Staff extends AggregateRoot {
     this.props.name = trimmedName;
     this.props.invitedBy = invitedBy;
     this.props.updatedAt = new Date();
-    this.addDomainEvent(new StaffInvited(this.props.tenantId, correlationId, { staffId: this.props.id }));
+    this.addDomainEvent(
+      new StaffInvited(this.props.tenantId, correlationId, { staffId: this.props.id }),
+    );
   }
 
   deactivate(deactivatedBy: string, correlationId: string): void {
@@ -128,6 +130,8 @@ export class Staff extends AggregateRoot {
     this.props.isActive = false;
     this.props.deactivatedBy = deactivatedBy;
     this.props.updatedAt = new Date();
-    this.addDomainEvent(new StaffDeactivated(this.props.tenantId, correlationId, { staffId: this.props.id }));
+    this.addDomainEvent(
+      new StaffDeactivated(this.props.tenantId, correlationId, { staffId: this.props.id }),
+    );
   }
 }

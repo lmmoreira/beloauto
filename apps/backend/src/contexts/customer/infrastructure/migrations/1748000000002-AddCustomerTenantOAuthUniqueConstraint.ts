@@ -9,8 +9,6 @@ export class AddCustomerTenantOAuthUniqueConstraint1748000000002 implements Migr
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "customer"."UQ_customer_customers_tenant_oauth"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "customer"."UQ_customer_customers_tenant_oauth"`);
   }
 }
