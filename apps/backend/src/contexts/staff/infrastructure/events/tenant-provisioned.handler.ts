@@ -1,14 +1,14 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import { AppLogger } from '../../../../shared/observability/app-logger';
+import { EVENT_BUS, IEventBus } from '../../../../shared/ports/event-bus.port';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../shared/ports/transaction-manager.port';
-import { AppLogger } from '../../../../shared/observability/app-logger';
-import { EVENT_BUS, IEventBus } from '../../../../shared/ports/event-bus.port';
 import { TenantProvisioned } from '../../../platform/domain/events/tenant-provisioned.event';
-import { STAFF_REPOSITORY, IStaffRepository } from '../../application/ports/staff-repository.port';
-import { Staff } from '../../domain/staff.aggregate';
+import { IStaffRepository, STAFF_REPOSITORY } from '../../application/ports/staff-repository.port';
 import { StaffInvited } from '../../domain/events/staff-invited.event';
+import { Staff } from '../../domain/staff.aggregate';
 
 @Injectable()
 export class TenantProvisionedHandler implements OnModuleInit {
@@ -29,24 +29,7 @@ export class TenantProvisionedHandler implements OnModuleInit {
     const { tenantId, correlationId } = event;
     const { adminEmail } = event.data;
 
-    if (this.processedEventIds.has(event.eventId)) {
-      this.logger.debug('TenantProvisioned already processed — skipping', {
-        tenantId,
-        eventId: event.eventId,
-        correlationId,
-      });
-      return;
-    }
-
-    const existing = await this.staffRepo.findByTenantAndEmail(tenantId, adminEmail);
-    if (existing) {
-      this.logger.debug('MANAGER staff already exists for tenant — skipping', {
-        tenantId,
-        correlationId,
-      });
-      this.processedEventIds.add(event.eventId);
-      return;
-    }
+    if (await this.shouldSkip(event)) return;
 
     const staff = Staff.inviteFromProvisioning(tenantId, adminEmail);
 
@@ -55,13 +38,37 @@ export class TenantProvisionedHandler implements OnModuleInit {
     });
 
     this.processedEventIds.add(event.eventId);
-
     await this.eventBus.publish(new StaffInvited(tenantId, correlationId, { staffId: staff.id }));
-
     this.logger.log('Staff MANAGER created from TenantProvisioned', {
       tenantId,
       staffId: staff.id,
       correlationId,
     });
+  }
+
+  private async shouldSkip(event: TenantProvisioned): Promise<boolean> {
+    if (this.processedEventIds.has(event.eventId)) {
+      this.logger.debug('TenantProvisioned already processed — skipping', {
+        tenantId: event.tenantId,
+        eventId: event.eventId,
+        correlationId: event.correlationId,
+      });
+      return true;
+    }
+
+    const existing = await this.staffRepo.findByTenantAndEmail(
+      event.tenantId,
+      event.data.adminEmail,
+    );
+    if (existing) {
+      this.logger.debug('MANAGER staff already exists for tenant — skipping', {
+        tenantId: event.tenantId,
+        correlationId: event.correlationId,
+      });
+      this.processedEventIds.add(event.eventId);
+      return true;
+    }
+
+    return false;
   }
 }
