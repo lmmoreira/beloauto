@@ -55,15 +55,15 @@ export class TypeOrmStaffRepository implements IStaffRepository {
   async countActiveManagersByTenant(tenantId: string): Promise<number> {
     const manager = getActiveEntityManager();
     if (manager) {
-      // Inside a transaction — lock rows to prevent concurrent deactivations
-      // from both observing count > 1 under READ COMMITTED isolation.
-      const result = await manager.query<Array<{ count: string }>>(
-        `SELECT COUNT(*)::int AS count FROM staff.staff
+      // FOR UPDATE cannot be combined with aggregate functions in PostgreSQL.
+      // Select the row IDs to acquire locks, then count the results in application code.
+      const rows = await manager.query<Array<{ id: string }>>(
+        `SELECT id FROM staff.staff
          WHERE tenant_id = $1 AND role = 'MANAGER' AND is_active = true
          FOR UPDATE`,
         [tenantId],
       );
-      return Number(result[0]!.count);
+      return rows.length;
     }
     return this.repo.count({ where: { tenantId, role: 'MANAGER', isActive: true } });
   }
