@@ -57,7 +57,7 @@ export class GcpPubSubEventBusAdapter
 
       const subscription = this.pubsub.subscription(config.subscriptionName);
       subscription.on('message', (message: Message) => {
-        void this.dispatch(message, eventName, config.handler);
+        this.dispatch(message, eventName, config.handler).catch(() => undefined);
       });
       subscription.on('error', (err: Error) => {
         this.logger.error(`[pubsub] subscription error on ${config.subscriptionName}`, err.stack);

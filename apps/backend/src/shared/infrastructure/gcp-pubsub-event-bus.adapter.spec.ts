@@ -41,6 +41,10 @@ class StubEvent extends DomainEvent<{ value: string }> {
   }
 }
 
+const noopHandler = async (_e: DomainEvent): Promise<void> => {
+  /* test stub */
+};
+
 describe('GcpPubSubEventBusAdapter', () => {
   let adapter: GcpPubSubEventBusAdapter;
 
@@ -83,7 +87,7 @@ describe('GcpPubSubEventBusAdapter', () => {
 
   describe('subscribe() + onApplicationBootstrap()', () => {
     it('registers subscription and starts listener on bootstrap', async () => {
-      adapter.subscribe('StubEvent', async () => {}, 'test-consumer');
+      adapter.subscribe('StubEvent', noopHandler, 'test-consumer');
       await adapter.onApplicationBootstrap();
 
       expect(mockSubOn).toHaveBeenCalledWith('message', expect.any(Function));
@@ -92,7 +96,7 @@ describe('GcpPubSubEventBusAdapter', () => {
 
     it('creates subscription when it does not exist', async () => {
       mockSubscriptionExists.mockResolvedValueOnce([false]);
-      adapter.subscribe('StubEvent', async () => {}, 'test-consumer');
+      adapter.subscribe('StubEvent', noopHandler, 'test-consumer');
       await adapter.onApplicationBootstrap();
 
       expect(mockCreateSubscription).toHaveBeenCalledWith('beloauto-StubEvent-test-consumer');
@@ -101,7 +105,7 @@ describe('GcpPubSubEventBusAdapter', () => {
 
   describe('onModuleDestroy()', () => {
     it('closes all active subscriptions', async () => {
-      adapter.subscribe('StubEvent', async () => {}, 'test-consumer');
+      adapter.subscribe('StubEvent', noopHandler, 'test-consumer');
       await adapter.onApplicationBootstrap();
       await adapter.onModuleDestroy();
 
@@ -111,7 +115,7 @@ describe('GcpPubSubEventBusAdapter', () => {
 
   describe('message dispatch', () => {
     it('acks message when handler succeeds', async () => {
-      adapter.subscribe('StubEvent', async () => {}, 'test-consumer');
+      adapter.subscribe('StubEvent', noopHandler, 'test-consumer');
       await adapter.onApplicationBootstrap();
 
       const messageHandler = mockSubOn.mock.calls.find(
@@ -132,13 +136,10 @@ describe('GcpPubSubEventBusAdapter', () => {
     });
 
     it('nacks message when handler throws', async () => {
-      adapter.subscribe(
-        'StubEvent',
-        async () => {
-          throw new Error('boom');
-        },
-        'test-consumer',
-      );
+      const throwingHandler = async (_e: DomainEvent): Promise<void> => {
+        throw new Error('boom');
+      };
+      adapter.subscribe('StubEvent', throwingHandler, 'test-consumer');
       await adapter.onApplicationBootstrap();
 
       const messageHandler = mockSubOn.mock.calls.find(
