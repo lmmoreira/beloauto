@@ -151,7 +151,7 @@ Implement staff deactivation. A MANAGER can deactivate any staff member except t
 
 ---
 
-### M04-S05 — Notification context bootstrap + StaffInvited email consumer
+### M04-S05 — Notification context bootstrap + StaffInvited email consumer ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
