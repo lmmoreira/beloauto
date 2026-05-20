@@ -1,16 +1,7 @@
-import { ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { makeExecutionContext } from '../../test/execution-context.factory';
 import { JwtAuthGuard } from './jwt-auth.guard';
-
-function makeContext(isPublic: boolean): ExecutionContext {
-  const reflector = new Reflector();
-  jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(isPublic);
-  return {
-    getHandler: () => ({}),
-    getClass: () => ({}),
-    switchToHttp: () => ({ getRequest: () => ({}) }),
-  } as unknown as ExecutionContext;
-}
 
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
@@ -24,8 +15,7 @@ describe('JwtAuthGuard', () => {
   describe('canActivate()', () => {
     it('returns true immediately for @Public() routes without calling super', () => {
       jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
-      const ctx = makeContext(true);
-      const result = guard.canActivate(ctx);
+      const result = guard.canActivate(makeExecutionContext());
       expect(result).toBe(true);
     });
   });
