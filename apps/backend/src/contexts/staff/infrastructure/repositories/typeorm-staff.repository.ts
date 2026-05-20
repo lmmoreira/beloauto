@@ -57,7 +57,7 @@ export class TypeOrmStaffRepository implements IStaffRepository {
     if (manager) {
       // FOR UPDATE cannot be combined with aggregate functions in PostgreSQL.
       // Select the row IDs to acquire locks, then count the results in application code.
-      const rows = await manager.query<Array<{ id: string }>>(
+      const rows = await manager.query(
         `SELECT id FROM staff.staff
          WHERE tenant_id = $1 AND role = 'MANAGER' AND is_active = true
          FOR UPDATE`,

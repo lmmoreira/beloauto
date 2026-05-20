@@ -54,9 +54,9 @@ export class Tenant extends AggregateRoot {
   static create(
     name: string,
     slug: string,
-    timezone = 'America/Sao_Paulo',
     adminEmail: string,
     correlationId: string,
+    timezone = 'America/Sao_Paulo',
   ): Tenant {
     if (!name || name.trim().length === 0) {
       throw new PlatformDomainError('Tenant name must not be empty');

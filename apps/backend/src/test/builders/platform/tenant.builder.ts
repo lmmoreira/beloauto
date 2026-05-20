@@ -33,9 +33,9 @@ export class TenantBuilder {
     const tenant = Tenant.create(
       this.name,
       this.slug,
-      this.timezone,
       this.adminEmail,
       DEFAULT_CORRELATION,
+      this.timezone,
     );
     tenant.clearDomainEvents(); // builders don't produce events in tests
     return tenant;

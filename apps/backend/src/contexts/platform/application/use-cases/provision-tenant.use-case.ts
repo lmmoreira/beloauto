@@ -39,7 +39,7 @@ export class ProvisionTenantUseCase {
       throw new SlugAlreadyTakenError(dto.slug);
     }
 
-    const tenant = Tenant.create(dto.name, dto.slug, timezone, dto.adminEmail, correlationId);
+    const tenant = Tenant.create(dto.name, dto.slug, dto.adminEmail, correlationId, timezone);
     const config = HotsiteConfig.create(tenant.id);
 
     await this.txManager.run(async () => {
