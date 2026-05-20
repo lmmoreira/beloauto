@@ -12,6 +12,7 @@ import { ListStaffUseCase } from './application/use-cases/list-staff.use-case';
 import { InternalStaffController } from './infrastructure/controllers/internal-staff.controller';
 import { StaffController } from './infrastructure/controllers/staff.controller';
 import { StaffEntity } from './infrastructure/entities/staff.entity';
+import { TenantProvisionedHandler } from './infrastructure/events/tenant-provisioned.handler';
 import { TypeOrmStaffRepository } from './infrastructure/repositories/typeorm-staff.repository';
 
 @Module({
@@ -26,6 +27,7 @@ import { TypeOrmStaffRepository } from './infrastructure/repositories/typeorm-st
     GetStaffByIdUseCase,
     InviteStaffUseCase,
     DeactivateStaffUseCase,
+    TenantProvisionedHandler,
   ],
 })
 export class StaffModule {}

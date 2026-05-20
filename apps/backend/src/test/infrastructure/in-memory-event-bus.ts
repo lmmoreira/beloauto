@@ -8,6 +8,13 @@ export class InMemoryEventBus implements IEventBus {
     this.published.push(event);
   }
 
+  subscribe<T extends DomainEvent>(
+    _eventName: string,
+    _handler: (event: T) => Promise<void>,
+  ): void {
+    // no-op: unit tests call handlers directly, not via event routing
+  }
+
   clear(): void {
     this.published.length = 0;
   }
