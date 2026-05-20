@@ -31,5 +31,6 @@ import { TypeOrmStaffRepository } from './infrastructure/repositories/typeorm-st
     CreateInitialManagerUseCase,
     TenantProvisionedHandler,
   ],
+  exports: [GetStaffByIdUseCase],
 })
 export class StaffModule {}

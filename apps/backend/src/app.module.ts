@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CustomerModule } from './contexts/customer/customer.module';
+import { NotificationModule } from './contexts/notification/notification.module';
 import { PlatformModule } from './contexts/platform/platform.module';
 import { StaffModule } from './contexts/staff/staff.module';
 import { HealthController } from './health/health.controller';
@@ -31,6 +32,7 @@ import { TenantModule } from './shared/tenant/tenant.module';
     PlatformModule,
     CustomerModule,
     StaffModule,
+    NotificationModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_INTERCEPTOR, useClass: TenantInterceptor }],

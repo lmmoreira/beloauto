@@ -9,6 +9,8 @@ import { HotsiteConfigEntity } from '../contexts/platform/infrastructure/entitie
 import { TenantEntity } from '../contexts/platform/infrastructure/entities/tenant.entity';
 import { CreatePlatformHotsiteConfigs1716500000002 } from '../contexts/platform/infrastructure/migrations/1716500000002-CreatePlatformHotsiteConfigs';
 import { CreatePlatformTenants1716500000001 } from '../contexts/platform/infrastructure/migrations/1716500000001-CreatePlatformTenants';
+import { NotificationLogEntity } from '../contexts/notification/infrastructure/entities/notification-log.entity';
+import { CreateNotificationLogs1748000000010 } from '../contexts/notification/infrastructure/migrations/1748000000010-CreateNotificationLogs';
 import { StaffEntity } from '../contexts/staff/infrastructure/entities/staff.entity';
 import { CreateStaffStaff1716600000002 } from '../contexts/staff/infrastructure/migrations/1716600000002-CreateStaffStaff';
 import { AddNameToStaff1716600000003 } from '../contexts/staff/infrastructure/migrations/1716600000003-AddNameToStaff';
@@ -44,7 +46,13 @@ export default async function globalSetup(): Promise<void> {
   const ds = new DataSource({
     type: 'postgres',
     url: pgContainer.getConnectionUri(),
-    entities: [TenantEntity, HotsiteConfigEntity, CustomerEntity, StaffEntity],
+    entities: [
+      TenantEntity,
+      HotsiteConfigEntity,
+      CustomerEntity,
+      StaffEntity,
+      NotificationLogEntity,
+    ],
     migrations: [
       CreatePlatformTenants1716500000001,
       CreatePlatformHotsiteConfigs1716500000002,
@@ -54,6 +62,7 @@ export default async function globalSetup(): Promise<void> {
       AddNameToStaff1716600000003,
       AddUniqueEmailPerTenant1716600000004,
       AddInvitedByDeactivatedByToStaff1748000000001,
+      CreateNotificationLogs1748000000010,
     ],
     synchronize: false,
     migrationsRun: false,

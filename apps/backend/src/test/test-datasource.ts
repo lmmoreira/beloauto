@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { CustomerEntity } from '../contexts/customer/infrastructure/entities/customer.entity';
+import { NotificationLogEntity } from '../contexts/notification/infrastructure/entities/notification-log.entity';
 import { HotsiteConfigEntity } from '../contexts/platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../contexts/platform/infrastructure/entities/tenant.entity';
 import { StaffEntity } from '../contexts/staff/infrastructure/entities/staff.entity';
@@ -21,7 +22,13 @@ export async function createTestDataSource(): Promise<DataSource> {
   const ds = new DataSource({
     type: 'postgres',
     url,
-    entities: [TenantEntity, HotsiteConfigEntity, CustomerEntity, StaffEntity],
+    entities: [
+      TenantEntity,
+      HotsiteConfigEntity,
+      CustomerEntity,
+      StaffEntity,
+      NotificationLogEntity,
+    ],
     synchronize: false,
     migrationsRun: false,
   });

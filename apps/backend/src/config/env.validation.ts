@@ -18,6 +18,10 @@ const schema = z.object({
   PUBSUB_PROJECT_ID: z.string().default('beloauto-local'),
   GCS_EMULATOR_HOST: z.string().optional(),
   GCS_BUCKET_NAME: z.string().default('beloauto-local'),
+  SMTP_HOST: z.string().default('localhost'),
+  SMTP_PORT: z.coerce.number().default(1025),
+  SMTP_FROM: z.string().default('noreply@beloauto.com.br'),
+  FRONTEND_URL: z.string().default('http://localhost:3000'),
 });
 
 export type Env = z.infer<typeof schema>;
