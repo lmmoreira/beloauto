@@ -1,4 +1,5 @@
 import { Injectable, LoggerService, LogLevel } from '@nestjs/common';
+import { TenantContext } from '../tenant/tenant-context';
 
 interface LogContext {
   tenantId?: string;
@@ -13,7 +14,10 @@ interface LogContext {
 export class AppLogger implements LoggerService {
   private context?: string;
 
-  constructor(context?: string) {
+  constructor(
+    context?: string,
+    private readonly tenantContext?: TenantContext,
+  ) {
     this.context = context;
   }
 
@@ -48,12 +52,27 @@ export class AppLogger implements LoggerService {
     trace?: string,
   ): void {
     const ctx = typeof context === 'string' ? { context } : context;
+
+    // Auto-enrich with request-scoped tenant context when available
+    let tenantFields: Partial<LogContext> = {};
+    try {
+      if (this.tenantContext) {
+        tenantFields = {
+          tenantId: this.tenantContext.tenantId,
+          correlationId: this.tenantContext.correlationId,
+        };
+      }
+    } catch {
+      // tenantStorage.getStore() returns undefined outside a request — safe to ignore
+    }
+
     const entry = {
       timestamp: new Date().toISOString(),
       level,
       service: 'backend',
       context: (typeof context === 'string' ? context : undefined) ?? this.context,
       message,
+      ...tenantFields,
       ...(ctx && typeof ctx === 'object' ? ctx : {}),
       ...(trace ? { trace } : {}),
     };

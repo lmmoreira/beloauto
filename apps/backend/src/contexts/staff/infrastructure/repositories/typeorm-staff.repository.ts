@@ -85,6 +85,8 @@ export class TypeOrmStaffRepository implements IStaffRepository {
       email: Email.create(entity.email),
       role: entity.role as StaffRole,
       isActive: entity.isActive,
+      invitedBy: entity.invitedBy,
+      deactivatedBy: entity.deactivatedBy,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
     });
@@ -99,6 +101,8 @@ export class TypeOrmStaffRepository implements IStaffRepository {
     entity.email = staff.email.address;
     entity.role = staff.role;
     entity.isActive = staff.isActive;
+    entity.invitedBy = staff.invitedBy;
+    entity.deactivatedBy = staff.deactivatedBy;
     entity.createdAt = staff.createdAt;
     entity.updatedAt = staff.updatedAt;
     return entity;
