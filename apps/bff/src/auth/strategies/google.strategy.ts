@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
 import { Profile, Strategy } from 'passport-google-oauth20';
+import { decodeOAuthState } from '../oauth-state';
 
 export interface GoogleProfile {
   googleOAuthId: string;
@@ -36,20 +37,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       done(new Error('Google account did not provide an email address'));
       return;
     }
-    const state = (req.query['state'] as string) || '';
-    // '__staff__' and '__staff__:<slug>' cannot be valid tenant slugs ([a-z0-9-]+ only)
-    const SLUG_REGEX = /^[a-z0-9-]+$/;
-    let loginType: 'staff' | undefined;
-    let tenantSlug: string | undefined;
-    if (state === '__staff__') {
-      loginType = 'staff';
-    } else if (state.startsWith('__staff__:')) {
-      loginType = 'staff';
-      const extracted = state.slice('__staff__:'.length);
-      tenantSlug = extracted && SLUG_REGEX.test(extracted) ? extracted : undefined;
-    } else {
-      tenantSlug = state && SLUG_REGEX.test(state) ? state : undefined;
-    }
+    const raw = req.query['state'];
+    const state = typeof raw === 'string' ? raw : '';
+    const { loginType, tenantSlug } = decodeOAuthState(state);
     done(null, {
       googleOAuthId: profile.id,
       email,

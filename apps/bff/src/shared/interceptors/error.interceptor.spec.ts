@@ -1,15 +1,8 @@
-import { ExecutionContext, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { CallHandler } from '@nestjs/common';
 import { lastValueFrom, Observable, of, throwError } from 'rxjs';
+import { makeExecutionContext } from '../../test/execution-context.factory';
 import { ErrorInterceptor } from './error.interceptor';
-
-function makeContext(path = '/v1/test', method = 'GET'): ExecutionContext {
-  return {
-    switchToHttp: () => ({
-      getRequest: () => ({ path, method }),
-    }),
-  } as unknown as ExecutionContext;
-}
 
 function makeHandler(observable: Observable<unknown>): CallHandler {
   return { handle: () => observable } as unknown as CallHandler;
@@ -28,7 +21,10 @@ describe('ErrorInterceptor', () => {
 
   it('passes through HttpExceptions without logging', async () => {
     const httpErr = new HttpException({ title: 'Not Found', status: 404 }, 404);
-    const result$ = interceptor.intercept(makeContext(), makeHandler(throwError(() => httpErr)));
+    const result$ = interceptor.intercept(
+      makeExecutionContext({ path: '/v1/test' }),
+      makeHandler(throwError(() => httpErr)),
+    );
 
     await expect(lastValueFrom(result$)).rejects.toBe(httpErr);
     expect(loggerErrorSpy).not.toHaveBeenCalled();
@@ -36,7 +32,7 @@ describe('ErrorInterceptor', () => {
 
   it('converts unknown errors to 500 with RFC 7807 body', async () => {
     const result$ = interceptor.intercept(
-      makeContext('/v1/staff'),
+      makeExecutionContext({ path: '/v1/staff' }),
       makeHandler(throwError(() => new Error('database down'))),
     );
 
@@ -54,7 +50,10 @@ describe('ErrorInterceptor', () => {
   it('logs the error message and stack for unknown errors', async () => {
     const err = new Error('something went wrong');
     interceptor
-      .intercept(makeContext('/v1/staff', 'POST'), makeHandler(throwError(() => err)))
+      .intercept(
+        makeExecutionContext({ path: '/v1/staff', method: 'POST' }),
+        makeHandler(throwError(() => err)),
+      )
       .subscribe({ error: () => undefined });
 
     expect(loggerErrorSpy).toHaveBeenCalledWith(
@@ -66,7 +65,10 @@ describe('ErrorInterceptor', () => {
 
   it('logs stringified non-Error throws', async () => {
     interceptor
-      .intercept(makeContext(), makeHandler(throwError(() => 'string error')))
+      .intercept(
+        makeExecutionContext({ path: '/v1/test' }),
+        makeHandler(throwError(() => 'string error')),
+      )
       .subscribe({ error: () => undefined });
 
     expect(loggerErrorSpy).toHaveBeenCalledWith(
@@ -78,7 +80,10 @@ describe('ErrorInterceptor', () => {
 
   it('passes through successful responses unchanged', async () => {
     const payload = { ok: true };
-    const result$ = interceptor.intercept(makeContext(), makeHandler(of(payload)));
+    const result$ = interceptor.intercept(
+      makeExecutionContext({ path: '/v1/test' }),
+      makeHandler(of(payload)),
+    );
     await expect(lastValueFrom(result$)).resolves.toBe(payload);
     expect(loggerErrorSpy).not.toHaveBeenCalled();
   });

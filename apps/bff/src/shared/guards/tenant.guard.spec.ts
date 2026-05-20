@@ -1,20 +1,8 @@
-import { ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { makeExecutionContext } from '../../test/execution-context.factory';
 import { CurrentUserPayload } from '../decorators/current-user.decorator';
 import { TenantGuard } from './tenant.guard';
-
-function makeContext(
-  user: CurrentUserPayload | undefined,
-  headers: Record<string, string> = {},
-): ExecutionContext {
-  return {
-    getHandler: () => ({}),
-    getClass: () => ({}),
-    switchToHttp: () => ({
-      getRequest: () => ({ user, headers }),
-    }),
-  } as unknown as ExecutionContext;
-}
 
 describe('TenantGuard', () => {
   let guard: TenantGuard;
@@ -34,31 +22,39 @@ describe('TenantGuard', () => {
 
   it('returns true for @Public() routes', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(true);
-    expect(guard.canActivate(makeContext(undefined, {}))).toBe(true);
+    expect(guard.canActivate(makeExecutionContext())).toBe(true);
   });
 
   it('returns true when no user is present (guard did not run — handled by JwtAuthGuard)', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
-    expect(guard.canActivate(makeContext(undefined, {}))).toBe(true);
+    expect(guard.canActivate(makeExecutionContext())).toBe(true);
   });
 
   it('returns true when X-Tenant-Slug is absent', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
-    expect(guard.canActivate(makeContext(user, {}))).toBe(true);
+    expect(guard.canActivate(makeExecutionContext({ user }))).toBe(true);
   });
 
   it('returns true when X-Tenant-Slug matches JWT tenantSlug', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
-    expect(guard.canActivate(makeContext(user, { 'x-tenant-slug': 'lavacar-belo' }))).toBe(true);
+    expect(
+      guard.canActivate(
+        makeExecutionContext({ user, headers: { 'x-tenant-slug': 'lavacar-belo' } }),
+      ),
+    ).toBe(true);
   });
 
   it('throws 403 when X-Tenant-Slug does not match JWT tenantSlug', () => {
     jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(false);
-    expect(() => guard.canActivate(makeContext(user, { 'x-tenant-slug': 'other-tenant' }))).toThrow(
-      HttpException,
-    );
+    expect(() =>
+      guard.canActivate(
+        makeExecutionContext({ user, headers: { 'x-tenant-slug': 'other-tenant' } }),
+      ),
+    ).toThrow(HttpException);
     try {
-      guard.canActivate(makeContext(user, { 'x-tenant-slug': 'other-tenant' }));
+      guard.canActivate(
+        makeExecutionContext({ user, headers: { 'x-tenant-slug': 'other-tenant' } }),
+      );
     } catch (e) {
       expect((e as HttpException).getStatus()).toBe(HttpStatus.FORBIDDEN);
       const body = (e as HttpException).getResponse() as Record<string, unknown>;
