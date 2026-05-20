@@ -156,7 +156,9 @@ describe('StaffController', () => {
         new InviteStaffUseCase(repo, txMgr, eventBus, ctxNoActor),
         new DeactivateStaffUseCase(repo, txMgr, eventBus, ctxNoActor),
       );
-      const err = await ctrl.deactivate('10000000-0000-4000-8000-000000000001').catch((e: unknown) => e);
+      const err = await ctrl
+        .deactivate('10000000-0000-4000-8000-000000000001')
+        .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
     });

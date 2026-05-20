@@ -91,7 +91,12 @@ export class StaffController {
     if (!actorId) {
       return Promise.reject(
         new HttpException(
-          { type: 'about:blank', title: 'Bad Request', status: 400, detail: 'X-Actor-ID header is required' },
+          {
+            type: 'about:blank',
+            title: 'Bad Request',
+            status: 400,
+            detail: 'X-Actor-ID header is required',
+          },
           HttpStatus.BAD_REQUEST,
         ),
       );
