@@ -307,6 +307,8 @@ Event handlers live in `<context>/infrastructure/events/`. They are **infrastruc
 
 `waitFor()` utility lives at `src/test/utils/wait-for.ts`. Use it in story integration specs to poll for async side effects — this is the approved pattern instead of raw `setTimeout` in tests.
 
+**Shared test date helpers (mandatory — never inline):** `src/test/utils/date-helpers.ts` exports `futureDate(daysAhead = 1)` and `pastDate(daysAgo = 1)` — both return `YYYY-MM-DD` strings offset from today in UTC. Always import these; never define `function futureDate()` / `function pastDate()` inline in any spec file. See `schedule-closure.spec.ts` and `schedule-opening.spec.ts` as canonical examples.
+
 ### Testing
 
 Three layers: **Unit** (`.spec.ts`, Jest) · **Integration** (`.integration.spec.ts`, Jest + Testcontainers singleton) · **E2E** (Playwright, happy paths only). Full details → `docs/08-TESTING_STRATEGY.md`.

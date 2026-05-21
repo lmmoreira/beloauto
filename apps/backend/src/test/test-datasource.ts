@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { ScheduleClosureEntity } from '../contexts/booking/infrastructure/entities/schedule-closure.entity';
+import { ScheduleOpeningEntity } from '../contexts/booking/infrastructure/entities/schedule-opening.entity';
 import { ServiceEntity } from '../contexts/booking/infrastructure/entities/service.entity';
 import { CustomerEntity } from '../contexts/customer/infrastructure/entities/customer.entity';
 import { NotificationLogEntity } from '../contexts/notification/infrastructure/entities/notification-log.entity';
@@ -29,6 +30,7 @@ export async function createTestDataSource(): Promise<DataSource> {
       HotsiteConfigEntity,
       ServiceEntity,
       ScheduleClosureEntity,
+      ScheduleOpeningEntity,
       CustomerEntity,
       StaffEntity,
       NotificationLogEntity,

@@ -1,4 +1,5 @@
 import { Money } from '../../../shared/value-objects/money';
+import { ServiceBuilder } from '../../../test/builders/booking/index';
 import { BookingDomainError, ServiceDeactivatedError } from './errors/booking-domain.error';
 import { Service } from './service.aggregate';
 
@@ -7,22 +8,18 @@ const PRICE = Money.from(150, 'BRL');
 const DURATION = 60;
 const POINTS = 10;
 
-function makeService(overrides?: Partial<Parameters<typeof Service.create>>) {
-  return Service.create(
-    overrides?.[0] ?? TENANT,
-    overrides?.[1] ?? 'Lavagem Completa',
-    overrides?.[2] ?? PRICE,
-    overrides?.[3] ?? DURATION,
-    overrides?.[4] ?? POINTS,
-    overrides?.[5] ?? false,
-    overrides?.[6] ?? 'Descrição',
-  );
-}
-
 describe('Service', () => {
   describe('create()', () => {
     it('creates an active service with correct properties', () => {
-      const service = makeService();
+      const service = new ServiceBuilder()
+        .withTenantId(TENANT)
+        .withName('Lavagem Completa')
+        .withPrice(PRICE)
+        .withDurationMinutes(DURATION)
+        .withLoyaltyPointsValue(POINTS)
+        .withDescription('Descrição')
+        .build();
+
       expect(service.id).toBeDefined();
       expect(service.tenantId).toBe(TENANT);
       expect(service.name).toBe('Lavagem Completa');
@@ -53,12 +50,12 @@ describe('Service', () => {
     });
 
     it('price.format() returns pt-BR formatted string', () => {
-      const service = makeService();
+      const service = new ServiceBuilder().withTenantId(TENANT).withPrice(PRICE).build();
       expect(service.price.format()).toBe('R$ 150,00');
     });
 
     it('stores no domain events on creation', () => {
-      const service = makeService();
+      const service = new ServiceBuilder().withTenantId(TENANT).build();
       expect(service.clearDomainEvents()).toHaveLength(0);
     });
 
@@ -135,8 +132,20 @@ describe('Service', () => {
   });
 
   describe('update()', () => {
+    let service: Service;
+
+    beforeEach(() => {
+      service = new ServiceBuilder()
+        .withTenantId(TENANT)
+        .withName('Lavagem Completa')
+        .withPrice(PRICE)
+        .withDurationMinutes(DURATION)
+        .withLoyaltyPointsValue(POINTS)
+        .withDescription('Descrição')
+        .build();
+    });
+
     it('updates all mutable fields', () => {
-      const service = makeService();
       const newPrice = Money.from(200, 'BRL');
       service.update('Lavagem Premium', 'Nova desc', newPrice, 90, 20, true);
       expect(service.name).toBe('Lavagem Premium');
@@ -148,20 +157,17 @@ describe('Service', () => {
     });
 
     it('updates updatedAt timestamp', () => {
-      const service = makeService();
       const before = service.updatedAt;
       service.update('Novo Nome', null, PRICE, DURATION, POINTS, false);
       expect(service.updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
     });
 
     it('accepts null description to clear it', () => {
-      const service = makeService();
       service.update('Lavagem', null, PRICE, DURATION, POINTS, false);
       expect(service.description).toBeNull();
     });
 
     it('throws ServiceDeactivatedError when service is inactive', () => {
-      const service = makeService();
       service.deactivate();
       expect(() => service.update('Novo Nome', null, PRICE, DURATION, POINTS, false)).toThrow(
         ServiceDeactivatedError,
@@ -169,28 +175,24 @@ describe('Service', () => {
     });
 
     it('throws when updated name is empty', () => {
-      const service = makeService();
       expect(() => service.update('', null, PRICE, DURATION, POINTS, false)).toThrow(
         BookingDomainError,
       );
     });
 
     it('throws when updated price is zero', () => {
-      const service = makeService();
       expect(() => service.update('Lavagem', null, Money.from(0), DURATION, POINTS, false)).toThrow(
         BookingDomainError,
       );
     });
 
     it('throws when updated durationMinutes is zero', () => {
-      const service = makeService();
       expect(() => service.update('Lavagem', null, PRICE, 0, POINTS, false)).toThrow(
         BookingDomainError,
       );
     });
 
     it('throws when updated loyaltyPointsValue is negative', () => {
-      const service = makeService();
       expect(() => service.update('Lavagem', null, PRICE, DURATION, -1, false)).toThrow(
         BookingDomainError,
       );
@@ -198,21 +200,24 @@ describe('Service', () => {
   });
 
   describe('deactivate()', () => {
+    let service: Service;
+
+    beforeEach(() => {
+      service = new ServiceBuilder().withTenantId(TENANT).build();
+    });
+
     it('sets isActive to false', () => {
-      const service = makeService();
       service.deactivate();
       expect(service.isActive).toBe(false);
     });
 
     it('updates updatedAt timestamp', () => {
-      const service = makeService();
       const before = service.updatedAt;
       service.deactivate();
       expect(service.updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
     });
 
     it('does not emit domain events', () => {
-      const service = makeService();
       service.deactivate();
       expect(service.clearDomainEvents()).toHaveLength(0);
     });

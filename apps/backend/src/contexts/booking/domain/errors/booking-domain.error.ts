@@ -40,3 +40,31 @@ export class ScheduleAlreadyClosedError extends BookingDomainError {
     this.name = 'ScheduleAlreadyClosedError';
   }
 }
+
+export class OpeningDateInPastError extends BookingDomainError {
+  constructor() {
+    super('Cannot open a schedule for a past date');
+    this.name = 'OpeningDateInPastError';
+  }
+}
+
+export class DayAlreadyOpenInSettingsError extends BookingDomainError {
+  constructor(date: string) {
+    super(`Day is already open in business hours settings: ${date}`);
+    this.name = 'DayAlreadyOpenInSettingsError';
+  }
+}
+
+export class ScheduleOpeningAlreadyExistsError extends BookingDomainError {
+  constructor(date: string) {
+    super(`A schedule opening already exists for date: ${date}`);
+    this.name = 'ScheduleOpeningAlreadyExistsError';
+  }
+}
+
+export class ScheduleOpeningNotFoundError extends BookingDomainError {
+  constructor(id: string) {
+    super(`Schedule opening not found: ${id}`);
+    this.name = 'ScheduleOpeningNotFoundError';
+  }
+}
