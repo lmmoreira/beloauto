@@ -55,17 +55,7 @@ export class ScheduleClosure extends AggregateRoot {
     createdBy: string,
     notes?: string,
   ): ScheduleClosure {
-    if (!tenantId) throw new BookingDomainError('tenantId is required');
-    if (!createdBy) throw new BookingDomainError('createdBy is required');
-    if (!Object.values(ClosureReason).includes(reason)) {
-      throw new BookingDomainError(`Invalid closure reason: ${reason}`);
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-    if (date < today) {
-      throw new BookingDomainError('Cannot close a schedule for a past date');
-    }
-
+    ScheduleClosure.assertValid(tenantId, date, reason, createdBy);
     return new ScheduleClosure({
       id: uuidv7(),
       tenantId,
@@ -79,5 +69,20 @@ export class ScheduleClosure extends AggregateRoot {
 
   static reconstitute(props: ScheduleClosureProps): ScheduleClosure {
     return new ScheduleClosure(props);
+  }
+
+  private static assertValid(
+    tenantId: string,
+    date: string,
+    reason: ClosureReason,
+    createdBy: string,
+  ): void {
+    if (!tenantId) throw new BookingDomainError('tenantId is required');
+    if (!createdBy) throw new BookingDomainError('createdBy is required');
+    if (!Object.values(ClosureReason).includes(reason)) {
+      throw new BookingDomainError(`Invalid closure reason: ${reason}`);
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    if (date < today) throw new BookingDomainError('Cannot close a schedule for a past date');
   }
 }
