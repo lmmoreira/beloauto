@@ -11,7 +11,7 @@
 
 ---
 
-### M06-S01 — ScheduleClosure aggregate domain + migration (partial-day support)
+### M06-S01 — ScheduleClosure aggregate domain + migration (partial-day support) ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
