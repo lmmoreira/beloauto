@@ -95,11 +95,13 @@ describe('ScheduleClosureController (integration)', () => {
     });
 
     it('returns 422 for a past date', async () => {
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .post('/schedule/closures')
         .set(actorHeaders(TENANT_A))
         .send({ date: pastDate(), reason: 'HOLIDAY' })
         .expect(422);
+
+      expect(body.status).toBe(422);
     });
 
     it('returns 409 when closing a date that is already fully closed', async () => {
@@ -110,19 +112,23 @@ describe('ScheduleClosureController (integration)', () => {
         .send({ date, reason: 'HOLIDAY' })
         .expect(201);
 
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .post('/schedule/closures')
         .set(actorHeaders(TENANT_A))
         .send({ date, reason: 'MAINTENANCE' })
         .expect(409);
+
+      expect(body.status).toBe(409);
     });
 
     it('returns 403 for CUSTOMER role', async () => {
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .post('/schedule/closures')
         .set({ ...actorHeaders(TENANT_A), 'x-actor-role': 'CUSTOMER', 'x-actor-type': 'CUSTOMER' })
         .send({ date: futureDate(30), reason: 'HOLIDAY' })
         .expect(403);
+
+      expect(body).toBeDefined();
     });
   });
 
@@ -148,10 +154,12 @@ describe('ScheduleClosureController (integration)', () => {
     });
 
     it('returns 404 when closure does not exist', async () => {
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .delete('/schedule/closures/00000000-0000-4000-8000-000000000099')
         .set(actorHeaders(TENANT_A))
         .expect(404);
+
+      expect(body.status).toBe(404);
     });
 
     it('tenant isolation: cannot delete a closure from another tenant', async () => {
@@ -161,10 +169,12 @@ describe('ScheduleClosureController (integration)', () => {
         .build();
       await ds.getRepository(ScheduleClosureEntity).save(entity);
 
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .delete(`/schedule/closures/${entity.id}`)
         .set(actorHeaders(TENANT_A))
         .expect(404);
+
+      expect(body.status).toBe(404);
     });
   });
 

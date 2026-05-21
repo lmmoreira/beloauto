@@ -26,10 +26,7 @@ import {
   ListClosuresUseCase,
   ListClosuresUseCaseResult,
 } from '../../application/use-cases/list-closures.use-case';
-import {
-  RemoveClosureUseCase,
-  RemoveClosureUseCaseResult,
-} from '../../application/use-cases/remove-closure.use-case';
+import { RemoveClosureUseCase } from '../../application/use-cases/remove-closure.use-case';
 import { StaffOrManagerRoleGuard } from '../guards/staff-or-manager-role.guard';
 import { mapBookingError } from '../http/booking-error.mapper';
 
@@ -61,7 +58,7 @@ export class ScheduleClosureController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST })) id: string,
-  ): Promise<RemoveClosureUseCaseResult> {
+  ): Promise<void> {
     return this.removeClosure.execute(id).catch(mapBookingError);
   }
 }

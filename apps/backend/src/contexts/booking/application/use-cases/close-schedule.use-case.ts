@@ -4,7 +4,7 @@ import {
   TRANSACTION_MANAGER,
 } from '../../../../shared/ports/transaction-manager.port';
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
-import { ClosureReason, ScheduleClosure } from '../../domain/schedule-closure.aggregate';
+import { ScheduleClosure } from '../../domain/schedule-closure.aggregate';
 import { ScheduleAlreadyClosedError } from '../../domain/errors/booking-domain.error';
 import {
   IScheduleClosureRepository,
@@ -39,7 +39,7 @@ export class CloseScheduleUseCase {
     const closure = ScheduleClosure.close(
       tenantId,
       dto.date,
-      dto.reason as ClosureReason,
+      dto.reason,
       createdBy,
       dto.startTime,
       dto.endTime,

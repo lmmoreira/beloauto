@@ -10,8 +10,6 @@ import {
   SCHEDULE_CLOSURE_REPOSITORY,
 } from '../ports/schedule-closure-repository.port';
 
-export type RemoveClosureUseCaseResult = void;
-
 @Injectable()
 export class RemoveClosureUseCase {
   constructor(
@@ -21,7 +19,7 @@ export class RemoveClosureUseCase {
     private readonly tenantContext: TenantContext,
   ) {}
 
-  async execute(id: string): Promise<RemoveClosureUseCaseResult> {
+  async execute(id: string): Promise<void> {
     const tenantId = this.tenantContext.tenantId;
     const closure = await this.closureRepo.findById(id, tenantId);
     if (!closure) throw new ScheduleClosureNotFoundError(id);
