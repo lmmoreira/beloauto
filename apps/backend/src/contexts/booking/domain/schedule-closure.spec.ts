@@ -1,20 +1,9 @@
+import { futureDate, pastDate } from '../../../test/utils/date-helpers';
 import { BookingDomainError } from './errors/booking-domain.error';
 import { ClosureReason, ScheduleClosure } from './schedule-closure.aggregate';
 
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const STAFF_ID = '00000000-0000-7000-8000-000000000002';
-
-function futureDate(daysAhead = 1): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + daysAhead);
-  return d.toISOString().slice(0, 10);
-}
-
-function pastDate(daysAgo = 1): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - daysAgo);
-  return d.toISOString().slice(0, 10);
-}
 
 describe('ScheduleClosure.close()', () => {
   it('creates a closure with valid inputs', () => {
