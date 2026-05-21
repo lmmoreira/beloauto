@@ -1,7 +1,7 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
 import { TimeOfDay } from '../../../shared/value-objects/time-of-day.vo';
-import { BookingDomainError } from './errors/booking-domain.error';
+import { BookingDomainError, ClosureDateInPastError } from './errors/booking-domain.error';
 
 export enum ClosureReason {
   STAFF_DAY_OFF = 'STAFF_DAY_OFF',
@@ -111,7 +111,7 @@ export class ScheduleClosure extends AggregateRoot {
       throw new BookingDomainError(`Invalid closure reason: ${reason}`);
     }
     const today = new Date().toISOString().slice(0, 10);
-    if (date < today) throw new BookingDomainError('Cannot close a schedule for a past date');
+    if (date < today) throw new ClosureDateInPastError();
     ScheduleClosure.assertTimeRange(startTime, endTime);
   }
 

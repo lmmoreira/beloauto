@@ -1,6 +1,9 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import {
   BookingDomainError,
+  ClosureDateInPastError,
+  ScheduleAlreadyClosedError,
+  ScheduleClosureNotFoundError,
   ServiceDeactivatedError,
   ServiceNotFoundError,
 } from '../../domain/errors/booking-domain.error';
@@ -22,10 +25,28 @@ describe('mapBookingError', () => {
     expect(err.getStatus()).toBe(HttpStatus.NOT_FOUND);
   });
 
+  it('maps ScheduleClosureNotFoundError to 404', () => {
+    const err = call(new ScheduleClosureNotFoundError('cls-id'));
+    expect(err).toBeInstanceOf(HttpException);
+    expect(err.getStatus()).toBe(HttpStatus.NOT_FOUND);
+  });
+
   it('maps ServiceDeactivatedError to 409', () => {
     const err = call(new ServiceDeactivatedError());
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getStatus()).toBe(HttpStatus.CONFLICT);
+  });
+
+  it('maps ScheduleAlreadyClosedError to 409', () => {
+    const err = call(new ScheduleAlreadyClosedError('2026-12-25'));
+    expect(err).toBeInstanceOf(HttpException);
+    expect(err.getStatus()).toBe(HttpStatus.CONFLICT);
+  });
+
+  it('maps ClosureDateInPastError to 422', () => {
+    const err = call(new ClosureDateInPastError());
+    expect(err).toBeInstanceOf(HttpException);
+    expect(err.getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
   });
 
   it('maps generic BookingDomainError to 400', () => {

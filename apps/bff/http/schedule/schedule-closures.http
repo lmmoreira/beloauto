@@ -1,0 +1,109 @@
+# BFF — Schedule Closure endpoints
+# UC-010a (create), UC-010b (remove), list
+# JWT required. Role: MANAGER or STAFF.
+#
+# Prerequisites:
+#   1. pnpm infra:up
+#   2. pnpm --filter @beloauto/bff run dev
+#
+# REST Client environment: select "local" in VS Code status bar
+
+@bffUrl = {{bffBaseUrl}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — list closures
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### List closures in December 2026
+GET {{bffUrl}}/v1/schedule/closures?from=2026-12-01&to=2026-12-31
+Authorization: Bearer {{managerToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — create full-day closure (UC-010a)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### Create a full-day holiday closure
+POST {{bffUrl}}/v1/schedule/closures
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "date": "2026-12-25",
+  "reason": "HOLIDAY",
+  "notes": "Natal"
+}
+
+###
+
+### Create a partial closure (maintenance 10:00–12:00)
+POST {{bffUrl}}/v1/schedule/closures
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "date": "2026-12-26",
+  "reason": "MAINTENANCE",
+  "startTime": "10:00",
+  "endTime": "12:00",
+  "notes": "Manutenção preventiva"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — remove closure (UC-010b)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### Remove a closure
+DELETE {{bffUrl}}/v1/schedule/closures/{{closureId}}
+Authorization: Bearer {{managerToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR CASES
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### 422 — Past date
+POST {{bffUrl}}/v1/schedule/closures
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "date": "2020-01-01",
+  "reason": "HOLIDAY"
+}
+
+###
+
+### 409 — Overlapping closure
+POST {{bffUrl}}/v1/schedule/closures
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "date": "2026-12-25",
+  "reason": "MAINTENANCE"
+}
+
+###
+
+### 403 — Customer token
+POST {{bffUrl}}/v1/schedule/closures
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "date": "2026-12-28",
+  "reason": "HOLIDAY"
+}
+
+###
+
+### 404 — Closure not found
+DELETE {{bffUrl}}/v1/schedule/closures/00000000-0000-4000-8000-000000000099
+Authorization: Bearer {{managerToken}}

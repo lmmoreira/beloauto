@@ -1,0 +1,118 @@
+import { HttpException } from '@nestjs/common';
+import { futureDate, pastDate } from '../../../../test/utils/date-helpers';
+import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
+import { InMemoryScheduleClosureRepository } from '../../../../test/repositories/booking/in-memory-schedule-closure.repository';
+import { ScheduleClosureBuilder } from '../../../../test/builders/booking/index';
+import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
+import { ClosureReason } from '../../domain/schedule-closure.aggregate';
+import { CloseScheduleUseCase } from '../../application/use-cases/close-schedule.use-case';
+import { ListClosuresUseCase } from '../../application/use-cases/list-closures.use-case';
+import { RemoveClosureUseCase } from '../../application/use-cases/remove-closure.use-case';
+import { ScheduleClosureController } from './schedule-closure.controller';
+
+const TENANT_ID = '00000000-0000-7000-8000-000000000001';
+const ACTOR_ID = '00000000-0000-7000-8000-000000000002';
+
+function makeController(repo = new InMemoryScheduleClosureRepository()) {
+  const ctx = new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build();
+  const tx = new InMemoryTransactionManager();
+  return {
+    controller: new ScheduleClosureController(
+      new CloseScheduleUseCase(repo, tx, ctx),
+      new RemoveClosureUseCase(repo, tx, ctx),
+      new ListClosuresUseCase(repo, ctx),
+    ),
+    repo,
+  };
+}
+
+describe('ScheduleClosureController', () => {
+  afterEach(() => jest.resetAllMocks());
+
+  describe('create()', () => {
+    it('returns 201 result for a full-day closure', async () => {
+      const { controller } = makeController();
+      const result = await controller.create({
+        date: futureDate(5),
+        reason: ClosureReason.HOLIDAY,
+      });
+
+      expect(result.id).toBeDefined();
+      expect(result.startTime).toBeNull();
+      expect(result.reason).toBe(ClosureReason.HOLIDAY);
+    });
+
+    it('returns 201 result for a partial closure', async () => {
+      const { controller } = makeController();
+      const result = await controller.create({
+        date: futureDate(3),
+        reason: ClosureReason.MAINTENANCE,
+        startTime: '10:00',
+        endTime: '12:00',
+      });
+
+      expect(result.startTime).toBe('10:00');
+      expect(result.endTime).toBe('12:00');
+    });
+
+    it('maps ClosureDateInPastError to 422', async () => {
+      const { controller } = makeController();
+      const err = await controller
+        .create({ date: pastDate(1), reason: ClosureReason.HOLIDAY })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(422);
+    });
+
+    it('maps ScheduleAlreadyClosedError to 409 when duplicate', async () => {
+      const { controller, repo } = makeController();
+      const date = futureDate(5);
+      await repo.save(new ScheduleClosureBuilder().withTenantId(TENANT_ID).withDate(date).build());
+
+      const err = await controller
+        .create({ date, reason: ClosureReason.HOLIDAY })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(409);
+    });
+  });
+
+  describe('remove()', () => {
+    it('deletes a closure and returns void', async () => {
+      const { controller, repo } = makeController();
+      const closure = new ScheduleClosureBuilder()
+        .withTenantId(TENANT_ID)
+        .withDate(futureDate(5))
+        .build();
+      await repo.save(closure);
+
+      const result = await controller.remove(closure.id);
+      expect(result).toBeUndefined();
+    });
+
+    it('maps ScheduleClosureNotFoundError to 404', async () => {
+      const { controller } = makeController();
+      const err = await controller
+        .remove('00000000-0000-7000-8000-000000000099')
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(404);
+    });
+  });
+
+  describe('list()', () => {
+    it('returns items in the requested range', async () => {
+      const { controller, repo } = makeController();
+      await repo.save(
+        new ScheduleClosureBuilder().withTenantId(TENANT_ID).withDate('2026-12-25').build(),
+      );
+
+      const result = await controller.list({ from: '2026-12-01', to: '2026-12-31' });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].date).toBe('2026-12-25');
+    });
+  });
+});

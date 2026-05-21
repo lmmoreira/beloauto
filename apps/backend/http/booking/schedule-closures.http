@@ -1,0 +1,167 @@
+# Booking — Schedule Closure endpoints
+# UC-010a (create), UC-010b (remove), list
+# TenantContext populated from X-Tenant-ID / X-Actor-ID headers (set by BFF).
+#
+# Prerequisites:
+#   1. pnpm infra:up
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run dev
+#
+# REST Client environment: select "local" in VS Code status bar
+
+@baseUrl    = {{backendUrl}}
+@tenantId   = 10000000-0000-4000-8000-000000000001
+@actorId    = 20000000-0000-4000-8000-000000000001
+@closureId  = 30000000-0000-4000-8000-000000000001
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — list closures
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### List closures in December 2026
+GET {{baseUrl}}/schedule/closures?from=2026-12-01&to=2026-12-31
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — create full-day closure (UC-010a)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### Create a full-day holiday closure
+POST {{baseUrl}}/schedule/closures
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+{
+  "date": "2026-12-25",
+  "reason": "HOLIDAY",
+  "notes": "Natal"
+}
+
+###
+
+### Create a partial closure (maintenance 10:00–12:00)
+POST {{baseUrl}}/schedule/closures
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+{
+  "date": "2026-12-26",
+  "reason": "MAINTENANCE",
+  "startTime": "10:00",
+  "endTime": "12:00",
+  "notes": "Manutenção preventiva"
+}
+
+###
+
+### Create a staff day off (full day)
+POST {{baseUrl}}/schedule/closures
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: STAFF
+
+{
+  "date": "2026-12-27",
+  "reason": "STAFF_DAY_OFF"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — remove closure (UC-010b)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### Remove a closure
+DELETE {{baseUrl}}/schedule/closures/{{closureId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR CASES
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### 403 — CUSTOMER role not allowed
+POST {{baseUrl}}/schedule/closures
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+
+{
+  "date": "2026-12-28",
+  "reason": "HOLIDAY"
+}
+
+###
+
+### 422 — Past date
+POST {{baseUrl}}/schedule/closures
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+{
+  "date": "2020-01-01",
+  "reason": "HOLIDAY"
+}
+
+###
+
+### 409 — Date already closed (duplicate)
+POST {{baseUrl}}/schedule/closures
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+{
+  "date": "2026-12-25",
+  "reason": "MAINTENANCE"
+}
+
+###
+
+### 404 — Closure not found
+DELETE {{baseUrl}}/schedule/closures/00000000-0000-4000-8000-000000000099
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+###
+
+### 400 — Invalid date format
+POST {{baseUrl}}/schedule/closures
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+{
+  "date": "25-12-2026",
+  "reason": "HOLIDAY"
+}
