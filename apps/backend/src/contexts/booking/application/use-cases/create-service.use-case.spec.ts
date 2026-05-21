@@ -68,8 +68,12 @@ describe('CreateServiceUseCase', () => {
   });
 
   it('defaults requiresPickupAddress to false when omitted', async () => {
-    const { requiresPickupAddress: _, ...withoutFlag } = baseDto;
-    const result = await useCase.execute(withoutFlag);
+    const result = await useCase.execute({
+      name: baseDto.name,
+      priceAmount: baseDto.priceAmount,
+      durationMinutes: baseDto.durationMinutes,
+      loyaltyPointsValue: baseDto.loyaltyPointsValue,
+    });
     expect(result.requiresPickupAddress).toBe(false);
   });
 

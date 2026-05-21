@@ -55,7 +55,9 @@ describe('ServiceController', () => {
 
     it('maps BookingDomainError to 400 when price is zero', async () => {
       const { controller } = makeController();
-      const err = await controller.create({ ...validBody, priceAmount: 0 }).catch((e: unknown) => e);
+      const err = await controller
+        .create({ ...validBody, priceAmount: 0 })
+        .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
