@@ -45,7 +45,7 @@ describe('TypeOrmScheduleClosureRepository', () => {
       expect(result).toBeNull();
     });
 
-    it('maps entity to ScheduleClosure domain aggregate', async () => {
+    it('maps full-day closure entity to domain aggregate', async () => {
       const entity = new ScheduleClosureEntityBuilder()
         .withId(CLOSURE_ID)
         .withTenantId(TENANT_ID)
@@ -60,37 +60,57 @@ describe('TypeOrmScheduleClosureRepository', () => {
 
       expect(result).toBeInstanceOf(ScheduleClosure);
       expect(result!.id).toBe(CLOSURE_ID);
-      expect(result!.tenantId).toBe(TENANT_ID);
-      expect(result!.date).toBe('2026-12-25');
-      expect(result!.reason).toBe(ClosureReason.HOLIDAY);
-      expect(result!.notes).toBe('Christmas');
-      expect(result!.createdBy).toBe(STAFF_ID);
+      expect(result!.startTime).toBeNull();
+      expect(result!.endTime).toBeNull();
+      expect(result!.isFullDay()).toBe(true);
+    });
+
+    it('maps partial closure entity with startTime and endTime', async () => {
+      const entity = new ScheduleClosureEntityBuilder()
+        .withId(CLOSURE_ID)
+        .withTenantId(TENANT_ID)
+        .withDate('2026-12-25')
+        .withStartTime('10:00')
+        .withEndTime('12:00')
+        .build();
+      ormRepo.findOne.mockResolvedValue(entity);
+
+      const result = await repo.findById(CLOSURE_ID, TENANT_ID);
+
+      expect(result!.startTime).toBe('10:00');
+      expect(result!.endTime).toBe('12:00');
+      expect(result!.isFullDay()).toBe(false);
     });
   });
 
   describe('findByTenantAndDate', () => {
-    it('returns null when no closure on date', async () => {
-      ormRepo.findOne.mockResolvedValue(null);
+    it('returns empty array when no closures on date', async () => {
+      ormRepo.find.mockResolvedValue([]);
       const result = await repo.findByTenantAndDate(TENANT_ID, '2026-12-25');
-      expect(result).toBeNull();
+      expect(result).toHaveLength(0);
     });
 
-    it('returns closure when found', async () => {
-      const entity = new ScheduleClosureEntityBuilder()
-        .withTenantId(TENANT_ID)
-        .withDate('2026-12-25')
-        .build();
-      ormRepo.findOne.mockResolvedValue(entity);
+    it('returns multiple closures for same date', async () => {
+      const entities = [
+        new ScheduleClosureEntityBuilder().withId('id-1').withDate('2026-12-25').build(),
+        new ScheduleClosureEntityBuilder()
+          .withId('id-2')
+          .withDate('2026-12-25')
+          .withStartTime('14:00')
+          .withEndTime('16:00')
+          .build(),
+      ];
+      ormRepo.find.mockResolvedValue(entities);
 
       const result = await repo.findByTenantAndDate(TENANT_ID, '2026-12-25');
 
-      expect(result).toBeInstanceOf(ScheduleClosure);
-      expect(result!.date).toBe('2026-12-25');
+      expect(result).toHaveLength(2);
+      expect(result.every((c) => c instanceof ScheduleClosure)).toBe(true);
     });
   });
 
   describe('findByTenantAndDateRange', () => {
-    it('returns closures sorted by date', async () => {
+    it('returns closures sorted by date and startTime', async () => {
       const entities = [
         new ScheduleClosureEntityBuilder().withId('id-1').withDate('2026-12-25').build(),
         new ScheduleClosureEntityBuilder().withId('id-2').withDate('2026-12-26').build(),
@@ -100,26 +120,21 @@ describe('TypeOrmScheduleClosureRepository', () => {
       const result = await repo.findByTenantAndDateRange(TENANT_ID, '2026-12-01', '2026-12-31');
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toBeInstanceOf(ScheduleClosure);
       expect(ormRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ order: { date: 'ASC' } }),
+        expect.objectContaining({ order: { date: 'ASC', startTime: 'ASC' } }),
       );
-    });
-
-    it('returns empty array when no closures in range', async () => {
-      ormRepo.find.mockResolvedValue([]);
-      const result = await repo.findByTenantAndDateRange(TENANT_ID, '2026-12-01', '2026-12-31');
-      expect(result).toHaveLength(0);
     });
   });
 
   describe('save', () => {
-    it('maps ScheduleClosure domain to entity and calls repo.save', async () => {
+    it('maps full-day closure to entity with null times', async () => {
       ormRepo.save.mockResolvedValue(new ScheduleClosureEntityBuilder().build());
       const closure = ScheduleClosure.reconstitute({
         id: CLOSURE_ID,
         tenantId: TENANT_ID,
         date: '2026-12-25',
+        startTime: null,
+        endTime: null,
         reason: ClosureReason.HOLIDAY,
         notes: null,
         createdBy: STAFF_ID,
@@ -129,14 +144,28 @@ describe('TypeOrmScheduleClosureRepository', () => {
       await repo.save(closure);
 
       expect(ormRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: CLOSURE_ID,
-          tenantId: TENANT_ID,
-          date: '2026-12-25',
-          reason: ClosureReason.HOLIDAY,
-          notes: null,
-          createdBy: STAFF_ID,
-        }),
+        expect.objectContaining({ startTime: null, endTime: null }),
+      );
+    });
+
+    it('maps partial closure to entity with time values', async () => {
+      ormRepo.save.mockResolvedValue(new ScheduleClosureEntityBuilder().build());
+      const closure = ScheduleClosure.reconstitute({
+        id: CLOSURE_ID,
+        tenantId: TENANT_ID,
+        date: '2026-12-25',
+        startTime: '10:00',
+        endTime: '12:00',
+        reason: ClosureReason.MAINTENANCE,
+        notes: null,
+        createdBy: STAFF_ID,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      });
+
+      await repo.save(closure);
+
+      expect(ormRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ startTime: '10:00', endTime: '12:00' }),
       );
     });
   });

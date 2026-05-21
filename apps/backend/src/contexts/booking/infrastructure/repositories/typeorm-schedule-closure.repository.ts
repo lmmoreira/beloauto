@@ -20,14 +20,17 @@ export class TypeOrmScheduleClosureRepository implements IScheduleClosureReposit
   ): Promise<ScheduleClosure[]> {
     const entities = await this.repo.find({
       where: { tenantId, date: Between(from, to) },
-      order: { date: 'ASC' },
+      order: { date: 'ASC', startTime: 'ASC' },
     });
     return entities.map((e) => this.toDomain(e));
   }
 
-  async findByTenantAndDate(tenantId: string, date: string): Promise<ScheduleClosure | null> {
-    const entity = await this.repo.findOne({ where: { tenantId, date } });
-    return entity ? this.toDomain(entity) : null;
+  async findByTenantAndDate(tenantId: string, date: string): Promise<ScheduleClosure[]> {
+    const entities = await this.repo.find({
+      where: { tenantId, date },
+      order: { startTime: 'ASC' },
+    });
+    return entities.map((e) => this.toDomain(e));
   }
 
   async findById(id: string, tenantId: string): Promise<ScheduleClosure | null> {
@@ -59,6 +62,8 @@ export class TypeOrmScheduleClosureRepository implements IScheduleClosureReposit
       id: entity.id,
       tenantId: entity.tenantId,
       date: entity.date,
+      startTime: entity.startTime,
+      endTime: entity.endTime,
       reason: entity.reason,
       notes: entity.notes,
       createdBy: entity.createdBy,
@@ -71,6 +76,8 @@ export class TypeOrmScheduleClosureRepository implements IScheduleClosureReposit
     entity.id = closure.id;
     entity.tenantId = closure.tenantId;
     entity.date = closure.date;
+    entity.startTime = closure.startTime;
+    entity.endTime = closure.endTime;
     entity.reason = closure.reason;
     entity.notes = closure.notes;
     entity.createdBy = closure.createdBy;

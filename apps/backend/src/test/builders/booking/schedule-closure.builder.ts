@@ -12,6 +12,8 @@ export class ScheduleClosureBuilder {
   })();
   private reason = ClosureReason.HOLIDAY;
   private createdBy = '00000000-0000-7000-8000-000000000002';
+  private startTime: string | undefined = undefined;
+  private endTime: string | undefined = undefined;
   private notes: string | undefined = undefined;
 
   withTenantId(tenantId: string): this {
@@ -34,12 +36,30 @@ export class ScheduleClosureBuilder {
     return this;
   }
 
+  withStartTime(startTime: string): this {
+    this.startTime = startTime;
+    return this;
+  }
+
+  withEndTime(endTime: string): this {
+    this.endTime = endTime;
+    return this;
+  }
+
   withNotes(notes: string): this {
     this.notes = notes;
     return this;
   }
 
   build(): ScheduleClosure {
-    return ScheduleClosure.close(this.tenantId, this.date, this.reason, this.createdBy, this.notes);
+    return ScheduleClosure.close(
+      this.tenantId,
+      this.date,
+      this.reason,
+      this.createdBy,
+      this.startTime,
+      this.endTime,
+      this.notes,
+    );
   }
 }

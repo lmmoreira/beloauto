@@ -1,9 +1,9 @@
-import { Column, Entity, Index, PrimaryColumn, Unique } from 'typeorm';
+import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
 import { ClosureReason } from '../../domain/schedule-closure.aggregate';
 
 @Entity('schedule_closures', { schema: 'booking' })
 @Index(['tenantId'])
-@Unique(['tenantId', 'date'])
+@Index(['tenantId', 'date'])
 export class ScheduleClosureEntity {
   @PrimaryColumn({ type: 'uuid' })
   id!: string;
@@ -13,6 +13,12 @@ export class ScheduleClosureEntity {
 
   @Column({ type: 'date' })
   date!: string;
+
+  @Column({ name: 'start_time', type: 'time', nullable: true })
+  startTime!: string | null;
+
+  @Column({ name: 'end_time', type: 'time', nullable: true })
+  endTime!: string | null;
 
   @Column({ type: 'varchar', length: 50 })
   reason!: ClosureReason;

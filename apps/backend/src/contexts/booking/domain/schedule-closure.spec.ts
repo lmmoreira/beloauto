@@ -5,8 +5,8 @@ import { ClosureReason, ScheduleClosure } from './schedule-closure.aggregate';
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const STAFF_ID = '00000000-0000-7000-8000-000000000002';
 
-describe('ScheduleClosure.close()', () => {
-  it('creates a closure with valid inputs', () => {
+describe('ScheduleClosure.close() — full-day', () => {
+  it('creates a full-day closure when no times provided', () => {
     const date = futureDate(5);
     const closure = ScheduleClosure.close(TENANT_ID, date, ClosureReason.HOLIDAY, STAFF_ID);
 
@@ -14,20 +14,24 @@ describe('ScheduleClosure.close()', () => {
     expect(closure.tenantId).toBe(TENANT_ID);
     expect(closure.date).toBe(date);
     expect(closure.reason).toBe(ClosureReason.HOLIDAY);
+    expect(closure.startTime).toBeNull();
+    expect(closure.endTime).toBeNull();
     expect(closure.notes).toBeNull();
     expect(closure.createdBy).toBe(STAFF_ID);
     expect(closure.createdAt).toBeInstanceOf(Date);
+    expect(closure.isFullDay()).toBe(true);
   });
 
-  it('creates a closure with optional notes', () => {
+  it('trims and stores optional notes', () => {
     const closure = ScheduleClosure.close(
       TENANT_ID,
       futureDate(3),
       ClosureReason.MAINTENANCE,
       STAFF_ID,
+      undefined,
+      undefined,
       '  Manutenção preventiva  ',
     );
-
     expect(closure.notes).toBe('Manutenção preventiva');
   });
 
@@ -37,7 +41,7 @@ describe('ScheduleClosure.close()', () => {
     ).toThrow(BookingDomainError);
   });
 
-  it('throws when date is in the past — error message is correct', () => {
+  it('throws past date — correct error message', () => {
     expect(() =>
       ScheduleClosure.close(TENANT_ID, pastDate(5), ClosureReason.HOLIDAY, STAFF_ID),
     ).toThrow('Cannot close a schedule for a past date');
@@ -75,21 +79,164 @@ describe('ScheduleClosure.close()', () => {
   });
 });
 
+describe('ScheduleClosure.close() — partial-day', () => {
+  it('creates a partial closure with startTime and endTime', () => {
+    const closure = ScheduleClosure.close(
+      TENANT_ID,
+      futureDate(3),
+      ClosureReason.MAINTENANCE,
+      STAFF_ID,
+      '10:00',
+      '12:00',
+    );
+    expect(closure.startTime).toBe('10:00');
+    expect(closure.endTime).toBe('12:00');
+    expect(closure.isFullDay()).toBe(false);
+  });
+
+  it('throws when only startTime is provided without endTime', () => {
+    expect(() =>
+      ScheduleClosure.close(TENANT_ID, futureDate(), ClosureReason.MAINTENANCE, STAFF_ID, '10:00'),
+    ).toThrow(BookingDomainError);
+  });
+
+  it('throws when only endTime is provided without startTime', () => {
+    expect(() =>
+      ScheduleClosure.close(
+        TENANT_ID,
+        futureDate(),
+        ClosureReason.MAINTENANCE,
+        STAFF_ID,
+        undefined,
+        '12:00',
+      ),
+    ).toThrow(BookingDomainError);
+  });
+
+  it('throws when endTime is not after startTime', () => {
+    expect(() =>
+      ScheduleClosure.close(
+        TENANT_ID,
+        futureDate(),
+        ClosureReason.MAINTENANCE,
+        STAFF_ID,
+        '12:00',
+        '10:00',
+      ),
+    ).toThrow(BookingDomainError);
+  });
+
+  it('throws when endTime equals startTime', () => {
+    expect(() =>
+      ScheduleClosure.close(
+        TENANT_ID,
+        futureDate(),
+        ClosureReason.MAINTENANCE,
+        STAFF_ID,
+        '10:00',
+        '10:00',
+      ),
+    ).toThrow(BookingDomainError);
+  });
+
+  it('throws when startTime has invalid format', () => {
+    expect(() =>
+      ScheduleClosure.close(
+        TENANT_ID,
+        futureDate(),
+        ClosureReason.MAINTENANCE,
+        STAFF_ID,
+        '10',
+        '12:00',
+      ),
+    ).toThrow(BookingDomainError);
+  });
+});
+
+describe('ScheduleClosure.overlaps()', () => {
+  const date = futureDate(5);
+
+  it('full-day closure overlaps everything', () => {
+    const fullDay = ScheduleClosure.close(TENANT_ID, date, ClosureReason.HOLIDAY, STAFF_ID);
+    expect(fullDay.overlaps(null, null)).toBe(true);
+    expect(fullDay.overlaps('10:00', '12:00')).toBe(true);
+    expect(fullDay.overlaps('00:00', '23:59')).toBe(true);
+  });
+
+  it('partial closure overlaps another full-day request', () => {
+    const partial = ScheduleClosure.close(
+      TENANT_ID,
+      date,
+      ClosureReason.MAINTENANCE,
+      STAFF_ID,
+      '10:00',
+      '12:00',
+    );
+    expect(partial.overlaps(null, null)).toBe(true);
+  });
+
+  it('partial closure overlaps intersecting window', () => {
+    const partial = ScheduleClosure.close(
+      TENANT_ID,
+      date,
+      ClosureReason.MAINTENANCE,
+      STAFF_ID,
+      '10:00',
+      '12:00',
+    );
+    expect(partial.overlaps('11:00', '13:00')).toBe(true);
+    expect(partial.overlaps('09:00', '11:00')).toBe(true);
+    expect(partial.overlaps('10:00', '12:00')).toBe(true);
+  });
+
+  it('partial closure does not overlap non-intersecting window', () => {
+    const partial = ScheduleClosure.close(
+      TENANT_ID,
+      date,
+      ClosureReason.MAINTENANCE,
+      STAFF_ID,
+      '10:00',
+      '12:00',
+    );
+    expect(partial.overlaps('12:00', '14:00')).toBe(false);
+    expect(partial.overlaps('08:00', '10:00')).toBe(false);
+    expect(partial.overlaps('13:00', '15:00')).toBe(false);
+  });
+});
+
 describe('ScheduleClosure.reconstitute()', () => {
-  it('reconstitutes from persisted props without validation', () => {
+  it('reconstitutes full-day closure from persisted props without validation', () => {
     const props = {
       id: '00000000-0000-7000-8000-000000000099',
       tenantId: TENANT_ID,
       date: '2020-01-01',
+      startTime: null,
+      endTime: null,
       reason: ClosureReason.HOLIDAY,
       notes: null,
       createdBy: STAFF_ID,
       createdAt: new Date('2020-01-01T00:00:00Z'),
     };
-
     const closure = ScheduleClosure.reconstitute(props);
     expect(closure.id).toBe(props.id);
-    expect(closure.date).toBe('2020-01-01');
-    expect(closure.reason).toBe(ClosureReason.HOLIDAY);
+    expect(closure.isFullDay()).toBe(true);
+  });
+
+  it('reconstitutes partial closure from persisted props', () => {
+    const props = {
+      id: '00000000-0000-7000-8000-000000000099',
+      tenantId: TENANT_ID,
+      date: '2020-01-01',
+      startTime: '10:00',
+      endTime: '12:00',
+      reason: ClosureReason.MAINTENANCE,
+      notes: null,
+      createdBy: STAFF_ID,
+      createdAt: new Date('2020-01-01T00:00:00Z'),
+    };
+    const closure = ScheduleClosure.reconstitute(props);
+    expect(closure.isFullDay()).toBe(false);
+    expect(closure.startTime).toBe('10:00');
+    expect(closure.endTime).toBe('12:00');
   });
 });

@@ -11,11 +11,16 @@ export class InMemoryScheduleClosureRepository implements IScheduleClosureReposi
   ): Promise<ScheduleClosure[]> {
     return this.store
       .filter((c) => c.tenantId === tenantId && c.date >= from && c.date <= to)
-      .sort((a, b) => a.date.localeCompare(b.date));
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(b.date) || (a.startTime ?? '').localeCompare(b.startTime ?? ''),
+      );
   }
 
-  async findByTenantAndDate(tenantId: string, date: string): Promise<ScheduleClosure | null> {
-    return this.store.find((c) => c.tenantId === tenantId && c.date === date) ?? null;
+  async findByTenantAndDate(tenantId: string, date: string): Promise<ScheduleClosure[]> {
+    return this.store
+      .filter((c) => c.tenantId === tenantId && c.date === date)
+      .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
   }
 
   async findById(id: string, tenantId: string): Promise<ScheduleClosure | null> {

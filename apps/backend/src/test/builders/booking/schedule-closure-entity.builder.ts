@@ -6,6 +6,8 @@ export class ScheduleClosureEntityBuilder {
   private id = uuidv7();
   private tenantId = '00000000-0000-7000-8000-000000000001';
   private date = '2026-12-25';
+  private startTime: string | null = null;
+  private endTime: string | null = null;
   private reason: ClosureReason = ClosureReason.HOLIDAY;
   private notes: string | null = null;
   private createdBy = '00000000-0000-7000-8000-000000000002';
@@ -23,6 +25,16 @@ export class ScheduleClosureEntityBuilder {
 
   withDate(date: string): this {
     this.date = date;
+    return this;
+  }
+
+  withStartTime(startTime: string | null): this {
+    this.startTime = startTime;
+    return this;
+  }
+
+  withEndTime(endTime: string | null): this {
+    this.endTime = endTime;
     return this;
   }
 
@@ -46,6 +58,8 @@ export class ScheduleClosureEntityBuilder {
     e.id = this.id;
     e.tenantId = this.tenantId;
     e.date = this.date;
+    e.startTime = this.startTime;
+    e.endTime = this.endTime;
     e.reason = this.reason;
     e.notes = this.notes;
     e.createdBy = this.createdBy;

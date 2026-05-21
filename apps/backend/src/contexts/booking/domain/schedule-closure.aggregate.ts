@@ -12,6 +12,8 @@ export interface ScheduleClosureProps {
   id: string;
   tenantId: string;
   date: string;
+  startTime: string | null;
+  endTime: string | null;
   reason: ClosureReason;
   notes: string | null;
   createdBy: string;
@@ -35,6 +37,12 @@ export class ScheduleClosure extends AggregateRoot {
   get date(): string {
     return this.props.date;
   }
+  get startTime(): string | null {
+    return this.props.startTime;
+  }
+  get endTime(): string | null {
+    return this.props.endTime;
+  }
   get reason(): ClosureReason {
     return this.props.reason;
   }
@@ -48,18 +56,32 @@ export class ScheduleClosure extends AggregateRoot {
     return this.props.createdAt;
   }
 
+  isFullDay(): boolean {
+    return this.props.startTime === null;
+  }
+
+  /** True if this closure overlaps the given time window (or the given window is a full-day). */
+  overlaps(otherStart: string | null, otherEnd: string | null): boolean {
+    if (this.isFullDay() || otherStart === null) return true;
+    return this.props.startTime! < otherEnd! && otherStart < this.props.endTime!;
+  }
+
   static close(
     tenantId: string,
     date: string,
     reason: ClosureReason,
     createdBy: string,
+    startTime?: string,
+    endTime?: string,
     notes?: string,
   ): ScheduleClosure {
-    ScheduleClosure.assertValid(tenantId, date, reason, createdBy);
+    ScheduleClosure.assertValid(tenantId, date, reason, createdBy, startTime, endTime);
     return new ScheduleClosure({
       id: uuidv7(),
       tenantId,
       date,
+      startTime: startTime ?? null,
+      endTime: endTime ?? null,
       reason,
       notes: notes?.trim() ?? null,
       createdBy,
@@ -76,6 +98,8 @@ export class ScheduleClosure extends AggregateRoot {
     date: string,
     reason: ClosureReason,
     createdBy: string,
+    startTime?: string,
+    endTime?: string,
   ): void {
     if (!tenantId) throw new BookingDomainError('tenantId is required');
     if (!createdBy) throw new BookingDomainError('createdBy is required');
@@ -84,5 +108,22 @@ export class ScheduleClosure extends AggregateRoot {
     }
     const today = new Date().toISOString().slice(0, 10);
     if (date < today) throw new BookingDomainError('Cannot close a schedule for a past date');
+    ScheduleClosure.assertTimeRange(startTime, endTime);
+  }
+
+  private static assertTimeRange(startTime?: string, endTime?: string): void {
+    const hasStart = startTime !== undefined && startTime !== null;
+    const hasEnd = endTime !== undefined && endTime !== null;
+    if (hasStart !== hasEnd) {
+      throw new BookingDomainError('startTime and endTime must both be provided or both omitted');
+    }
+    if (hasStart && hasEnd) {
+      if (!/^\d{2}:\d{2}$/.test(startTime!) || !/^\d{2}:\d{2}$/.test(endTime!)) {
+        throw new BookingDomainError('startTime and endTime must be in HH:MM format');
+      }
+      if (endTime! <= startTime!) {
+        throw new BookingDomainError('endTime must be after startTime');
+      }
+    }
   }
 }
