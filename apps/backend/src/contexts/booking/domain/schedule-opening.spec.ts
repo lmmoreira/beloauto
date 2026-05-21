@@ -1,3 +1,4 @@
+import { futureDate, pastDate } from '../../../test/utils/date-helpers';
 import { ScheduleOpening } from './schedule-opening.aggregate';
 import {
   BookingDomainError,
@@ -10,18 +11,6 @@ import { TimeOfDay } from '../../../shared/value-objects/time-of-day.vo';
 
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const STAFF_ID = '00000000-0000-7000-8000-000000000002';
-
-function futureDate(daysAhead = 7): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + daysAhead);
-  return d.toISOString().slice(0, 10);
-}
-
-function pastDate(): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
 
 describe('ScheduleOpening', () => {
   describe('open() factory', () => {
