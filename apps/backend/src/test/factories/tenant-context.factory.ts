@@ -1,19 +1,44 @@
 import { TenantContext } from '../../shared/tenant/tenant-context';
 
-export function makeTenantContext(
-  tenantId: string,
-  overrides?: {
-    correlationId?: string;
-    actorId?: string;
-    actorType?: 'STAFF' | 'CUSTOMER';
-    actorRole?: string;
-  },
-): TenantContext {
-  return {
-    tenantId,
-    correlationId: overrides?.correlationId ?? 'corr-test',
-    actorId: overrides?.actorId,
-    actorType: overrides?.actorType,
-    actorRole: overrides?.actorRole,
-  } as unknown as TenantContext;
+export class TenantContextBuilder {
+  private tenantId = '10000000-0000-4000-8000-000000000001';
+  private correlationId = 'corr-test';
+  private actorId: string | undefined = undefined;
+  private actorType: 'STAFF' | 'CUSTOMER' | undefined = undefined;
+  private actorRole: string | undefined = undefined;
+
+  withTenantId(tenantId: string): this {
+    this.tenantId = tenantId;
+    return this;
+  }
+
+  withCorrelationId(correlationId: string): this {
+    this.correlationId = correlationId;
+    return this;
+  }
+
+  withActorId(actorId: string): this {
+    this.actorId = actorId;
+    return this;
+  }
+
+  withActorType(actorType: 'STAFF' | 'CUSTOMER'): this {
+    this.actorType = actorType;
+    return this;
+  }
+
+  withActorRole(actorRole: string): this {
+    this.actorRole = actorRole;
+    return this;
+  }
+
+  build(): TenantContext {
+    return {
+      tenantId: this.tenantId,
+      correlationId: this.correlationId,
+      actorId: this.actorId,
+      actorType: this.actorType,
+      actorRole: this.actorRole,
+    } as unknown as TenantContext;
+  }
 }

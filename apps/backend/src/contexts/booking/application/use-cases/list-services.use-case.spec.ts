@@ -1,6 +1,6 @@
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
-import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
+import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { Money } from '../../../../shared/value-objects/money';
 import { ListServicesUseCase } from './list-services.use-case';
 
@@ -13,7 +13,10 @@ describe('ListServicesUseCase', () => {
 
   beforeEach(() => {
     repo = new InMemoryServiceRepository();
-    useCase = new ListServicesUseCase(repo, makeTenantContext(TENANT_A));
+    useCase = new ListServicesUseCase(
+      repo,
+      new TenantContextBuilder().withTenantId(TENANT_A).build(),
+    );
   });
 
   it('returns only active services for the tenant', async () => {

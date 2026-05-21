@@ -1,7 +1,7 @@
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
-import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
+import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { ServiceNotFoundError } from '../../domain/errors/booking-domain.error';
 import { DeactivateServiceUseCase } from './deactivate-service.use-case';
 
@@ -17,7 +17,7 @@ describe('DeactivateServiceUseCase', () => {
     useCase = new DeactivateServiceUseCase(
       repo,
       new InMemoryTransactionManager(),
-      makeTenantContext(TENANT_A),
+      new TenantContextBuilder().withTenantId(TENANT_A).build(),
     );
   });
 

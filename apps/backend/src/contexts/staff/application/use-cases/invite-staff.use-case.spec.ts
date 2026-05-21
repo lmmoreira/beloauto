@@ -2,7 +2,7 @@ import { StaffBuilder } from '../../../../test/builders/staff';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryStaffRepository } from '../../../../test/repositories/staff/in-memory-staff.repository';
-import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
+import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { StaffInvited } from '../../domain/events/staff-invited.event';
 import { StaffAlreadyExistsError } from '../../domain/errors/staff-domain.error';
 import { InviteStaffUseCase } from './invite-staff.use-case';
@@ -33,12 +33,13 @@ describe('InviteStaffUseCase', () => {
       repo,
       new InMemoryTransactionManager(),
       eventBus,
-      makeTenantContext(TENANT_A, {
-        correlationId: CORRELATION_ID,
-        actorId: MANAGER_ID,
-        actorType: 'STAFF',
-        actorRole: 'MANAGER',
-      }),
+      new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withCorrelationId(CORRELATION_ID)
+        .withActorId(MANAGER_ID)
+        .withActorType('STAFF')
+        .withActorRole('MANAGER')
+        .build(),
     );
   });
 

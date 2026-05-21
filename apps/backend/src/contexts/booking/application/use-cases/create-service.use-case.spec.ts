@@ -1,6 +1,6 @@
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
-import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
+import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { BookingDomainError } from '../../domain/errors/booking-domain.error';
 import { CreateServiceUseCase } from './create-service.use-case';
 
@@ -26,12 +26,13 @@ describe('CreateServiceUseCase', () => {
     useCase = new CreateServiceUseCase(
       repo,
       new InMemoryTransactionManager(),
-      makeTenantContext(TENANT_A, {
-        correlationId: CORRELATION_ID,
-        actorId: '20000000-0000-4000-8000-000000000001',
-        actorType: 'STAFF',
-        actorRole: 'MANAGER',
-      }),
+      new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withCorrelationId(CORRELATION_ID)
+        .withActorId('20000000-0000-4000-8000-000000000001')
+        .withActorType('STAFF')
+        .withActorRole('MANAGER')
+        .build(),
     );
   });
 

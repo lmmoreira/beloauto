@@ -3,7 +3,7 @@ import { StaffBuilder } from '../../../../test/builders/staff';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryStaffRepository } from '../../../../test/repositories/staff/in-memory-staff.repository';
-import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
+import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { DeactivateStaffUseCase } from '../../application/use-cases/deactivate-staff.use-case';
 import { GetStaffByIdUseCase } from '../../application/use-cases/get-staff-by-id.use-case';
 import { InviteStaffUseCase } from '../../application/use-cases/invite-staff.use-case';
@@ -21,12 +21,13 @@ function makeController(
   tenantId = TENANT_A,
   actorId: string | undefined = MANAGER_ID,
 ): StaffController {
-  const ctx = makeTenantContext(tenantId, {
-    correlationId: CORRELATION_ID,
-    actorId: actorId ?? undefined,
-    actorType: 'STAFF',
-    actorRole: 'MANAGER',
-  });
+  const builder = new TenantContextBuilder()
+    .withTenantId(tenantId)
+    .withCorrelationId(CORRELATION_ID)
+    .withActorType('STAFF')
+    .withActorRole('MANAGER');
+  if (actorId) builder.withActorId(actorId);
+  const ctx = builder.build();
   return new StaffController(
     ctx,
     new ListStaffUseCase(repo),
@@ -142,7 +143,10 @@ describe('StaffController', () => {
 
   describe('deactivate()', () => {
     it('returns 400 when X-Actor-ID header is missing', async () => {
-      const ctxNoActor = makeTenantContext(TENANT_A, { correlationId: CORRELATION_ID });
+      const ctxNoActor = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withCorrelationId(CORRELATION_ID)
+        .build();
       const txMgr = new InMemoryTransactionManager();
       const ctrl = new StaffController(
         ctxNoActor,

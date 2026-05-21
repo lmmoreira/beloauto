@@ -1,7 +1,7 @@
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
-import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
+import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import {
   BookingDomainError,
   ServiceDeactivatedError,
@@ -21,7 +21,7 @@ describe('UpdateServiceUseCase', () => {
     useCase = new UpdateServiceUseCase(
       repo,
       new InMemoryTransactionManager(),
-      makeTenantContext(TENANT_A),
+      new TenantContextBuilder().withTenantId(TENANT_A).build(),
     );
   });
 
