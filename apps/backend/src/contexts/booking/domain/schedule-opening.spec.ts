@@ -1,5 +1,11 @@
 import { ScheduleOpening } from './schedule-opening.aggregate';
-import { BookingDomainError, OpeningDateInPastError } from './errors/booking-domain.error';
+import {
+  BookingDomainError,
+  DayAlreadyOpenInSettingsError,
+  OpeningDateInPastError,
+  ScheduleOpeningAlreadyExistsError,
+  ScheduleOpeningNotFoundError,
+} from './errors/booking-domain.error';
 import { TimeOfDay } from '../../../shared/value-objects/time-of-day.vo';
 
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
@@ -99,6 +105,35 @@ describe('ScheduleOpening', () => {
       expect(() => ScheduleOpening.open(TENANT_ID, futureDate(), '09:00', '14:00', '')).toThrow(
         BookingDomainError,
       );
+    });
+  });
+
+  describe('domain errors', () => {
+    it('OpeningDateInPastError is instanceof BookingDomainError', () => {
+      const err = new OpeningDateInPastError();
+      expect(err).toBeInstanceOf(BookingDomainError);
+      expect(err.name).toBe('OpeningDateInPastError');
+    });
+
+    it('DayAlreadyOpenInSettingsError carries the date in its message', () => {
+      const err = new DayAlreadyOpenInSettingsError('2026-12-28');
+      expect(err).toBeInstanceOf(BookingDomainError);
+      expect(err.message).toContain('2026-12-28');
+      expect(err.name).toBe('DayAlreadyOpenInSettingsError');
+    });
+
+    it('ScheduleOpeningAlreadyExistsError carries the date in its message', () => {
+      const err = new ScheduleOpeningAlreadyExistsError('2026-12-28');
+      expect(err).toBeInstanceOf(BookingDomainError);
+      expect(err.message).toContain('2026-12-28');
+      expect(err.name).toBe('ScheduleOpeningAlreadyExistsError');
+    });
+
+    it('ScheduleOpeningNotFoundError carries the id in its message', () => {
+      const err = new ScheduleOpeningNotFoundError('some-id');
+      expect(err).toBeInstanceOf(BookingDomainError);
+      expect(err.message).toContain('some-id');
+      expect(err.name).toBe('ScheduleOpeningNotFoundError');
     });
   });
 
