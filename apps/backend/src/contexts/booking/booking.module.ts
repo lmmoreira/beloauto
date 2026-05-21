@@ -7,6 +7,5 @@ import { TypeOrmServiceRepository } from './infrastructure/repositories/typeorm-
 @Module({
   imports: [TypeOrmModule.forFeature([ServiceEntity])],
   providers: [{ provide: SERVICE_REPOSITORY, useClass: TypeOrmServiceRepository }],
-  exports: [SERVICE_REPOSITORY],
 })
 export class BookingModule {}
