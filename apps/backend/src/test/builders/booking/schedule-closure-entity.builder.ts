@@ -9,7 +9,7 @@ export class ScheduleClosureEntityBuilder {
   private reason: ClosureReason = ClosureReason.HOLIDAY;
   private notes: string | null = null;
   private createdBy = '00000000-0000-7000-8000-000000000002';
-  private createdAt = new Date('2026-01-01T00:00:00Z');
+  private readonly createdAt = new Date('2026-01-01T00:00:00Z');
 
   withId(id: string): this {
     this.id = id;

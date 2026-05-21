@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import { IScheduleClosureRepository } from '../../application/ports/schedule-closure-repository.port';
-import { ClosureReason, ScheduleClosure } from '../../domain/schedule-closure.aggregate';
+import { ScheduleClosure } from '../../domain/schedule-closure.aggregate';
 import { ScheduleClosureEntity } from '../entities/schedule-closure.entity';
 
 @Injectable()
@@ -59,7 +59,7 @@ export class TypeOrmScheduleClosureRepository implements IScheduleClosureReposit
       id: entity.id,
       tenantId: entity.tenantId,
       date: entity.date,
-      reason: entity.reason as ClosureReason,
+      reason: entity.reason,
       notes: entity.notes,
       createdBy: entity.createdBy,
       createdAt: entity.createdAt,
