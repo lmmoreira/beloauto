@@ -46,7 +46,7 @@ Implement the pure domain layer for the `Service` aggregate within the Booking b
 
 ---
 
-### M05-S02 — Service database migration
+### M05-S02 — Service database migration ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** S  
