@@ -51,16 +51,14 @@ export class ServicesController {
     @Headers('x-tenant-slug') tenantSlug: string | undefined,
   ): Promise<ServiceListResponse> {
     if (!tenantSlug) {
-      return Promise.reject(
-        new HttpException(
-          {
-            type: 'about:blank',
-            title: 'Bad Request',
-            status: HttpStatus.BAD_REQUEST,
-            detail: 'X-Tenant-Slug header is required',
-          },
-          HttpStatus.BAD_REQUEST,
-        ),
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Bad Request',
+          status: HttpStatus.BAD_REQUEST,
+          detail: 'X-Tenant-Slug header is required',
+        },
+        HttpStatus.BAD_REQUEST,
       );
     }
     const tenant = await this.backendHttp.get<TenantInfoResponse>(
