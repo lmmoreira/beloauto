@@ -12,28 +12,6 @@ import { ServiceController } from './service.controller';
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
 const CORRELATION_ID = 'corr-ctrl-svc-test';
 
-function makeController(tenantId = TENANT_A): {
-  controller: ServiceController;
-  repo: InMemoryServiceRepository;
-} {
-  const repo = new InMemoryServiceRepository();
-  const ctx = new TenantContextBuilder()
-    .withTenantId(tenantId)
-    .withCorrelationId(CORRELATION_ID)
-    .withActorId('20000000-0000-4000-8000-000000000001')
-    .withActorType('STAFF')
-    .withActorRole('MANAGER')
-    .build();
-  const txManager = new InMemoryTransactionManager();
-  const controller = new ServiceController(
-    new CreateServiceUseCase(repo, txManager, ctx),
-    new ListServicesUseCase(repo, ctx),
-    new UpdateServiceUseCase(repo, txManager, ctx),
-    new DeactivateServiceUseCase(repo, txManager, ctx),
-  );
-  return { controller, repo };
-}
-
 const validBody = {
   name: 'Lavagem Completa',
   priceAmount: 150,
@@ -42,9 +20,29 @@ const validBody = {
 };
 
 describe('ServiceController', () => {
+  let controller: ServiceController;
+  let repo: InMemoryServiceRepository;
+
+  beforeEach(() => {
+    repo = new InMemoryServiceRepository();
+    const ctx = new TenantContextBuilder()
+      .withTenantId(TENANT_A)
+      .withCorrelationId(CORRELATION_ID)
+      .withActorId('20000000-0000-4000-8000-000000000001')
+      .withActorType('STAFF')
+      .withActorRole('MANAGER')
+      .build();
+    const txManager = new InMemoryTransactionManager();
+    controller = new ServiceController(
+      new CreateServiceUseCase(repo, txManager, ctx),
+      new ListServicesUseCase(repo, ctx),
+      new UpdateServiceUseCase(repo, txManager, ctx),
+      new DeactivateServiceUseCase(repo, txManager, ctx),
+    );
+  });
+
   describe('create()', () => {
     it('returns 201 with service DTO including pt-BR formatted price', async () => {
-      const { controller } = makeController();
       const result = await controller.create(validBody);
       expect(result.id).toBeDefined();
       expect(result.price.formatted).toBe('R$ 150,00');
@@ -52,7 +50,6 @@ describe('ServiceController', () => {
     });
 
     it('maps BookingDomainError to 400 when price is zero', async () => {
-      const { controller } = makeController();
       const err = await controller
         .create({ ...validBody, priceAmount: 0 })
         .catch((e: unknown) => e);
@@ -63,7 +60,6 @@ describe('ServiceController', () => {
 
   describe('list()', () => {
     it('returns only active services for the tenant', async () => {
-      const { controller, repo } = makeController();
       const active = new ServiceBuilder().withTenantId(TENANT_A).withName('Ativo').build();
       const inactive = new ServiceBuilder().withTenantId(TENANT_A).withName('Inativo').build();
       inactive.deactivate();
@@ -76,7 +72,6 @@ describe('ServiceController', () => {
     });
 
     it('returns empty list when no active services', async () => {
-      const { controller } = makeController();
       const result = await controller.list();
       expect(result.items).toHaveLength(0);
     });
@@ -84,7 +79,6 @@ describe('ServiceController', () => {
 
   describe('update()', () => {
     it('updates fields and returns updated DTO', async () => {
-      const { controller, repo } = makeController();
       await repo.save(new ServiceBuilder().withTenantId(TENANT_A).withName('Original').build());
       const list = await controller.list();
       const id = list.items[0].id;
@@ -94,7 +88,6 @@ describe('ServiceController', () => {
     });
 
     it('maps ServiceNotFoundError to 404', async () => {
-      const { controller } = makeController();
       const err = await controller
         .update('non-existent-id', { name: 'X' })
         .catch((e: unknown) => e);
@@ -103,7 +96,6 @@ describe('ServiceController', () => {
     });
 
     it('maps ServiceDeactivatedError to 409', async () => {
-      const { controller, repo } = makeController();
       const service = new ServiceBuilder().withTenantId(TENANT_A).build();
       service.deactivate();
       await repo.save(service);
@@ -116,7 +108,6 @@ describe('ServiceController', () => {
 
   describe('deactivate()', () => {
     it('sets isActive=false and returns { id, isActive: false }', async () => {
-      const { controller, repo } = makeController();
       const service = new ServiceBuilder().withTenantId(TENANT_A).build();
       await repo.save(service);
 
@@ -126,7 +117,6 @@ describe('ServiceController', () => {
     });
 
     it('maps ServiceNotFoundError to 404', async () => {
-      const { controller } = makeController();
       const err = await controller.deactivate('non-existent-id').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
