@@ -39,6 +39,6 @@ export class TenantContextBuilder {
       actorId: this.actorId,
       actorType: this.actorType,
       actorRole: this.actorRole,
-    } as TenantContext;
+    };
   }
 }
