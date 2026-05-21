@@ -35,9 +35,9 @@ export class UpdateServiceUseCase {
     if (!service) throw new ServiceNotFoundError(id);
 
     const name = dto.name ?? service.name;
-    const description = dto.description !== undefined ? dto.description : service.description;
+    const description = dto.description === undefined ? service.description : dto.description;
     const price =
-      dto.priceAmount !== undefined ? Money.from(dto.priceAmount, 'BRL') : service.price;
+      dto.priceAmount === undefined ? service.price : Money.from(dto.priceAmount, 'BRL');
     const durationMinutes = dto.durationMinutes ?? service.durationMinutes;
     const loyaltyPointsValue = dto.loyaltyPointsValue ?? service.loyaltyPointsValue;
     const requiresPickupAddress = dto.requiresPickupAddress ?? service.requiresPickupAddress;
