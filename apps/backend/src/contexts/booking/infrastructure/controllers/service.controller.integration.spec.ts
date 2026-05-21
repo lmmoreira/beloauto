@@ -135,13 +135,13 @@ describe('ServiceController (integration) — POST /services', () => {
     expect(body.status).toBe(400);
   });
 
-  it('returns 400 when X-Tenant-ID header is missing', async () => {
+  it('returns 403 when X-Actor-Role header is missing (StaffOrManagerRoleGuard fires before TenantInterceptor)', async () => {
     const { body } = await request(app.getHttpServer())
       .post('/services')
       .send(validBody)
-      .expect(400);
+      .expect(403);
 
-    expect(body.status ?? body.statusCode).toBe(400);
+    expect(body.status).toBe(403);
   });
 
   it('tenant isolation: service created for Tenant A is not visible to Tenant B', async () => {
