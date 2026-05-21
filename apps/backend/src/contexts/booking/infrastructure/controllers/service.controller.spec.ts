@@ -2,7 +2,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
-import { TenantContext } from '../../../../shared/tenant/tenant-context';
+import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
 import { CreateServiceUseCase } from '../../application/use-cases/create-service.use-case';
 import { DeactivateServiceUseCase } from '../../application/use-cases/deactivate-service.use-case';
 import { ListServicesUseCase } from '../../application/use-cases/list-services.use-case';
@@ -17,13 +17,12 @@ function makeController(tenantId = TENANT_A): {
   repo: InMemoryServiceRepository;
 } {
   const repo = new InMemoryServiceRepository();
-  const ctx = {
-    tenantId,
+  const ctx = makeTenantContext(tenantId, {
     correlationId: CORRELATION_ID,
     actorId: '20000000-0000-4000-8000-000000000001',
     actorType: 'STAFF',
     actorRole: 'MANAGER',
-  } as unknown as TenantContext;
+  });
   const txManager = new InMemoryTransactionManager();
   const controller = new ServiceController(
     new CreateServiceUseCase(repo, txManager, ctx),

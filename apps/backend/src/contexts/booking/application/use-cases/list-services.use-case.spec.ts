@@ -1,21 +1,11 @@
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
-import { TenantContext } from '../../../../shared/tenant/tenant-context';
+import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
 import { Money } from '../../../../shared/value-objects/money';
 import { ListServicesUseCase } from './list-services.use-case';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
 const TENANT_B = '10000000-0000-4000-8000-000000000002';
-
-function makeTenantContext(tenantId = TENANT_A): TenantContext {
-  return {
-    tenantId,
-    correlationId: 'corr',
-    actorId: null,
-    actorType: undefined,
-    actorRole: undefined,
-  } as unknown as TenantContext;
-}
 
 describe('ListServicesUseCase', () => {
   let repo: InMemoryServiceRepository;
@@ -23,7 +13,7 @@ describe('ListServicesUseCase', () => {
 
   beforeEach(() => {
     repo = new InMemoryServiceRepository();
-    useCase = new ListServicesUseCase(repo, makeTenantContext());
+    useCase = new ListServicesUseCase(repo, makeTenantContext(TENANT_A));
   });
 
   it('returns only active services for the tenant', async () => {

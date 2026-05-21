@@ -1,22 +1,12 @@
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
-import { TenantContext } from '../../../../shared/tenant/tenant-context';
+import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
 import { ServiceNotFoundError } from '../../domain/errors/booking-domain.error';
 import { DeactivateServiceUseCase } from './deactivate-service.use-case';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
 const TENANT_B = '10000000-0000-4000-8000-000000000002';
-
-function makeCtx(tenantId = TENANT_A): TenantContext {
-  return {
-    tenantId,
-    correlationId: 'corr',
-    actorId: null,
-    actorType: undefined,
-    actorRole: undefined,
-  } as unknown as TenantContext;
-}
 
 describe('DeactivateServiceUseCase', () => {
   let repo: InMemoryServiceRepository;
@@ -24,7 +14,11 @@ describe('DeactivateServiceUseCase', () => {
 
   beforeEach(() => {
     repo = new InMemoryServiceRepository();
-    useCase = new DeactivateServiceUseCase(repo, new InMemoryTransactionManager(), makeCtx());
+    useCase = new DeactivateServiceUseCase(
+      repo,
+      new InMemoryTransactionManager(),
+      makeTenantContext(TENANT_A),
+    );
   });
 
   it('sets isActive=false and returns { id, isActive: false }', async () => {

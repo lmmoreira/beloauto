@@ -1,7 +1,7 @@
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
-import { TenantContext } from '../../../../shared/tenant/tenant-context';
+import { makeTenantContext } from '../../../../test/factories/tenant-context.factory';
 import {
   BookingDomainError,
   ServiceDeactivatedError,
@@ -12,23 +12,17 @@ import { UpdateServiceUseCase } from './update-service.use-case';
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
 const TENANT_B = '10000000-0000-4000-8000-000000000002';
 
-function makeCtx(tenantId = TENANT_A): TenantContext {
-  return {
-    tenantId,
-    correlationId: 'corr',
-    actorId: null,
-    actorType: undefined,
-    actorRole: undefined,
-  } as unknown as TenantContext;
-}
-
 describe('UpdateServiceUseCase', () => {
   let repo: InMemoryServiceRepository;
   let useCase: UpdateServiceUseCase;
 
   beforeEach(() => {
     repo = new InMemoryServiceRepository();
-    useCase = new UpdateServiceUseCase(repo, new InMemoryTransactionManager(), makeCtx());
+    useCase = new UpdateServiceUseCase(
+      repo,
+      new InMemoryTransactionManager(),
+      makeTenantContext(TENANT_A),
+    );
   });
 
   it('updates only the provided fields; unspecified fields remain unchanged', async () => {
