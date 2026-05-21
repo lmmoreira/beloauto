@@ -2,12 +2,15 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { ProblemDetail } from '../../../../shared/http/problem-detail';
 import {
   BookingDomainError,
+  ClosureDateInPastError,
+  ScheduleAlreadyClosedError,
+  ScheduleClosureNotFoundError,
   ServiceDeactivatedError,
   ServiceNotFoundError,
 } from '../../domain/errors/booking-domain.error';
 
 export function mapBookingError(err: unknown): never {
-  if (err instanceof ServiceNotFoundError) {
+  if (err instanceof ServiceNotFoundError || err instanceof ScheduleClosureNotFoundError) {
     const body: ProblemDetail = {
       type: 'about:blank',
       title: 'Not Found',
@@ -16,7 +19,7 @@ export function mapBookingError(err: unknown): never {
     };
     throw new HttpException(body, HttpStatus.NOT_FOUND);
   }
-  if (err instanceof ServiceDeactivatedError) {
+  if (err instanceof ServiceDeactivatedError || err instanceof ScheduleAlreadyClosedError) {
     const body: ProblemDetail = {
       type: 'about:blank',
       title: 'Conflict',
@@ -24,6 +27,15 @@ export function mapBookingError(err: unknown): never {
       detail: err.message,
     };
     throw new HttpException(body, HttpStatus.CONFLICT);
+  }
+  if (err instanceof ClosureDateInPastError) {
+    const body: ProblemDetail = {
+      type: 'about:blank',
+      title: 'Unprocessable Entity',
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      detail: err.message,
+    };
+    throw new HttpException(body, HttpStatus.UNPROCESSABLE_ENTITY);
   }
   if (err instanceof BookingDomainError) {
     const body: ProblemDetail = {

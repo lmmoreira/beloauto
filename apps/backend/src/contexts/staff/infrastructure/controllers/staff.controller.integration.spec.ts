@@ -11,22 +11,13 @@ import { TenantInterceptor } from '../../../../shared/tenant/tenant.interceptor'
 import { TenantModule } from '../../../../shared/tenant/tenant.module';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { StaffEntityBuilder } from '../../../../test/builders/staff';
+import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { StaffEntity } from '../entities/staff.entity';
 import { StaffModule } from '../../staff.module';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000100';
 const TENANT_B = '10000000-0000-4000-8000-000000000101';
 const MANAGER_ID = '20000000-0000-4000-8000-000000000001';
-
-function actorHeaders(tenantId: string, actorId: string, role = 'MANAGER') {
-  return {
-    'x-tenant-id': tenantId,
-    'x-actor-id': actorId,
-    'x-actor-type': 'STAFF',
-    'x-actor-role': role,
-    'x-correlation-id': 'test-corr',
-  };
-}
 
 describe('StaffController (integration) — management endpoints', () => {
   let app: INestApplication;
