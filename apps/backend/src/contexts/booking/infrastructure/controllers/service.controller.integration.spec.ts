@@ -8,22 +8,13 @@ import { TransactionManagerModule } from '../../../../shared/infrastructure/tran
 import { TenantInterceptor } from '../../../../shared/tenant/tenant.interceptor';
 import { TenantModule } from '../../../../shared/tenant/tenant.module';
 import { ServiceEntityBuilder } from '../../../../test/builders/booking/index';
+import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { ServiceEntity } from '../entities/service.entity';
 import { BookingModule } from '../../booking.module';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000200';
 const TENANT_B = '10000000-0000-4000-8000-000000000201';
 const MANAGER_ID = '20000000-0000-4000-8000-000000000001';
-
-function actorHeaders(tenantId: string, actorId: string, role = 'MANAGER') {
-  return {
-    'x-tenant-id': tenantId,
-    'x-actor-id': actorId,
-    'x-actor-type': 'STAFF',
-    'x-actor-role': role,
-    'x-correlation-id': 'test-corr-svc',
-  };
-}
 
 const validBody = {
   name: 'Lavagem Completa',

@@ -8,6 +8,8 @@ import { TransactionManagerModule } from '../../../../shared/infrastructure/tran
 import { TenantInterceptor } from '../../../../shared/tenant/tenant.interceptor';
 import { TenantModule } from '../../../../shared/tenant/tenant.module';
 import { ScheduleClosureEntityBuilder } from '../../../../test/builders/booking/index';
+import { actorHeaders } from '../../../../test/utils/actor-headers';
+import { futureDate, pastDate } from '../../../../test/utils/date-helpers';
 import { ScheduleClosureEntity } from '../entities/schedule-closure.entity';
 import { ServiceEntity } from '../entities/service.entity';
 import { BookingModule } from '../../booking.module';
@@ -15,28 +17,6 @@ import { BookingModule } from '../../booking.module';
 const TENANT_A = '10000000-0000-4000-8000-000000000300';
 const TENANT_B = '10000000-0000-4000-8000-000000000301';
 const MANAGER_ID = '20000000-0000-4000-8000-000000000001';
-
-function actorHeaders(tenantId: string, actorId = MANAGER_ID, role = 'MANAGER') {
-  return {
-    'x-tenant-id': tenantId,
-    'x-actor-id': actorId,
-    'x-actor-type': 'STAFF',
-    'x-actor-role': role,
-    'x-correlation-id': 'test-corr-closure',
-  };
-}
-
-function futureDate(daysAhead = 5): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + daysAhead);
-  return d.toISOString().slice(0, 10);
-}
-
-function pastDate(): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
 
 describe('ScheduleClosureController (integration)', () => {
   let app: INestApplication;
@@ -73,7 +53,7 @@ describe('ScheduleClosureController (integration)', () => {
     it('creates a full-day closure and returns 201', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/schedule/closures')
-        .set(actorHeaders(TENANT_A))
+        .set(actorHeaders(TENANT_A, MANAGER_ID))
         .send({ date: futureDate(10), reason: 'HOLIDAY' })
         .expect(201);
 
@@ -86,7 +66,7 @@ describe('ScheduleClosureController (integration)', () => {
     it('creates a partial closure and returns 201', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/schedule/closures')
-        .set(actorHeaders(TENANT_A))
+        .set(actorHeaders(TENANT_A, MANAGER_ID))
         .send({ date: futureDate(11), reason: 'MAINTENANCE', startTime: '08:00', endTime: '10:00' })
         .expect(201);
 
@@ -97,7 +77,7 @@ describe('ScheduleClosureController (integration)', () => {
     it('returns 422 for a past date', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/schedule/closures')
-        .set(actorHeaders(TENANT_A))
+        .set(actorHeaders(TENANT_A, MANAGER_ID))
         .send({ date: pastDate(), reason: 'HOLIDAY' })
         .expect(422);
 
@@ -108,13 +88,13 @@ describe('ScheduleClosureController (integration)', () => {
       const date = futureDate(20);
       await request(app.getHttpServer())
         .post('/schedule/closures')
-        .set(actorHeaders(TENANT_A))
+        .set(actorHeaders(TENANT_A, MANAGER_ID))
         .send({ date, reason: 'HOLIDAY' })
         .expect(201);
 
       const { body } = await request(app.getHttpServer())
         .post('/schedule/closures')
-        .set(actorHeaders(TENANT_A))
+        .set(actorHeaders(TENANT_A, MANAGER_ID))
         .send({ date, reason: 'MAINTENANCE' })
         .expect(409);
 
@@ -124,7 +104,7 @@ describe('ScheduleClosureController (integration)', () => {
     it('returns 403 for CUSTOMER role', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/schedule/closures')
-        .set({ ...actorHeaders(TENANT_A), 'x-actor-role': 'CUSTOMER', 'x-actor-type': 'CUSTOMER' })
+        .set(actorHeaders(TENANT_A, MANAGER_ID, 'CUSTOMER'))
         .send({ date: futureDate(30), reason: 'HOLIDAY' })
         .expect(403);
 
@@ -144,7 +124,7 @@ describe('ScheduleClosureController (integration)', () => {
 
       await request(app.getHttpServer())
         .delete(`/schedule/closures/${entity.id}`)
-        .set(actorHeaders(TENANT_A))
+        .set(actorHeaders(TENANT_A, MANAGER_ID))
         .expect(204);
 
       const found = await ds
@@ -156,7 +136,7 @@ describe('ScheduleClosureController (integration)', () => {
     it('returns 404 when closure does not exist', async () => {
       const { body } = await request(app.getHttpServer())
         .delete('/schedule/closures/00000000-0000-4000-8000-000000000099')
-        .set(actorHeaders(TENANT_A))
+        .set(actorHeaders(TENANT_A, MANAGER_ID))
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -171,7 +151,7 @@ describe('ScheduleClosureController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .delete(`/schedule/closures/${entity.id}`)
-        .set(actorHeaders(TENANT_A))
+        .set(actorHeaders(TENANT_A, MANAGER_ID))
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -196,7 +176,7 @@ describe('ScheduleClosureController (integration)', () => {
     it('returns all closures in range sorted by date', async () => {
       const { body } = await request(app.getHttpServer())
         .get('/schedule/closures?from=2026-09-01&to=2026-09-30')
-        .set(actorHeaders(LIST_TENANT))
+        .set(actorHeaders(LIST_TENANT, MANAGER_ID))
         .expect(200);
 
       expect(body.items).toHaveLength(2);
@@ -207,7 +187,7 @@ describe('ScheduleClosureController (integration)', () => {
     it('does not return closures from another tenant', async () => {
       const { body } = await request(app.getHttpServer())
         .get('/schedule/closures?from=2026-09-01&to=2026-09-30')
-        .set(actorHeaders(TENANT_A))
+        .set(actorHeaders(TENANT_A, MANAGER_ID))
         .expect(200);
 
       expect(
