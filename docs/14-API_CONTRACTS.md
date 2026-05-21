@@ -401,10 +401,48 @@ Availability depends on the **total duration** of the customer's basket, not on 
   ```
 - **Errors:** `400 invalid-services-empty`, `400 duration-exceeds-business-hours`.
 
-### **Schedule Closures (UC-010)**
-- `GET /schedule/closures` -> List active closures.
-- `POST /schedule/closures` -> (Admin) Close dates for maintenance/holidays.
-- `DELETE /schedule/closures/:id` -> (Admin) Reopen schedule.
+### **Schedule Closures (UC-010a, UC-010b)**
+Auth: JWT + `MANAGER|STAFF` on all write endpoints.
+
+- `GET /schedule/closures?from=YYYY-MM-DD&to=YYYY-MM-DD` → list closures in range (sorted by date ASC)
+- `POST /schedule/closures` → create closure (full-day or partial)
+  ```json
+  {
+    "date":      "2026-12-26",
+    "reason":    "HOLIDAY",
+    "startTime": "10:00",   // optional — omit for full-day
+    "endTime":   "12:00",   // optional — omit for full-day
+    "notes":     "..."      // optional
+  }
+  ```
+  - `201` on success; response body includes the created closure `id`
+  - `422` if date is in the past
+  - `409` if an overlapping closure already exists for that date
+
+- `DELETE /schedule/closures/:id` → remove closure
+  - `204` on success
+  - `404` if not found or belongs to another tenant
+
+### **Schedule Openings (UC-010c, UC-010d)**
+Auth: JWT + `MANAGER|STAFF` on all write endpoints.
+
+- `GET /schedule/openings?from=YYYY-MM-DD&to=YYYY-MM-DD` → list openings in range
+- `POST /schedule/openings` → open a normally-closed day
+  ```json
+  {
+    "date":      "2026-12-28",
+    "startTime": "09:00",
+    "endTime":   "14:00",
+    "notes":     "..."   // optional
+  }
+  ```
+  - `201` on success
+  - `422` if date is past OR day-of-week is already open in `business_hours`
+  - `409` if an opening already exists for that date
+
+- `DELETE /schedule/openings/:id` → remove opening; day reverts to default-closed
+  - `204` on success
+  - `404` if not found or belongs to another tenant
 
 ---
 

@@ -120,7 +120,8 @@ Notification Context subscribes:
 **Owned Aggregates:**
 - `Booking` (root) — a customer visit; parent of 1..N `BookingLine` child entities (tenant-scoped). The Booking aggregate enforces ≥1 line, snapshots line fields at request time, and computes `totalPrice` / `totalDurationMins` from its lines.
 - `Service` — type of car wash offered (tenant-scoped). Edits to a service NEVER retroactively affect past bookings — the `BookingLine` snapshot is the source of truth for an existing booking.
-- `ScheduleClosure` — when the schedule is closed (tenant-scoped).
+- `ScheduleClosure` — blocks the schedule for a full day or a partial time window (tenant-scoped).
+- `ScheduleOpening` — opens a normally-closed day (per `business_hours`) for a specific time window (tenant-scoped). Inverse of `ScheduleClosure`.
 
 **Responsibilities:**
 - Accept booking requests (guest & authenticated customers) for a specific tenant
@@ -131,7 +132,7 @@ Notification Context subscribes:
 - Trigger workflow changes
 
 **Database:** `beloauto_booking` schema
-- Tables: bookings, services, schedule_closures, booking_audit_logs
+- Tables: bookings, services, schedule_closures, schedule_openings, booking_audit_logs
 - Every row has: `tenant_id` (required, indexed)
 - Queries: Always filtered by `WHERE tenant_id = ?`
 
@@ -160,7 +161,7 @@ Notification Context subscribes:
 **Tenant Isolation Guarantees:**
 - ✓ Cannot query other tenant's bookings
 - ✓ Cannot access other tenant's services
-- ✓ Cannot view other tenant's schedule closures
+- ✓ Cannot view other tenant's schedule closures or openings
 - ✓ Events are tagged with tenantId
 - ✓ Staff member from Tenant A sees only Tenant A bookings
 

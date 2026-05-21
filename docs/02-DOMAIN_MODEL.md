@@ -258,39 +258,101 @@ Service {
 ---
 
 #### **Aggregate: ScheduleClosure** (Root Entity)
-Represents when staff/admin closes the schedule (days off, maintenance, holidays).
+Represents a period when the tenant's schedule is blocked — either a full day or a partial time window within a day (e.g., 2 hours for staff training). Closures are system-wide (they block all new bookings for that tenant during the closed window).
 
 **Entities within:**
 - `ScheduleClosure` (root)
 
 **Value Objects:**
 - `ScheduleClosureId` (unique identifier)
-- `ClosureType` (STAFF_DAY_OFF, MAINTENANCE, HOLIDAY)
-- `DateRange` (startDate, endDate)
+- `ClosureReason` enum: `STAFF_DAY_OFF | MAINTENANCE | HOLIDAY`
 
 **Properties:**
 ```
 ScheduleClosure {
-  closureId: ScheduleClosureId
-  tenantId: TenantId (which company this closure belongs to)
-  staffId: StaffId | null (null = system-wide closure, set = staff-specific day off)
-  type: ClosureType (STAFF_DAY_OFF, MAINTENANCE, HOLIDAY)
-  startDate: Date
-  endDate: Date
-  reason: String (optional)
+  id:        ScheduleClosureId
+  tenantId:  TenantId
+  date:      String (YYYY-MM-DD — calendar date in tenant timezone)
+  startTime: String | null  (HH:MM, 24-hour — null = full-day closure)
+  endTime:   String | null  (HH:MM, 24-hour — null = full-day closure)
+  reason:    ClosureReason
+  notes:     String | null  (optional admin notes)
+  createdBy: StaffId        (who created this closure)
   createdAt: DateTime
 }
 ```
 
-**Closure Type Rules:**
-- `STAFF_DAY_OFF`: staffId MUST be set (this staff member is unavailable)
-- `MAINTENANCE`: staffId MUST be null (system-wide maintenance)
-- `HOLIDAY`: staffId MUST be null (system-wide holiday, affects all staff)
+**Full-day vs Partial-day:**
+- `startTime = null AND endTime = null` → full-day closure; the entire date is blocked regardless of business hours
+- `startTime = "10:00" AND endTime = "12:00"` → partial closure; only that 2-hour window is blocked; bookings outside it remain available
 
 **Invariants:**
-- If `staffId` is set, `type` must be `STAFF_DAY_OFF`
-- If `staffId` is null, `type` must be `MAINTENANCE` or `HOLIDAY`
-- A staff member cannot have overlapping STAFF_DAY_OFF closures (UC-010 should validate)
+- `date` cannot be in the past (domain guard at creation time)
+- `startTime` and `endTime` must both be null OR both be set (no half-specified range)
+- When set, `endTime > startTime` (zero-length or negative windows are invalid)
+- `startTime` and `endTime` must be valid HH:MM strings (00:00–23:59)
+- No two closures for the same `(tenantId, date)` may have overlapping time windows; this is enforced by the use case before persisting (the DB index alone cannot express arbitrary range overlap)
+- A full-day closure overlaps with every partial closure on the same date — creating a full-day closure when any partial closure already exists for that date, or vice versa, is a conflict
+
+**Factory:** `ScheduleClosure.close(tenantId, date, reason, createdBy, startTime?, endTime?, notes?)`
+
+---
+
+#### **Aggregate: ScheduleOpening** (Root Entity)
+Represents an **exception** that opens the schedule on a day that `business_hours` marks as closed (e.g., a normally-closed Sunday opened for a special event). `ScheduleOpening` is the inverse of `ScheduleClosure`: it overrides a recurring "closed" day with a specific operating window.
+
+`ScheduleOpening` is only meaningful when `business_hours[dayOfWeek] = null`. On a day that is already open in `business_hours`, creating an opening exception is invalid (use the `business_hours` settings to change the regular hours instead).
+
+**Entities within:**
+- `ScheduleOpening` (root)
+
+**Properties:**
+```
+ScheduleOpening {
+  id:        ScheduleOpeningId
+  tenantId:  TenantId
+  date:      String (YYYY-MM-DD — calendar date in tenant timezone)
+  startTime: String  (HH:MM, 24-hour — required; opening always has explicit hours)
+  endTime:   String  (HH:MM, 24-hour — required)
+  notes:     String | null
+  createdBy: StaffId
+  createdAt: DateTime
+}
+```
+
+**Invariants:**
+- `date` cannot be in the past
+- `endTime > startTime`
+- `startTime` and `endTime` are valid HH:MM strings
+- The day-of-week derived from `date` must be closed in `business_hours` (cannot create an opening for an already-open day)
+- Only one `ScheduleOpening` per `(tenantId, date)` is allowed
+
+**Factory:** `ScheduleOpening.open(tenantId, date, startTime, endTime, createdBy, notes?)`
+
+---
+
+#### **Three-Layer Schedule Resolution (Availability Algorithm)**
+The availability algorithm resolves the effective operating window for any given date using three layers in priority order:
+
+```
+1. ScheduleOpening  (highest priority — specific date override: open a normally-closed day)
+2. ScheduleClosure  (block a normally-open day or a time window within it)
+3. business_hours   (lowest priority — the recurring weekly pattern)
+```
+
+Resolution logic per date:
+```
+if ScheduleOpening exists for (tenantId, date):
+    effective_hours = { open: opening.startTime, close: opening.endTime }
+    skip ScheduleClosure and business_hours checks  ← opening takes full priority
+elif business_hours[dayOfWeek] = null:
+    return []  ← day is closed; no opening exists to override it
+elif full-day ScheduleClosure exists for (tenantId, date):
+    return []  ← entire day is blocked
+else:
+    effective_hours = business_hours[dayOfWeek]
+    filter out any slots that overlap partial ScheduleClosures for this date
+```
 
 ---
 
