@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
+import { TimeOfDay } from '../../../../shared/value-objects/time-of-day.vo';
 import { IScheduleClosureRepository } from '../../application/ports/schedule-closure-repository.port';
 import { ScheduleClosure } from '../../domain/schedule-closure.aggregate';
 import { ScheduleClosureEntity } from '../entities/schedule-closure.entity';
@@ -62,8 +63,8 @@ export class TypeOrmScheduleClosureRepository implements IScheduleClosureReposit
       id: entity.id,
       tenantId: entity.tenantId,
       date: entity.date,
-      startTime: entity.startTime,
-      endTime: entity.endTime,
+      startTime: entity.startTime ? TimeOfDay.create(entity.startTime) : null,
+      endTime: entity.endTime ? TimeOfDay.create(entity.endTime) : null,
       reason: entity.reason,
       notes: entity.notes,
       createdBy: entity.createdBy,
@@ -76,8 +77,8 @@ export class TypeOrmScheduleClosureRepository implements IScheduleClosureReposit
     entity.id = closure.id;
     entity.tenantId = closure.tenantId;
     entity.date = closure.date;
-    entity.startTime = closure.startTime;
-    entity.endTime = closure.endTime;
+    entity.startTime = closure.startTime?.value ?? null;
+    entity.endTime = closure.endTime?.value ?? null;
     entity.reason = closure.reason;
     entity.notes = closure.notes;
     entity.createdBy = closure.createdBy;

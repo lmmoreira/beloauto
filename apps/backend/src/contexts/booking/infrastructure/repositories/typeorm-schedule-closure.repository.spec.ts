@@ -2,6 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ScheduleClosureEntityBuilder } from '../../../../test/builders/booking/index';
+import { TimeOfDay } from '../../../../shared/value-objects/time-of-day.vo';
 import { ClosureReason, ScheduleClosure } from '../../domain/schedule-closure.aggregate';
 import { ScheduleClosureEntity } from '../entities/schedule-closure.entity';
 import { TypeOrmScheduleClosureRepository } from './typeorm-schedule-closure.repository';
@@ -63,6 +64,7 @@ describe('TypeOrmScheduleClosureRepository', () => {
       expect(result!.startTime).toBeNull();
       expect(result!.endTime).toBeNull();
       expect(result!.isFullDay()).toBe(true);
+      expect(result!.tenantId).toBe(TENANT_ID);
     });
 
     it('maps partial closure entity with startTime and endTime', async () => {
@@ -77,8 +79,10 @@ describe('TypeOrmScheduleClosureRepository', () => {
 
       const result = await repo.findById(CLOSURE_ID, TENANT_ID);
 
-      expect(result!.startTime).toBe('10:00');
-      expect(result!.endTime).toBe('12:00');
+      expect(result!.startTime).toBeInstanceOf(TimeOfDay);
+      expect(result!.startTime!.value).toBe('10:00');
+      expect(result!.endTime).toBeInstanceOf(TimeOfDay);
+      expect(result!.endTime!.value).toBe('12:00');
       expect(result!.isFullDay()).toBe(false);
     });
   });
@@ -148,14 +152,14 @@ describe('TypeOrmScheduleClosureRepository', () => {
       );
     });
 
-    it('maps partial closure to entity with time values', async () => {
+    it('maps partial closure to entity with time string values', async () => {
       ormRepo.save.mockResolvedValue(new ScheduleClosureEntityBuilder().build());
       const closure = ScheduleClosure.reconstitute({
         id: CLOSURE_ID,
         tenantId: TENANT_ID,
         date: '2026-12-25',
-        startTime: '10:00',
-        endTime: '12:00',
+        startTime: TimeOfDay.create('10:00'),
+        endTime: TimeOfDay.create('12:00'),
         reason: ClosureReason.MAINTENANCE,
         notes: null,
         createdBy: STAFF_ID,

@@ -1,5 +1,6 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
+import { TimeOfDay } from '../../../shared/value-objects/time-of-day.vo';
 import { BookingDomainError } from './errors/booking-domain.error';
 
 export enum ClosureReason {
@@ -12,8 +13,8 @@ export interface ScheduleClosureProps {
   id: string;
   tenantId: string;
   date: string;
-  startTime: string | null;
-  endTime: string | null;
+  startTime: TimeOfDay | null;
+  endTime: TimeOfDay | null;
   reason: ClosureReason;
   notes: string | null;
   createdBy: string;
@@ -37,10 +38,10 @@ export class ScheduleClosure extends AggregateRoot {
   get date(): string {
     return this.props.date;
   }
-  get startTime(): string | null {
+  get startTime(): TimeOfDay | null {
     return this.props.startTime;
   }
-  get endTime(): string | null {
+  get endTime(): TimeOfDay | null {
     return this.props.endTime;
   }
   get reason(): ClosureReason {
@@ -60,10 +61,13 @@ export class ScheduleClosure extends AggregateRoot {
     return this.props.startTime === null;
   }
 
-  /** True if this closure overlaps the given time window (or the given window is a full-day). */
-  overlaps(otherStart: string | null, otherEnd: string | null): boolean {
-    if (this.isFullDay() || otherStart === null) return true;
-    return this.props.startTime! < otherEnd! && otherStart < this.props.endTime!;
+  /** True if this closure's window overlaps the given window. Full-day on either side always overlaps. */
+  overlaps(otherStart: TimeOfDay | null, otherEnd: TimeOfDay | null): boolean {
+    const myStart = this.props.startTime;
+    const myEnd = this.props.endTime;
+    if (myStart === null || otherStart === null) return true;
+    if (myEnd === null || otherEnd === null) return true;
+    return myStart.value < otherEnd.value && otherStart.value < myEnd.value;
   }
 
   static close(
@@ -80,8 +84,8 @@ export class ScheduleClosure extends AggregateRoot {
       id: uuidv7(),
       tenantId,
       date,
-      startTime: startTime ?? null,
-      endTime: endTime ?? null,
+      startTime: startTime != null ? TimeOfDay.create(startTime) : null,
+      endTime: endTime != null ? TimeOfDay.create(endTime) : null,
       reason,
       notes: notes?.trim() ?? null,
       createdBy,
@@ -118,10 +122,10 @@ export class ScheduleClosure extends AggregateRoot {
       throw new BookingDomainError('startTime and endTime must both be provided or both omitted');
     }
     if (startTime != null && endTime != null) {
-      if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
-        throw new BookingDomainError('startTime and endTime must be in HH:MM format');
+      if (!TimeOfDay.isValid(startTime) || !TimeOfDay.isValid(endTime)) {
+        throw new BookingDomainError('startTime and endTime must be in HH:MM format (00:00–23:59)');
       }
-      if (endTime <= startTime) {
+      if (!TimeOfDay.create(startTime).isBefore(TimeOfDay.create(endTime))) {
         throw new BookingDomainError('endTime must be after startTime');
       }
     }

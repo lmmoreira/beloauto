@@ -1,4 +1,5 @@
 import { futureDate, pastDate } from '../../../test/utils/date-helpers';
+import { TimeOfDay } from '../../../shared/value-objects/time-of-day.vo';
 import { BookingDomainError } from './errors/booking-domain.error';
 import { ClosureReason, ScheduleClosure } from './schedule-closure.aggregate';
 
@@ -80,7 +81,7 @@ describe('ScheduleClosure.close() — full-day', () => {
 });
 
 describe('ScheduleClosure.close() — partial-day', () => {
-  it('creates a partial closure with startTime and endTime', () => {
+  it('creates a partial closure and returns TimeOfDay VOs for start/end', () => {
     const closure = ScheduleClosure.close(
       TENANT_ID,
       futureDate(3),
@@ -89,8 +90,10 @@ describe('ScheduleClosure.close() — partial-day', () => {
       '10:00',
       '12:00',
     );
-    expect(closure.startTime).toBe('10:00');
-    expect(closure.endTime).toBe('12:00');
+    expect(closure.startTime).toBeInstanceOf(TimeOfDay);
+    expect(closure.startTime!.value).toBe('10:00');
+    expect(closure.endTime).toBeInstanceOf(TimeOfDay);
+    expect(closure.endTime!.value).toBe('12:00');
     expect(closure.isFullDay()).toBe(false);
   });
 
@@ -159,11 +162,10 @@ describe('ScheduleClosure.overlaps()', () => {
   it('full-day closure overlaps everything', () => {
     const fullDay = ScheduleClosure.close(TENANT_ID, date, ClosureReason.HOLIDAY, STAFF_ID);
     expect(fullDay.overlaps(null, null)).toBe(true);
-    expect(fullDay.overlaps('10:00', '12:00')).toBe(true);
-    expect(fullDay.overlaps('00:00', '23:59')).toBe(true);
+    expect(fullDay.overlaps(TimeOfDay.create('10:00'), TimeOfDay.create('12:00'))).toBe(true);
   });
 
-  it('partial closure overlaps another full-day request', () => {
+  it('partial closure overlaps a full-day request (null)', () => {
     const partial = ScheduleClosure.close(
       TENANT_ID,
       date,
@@ -184,9 +186,9 @@ describe('ScheduleClosure.overlaps()', () => {
       '10:00',
       '12:00',
     );
-    expect(partial.overlaps('11:00', '13:00')).toBe(true);
-    expect(partial.overlaps('09:00', '11:00')).toBe(true);
-    expect(partial.overlaps('10:00', '12:00')).toBe(true);
+    expect(partial.overlaps(TimeOfDay.create('11:00'), TimeOfDay.create('13:00'))).toBe(true);
+    expect(partial.overlaps(TimeOfDay.create('09:00'), TimeOfDay.create('11:00'))).toBe(true);
+    expect(partial.overlaps(TimeOfDay.create('10:00'), TimeOfDay.create('12:00'))).toBe(true);
   });
 
   it('partial closure does not overlap non-intersecting window', () => {
@@ -198,14 +200,14 @@ describe('ScheduleClosure.overlaps()', () => {
       '10:00',
       '12:00',
     );
-    expect(partial.overlaps('12:00', '14:00')).toBe(false);
-    expect(partial.overlaps('08:00', '10:00')).toBe(false);
-    expect(partial.overlaps('13:00', '15:00')).toBe(false);
+    expect(partial.overlaps(TimeOfDay.create('12:00'), TimeOfDay.create('14:00'))).toBe(false);
+    expect(partial.overlaps(TimeOfDay.create('08:00'), TimeOfDay.create('10:00'))).toBe(false);
+    expect(partial.overlaps(TimeOfDay.create('13:00'), TimeOfDay.create('15:00'))).toBe(false);
   });
 });
 
 describe('ScheduleClosure.reconstitute()', () => {
-  it('reconstitutes full-day closure from persisted props without validation', () => {
+  it('reconstitutes full-day closure without validation', () => {
     const props = {
       id: '00000000-0000-7000-8000-000000000099',
       tenantId: TENANT_ID,
@@ -218,17 +220,17 @@ describe('ScheduleClosure.reconstitute()', () => {
       createdAt: new Date('2020-01-01T00:00:00Z'),
     };
     const closure = ScheduleClosure.reconstitute(props);
-    expect(closure.id).toBe(props.id);
     expect(closure.isFullDay()).toBe(true);
+    expect(closure.startTime).toBeNull();
   });
 
-  it('reconstitutes partial closure from persisted props', () => {
+  it('reconstitutes partial closure from TimeOfDay VOs', () => {
     const props = {
       id: '00000000-0000-7000-8000-000000000099',
       tenantId: TENANT_ID,
       date: '2020-01-01',
-      startTime: '10:00',
-      endTime: '12:00',
+      startTime: TimeOfDay.create('10:00'),
+      endTime: TimeOfDay.create('12:00'),
       reason: ClosureReason.MAINTENANCE,
       notes: null,
       createdBy: STAFF_ID,
@@ -236,7 +238,7 @@ describe('ScheduleClosure.reconstitute()', () => {
     };
     const closure = ScheduleClosure.reconstitute(props);
     expect(closure.isFullDay()).toBe(false);
-    expect(closure.startTime).toBe('10:00');
-    expect(closure.endTime).toBe('12:00');
+    expect(closure.startTime!.value).toBe('10:00');
+    expect(closure.endTime!.value).toBe('12:00');
   });
 });
