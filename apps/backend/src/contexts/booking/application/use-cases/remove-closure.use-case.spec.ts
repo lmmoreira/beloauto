@@ -10,40 +10,44 @@ const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const OTHER_TENANT = '99999999-0000-7000-8000-000000000099';
 const ACTOR_ID = '00000000-0000-7000-8000-000000000002';
 
-function makeUseCase(repo = new InMemoryScheduleClosureRepository()) {
-  const ctx = new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build();
-  return { uc: new RemoveClosureUseCase(repo, new InMemoryTransactionManager(), ctx), repo };
-}
-
 describe('RemoveClosureUseCase', () => {
+  let repo: InMemoryScheduleClosureRepository;
+  let useCase: RemoveClosureUseCase;
+
+  beforeEach(() => {
+    repo = new InMemoryScheduleClosureRepository();
+    useCase = new RemoveClosureUseCase(
+      repo,
+      new InMemoryTransactionManager(),
+      new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build(),
+    );
+  });
+
   it('deletes an existing closure', async () => {
-    const { uc, repo } = makeUseCase();
     const closure = new ScheduleClosureBuilder()
       .withTenantId(TENANT_ID)
       .withDate(futureDate(5))
       .build();
     await repo.save(closure);
 
-    await uc.execute(closure.id);
+    await useCase.execute(closure.id);
 
     expect(await repo.findById(closure.id, TENANT_ID)).toBeNull();
   });
 
   it('throws ScheduleClosureNotFoundError when closure does not exist', async () => {
-    const { uc } = makeUseCase();
-    await expect(uc.execute('00000000-0000-7000-8000-000000000099')).rejects.toThrow(
+    await expect(useCase.execute('00000000-0000-7000-8000-000000000099')).rejects.toThrow(
       ScheduleClosureNotFoundError,
     );
   });
 
   it('throws ScheduleClosureNotFoundError for a closure belonging to another tenant', async () => {
-    const { uc, repo } = makeUseCase();
     const closure = new ScheduleClosureBuilder()
       .withTenantId(OTHER_TENANT)
       .withDate(futureDate(5))
       .build();
     await repo.save(closure);
 
-    await expect(uc.execute(closure.id)).rejects.toThrow(ScheduleClosureNotFoundError);
+    await expect(useCase.execute(closure.id)).rejects.toThrow(ScheduleClosureNotFoundError);
   });
 });

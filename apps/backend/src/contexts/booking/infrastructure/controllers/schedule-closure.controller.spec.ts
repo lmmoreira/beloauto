@@ -13,25 +13,23 @@ import { ScheduleClosureController } from './schedule-closure.controller';
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const ACTOR_ID = '00000000-0000-7000-8000-000000000002';
 
-function makeController(repo = new InMemoryScheduleClosureRepository()) {
-  const ctx = new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build();
-  const tx = new InMemoryTransactionManager();
-  return {
-    controller: new ScheduleClosureController(
+describe('ScheduleClosureController', () => {
+  let repo: InMemoryScheduleClosureRepository;
+  let controller: ScheduleClosureController;
+
+  beforeEach(() => {
+    repo = new InMemoryScheduleClosureRepository();
+    const ctx = new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build();
+    const tx = new InMemoryTransactionManager();
+    controller = new ScheduleClosureController(
       new CloseScheduleUseCase(repo, tx, ctx),
       new RemoveClosureUseCase(repo, tx, ctx),
       new ListClosuresUseCase(repo, ctx),
-    ),
-    repo,
-  };
-}
-
-describe('ScheduleClosureController', () => {
-  afterEach(() => jest.resetAllMocks());
+    );
+  });
 
   describe('create()', () => {
-    it('returns 201 result for a full-day closure', async () => {
-      const { controller } = makeController();
+    it('returns result for a full-day closure', async () => {
       const result = await controller.create({
         date: futureDate(5),
         reason: ClosureReason.HOLIDAY,
@@ -42,8 +40,7 @@ describe('ScheduleClosureController', () => {
       expect(result.reason).toBe(ClosureReason.HOLIDAY);
     });
 
-    it('returns 201 result for a partial closure', async () => {
-      const { controller } = makeController();
+    it('returns result for a partial closure', async () => {
       const result = await controller.create({
         date: futureDate(3),
         reason: ClosureReason.MAINTENANCE,
@@ -56,7 +53,6 @@ describe('ScheduleClosureController', () => {
     });
 
     it('maps ClosureDateInPastError to 422', async () => {
-      const { controller } = makeController();
       const err = await controller
         .create({ date: pastDate(1), reason: ClosureReason.HOLIDAY })
         .catch((e: unknown) => e);
@@ -66,7 +62,6 @@ describe('ScheduleClosureController', () => {
     });
 
     it('maps ScheduleAlreadyClosedError to 409 when duplicate', async () => {
-      const { controller, repo } = makeController();
       const date = futureDate(5);
       await repo.save(new ScheduleClosureBuilder().withTenantId(TENANT_ID).withDate(date).build());
 
@@ -81,7 +76,6 @@ describe('ScheduleClosureController', () => {
 
   describe('remove()', () => {
     it('deletes a closure and returns void', async () => {
-      const { controller, repo } = makeController();
       const closure = new ScheduleClosureBuilder()
         .withTenantId(TENANT_ID)
         .withDate(futureDate(5))
@@ -93,7 +87,6 @@ describe('ScheduleClosureController', () => {
     });
 
     it('maps ScheduleClosureNotFoundError to 404', async () => {
-      const { controller } = makeController();
       const err = await controller
         .remove('00000000-0000-7000-8000-000000000099')
         .catch((e: unknown) => e);
@@ -105,7 +98,6 @@ describe('ScheduleClosureController', () => {
 
   describe('list()', () => {
     it('returns items in the requested range', async () => {
-      const { controller, repo } = makeController();
       await repo.save(
         new ScheduleClosureBuilder().withTenantId(TENANT_ID).withDate('2026-12-25').build(),
       );
@@ -113,6 +105,11 @@ describe('ScheduleClosureController', () => {
       const result = await controller.list({ from: '2026-12-01', to: '2026-12-31' });
       expect(result.items).toHaveLength(1);
       expect(result.items[0].date).toBe('2026-12-25');
+    });
+
+    it('returns empty list when no closures in range', async () => {
+      const result = await controller.list({ from: '2026-11-01', to: '2026-11-30' });
+      expect(result.items).toHaveLength(0);
     });
   });
 });

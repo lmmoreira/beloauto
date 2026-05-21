@@ -13,16 +13,21 @@ import { CloseScheduleUseCase } from './close-schedule.use-case';
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const ACTOR_ID = '00000000-0000-7000-8000-000000000002';
 
-function makeUseCase(repo = new InMemoryScheduleClosureRepository()) {
-  const ctx = new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build();
-  const uc = new CloseScheduleUseCase(repo, new InMemoryTransactionManager(), ctx);
-  return { uc, repo };
-}
-
 describe('CloseScheduleUseCase', () => {
+  let repo: InMemoryScheduleClosureRepository;
+  let useCase: CloseScheduleUseCase;
+
+  beforeEach(() => {
+    repo = new InMemoryScheduleClosureRepository();
+    useCase = new CloseScheduleUseCase(
+      repo,
+      new InMemoryTransactionManager(),
+      new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build(),
+    );
+  });
+
   it('creates a full-day closure and returns the result', async () => {
-    const { uc } = makeUseCase();
-    const result = await uc.execute({
+    const result = await useCase.execute({
       date: futureDate(5),
       reason: ClosureReason.HOLIDAY,
     });
@@ -35,8 +40,7 @@ describe('CloseScheduleUseCase', () => {
   });
 
   it('creates a partial closure with startTime and endTime', async () => {
-    const { uc } = makeUseCase();
-    const result = await uc.execute({
+    const result = await useCase.execute({
       date: futureDate(3),
       reason: ClosureReason.MAINTENANCE,
       startTime: '10:00',
@@ -48,24 +52,21 @@ describe('CloseScheduleUseCase', () => {
   });
 
   it('throws ClosureDateInPastError for a past date', async () => {
-    const { uc } = makeUseCase();
-    await expect(uc.execute({ date: pastDate(1), reason: ClosureReason.HOLIDAY })).rejects.toThrow(
-      ClosureDateInPastError,
-    );
+    await expect(
+      useCase.execute({ date: pastDate(1), reason: ClosureReason.HOLIDAY }),
+    ).rejects.toThrow(ClosureDateInPastError);
   });
 
   it('throws ScheduleAlreadyClosedError when full-day closure already exists', async () => {
-    const { uc, repo } = makeUseCase();
     const date = futureDate(5);
     await repo.save(new ScheduleClosureBuilder().withTenantId(TENANT_ID).withDate(date).build());
 
-    await expect(uc.execute({ date, reason: ClosureReason.HOLIDAY })).rejects.toThrow(
+    await expect(useCase.execute({ date, reason: ClosureReason.HOLIDAY })).rejects.toThrow(
       ScheduleAlreadyClosedError,
     );
   });
 
   it('throws ScheduleAlreadyClosedError when overlapping partial closure exists', async () => {
-    const { uc, repo } = makeUseCase();
     const date = futureDate(5);
     await repo.save(
       new ScheduleClosureBuilder()
@@ -77,12 +78,16 @@ describe('CloseScheduleUseCase', () => {
     );
 
     await expect(
-      uc.execute({ date, reason: ClosureReason.MAINTENANCE, startTime: '11:00', endTime: '13:00' }),
+      useCase.execute({
+        date,
+        reason: ClosureReason.MAINTENANCE,
+        startTime: '11:00',
+        endTime: '13:00',
+      }),
     ).rejects.toThrow(ScheduleAlreadyClosedError);
   });
 
   it('allows two non-overlapping partial closures on the same date', async () => {
-    const { uc, repo } = makeUseCase();
     const date = futureDate(5);
     await repo.save(
       new ScheduleClosureBuilder()
@@ -93,7 +98,7 @@ describe('CloseScheduleUseCase', () => {
         .build(),
     );
 
-    const result = await uc.execute({
+    const result = await useCase.execute({
       date,
       reason: ClosureReason.MAINTENANCE,
       startTime: '14:00',
@@ -104,19 +109,22 @@ describe('CloseScheduleUseCase', () => {
   });
 
   it('throws ScheduleAlreadyClosedError when adding partial closure on a full-day-closed date', async () => {
-    const { uc, repo } = makeUseCase();
     const date = futureDate(5);
     await repo.save(new ScheduleClosureBuilder().withTenantId(TENANT_ID).withDate(date).build());
 
     await expect(
-      uc.execute({ date, reason: ClosureReason.MAINTENANCE, startTime: '10:00', endTime: '12:00' }),
+      useCase.execute({
+        date,
+        reason: ClosureReason.MAINTENANCE,
+        startTime: '10:00',
+        endTime: '12:00',
+      }),
     ).rejects.toThrow(ScheduleAlreadyClosedError);
   });
 
   it('persists the closure to the repository', async () => {
-    const { uc, repo } = makeUseCase();
     const date = futureDate(7);
-    const result = await uc.execute({ date, reason: ClosureReason.STAFF_DAY_OFF });
+    const result = await useCase.execute({ date, reason: ClosureReason.STAFF_DAY_OFF });
 
     const stored = await repo.findById(result.id, TENANT_ID);
     expect(stored).not.toBeNull();
@@ -124,7 +132,6 @@ describe('CloseScheduleUseCase', () => {
   });
 
   it('does not check closures from another tenant', async () => {
-    const { uc, repo } = makeUseCase();
     const date = futureDate(5);
     await repo.save(
       new ScheduleClosureBuilder()
@@ -133,7 +140,7 @@ describe('CloseScheduleUseCase', () => {
         .build(),
     );
 
-    const result = await uc.execute({ date, reason: ClosureReason.HOLIDAY });
+    const result = await useCase.execute({ date, reason: ClosureReason.HOLIDAY });
     expect(result.id).toBeDefined();
   });
 });
