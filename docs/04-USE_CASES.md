@@ -310,27 +310,100 @@ UC-XXX: [Use Case Name]
 
 ## Schedule Management Use Cases
 
-### **UC-010: Admin Closes Schedule (Days Off, Maintenance)**
+### **UC-010: Admin Manages Schedule Closures and Openings**
 
-- **Actor:** Staff/Admin
-- **Preconditions:** Admin is authenticated and has dashboard access
-- **Trigger:** Admin clicks "Manage Schedule" or "Close Schedule"
-- **Main Flow:**
-  1. Admin navigates to "Schedule Management"
-  2. Admin selects date(s) to close (single day or date range)
-  3. Admin selects closure type: STAFF_DAY_OFF, MAINTENANCE, HOLIDAY
-  4. Admin optionally enters reason/notes
-  5. Admin clicks "Close Schedule"
-  6. System creates ScheduleClosure aggregate
-  7. System removes those dates from available calendar
-  8. Admin sees confirmation: "Schedule closed [date range]"
+#### **UC-010a: Admin Creates a Schedule Closure (Full Day or Partial)**
+
+- **Actor:** Staff/Manager
+- **Preconditions:** Admin is authenticated. Date is not in the past.
+- **Trigger:** Admin clicks "Close Schedule" in the dashboard.
+- **Main Flow (Full-Day Closure):**
+  1. Admin selects date to close.
+  2. Admin selects closure reason: `STAFF_DAY_OFF`, `MAINTENANCE`, or `HOLIDAY`.
+  3. Admin leaves start/end time empty (= full-day closure).
+  4. Admin optionally enters notes.
+  5. Admin confirms.
+  6. System validates: date is not past; no overlapping closure exists for `(tenantId, date)`.
+  7. System creates `ScheduleClosure` with `startTime = null, endTime = null`.
+  8. Calendar blocks the entire day for new bookings.
+  9. Admin sees confirmation: "Schedule closed for [date]."
+
+- **Main Flow (Partial Closure):**
+  1. Admin selects date and enters `startTime` and `endTime` (e.g., 10:00–12:00).
+  2. Admin selects reason and optional notes.
+  3. Admin confirms.
+  4. System validates: date is not past; `endTime > startTime`; the time window does not overlap any existing closure on that date; no full-day closure exists for that date.
+  5. System creates `ScheduleClosure` with `startTime = "10:00", endTime = "12:00"`.
+  6. Only the blocked window is unavailable; bookings outside it remain possible.
+  7. Admin sees confirmation: "Schedule closed [10:00–12:00] on [date]."
 
 - **Alternative Flows:**
-  - **A1: Bookings already exist on closed dates** → System shows warning: "[X] bookings exist. Admin must reschedule or cancel manually."
-  - **A2: Admin opens previously closed date** → Admin clicks "Reopen Schedule" → ScheduleClosure deleted → date becomes available again
+  - **A1: Date is in the past** → `422 Unprocessable` — "Não é possível fechar datas passadas."
+  - **A2: Overlapping closure already exists** → `409 Conflict` — "Já existe um bloqueio nesse período."
+  - **A3: Full-day closure conflicts with an existing partial closure (or vice versa)** → `409 Conflict` — "Conflito com bloqueio parcial existente na mesma data."
+  - **A4: Bookings already approved in the closed window** → System shows warning: "[X] agendamentos existem nesse período. Reagende ou cancele manualmente."
 
-- **Postconditions:** Calendar reflects closed dates. Guests cannot book closed dates.
-- **Events Triggered:** None directly (but impacts UC-001, UC-002 availability)
+- **Postconditions:** `ScheduleClosure` persisted. Availability recalculated for that date.
+- **Events Triggered:** None (availability is computed on read, not via events).
+
+---
+
+#### **UC-010b: Admin Removes a Schedule Closure**
+
+- **Actor:** Staff/Manager
+- **Preconditions:** Closure exists and belongs to the tenant.
+- **Trigger:** Admin clicks "Remove" on a closure entry.
+- **Main Flow:**
+  1. System finds `ScheduleClosure` by `(id, tenantId)`.
+  2. System deletes it.
+  3. The previously blocked window becomes bookable again.
+- **Alternative Flows:**
+  - **A1: Closure not found or belongs to another tenant** → `404 Not Found`.
+- **Postconditions:** Closure deleted. Availability recalculated on next read.
+- **Events Triggered:** None.
+
+---
+
+#### **UC-010c: Admin Opens a Normally-Closed Day (Schedule Opening)**
+
+Used when `business_hours[dayOfWeek] = null` (e.g., Sunday is always closed) but the business wants to open on a specific date (e.g., a special event on a Sunday).
+
+- **Actor:** Staff/Manager
+- **Preconditions:** Admin is authenticated. The day-of-week for the selected date is closed in `business_hours`.
+- **Trigger:** Admin clicks "Open Schedule" on a normally-closed day in the calendar.
+- **Main Flow:**
+  1. Admin selects date (must be a day-of-week that is `null` in `business_hours`).
+  2. Admin enters `startTime` and `endTime` for the opening window (e.g., 09:00–14:00).
+  3. Admin optionally enters notes.
+  4. Admin confirms.
+  5. System validates: date is not past; day-of-week is closed in `business_hours`; no `ScheduleOpening` already exists for `(tenantId, date)`; `endTime > startTime`.
+  6. System creates `ScheduleOpening`.
+  7. Calendar shows the date as partially available within the specified window.
+  8. Admin sees confirmation: "Agenda aberta [09:00–14:00] em [date]."
+
+- **Alternative Flows:**
+  - **A1: Date is in the past** → `422 Unprocessable`.
+  - **A2: Day-of-week is already open in `business_hours`** → `422 Unprocessable` — "Esse dia já está aberto nas configurações regulares. Ajuste os horários de funcionamento em vez disso."
+  - **A3: Opening already exists for this date** → `409 Conflict`.
+
+- **Postconditions:** `ScheduleOpening` persisted. That date now shows availability within the opening window.
+- **Events Triggered:** None.
+
+---
+
+#### **UC-010d: Admin Removes a Schedule Opening**
+
+- **Actor:** Staff/Manager
+- **Preconditions:** Opening exists and belongs to the tenant.
+- **Trigger:** Admin clicks "Remove" on an opening entry.
+- **Main Flow:**
+  1. System finds `ScheduleOpening` by `(id, tenantId)`.
+  2. System deletes it.
+  3. The date reverts to its default closed state per `business_hours`.
+- **Alternative Flows:**
+  - **A1: Opening not found or belongs to another tenant** → `404 Not Found`.
+- **Postconditions:** Opening deleted.
+- **Events Triggered:** None.
 
 ---
 
@@ -357,14 +430,45 @@ Example: basket = [Basic Wash (30 min), Wax (25 min)], buffer = 60 min, granular
 - Raw duration: 30 + 25 + 60 = 115 minutes
 - Required slots: CEIL(115 / 30) = 4 consecutive 30-min slots
 
-**Availability Calculation:**
+**Availability Calculation — Three-Layer Schedule Resolution:**
+
+For each date in the query window, the effective operating hours are resolved in priority order:
+
+```
+1. ScheduleOpening  (highest — opens a normally-closed day for a specific window)
+2. ScheduleClosure  (blocks the whole day or a time window within it)
+3. business_hours   (lowest — the recurring weekly default)
+```
+
+Resolution per date:
+```
+if ScheduleOpening exists for (tenantId, date):
+    effectiveHours = { open: opening.startTime, close: opening.endTime }
+    (ScheduleClosure and business_hours are ignored for this date)
+elif business_hours[dayOfWeek] = null:
+    return []  ← default-closed day, no opening exception
+elif full-day ScheduleClosure exists for (tenantId, date):
+    return []  ← entire day blocked
+else:
+    effectiveHours = business_hours[dayOfWeek]
+
+// Within effectiveHours, remove any slots overlapping a partial ScheduleClosure:
+partialClosures = ScheduleClosures for (tenantId, date) where startTime IS NOT NULL
+for each candidate slot in effectiveHours at slot_granularity_minutes:
+    blockedByPartialClosure = partialClosures.any(c => slot overlaps [c.startTime, c.endTime])
+    blockedByBooking = APPROVED bookings.any(b => slot overlaps b window)
+    if not blockedByPartialClosure and not blockedByBooking:
+        → slot is available
+```
+
 1. Load `slot_granularity_minutes`, `service_buffer_minutes`, business hours, and timezone from `tenants.settings`
 2. Compute `bookingDurationMins` from basket + buffer
 3. Compute `requiredSlots = CEIL(bookingDurationMins / slot_granularity_minutes)`
-4. For each potential start-time in the query window:
-   - Check if all `requiredSlots` consecutive slots are free (no APPROVED bookings or ScheduleClosures overlap)
-   - Check that all slots fall within business hours for that day
-   - If yes → slot is available; if no → slot is unavailable
+4. For each date: resolve effective hours using 3-layer logic above
+5. For each potential start-time in effectiveHours:
+   - Check all `requiredSlots` consecutive slots are free (no partial closure overlap, no APPROVED booking overlap)
+   - Check all slots fall within effectiveHours
+   - If yes → available; if no → unavailable
 
 **Example Timeline (30-min granularity, requiredSlots = 2):**
 ```
@@ -383,7 +487,8 @@ Start 15:30: ✓ (15:30 free + 16:00 free = available — if fits in business ho
 1. System computes `totalDurationMins = SUM(selectedServices.durationMins) + tenants.settings.booking.service_buffer_minutes`
 2. System computes `requiredSlots = CEIL(totalDurationMins / tenants.settings.booking.slot_granularity_minutes)`
 3. System fetches:
-   - All `ScheduleClosures` for the tenant (closed dates/ranges)
+   - All `ScheduleClosures` for the tenant in the query window (full-day and partial)
+   - All `ScheduleOpenings` for the tenant in the query window
    - All APPROVED bookings in the next 90 days for the tenant
    - The tenant's business hours and timezone
 4. For each day in the next 90 days:

@@ -220,20 +220,42 @@ One row per service unit. Snapshots from `booking.services` at request time — 
 | Column | Type | Constraints |
 |--------|------|-------------|
 | id | UUID | PRIMARY KEY |
-| tenant_id | UUID | NOT NULL, FK → `platform.tenants(id)` |
-| staff_id | UUID | NULLABLE — no FK (cross-context ref to `staff.staff`). null = system-wide closure. |
-| start_at | TIMESTAMP WITH TIME ZONE | NOT NULL |
-| end_at | TIMESTAMP WITH TIME ZONE | NOT NULL |
-| closure_type | VARCHAR(50) | NOT NULL — 'MAINTENANCE', 'HOLIDAY', 'STAFF_DAY_OFF' |
-| reason | TEXT | |
-| created_at | TIMESTAMP WITH TIME ZONE | DEFAULT now() |
-| **INDEX** | (tenant_id, start_at, end_at) | Availability queries |
-| **INDEX** | (tenant_id, staff_id, start_at) | Per-staff closure queries |
-| **UNIQUE** | (tenant_id, staff_id, start_at, end_at) when staff_id IS NOT NULL | No duplicate per-staff closures |
+| tenant_id | UUID | NOT NULL |
+| date | DATE | NOT NULL — calendar date (YYYY-MM-DD) in tenant timezone |
+| start_time | TIME | NULLABLE — null = full-day closure |
+| end_time | TIME | NULLABLE — null = full-day closure |
+| reason | VARCHAR(50) | NOT NULL — CHECK IN ('STAFF_DAY_OFF', 'MAINTENANCE', 'HOLIDAY') |
+| notes | TEXT | NULLABLE |
+| created_by | UUID | NOT NULL — staffId who created this closure |
+| created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
+| **INDEX** | (tenant_id) | Tenant-scoped queries |
+| **INDEX** | (tenant_id, date) | Date lookup for availability |
 
 **Rules:**
-- `staff_id IS NOT NULL` → `closure_type = 'STAFF_DAY_OFF'`
-- `staff_id IS NULL` → `closure_type IN ('MAINTENANCE', 'HOLIDAY')`
+- `start_time` and `end_time` are either both null (full-day) or both set (partial window)
+- When both set: `end_time > start_time`
+- No overlapping `(tenant_id, date)` windows — enforced by the use case (not a DB unique constraint, since arbitrary time-range overlap cannot be expressed as a simple unique index)
+
+---
+
+### `booking.schedule_openings`
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | UUID | PRIMARY KEY |
+| tenant_id | UUID | NOT NULL |
+| date | DATE | NOT NULL — calendar date in tenant timezone |
+| start_time | TIME | NOT NULL — opening window start (HH:MM) |
+| end_time | TIME | NOT NULL — opening window end (HH:MM) |
+| notes | TEXT | NULLABLE |
+| created_by | UUID | NOT NULL — staffId |
+| created_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
+| **INDEX** | (tenant_id) | Tenant-scoped queries |
+| **UNIQUE** | (tenant_id, date) | Only one opening override per date per tenant |
+
+**Rules:**
+- `end_time > start_time`
+- The day-of-week for `date` must be `null` in `business_hours` (enforced by use case, not DB)
+- A `ScheduleOpening` takes priority over `ScheduleClosure` and `business_hours` in the availability algorithm
 
 ---
 

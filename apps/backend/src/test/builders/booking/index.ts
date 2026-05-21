@@ -1,2 +1,4 @@
 export { ServiceBuilder } from './service.builder';
 export { ServiceEntityBuilder } from './service-entity.builder';
+export { ScheduleClosureBuilder } from './schedule-closure.builder';
+export { ScheduleClosureEntityBuilder } from './schedule-closure-entity.builder';

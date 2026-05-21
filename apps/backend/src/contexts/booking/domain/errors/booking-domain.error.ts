@@ -19,3 +19,24 @@ export class ServiceDeactivatedError extends BookingDomainError {
     this.name = 'ServiceDeactivatedError';
   }
 }
+
+export class ClosureDateInPastError extends BookingDomainError {
+  constructor() {
+    super('Cannot close a schedule for a past date');
+    this.name = 'ClosureDateInPastError';
+  }
+}
+
+export class ScheduleClosureNotFoundError extends BookingDomainError {
+  constructor(id: string) {
+    super(`Schedule closure not found: ${id}`);
+    this.name = 'ScheduleClosureNotFoundError';
+  }
+}
+
+export class ScheduleAlreadyClosedError extends BookingDomainError {
+  constructor(date: string) {
+    super(`Schedule is already closed for date: ${date}`);
+    this.name = 'ScheduleAlreadyClosedError';
+  }
+}

@@ -2,7 +2,9 @@ import 'reflect-metadata';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { GenericContainer, Wait } from 'testcontainers';
 import { DataSource } from 'typeorm';
+import { ScheduleClosureEntity } from '../contexts/booking/infrastructure/entities/schedule-closure.entity';
 import { ServiceEntity } from '../contexts/booking/infrastructure/entities/service.entity';
+import { CreateBookingScheduleClosures1748000000012 } from '../contexts/booking/infrastructure/migrations/1748000000012-CreateBookingScheduleClosures';
 import { CreateBookingServices1748000000011 } from '../contexts/booking/infrastructure/migrations/1748000000011-CreateBookingServices';
 import { CustomerEntity } from '../contexts/customer/infrastructure/entities/customer.entity';
 import { CreateCustomerCustomers1716600000001 } from '../contexts/customer/infrastructure/migrations/1716600000001-CreateCustomerCustomers';
@@ -52,6 +54,7 @@ export default async function globalSetup(): Promise<void> {
       TenantEntity,
       HotsiteConfigEntity,
       ServiceEntity,
+      ScheduleClosureEntity,
       CustomerEntity,
       StaffEntity,
       NotificationLogEntity,
@@ -67,6 +70,7 @@ export default async function globalSetup(): Promise<void> {
       AddInvitedByDeactivatedByToStaff1748000000001,
       CreateNotificationLogs1748000000010,
       CreateBookingServices1748000000011,
+      CreateBookingScheduleClosures1748000000012,
     ],
     synchronize: false,
     migrationsRun: false,
