@@ -112,16 +112,16 @@ export class ScheduleClosure extends AggregateRoot {
   }
 
   private static assertTimeRange(startTime?: string, endTime?: string): void {
-    const hasStart = startTime !== undefined && startTime !== null;
-    const hasEnd = endTime !== undefined && endTime !== null;
+    const hasStart = startTime != null;
+    const hasEnd = endTime != null;
     if (hasStart !== hasEnd) {
       throw new BookingDomainError('startTime and endTime must both be provided or both omitted');
     }
-    if (hasStart && hasEnd) {
-      if (!/^\d{2}:\d{2}$/.test(startTime!) || !/^\d{2}:\d{2}$/.test(endTime!)) {
+    if (startTime != null && endTime != null) {
+      if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) {
         throw new BookingDomainError('startTime and endTime must be in HH:MM format');
       }
-      if (endTime! <= startTime!) {
+      if (endTime <= startTime) {
         throw new BookingDomainError('endTime must be after startTime');
       }
     }
