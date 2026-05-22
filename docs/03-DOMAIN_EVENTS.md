@@ -52,6 +52,10 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     guestEmail:        string
     guestName:         string
     guestPhone:        string
+    guestAddress: {                                          // non-null if guest provided general address
+      street: string, number: string, complement: string | null,
+      neighborhood: string, city: string, state: string, zipCode: string
+    } | null
     scheduledAt:       ISO8601                                // start of the slot
     totalDurationMins: number                                 // SUM(lines.durationMinsAtBooking)
     totalPrice:        { amount: number, currency: string }   // SUM(lines.priceAtBooking)
@@ -70,7 +74,7 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
         requiresPickupAddressAtBooking:  boolean
       }
     ]
-    carPhotoUrls:      string[]                                // 0..n; tenant-prefixed storage paths
+    beforeServicePhotoUrls: string[]                           // 0..n; tenant-prefixed storage paths
   }
   ```
 - **Consumers:**
@@ -153,8 +157,9 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     bookingId:        string
     customerId:       string | null   // null if guest submitted via the email link
     submittedByEmail: string          // who replied (customer or guest)
-    infoPayload:      object          // free-form, validated server-side; may contain
-                                      // notes, additional photoUrls[], updated phone, etc.
+    infoPayload:      object          // free-form notes/corrections (text, updated phone, etc.)
+    photoUrls:        string[]        // 0..n before-service photos added with the info response;
+                                      // appended to booking.beforeServicePhotoUrls
   }
   ```
 - **Consumers:**

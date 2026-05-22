@@ -8,6 +8,7 @@ const sharedTransform: NonNullable<Config['transform']> = {
 
 const config: Config = {
   rootDir: 'src',
+  testTimeout: 60000,
   // Top-level transform enables ts-jest for globalSetup/globalTeardown TypeScript files
   transform: sharedTransform,
   collectCoverageFrom: [
@@ -37,7 +38,6 @@ const config: Config = {
       testPathIgnorePatterns: ['/migrations/'],
       transform: sharedTransform,
       testEnvironment: 'node',
-      testTimeout: 60000,
       // Single container set shared across all integration test files — must run sequentially
       // to avoid concurrent Pub/Sub subscription conflicts.
       maxWorkers: 1,

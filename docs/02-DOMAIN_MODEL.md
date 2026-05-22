@@ -122,6 +122,7 @@ Booking {
   guestEmail:    Email
   guestPhone:    Phone
   guestName:     String
+  guestAddress:  Address | null   -- optional general address provided by the guest/customer
 
   scheduledAt:        DateTime         -- start of the appointment slot
   totalDurationMins:  Duration         -- = SUM(lines.durationMinsAtBooking); derived & cached
@@ -133,7 +134,7 @@ Booking {
   lines:                BookingLine[]   -- ≥ 1 (a booking with zero lines is invalid)
   pickupAddress:        Address | null  -- required when any line has requiresPickupAddressAtBooking=true;
                                         -- null for bookings with no pickup service
-  carPhotoUrls:         String[]        -- before, uploaded by customer/guest (UC-001)
+  beforeServicePhotoUrls:         String[]        -- before, uploaded by customer/guest (UC-001)
   afterServicePhotoUrls: String[]       -- after, uploaded by staff (UC-009)
 
   createdAt:        DateTime
@@ -200,9 +201,10 @@ BookingLine {
 - A line's `tenantId` must equal its parent booking's `tenantId` (composite FK enforces this at the DB).
 
 **Key Methods (on the Booking aggregate root — `BookingLine` itself has no behaviour):**
-- `requestBooking(actor, scheduledAt, serviceIds[], pickupAddress?: Address)`
+- `requestBooking(actor, scheduledAt, serviceIds[], guestAddress?: Address, pickupAddress?: Address)`
   - Loads each `Service`, snapshots `price`/`durationMinutes`/`loyaltyPointsValue`/`requiresPickupAddress` into a new `BookingLine`.
   - Validates pickup invariant: if any line has `requiresPickupAddressAtBooking = true` and `pickupAddress` is absent → reject.
+  - `guestAddress` is stored as-is (optional informational field; not subject to the pickup requirement).
   - Computes `totalPrice` and `totalDurationMins`.
   - Validates calendar availability against the total duration.
   - Creates booking in `PENDING`.
@@ -218,7 +220,7 @@ BookingLine {
   Stores photos. Publishes `BookingCompleted` **with the full line list including `actualPriceCharged`**.
 - `cancelBooking(actor, reason?)` → validates `tenants.settings.cancellation_window_hours` rule, transitions to `CANCELLED`, publishes `BookingCancelled`.
 - `isEligibleForCancellation(now)` → checks the cancellation-window rule.
-- `uploadCarPhotos(photoUrls)` → appends to `carPhotoUrls`.
+- `uploadBeforeServicePhotos(photoUrls)` → appends to `beforeServicePhotoUrls`.
 - `uploadAfterServicePhotos(photoUrls)` → appends to `afterServicePhotoUrls`.
 
 ---
@@ -401,7 +403,7 @@ Customer {
   phone:          Phone
   firstName:      String
   lastName:       String
-  defaultAddress: Address | null   -- optional; pre-fills pickupAddress on the booking form.
+  defaultAddress: Address | null   -- optional; pre-fills both guestAddress and pickupAddress on the booking form.
                                    -- The booking always stores its own copy — this is convenience only.
   createdAt:      DateTime
   updatedAt:      DateTime

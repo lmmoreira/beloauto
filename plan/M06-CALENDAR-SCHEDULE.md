@@ -240,7 +240,7 @@ Wire up the availability domain service (M06-S03) into a use case and expose it 
 
 ---
 
-### M06-S05 — Availability edge case tests + tenant isolation
+### M06-S05 — Availability edge case tests + tenant isolation ✅ Done
 
 **Agent:** `test-ts`  
 **Complexity:** M  

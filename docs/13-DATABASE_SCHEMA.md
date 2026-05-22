@@ -165,7 +165,7 @@ A booking is the parent of one or more `booking_lines`. All service-level detail
 | total_actual_price | DECIMAL(12,2) | NULLABLE — set at COMPLETED = SUM(booking_lines.actual_price_charged) |
 | guest_info | JSONB | NULLABLE — `{ name, email, phone }` — non-null when customer_id IS NULL |
 | pickup_address | JSONB | NULLABLE — `{ street, number, complement, neighborhood, city, state, zipCode }` |
-| car_photo_urls | JSONB | `string[]` — before-service photos (UC-001) |
+| before_service_photo_urls | JSONB | `string[]` — before-service photos (UC-001, UC-005 info response) |
 | after_service_photo_urls | JSONB | `string[]` — after-service photos (UC-009) |
 | internal_notes | TEXT | |
 | rejection_reason | TEXT | |

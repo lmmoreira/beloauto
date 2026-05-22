@@ -37,7 +37,7 @@ UC-XXX: [Use Case Name]
 - **Trigger:** Guest clicks "Request Booking"
 - **Main Flow:**
   1. System identifies tenant from URL path (e.g., /tenant1).
-  2. Guest enters: name, email, phone.
+  2. Guest enters: name, email, phone, and optionally a general address (`guestAddress`).
   3. Guest selects **one or more services** from that tenant's catalog (e.g. "Basic Wash" + "Wax", or "Basic Wash" twice for two cars). Each selection adds a line to the booking.
   4. As the guest adds / removes services, the booking summary updates live:
      - **Total price** = SUM of each selected service's current price.
@@ -49,7 +49,7 @@ UC-XXX: [Use Case Name]
   8. Guest optionally uploads one or more car photos (PNG/JPG).
   9. System validates: email format, phone format, slot availability, ≥ 1 service selected, file sizes, and — if any pickup service selected — pickup address is present and CEP is 8 digits.
   10. Guest clicks "Submit".
-  11. System creates the `Booking` aggregate with status = PENDING and one `BookingLine` per selected service. Each line snapshots `price`, `duration_mins`, `points_value`, and `requiresPickupAddress`. `Booking.pickupAddress` is set if applicable. Photos stored. All rows scoped to tenant.
+  11. System creates the `Booking` aggregate with status = PENDING and one `BookingLine` per selected service. Each line snapshots `price`, `duration_mins`, `points_value`, and `requiresPickupAddress`. `Booking.guestAddress` stored if provided. `Booking.pickupAddress` is set if any pickup service was selected. Photos stored. All rows scoped to tenant.
   12. System publishes `BookingRequested` event (includes `pickupAddress` when applicable).
   13. Guest sees confirmation: "Your request is pending. You'll hear from us soon."
 
@@ -74,7 +74,7 @@ UC-XXX: [Use Case Name]
 - **Preconditions:** Customer is authenticated. System has available slots. Customer has previous booking history (optional).
 - **Trigger:** Customer clicks "Request Booking"
 - **Main Flow:**
-  1. System pre-fills name, email, phone from the customer's profile.
+  1. System pre-fills name, email, phone, and general address (`guestAddress`) from the customer's profile (`Customer.defaultAddress`).
   2. Customer selects **one or more services** from the tenant's catalog. Same multi-line model as UC-001 main flow steps 3–4.
   3. If any selected service has `requiresPickupAddress = true`, the form reveals the **pickup address field**, pre-filled with `customer.defaultAddress` (if set). Customer can edit it for this booking.
   4. System displays calendar with available slots filtered by total duration.
@@ -82,7 +82,7 @@ UC-XXX: [Use Case Name]
   6. Customer optionally uploads car photos.
   7. System validates input (including ≥ 1 service selected, slot fits total duration, and pickup address present when required — same as UC-001 A7).
   8. Customer clicks "Submit".
-  9. System creates `Booking` with status = PENDING and one `BookingLine` per selected service. `customerId` is linked. Snapshots `requiresPickupAddress` per line. `Booking.pickupAddress` set from form value (not from profile — the booking owns its own copy).
+  9. System creates `Booking` with status = PENDING and one `BookingLine` per selected service. `customerId` is linked. Snapshots `requiresPickupAddress` per line. `Booking.guestAddress` stored if provided. `Booking.pickupAddress` set from form value (not from profile — the booking owns its own copy).
   10. System publishes `BookingRequested` event (envelope `tenantId`; `data.lines[]` ≥ 1; `data.pickupAddress` if applicable).
   11. System displays: "Request submitted. View your bookings in your profile."
   12. System shows the customer's current active-points total (e.g., "47 active points").

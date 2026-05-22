@@ -82,3 +82,59 @@ export class AvailabilityRangeInvalidError extends BookingDomainError {
     this.name = 'AvailabilityRangeInvalidError';
   }
 }
+
+export class BookingNotFoundError extends BookingDomainError {
+  constructor(id: string) {
+    super(`Booking not found: ${id}`);
+    this.name = 'BookingNotFoundError';
+  }
+}
+
+export class BookingLineRequiredError extends BookingDomainError {
+  constructor() {
+    super('A booking must have at least one service line');
+    this.name = 'BookingLineRequiredError';
+  }
+}
+
+export class PickupAddressRequiredError extends BookingDomainError {
+  constructor() {
+    super('pickupAddress is required when a pickup service is selected');
+    this.name = 'PickupAddressRequiredError';
+  }
+}
+
+export class InvalidBookingTransitionError extends BookingDomainError {
+  constructor(from: string, to: string) {
+    super(`Cannot transition booking from ${from} to ${to}`);
+    this.name = 'InvalidBookingTransitionError';
+  }
+}
+
+export class BookingSlotUnavailableError extends BookingDomainError {
+  constructor() {
+    super('The requested time slot is no longer available');
+    this.name = 'BookingSlotUnavailableError';
+  }
+}
+
+export class BookingServiceNotActiveError extends BookingDomainError {
+  constructor(id: string) {
+    super(`Service is not active: ${id}`);
+    this.name = 'BookingServiceNotActiveError';
+  }
+}
+
+export class BookingServiceNotInTenantError extends BookingDomainError {
+  constructor(id: string) {
+    super(`Service does not belong to tenant: ${id}`);
+    this.name = 'BookingServiceNotInTenantError';
+  }
+}
+
+export class CancellationWindowExpiredError extends BookingDomainError {
+  constructor() {
+    super('Cancellation window has expired for this booking');
+    this.name = 'CancellationWindowExpiredError';
+  }
+}
