@@ -5,6 +5,7 @@ import {
   DayHours,
 } from '../../../../contexts/platform/domain/value-objects/tenant-settings.vo';
 import { getUtcWeekDayName } from '../../../../shared/utils/calendar-date';
+import { TimeOfDay } from '../../../../shared/value-objects/time-of-day.vo';
 import { BookedSlot } from '../booked-slot';
 import { ScheduleClosure } from '../schedule-closure.aggregate';
 import { ScheduleOpening } from '../schedule-opening.aggregate';
@@ -55,34 +56,33 @@ export class AvailabilityService {
       const startHHMM = this.utcToLocalHHMM(b.scheduledAt, timezone);
       return {
         start: startHHMM,
-        end: this.addMinsToHHMM(startHHMM, b.totalDurationMins),
+        end: TimeOfDay.create(startHHMM).addMinutes(b.totalDurationMins).value,
       };
     });
 
     const slots: AvailableSlot[] = [];
-    let cursor = this.hhmmToMins(open);
-    const closeMins = this.hhmmToMins(close);
+    let cursor = TimeOfDay.create(open);
+    const closeTime = TimeOfDay.create(close);
 
-    while (cursor + totalMins <= closeMins) {
-      const startHHMM = this.minsToHHMM(cursor);
-      const endHHMM = this.minsToHHMM(cursor + totalMins);
+    while (cursor.addMinutes(totalMins).toMinutes() <= closeTime.toMinutes()) {
+      const endTime = cursor.addMinutes(totalMins);
 
       const blockedByClosure = partialClosures.some((c) =>
-        this.overlaps(startHHMM, endHHMM, c.startTime!.value, c.endTime!.value),
+        this.overlaps(cursor.value, endTime.value, c.startTime!.value, c.endTime!.value),
       );
 
       const blockedByBooking = bookedRanges.some((b) =>
-        this.overlaps(startHHMM, endHHMM, b.start, b.end),
+        this.overlaps(cursor.value, endTime.value, b.start, b.end),
       );
 
       if (!blockedByClosure && !blockedByBooking) {
         slots.push({
-          startsAt: this.toUTCIso(date, startHHMM, timezone),
-          endsAt: this.toUTCIso(date, endHHMM, timezone),
+          startsAt: this.toUTCIso(date, cursor.value, timezone),
+          endsAt: this.toUTCIso(date, endTime.value, timezone),
         });
       }
 
-      cursor += slotGranularityMinutes;
+      cursor = cursor.addMinutes(slotGranularityMinutes);
     }
 
     return slots;
@@ -109,21 +109,6 @@ export class AvailabilityService {
       close: dayHours.close,
       partialClosures: closures.filter((c) => !c.isFullDay()),
     };
-  }
-
-  private hhmmToMins(hhmm: string): number {
-    const [h, m] = hhmm.split(':').map(Number) as [number, number];
-    return h * 60 + m;
-  }
-
-  private minsToHHMM(mins: number): string {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-  }
-
-  private addMinsToHHMM(hhmm: string, mins: number): string {
-    return this.minsToHHMM(this.hhmmToMins(hhmm) + mins);
   }
 
   private utcToLocalHHMM(utcDate: Date, timezone: string): string {
