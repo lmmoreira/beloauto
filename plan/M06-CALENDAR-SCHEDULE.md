@@ -136,7 +136,7 @@ if existing.any(c => c.overlaps(newStartTime, newEndTime)):
 
 ---
 
-### M06-S03 — Availability calculation domain service (3-layer resolution)
+### M06-S03 — Availability calculation domain service (3-layer resolution) ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** L  
@@ -180,6 +180,24 @@ Implement the `AvailabilityService` domain service — the core algorithm that c
 - [ ] 20+ unit tests: opening override, closed day, full-day closure, partial closure, booking overlap, buffer, edge of hours, no services
 
 **Dependencies:** M06-S01, M06-S06, M02-S01
+
+**Implementation observations (added after delivery):**
+
+*Why a domain service and not a use case?* `AvailabilityService` is a pure computation (no I/O, no ports, no side effects) that will be called by two use cases: M06-S04 (guest views calendar) and M07 booking creation (re-verifies slot before persisting). A use case calling another use case is an anti-pattern; the correct abstraction is a domain service. Rule of thumb: if it has no `execute()`, no actor, no repository calls, and multiple callers need it — it's a domain service.
+
+*`existingBookings[]` is a parameter, not a fetch.* The service receives APPROVED bookings as input — it doesn't know where they come from. The use case (M06-S04) is responsible for loading them. This keeps the domain service fully testable without a database and makes it reusable by M07 with zero changes.
+
+*Buffer is part of the booked window, not a gap.* `totalMins = SUM(service.durationMinutes) + service_buffer_minutes`. The buffer is included in the blocked calendar window `[startsAt, startsAt + totalMins)`. This means a 60-min service with 15-min buffer occupies 75 min on the calendar — the next booking can only start once the full 75-min window has cleared.
+
+*Slot granularity controls start times only.* A 75-min booking with 30-min granularity does NOT round up to 90 min. The granularity (`slot_granularity_minutes`) only determines where candidate start times land on the clock (09:00, 09:30, 10:00…). The actual blocked window is always the raw `totalMins`.
+
+*UTC output, local input.* Business hours and the requested `date` are in the tenant's timezone; the service converts every slot start/end to UTC ISO-8601 for storage/API. Luxon was added as a dependency for this (`localDateTimeToUTCIso`, `utcDateToLocalHHMM` — see `shared/utils/calendar-date.ts`).
+
+*Shared utilities extracted during this story:*
+- `shared/utils/calendar-date.ts` — `getUtcWeekDayName`, `localDateTimeToUTCIso`, `utcDateToLocalHHMM`. Any future code needing timezone conversion imports from here.
+- `TimeOfDay` VO gained `toMinutes()`, `fromMinutes()`, `addMinutes()` — HH:MM arithmetic now lives on the VO that owns the type, not scattered as inline helpers.
+- `overlaps(aStart, aEnd, bStart, bEnd)` stays private in `AvailabilityService` — it's a single-use algorithm helper, not a VO concern. `TimeOfDay` is a point in time, not an interval; interval overlap belongs to a hypothetical future `TimeRange` VO.
+- `IScheduleTenantSettingsPort` was extended with `getBookingSettings()` (adapter + in-memory double updated) to expose `slot_granularity_minutes` and `service_buffer_minutes` to the use case layer.
 
 ---
 
