@@ -71,7 +71,7 @@ describe('TypeOrmScheduleOpeningRepository', () => {
       expect(result!.notes).toBe('Special Sunday opening');
     });
 
-    it('strips seconds from HH:MM:SS time as returned by PostgreSQL time columns', async () => {
+    it('maps HH:MM:SS time (as returned by PostgreSQL) to HH:MM via TimeOfDay normalisation', async () => {
       const entity = new ScheduleOpeningEntityBuilder()
         .withId(OPENING_ID)
         .withTenantId(TENANT_ID)

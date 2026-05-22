@@ -86,7 +86,7 @@ describe('TypeOrmScheduleClosureRepository', () => {
       expect(result!.isFullDay()).toBe(false);
     });
 
-    it('strips seconds from HH:MM:SS time as returned by PostgreSQL time columns', async () => {
+    it('maps HH:MM:SS time (as returned by PostgreSQL) to HH:MM via TimeOfDay normalisation', async () => {
       const entity = new ScheduleClosureEntityBuilder()
         .withId(CLOSURE_ID)
         .withTenantId(TENANT_ID)
