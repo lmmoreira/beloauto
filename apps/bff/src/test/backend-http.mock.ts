@@ -1,7 +1,15 @@
 import { BackendHttpService } from '../shared/http/backend-http.service';
 
+export type MockBackendHttpService = {
+  get: jest.Mock;
+  post: jest.Mock;
+  patch: jest.Mock;
+  delete: jest.Mock;
+  getForPublic: jest.Mock;
+};
+
 export function makeBackendHttp(
-  overrides?: Partial<jest.Mocked<BackendHttpService>>,
+  overrides?: Partial<MockBackendHttpService>,
 ): jest.Mocked<BackendHttpService> {
   return {
     get: jest.fn(),
@@ -10,5 +18,5 @@ export function makeBackendHttp(
     patch: jest.fn(),
     getForPublic: jest.fn(),
     ...overrides,
-  } as jest.Mocked<BackendHttpService>;
+  } as unknown as jest.Mocked<BackendHttpService>;
 }
