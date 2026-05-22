@@ -7,7 +7,7 @@ import { ScheduleClosureBuilder } from '../../../../test/builders/booking/schedu
 import { ScheduleOpeningBuilder } from '../../../../test/builders/booking/schedule-opening.builder';
 import { ServiceBuilder } from '../../../../test/builders/booking/service.builder';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
-import { nextWeekday } from '../../../../test/utils/date-helpers';
+import { addDays, nextWeekday } from '../../../../test/utils/date-helpers';
 import { AvailabilityService } from '../../domain/services/availability.service';
 import { GetAvailabilitySummaryUseCase } from './get-availability-summary.use-case';
 
@@ -16,12 +16,6 @@ const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 // A Monday–Sunday week window always in the future
 const monday = nextWeekday(1);
 const sunday = nextWeekday(0, 2); // Sunday after next Monday
-
-function addDays(date: string, n: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
 
 describe('GetAvailabilitySummaryUseCase', () => {
   let serviceRepo: InMemoryServiceRepository;

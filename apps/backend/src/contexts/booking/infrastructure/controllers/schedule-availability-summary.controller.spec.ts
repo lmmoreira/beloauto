@@ -6,19 +6,13 @@ import { InMemoryScheduleOpeningRepository } from '../../../../test/repositories
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/service.builder';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
-import { nextWeekday } from '../../../../test/utils/date-helpers';
+import { addDays, nextWeekday } from '../../../../test/utils/date-helpers';
 import { AvailabilityService } from '../../domain/services/availability.service';
 import { GetAvailabilitySummaryUseCase } from '../../application/use-cases/get-availability-summary.use-case';
 import { ScheduleAvailabilitySummaryController } from './schedule-availability-summary.controller';
 
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const monday = nextWeekday(1);
-
-function addDays(date: string, n: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
-}
 
 describe('ScheduleAvailabilitySummaryController', () => {
   let serviceRepo: InMemoryServiceRepository;
