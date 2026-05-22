@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { CurrentUserPayload } from '../shared/decorators/current-user.decorator';
-import { makeBackendHttp } from '../test/component-test.helpers';
+import { makeBackendHttp } from '../test/backend-http.mock';
 import { AuthController } from './auth.controller';
 import { IssueTokenDto } from './dtos/issue-token.dto';
 import { SwitchTenantDto } from './dtos/switch-tenant.dto';

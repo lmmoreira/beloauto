@@ -33,21 +33,6 @@ export type MockBackendHttpService = {
   getForPublic: jest.Mock;
 };
 
-// Factory for unit specs — returns a jest.Mocked<BackendHttpService> so callers can
-// pass the result directly to controller constructors and also use jest matcher methods.
-export function makeBackendHttp(
-  overrides?: Partial<jest.Mocked<BackendHttpService>>,
-): jest.Mocked<BackendHttpService> {
-  return {
-    get: jest.fn(),
-    post: jest.fn(),
-    delete: jest.fn(),
-    patch: jest.fn(),
-    getForPublic: jest.fn(),
-    ...overrides,
-  } as jest.Mocked<BackendHttpService>;
-}
-
 export function makeObservableResponse<T>(data: T): Observable<AxiosResponse<T>> {
   return of({ data, status: 200, statusText: 'OK', headers: {}, config: {} as never });
 }

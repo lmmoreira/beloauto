@@ -1,5 +1,5 @@
 import { HttpException } from '@nestjs/common';
-import { makeBackendHttp } from '../test/component-test.helpers';
+import { makeBackendHttp } from '../test/backend-http.mock';
 import { ServicesController } from './services.controller';
 import { ServiceListResponse, ServiceResponse } from './services.types';
 

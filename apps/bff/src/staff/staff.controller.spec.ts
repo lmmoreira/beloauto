@@ -1,4 +1,4 @@
-import { makeBackendHttp } from '../test/component-test.helpers';
+import { makeBackendHttp } from '../test/backend-http.mock';
 import { StaffController } from './staff.controller';
 
 const STAFF_ID = '30000000-0000-4000-8000-000000000001';

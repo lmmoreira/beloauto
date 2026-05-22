@@ -1,4 +1,4 @@
-import { makeBackendHttp } from '../test/component-test.helpers';
+import { makeBackendHttp } from '../test/backend-http.mock';
 import { ScheduleOpeningResponse } from './schedule.types';
 import { ScheduleOpeningController } from './schedule-opening.controller';
 
