@@ -4,21 +4,25 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
+import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
+import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { TenantInterceptor } from '../../../../shared/tenant/tenant.interceptor';
 import { TenantModule } from '../../../../shared/tenant/tenant.module';
 import { ScheduleOpeningEntityBuilder } from '../../../../test/builders/booking/index';
-import { TenantEntityBuilder } from '../../../../test/builders/platform/tenant-entity.builder';
 import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { futureDate, nextWeekday, pastDate } from '../../../../test/utils/date-helpers';
+import { HotsiteConfigEntity } from '../../../platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../../../platform/infrastructure/entities/tenant.entity';
+import { PlatformModule } from '../../../platform/platform.module';
 import { ScheduleClosureEntity } from '../entities/schedule-closure.entity';
 import { ScheduleOpeningEntity } from '../entities/schedule-opening.entity';
 import { ServiceEntity } from '../entities/service.entity';
 import { BookingModule } from '../../booking.module';
 
-const TENANT_A = '10000000-0000-4000-8000-000000000400';
-const TENANT_B = '10000000-0000-4000-8000-000000000401';
+const TEST_KEY = 'opening-integ-test-key-opening-xxxx'; // 36 chars
+
 const MANAGER_ID = '20000000-0000-4000-8000-000000000001';
 
 // Default TenantSettings has sunday=null (closed) and Mon–Sat open.
@@ -28,38 +32,60 @@ const OPEN_DAY = nextWeekday(1); // Monday — already open in business_hours
 describe('ScheduleOpeningController (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
+  let tenantAId: string;
+  let tenantBId: string;
 
   beforeAll(async () => {
+    process.env['PLATFORM_ADMIN_KEY'] = TEST_KEY;
+
     const moduleRef = await Test.createTestingModule({
       imports: [
         TypeOrmModule.forRoot({
           type: 'postgres',
           url: process.env['TEST_DATABASE_URL'],
-          entities: [ServiceEntity, ScheduleClosureEntity, ScheduleOpeningEntity, TenantEntity],
+          entities: [
+            TenantEntity,
+            HotsiteConfigEntity,
+            ServiceEntity,
+            ScheduleClosureEntity,
+            ScheduleOpeningEntity,
+          ],
           synchronize: false,
         }),
+        EventBusModule,
         TransactionManagerModule,
         TenantModule,
+        PlatformModule,
         BookingModule,
       ],
       providers: [{ provide: APP_INTERCEPTOR, useClass: TenantInterceptor }],
-    }).compile();
+    })
+      .overrideProvider(EVENT_BUS)
+      .useValue(new InMemoryEventBus())
+      .compile();
 
     app = moduleRef.createNestApplication();
     await app.init();
     ds = moduleRef.get(DataSource);
 
-    // Seed tenants so GetTenantSettingsUseCase can resolve business_hours
-    const tenantRepo = ds.getRepository(TenantEntity);
-    await tenantRepo.save(
-      new TenantEntityBuilder().withId(TENANT_A).withSlug('tenant-a-400').build(),
-    );
-    await tenantRepo.save(
-      new TenantEntityBuilder().withId(TENANT_B).withSlug('tenant-b-401').build(),
-    );
+    // Seed tenants via the canonical API — no direct DB access to the platform context.
+    const { body: a } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${TEST_KEY}`)
+      .send({ name: 'Opening Tenant A', slug: 'opening-tenant-a', adminEmail: 'a@opening.test' })
+      .expect(201);
+    tenantAId = a.tenantId as string;
+
+    const { body: b } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${TEST_KEY}`)
+      .send({ name: 'Opening Tenant B', slug: 'opening-tenant-b', adminEmail: 'b@opening.test' })
+      .expect(201);
+    tenantBId = b.tenantId as string;
   });
 
   afterAll(async () => {
+    delete process.env['PLATFORM_ADMIN_KEY'];
     await app.close();
   });
 
@@ -69,7 +95,7 @@ describe('ScheduleOpeningController (integration)', () => {
     it('creates an opening for a normally-closed day and returns 201', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/schedule/openings')
-        .set(actorHeaders(TENANT_A, MANAGER_ID))
+        .set(actorHeaders(tenantAId, MANAGER_ID))
         .send({ date: CLOSED_DAY, startTime: '09:00', endTime: '14:00' })
         .expect(201);
 
@@ -82,7 +108,7 @@ describe('ScheduleOpeningController (integration)', () => {
     it('returns 422 for a past date', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/schedule/openings')
-        .set(actorHeaders(TENANT_A, MANAGER_ID))
+        .set(actorHeaders(tenantAId, MANAGER_ID))
         .send({ date: pastDate(), startTime: '09:00', endTime: '14:00' })
         .expect(422);
 
@@ -92,7 +118,7 @@ describe('ScheduleOpeningController (integration)', () => {
     it('returns 422 when day is already open in business_hours', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/schedule/openings')
-        .set(actorHeaders(TENANT_A, MANAGER_ID))
+        .set(actorHeaders(tenantAId, MANAGER_ID))
         .send({ date: OPEN_DAY, startTime: '09:00', endTime: '14:00' })
         .expect(422);
 
@@ -100,16 +126,16 @@ describe('ScheduleOpeningController (integration)', () => {
     });
 
     it('returns 409 when an opening already exists for that date', async () => {
-      const date = nextWeekday(0, 2); // use a different Sunday to avoid collision with the 201 test
+      const date = nextWeekday(0, 2); // use a different Sunday to avoid collision
       await request(app.getHttpServer())
         .post('/schedule/openings')
-        .set(actorHeaders(TENANT_A, MANAGER_ID))
+        .set(actorHeaders(tenantAId, MANAGER_ID))
         .send({ date, startTime: '09:00', endTime: '14:00' })
         .expect(201);
 
       const { body } = await request(app.getHttpServer())
         .post('/schedule/openings')
-        .set(actorHeaders(TENANT_A, MANAGER_ID))
+        .set(actorHeaders(tenantAId, MANAGER_ID))
         .send({ date, startTime: '10:00', endTime: '13:00' })
         .expect(409);
 
@@ -119,7 +145,7 @@ describe('ScheduleOpeningController (integration)', () => {
     it('returns 403 for CUSTOMER role', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/schedule/openings')
-        .set(actorHeaders(TENANT_A, MANAGER_ID, 'CUSTOMER'))
+        .set(actorHeaders(tenantAId, MANAGER_ID, 'CUSTOMER'))
         .send({ date: futureDate(30), startTime: '09:00', endTime: '14:00' })
         .expect(403);
 
@@ -132,14 +158,14 @@ describe('ScheduleOpeningController (integration)', () => {
   describe('DELETE /schedule/openings/:id', () => {
     it('removes an opening and returns 204', async () => {
       const entity = new ScheduleOpeningEntityBuilder()
-        .withTenantId(TENANT_A)
+        .withTenantId(tenantAId)
         .withDate(futureDate(15))
         .build();
       await ds.getRepository(ScheduleOpeningEntity).save(entity);
 
       await request(app.getHttpServer())
         .delete(`/schedule/openings/${entity.id}`)
-        .set(actorHeaders(TENANT_A, MANAGER_ID))
+        .set(actorHeaders(tenantAId, MANAGER_ID))
         .expect(204);
 
       const found = await ds
@@ -151,7 +177,7 @@ describe('ScheduleOpeningController (integration)', () => {
     it('returns 404 when opening does not exist', async () => {
       const { body } = await request(app.getHttpServer())
         .delete('/schedule/openings/00000000-0000-4000-8000-000000000099')
-        .set(actorHeaders(TENANT_A, MANAGER_ID))
+        .set(actorHeaders(tenantAId, MANAGER_ID))
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -159,14 +185,14 @@ describe('ScheduleOpeningController (integration)', () => {
 
     it('tenant isolation: cannot delete an opening from another tenant', async () => {
       const entity = new ScheduleOpeningEntityBuilder()
-        .withTenantId(TENANT_B)
+        .withTenantId(tenantBId)
         .withDate(futureDate(16))
         .build();
       await ds.getRepository(ScheduleOpeningEntity).save(entity);
 
       const { body } = await request(app.getHttpServer())
         .delete(`/schedule/openings/${entity.id}`)
-        .set(actorHeaders(TENANT_A, MANAGER_ID))
+        .set(actorHeaders(tenantAId, MANAGER_ID))
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -176,22 +202,39 @@ describe('ScheduleOpeningController (integration)', () => {
   // ─── GET /schedule/openings ──────────────────────────────────────────────────
 
   describe('GET /schedule/openings', () => {
-    const LIST_TENANT = '10000000-0000-4000-8000-000000000402';
+    let listTenantId: string;
 
     beforeAll(async () => {
+      const { body } = await request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${TEST_KEY}`)
+        .send({
+          name: 'Opening List Tenant',
+          slug: 'opening-tenant-list',
+          adminEmail: 'list@opening.test',
+        })
+        .expect(201);
+      listTenantId = body.tenantId as string;
+
       const repo = ds.getRepository(ScheduleOpeningEntity);
       await repo.save(
-        new ScheduleOpeningEntityBuilder().withTenantId(LIST_TENANT).withDate('2026-10-05').build(),
+        new ScheduleOpeningEntityBuilder()
+          .withTenantId(listTenantId)
+          .withDate('2026-10-05')
+          .build(),
       );
       await repo.save(
-        new ScheduleOpeningEntityBuilder().withTenantId(LIST_TENANT).withDate('2026-10-19').build(),
+        new ScheduleOpeningEntityBuilder()
+          .withTenantId(listTenantId)
+          .withDate('2026-10-19')
+          .build(),
       );
     });
 
     it('returns all openings in range sorted by date', async () => {
       const { body } = await request(app.getHttpServer())
         .get('/schedule/openings?from=2026-10-01&to=2026-10-31')
-        .set(actorHeaders(LIST_TENANT, MANAGER_ID))
+        .set(actorHeaders(listTenantId, MANAGER_ID))
         .expect(200);
 
       expect(body.items).toHaveLength(2);
@@ -202,7 +245,7 @@ describe('ScheduleOpeningController (integration)', () => {
     it('does not return openings from another tenant', async () => {
       const { body } = await request(app.getHttpServer())
         .get('/schedule/openings?from=2026-10-01&to=2026-10-31')
-        .set(actorHeaders(TENANT_A, MANAGER_ID))
+        .set(actorHeaders(tenantAId, MANAGER_ID))
         .expect(200);
 
       expect(

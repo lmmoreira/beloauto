@@ -201,7 +201,7 @@ Implement the `AvailabilityService` domain service — the core algorithm that c
 
 ---
 
-### M06-S04 — UC-011: Guest views calendar availability
+### M06-S04 — UC-011: Guest views calendar availability ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
@@ -288,7 +288,7 @@ Booking + tenant isolation:
 
 ---
 
-### M06-S08 — Calendar availability summary endpoint (range)
+### M06-S08 — Calendar availability summary endpoint (range) ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
