@@ -1,9 +1,9 @@
-import { Address } from '../../../shared/value-objects/address';
 import { Money } from '../../../shared/value-objects/money';
+import { testAddress } from '../../../test/utils/address-helpers';
 import { BookingBuilder } from '../../../test/builders/booking/booking.builder';
 import { BookingLineBuilder } from '../../../test/builders/booking/booking-line.builder';
+import { BookingLineInputBuilder } from '../../../test/builders/booking/booking-line-input.builder';
 import { Booking, BookingStatus } from './booking.aggregate';
-import { BookingLineInput } from './booking-line.entity';
 import {
   BookingLineRequiredError,
   InvalidBookingTransitionError,
@@ -22,37 +22,22 @@ const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const STAFF_ID = '00000000-0000-7000-8000-000000000002';
 const CORRELATION_ID = '00000000-0000-7000-8000-000000000003';
 
-const pickupAddr = Address.create({
-  street: 'Rua das Flores',
-  number: '100',
-  neighborhood: 'Centro',
-  city: 'Belo Horizonte',
-  state: 'MG',
-  zipCode: '30100000',
-});
+const pickupAddr = testAddress();
 
-function makeLineInput(overrides: Partial<BookingLineInput> = {}): BookingLineInput {
-  return {
-    serviceId: '00000000-0000-7000-8000-000000000010',
-    serviceNameAtBooking: 'Lavagem Simples',
-    priceAtBooking: Money.from(100, 'BRL'),
-    durationMinsAtBooking: 30,
-    pointsValueAtBooking: 5,
-    requiresPickupAddressAtBooking: false,
-    ...overrides,
-  };
+function lineInput(): BookingLineInputBuilder {
+  return new BookingLineInputBuilder();
 }
 
 describe('Booking.requestBooking()', () => {
   it('creates a PENDING booking with correct totals from lines', () => {
-    const line1 = makeLineInput({
-      priceAtBooking: Money.from(80, 'BRL'),
-      durationMinsAtBooking: 20,
-    });
-    const line2 = makeLineInput({
-      priceAtBooking: Money.from(50, 'BRL'),
-      durationMinsAtBooking: 15,
-    });
+    const line1 = lineInput()
+      .withPriceAtBooking(Money.from(80, 'BRL'))
+      .withDurationMinsAtBooking(20)
+      .build();
+    const line2 = lineInput()
+      .withPriceAtBooking(Money.from(50, 'BRL'))
+      .withDurationMinsAtBooking(15)
+      .build();
 
     const booking = Booking.requestBooking(
       TENANT_ID,
@@ -75,12 +60,10 @@ describe('Booking.requestBooking()', () => {
   });
 
   it('stores guestAddress and pickupAddress independently', () => {
-    const guestAddr = Address.create({
+    const guestAddr = testAddress({
       street: 'Av. Brasil',
       number: '200',
-      neighborhood: 'Sul',
       city: 'BH',
-      state: 'MG',
       zipCode: '31000000',
     });
 
@@ -90,7 +73,7 @@ describe('Booking.requestBooking()', () => {
       'Maria',
       '31999999999',
       new Date(Date.now() + 3_600_000),
-      [makeLineInput()],
+      [lineInput().build()],
       'GUEST',
       CORRELATION_ID,
       undefined,
@@ -118,7 +101,7 @@ describe('Booking.requestBooking()', () => {
   });
 
   it('throws PickupAddressRequiredError when a pickup line has no pickupAddress', () => {
-    const pickupLine = makeLineInput({ requiresPickupAddressAtBooking: true });
+    const pickupLine = lineInput().withRequiresPickupAddressAtBooking(true).build();
     expect(() =>
       Booking.requestBooking(
         TENANT_ID,
@@ -134,7 +117,7 @@ describe('Booking.requestBooking()', () => {
   });
 
   it('accepts a pickup line when pickupAddress is provided', () => {
-    const pickupLine = makeLineInput({ requiresPickupAddressAtBooking: true });
+    const pickupLine = lineInput().withRequiresPickupAddressAtBooking(true).build();
     const booking = Booking.requestBooking(
       TENANT_ID,
       'g@test.com',
@@ -158,7 +141,7 @@ describe('Booking.requestBooking()', () => {
       'João',
       '31999999999',
       new Date(Date.now() + 3_600_000),
-      [makeLineInput()],
+      [lineInput().build()],
       'GUEST',
       CORRELATION_ID,
     );
@@ -177,7 +160,7 @@ describe('Booking.requestBooking()', () => {
       'Ana',
       '31888888888',
       new Date(Date.now() + 3_600_000),
-      [makeLineInput()],
+      [lineInput().build()],
       'CUSTOMER',
       CORRELATION_ID,
       customerId,
@@ -438,9 +421,9 @@ describe('Booking.isEligibleForCancellation()', () => {
 describe('Booking — totalPrice and totalDurationMins derived correctly', () => {
   it('derives totals from line sum', () => {
     const lines = [
-      makeLineInput({ priceAtBooking: Money.from(80, 'BRL'), durationMinsAtBooking: 20 }),
-      makeLineInput({ priceAtBooking: Money.from(120, 'BRL'), durationMinsAtBooking: 45 }),
-      makeLineInput({ priceAtBooking: Money.from(50, 'BRL'), durationMinsAtBooking: 15 }),
+      lineInput().withPriceAtBooking(Money.from(80, 'BRL')).withDurationMinsAtBooking(20).build(),
+      lineInput().withPriceAtBooking(Money.from(120, 'BRL')).withDurationMinsAtBooking(45).build(),
+      lineInput().withPriceAtBooking(Money.from(50, 'BRL')).withDurationMinsAtBooking(15).build(),
     ];
     const booking = Booking.requestBooking(
       TENANT_ID,
@@ -465,7 +448,7 @@ describe('Booking domain events — event envelope fields', () => {
       'X',
       '31999999999',
       new Date(Date.now() + 3_600_000),
-      [makeLineInput()],
+      [lineInput().build()],
       'GUEST',
       CORRELATION_ID,
     );
