@@ -15,30 +15,28 @@ import { ScheduleAvailabilityController } from './schedule-availability.controll
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const monday = nextWeekday(1);
 
-function make() {
-  const serviceRepo = new InMemoryServiceRepository();
-  const closureRepo = new InMemoryScheduleClosureRepository();
-  const openingRepo = new InMemoryScheduleOpeningRepository();
-  const settingsPort = new InMemoryScheduleTenantSettingsPort();
-  const bookingPort = new InMemoryBookingAvailabilityPort();
-  const ctx = new TenantContextBuilder().withTenantId(TENANT_ID).build();
-
-  const useCase = new GetAvailabilityUseCase(
-    ctx,
-    serviceRepo,
-    closureRepo,
-    openingRepo,
-    settingsPort,
-    bookingPort,
-    new AvailabilityService(),
-  );
-
-  return { controller: new ScheduleAvailabilityController(useCase), serviceRepo, closureRepo };
-}
-
 describe('ScheduleAvailabilityController', () => {
+  let serviceRepo: InMemoryServiceRepository;
+  let closureRepo: InMemoryScheduleClosureRepository;
+  let controller: ScheduleAvailabilityController;
+
+  beforeEach(() => {
+    serviceRepo = new InMemoryServiceRepository();
+    closureRepo = new InMemoryScheduleClosureRepository();
+    controller = new ScheduleAvailabilityController(
+      new GetAvailabilityUseCase(
+        new TenantContextBuilder().withTenantId(TENANT_ID).build(),
+        serviceRepo,
+        closureRepo,
+        new InMemoryScheduleOpeningRepository(),
+        new InMemoryScheduleTenantSettingsPort(),
+        new InMemoryBookingAvailabilityPort(),
+        new AvailabilityService(),
+      ),
+    );
+  });
+
   it('returns slots for a valid request', async () => {
-    const { controller, serviceRepo } = make();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).build();
     await serviceRepo.save(service);
 
@@ -50,7 +48,6 @@ describe('ScheduleAvailabilityController', () => {
   });
 
   it('maps AvailabilityDateInPastError to 422', async () => {
-    const { controller, serviceRepo } = make();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).build();
     await serviceRepo.save(service);
 
@@ -63,7 +60,6 @@ describe('ScheduleAvailabilityController', () => {
   });
 
   it('maps unknown serviceId to 400', async () => {
-    const { controller } = make();
     const unknownId = '00000000-0000-7000-8000-000000000099';
 
     const err = await controller
@@ -75,7 +71,6 @@ describe('ScheduleAvailabilityController', () => {
   });
 
   it('maps inactive serviceId to 400', async () => {
-    const { controller, serviceRepo } = make();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).withIsActive(false).build();
     await serviceRepo.save(service);
 
@@ -88,7 +83,6 @@ describe('ScheduleAvailabilityController', () => {
   });
 
   it('returns available:false when full-day closure exists', async () => {
-    const { controller, serviceRepo, closureRepo } = make();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).build();
     await serviceRepo.save(service);
     await closureRepo.save(

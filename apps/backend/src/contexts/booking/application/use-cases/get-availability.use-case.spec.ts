@@ -1,4 +1,3 @@
-import { TenantContext } from '../../../../shared/tenant/tenant-context';
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
 import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
 import { InMemoryScheduleClosureRepository } from '../../../../test/repositories/booking/in-memory-schedule-closure.repository';
@@ -8,7 +7,7 @@ import { ScheduleClosureBuilder } from '../../../../test/builders/booking/schedu
 import { ScheduleOpeningBuilder } from '../../../../test/builders/booking/schedule-opening.builder';
 import { ServiceBuilder } from '../../../../test/builders/booking/service.builder';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
-import { nextWeekday } from '../../../../test/utils/date-helpers';
+import { nextWeekday, pastDate } from '../../../../test/utils/date-helpers';
 import { AvailabilityService } from '../../domain/services/availability.service';
 import { GetAvailabilityUseCase } from './get-availability.use-case';
 
@@ -16,38 +15,30 @@ const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const monday = nextWeekday(1);
 const sunday = nextWeekday(0);
 
-function makeUseCase(ctx?: Partial<TenantContext>) {
-  const tenantContext = new TenantContextBuilder().withTenantId(TENANT_ID).build();
-  Object.assign(tenantContext, ctx);
+describe('GetAvailabilityUseCase', () => {
+  let serviceRepo: InMemoryServiceRepository;
+  let closureRepo: InMemoryScheduleClosureRepository;
+  let openingRepo: InMemoryScheduleOpeningRepository;
+  let bookingPort: InMemoryBookingAvailabilityPort;
+  let useCase: GetAvailabilityUseCase;
 
-  const serviceRepo = new InMemoryServiceRepository();
-  const closureRepo = new InMemoryScheduleClosureRepository();
-  const openingRepo = new InMemoryScheduleOpeningRepository();
-  const settingsPort = new InMemoryScheduleTenantSettingsPort();
-  const bookingPort = new InMemoryBookingAvailabilityPort();
-  const availabilityService = new AvailabilityService();
-
-  return {
-    useCase: new GetAvailabilityUseCase(
-      tenantContext,
+  beforeEach(() => {
+    serviceRepo = new InMemoryServiceRepository();
+    closureRepo = new InMemoryScheduleClosureRepository();
+    openingRepo = new InMemoryScheduleOpeningRepository();
+    bookingPort = new InMemoryBookingAvailabilityPort();
+    useCase = new GetAvailabilityUseCase(
+      new TenantContextBuilder().withTenantId(TENANT_ID).build(),
       serviceRepo,
       closureRepo,
       openingRepo,
-      settingsPort,
+      new InMemoryScheduleTenantSettingsPort(),
       bookingPort,
-      availabilityService,
-    ),
-    serviceRepo,
-    closureRepo,
-    openingRepo,
-    settingsPort,
-    bookingPort,
-  };
-}
+      new AvailabilityService(),
+    );
+  });
 
-describe('GetAvailabilityUseCase', () => {
   it('returns slots for a valid open day with active services', async () => {
-    const { useCase, serviceRepo } = makeUseCase();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).withDurationMinutes(60).build();
     await serviceRepo.save(service);
 
@@ -61,7 +52,6 @@ describe('GetAvailabilityUseCase', () => {
   });
 
   it('returns available:false and empty slots for a closed day (Sunday)', async () => {
-    const { useCase, serviceRepo } = makeUseCase();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).build();
     await serviceRepo.save(service);
 
@@ -72,7 +62,6 @@ describe('GetAvailabilityUseCase', () => {
   });
 
   it('returns available:false when a full-day closure exists', async () => {
-    const { useCase, serviceRepo, closureRepo } = makeUseCase();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).build();
     await serviceRepo.save(service);
     await closureRepo.save(
@@ -86,7 +75,6 @@ describe('GetAvailabilityUseCase', () => {
   });
 
   it('returns slots within opening window when ScheduleOpening exists on Sunday', async () => {
-    const { useCase, serviceRepo, openingRepo } = makeUseCase();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).withDurationMinutes(60).build();
     await serviceRepo.save(service);
     await openingRepo.save(
@@ -105,17 +93,15 @@ describe('GetAvailabilityUseCase', () => {
   });
 
   it('throws AvailabilityDateInPastError for a past date', async () => {
-    const { useCase, serviceRepo } = makeUseCase();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).build();
     await serviceRepo.save(service);
 
     await expect(
-      useCase.execute({ date: '2020-01-01', serviceIds: [service.id] }),
+      useCase.execute({ date: pastDate(1), serviceIds: [service.id] }),
     ).rejects.toMatchObject({ name: 'AvailabilityDateInPastError' });
   });
 
   it('throws BookingDomainError (400) when a serviceId does not belong to tenant', async () => {
-    const { useCase } = makeUseCase();
     const unknownId = '00000000-0000-7000-8000-000000000099';
 
     await expect(useCase.execute({ date: monday, serviceIds: [unknownId] })).rejects.toMatchObject({
@@ -124,7 +110,6 @@ describe('GetAvailabilityUseCase', () => {
   });
 
   it('throws BookingDomainError (400) when a service is inactive', async () => {
-    const { useCase, serviceRepo } = makeUseCase();
     const service = new ServiceBuilder().withTenantId(TENANT_ID).withIsActive(false).build();
     await serviceRepo.save(service);
 
@@ -134,13 +119,11 @@ describe('GetAvailabilityUseCase', () => {
   });
 
   it('sums durations of multiple services', async () => {
-    const { useCase, serviceRepo } = makeUseCase();
     const s1 = new ServiceBuilder().withTenantId(TENANT_ID).withDurationMinutes(30).build();
     const s2 = new ServiceBuilder().withTenantId(TENANT_ID).withDurationMinutes(30).build();
     await serviceRepo.save(s1);
     await serviceRepo.save(s2);
 
-    // 30+30+60 buffer = 120 min total — same count as single 60+60 service
     const result = await useCase.execute({ date: monday, serviceIds: [s1.id, s2.id] });
 
     expect(result.slots.length).toBeGreaterThan(0);
