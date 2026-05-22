@@ -2,7 +2,10 @@ import {
   BookingSettings,
   BusinessHours,
 } from '../../contexts/platform/domain/value-objects/tenant-settings.vo';
-import { IScheduleTenantSettingsPort } from '../../contexts/booking/application/ports/schedule-tenant-settings.port';
+import {
+  IScheduleTenantSettingsPort,
+  SchedulingSettings,
+} from '../../contexts/booking/application/ports/schedule-tenant-settings.port';
 
 const DEFAULT_BUSINESS_HOURS: BusinessHours = {
   timezone: 'America/Sao_Paulo',
@@ -52,5 +55,12 @@ export class InMemoryScheduleTenantSettingsPort implements IScheduleTenantSettin
 
   async getBookingSettings(tenantId: string): Promise<BookingSettings> {
     return this.bookingStore.get(tenantId) ?? this.defaultBooking;
+  }
+
+  async getSchedulingSettings(tenantId: string): Promise<SchedulingSettings> {
+    return {
+      businessHours: this.hoursStore.get(tenantId) ?? this.defaultHours,
+      bookingSettings: this.bookingStore.get(tenantId) ?? this.defaultBooking,
+    };
   }
 }

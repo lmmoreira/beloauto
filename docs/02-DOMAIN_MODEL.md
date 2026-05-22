@@ -354,6 +354,27 @@ else:
     filter out any slots that overlap partial ScheduleClosures for this date
 ```
 
+**`IBookingAvailabilityPort` (cross-context read port — Booking Context)**
+
+The Booking Context exposes a read-only port for the availability algorithm to consume without a direct dependency on the Booking aggregate:
+
+```typescript
+interface IBookingAvailabilityPort {
+  // Single-date detail: used by GetAvailabilityUseCase (Phase 2)
+  findApprovedByTenantAndDate(tenantId: string, date: string): Promise<BookedSlot[]>;
+
+  // Date-range batch: used by GetAvailabilitySummaryUseCase (Phase 1)
+  findApprovedByTenantAndDateRange(tenantId: string, from: string, to: string): Promise<BookedSlot[]>;
+}
+
+interface BookedSlot {
+  scheduledAt: Date;       // UTC
+  totalDurationMins: number;
+}
+```
+
+The real adapter (`TypeOrmBookingAvailabilityAdapter`) is implemented in M07 when the Booking aggregate exists. A stub returning `[]` is used in M06 — availability shows all slots as open until bookings exist.
+
 ---
 
 ### **Customer Context**

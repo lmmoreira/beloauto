@@ -1,3 +1,4 @@
+import { todayUTC } from '../../../shared/utils/calendar-date';
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
 import { TimeOfDay } from '../../../shared/value-objects/time-of-day.vo';
@@ -81,7 +82,7 @@ export class ScheduleOpening extends AggregateRoot {
   ): void {
     if (!tenantId) throw new BookingDomainError('tenantId is required');
     if (!createdBy) throw new BookingDomainError('createdBy is required');
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayUTC();
     if (date < today) throw new OpeningDateInPastError();
     if (!TimeOfDay.isValid(startTime) || !TimeOfDay.isValid(endTime)) {
       throw new BookingDomainError('startTime and endTime must be in HH:MM format (00:00–23:59)');

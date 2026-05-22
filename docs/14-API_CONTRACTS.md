@@ -383,23 +383,57 @@ A booking has **1..N service lines**. Order in the `serviceIds` array is preserv
 ## 4. Schedule & Availability
 
 ### **Customer Availability (UC-011)**
-Availability depends on the **total duration** of the customer's basket, not on individual services. The caller passes `serviceIds` (the basket) and the server computes the required slot length internally.
 
-- `GET /schedule/availability?serviceIds=uuid1,uuid2,uuid3&month=2026-05`
-- **Response:**
-  ```json
-  {
-    "totalDurationMins": 85,
-    "days": [
-      {
-        "date": "2026-05-12",
-        "startTimes": ["09:00", "09:30", "11:15", "14:00"]   // ISO time-of-day; each is a valid scheduledAt
-      },
-      ...
-    ]
-  }
-  ```
-- **Errors:** `400 invalid-services-empty`, `400 duration-exceeds-business-hours`.
+Availability is a **two-phase API** — one call for calendar navigation, one for slot detail. Both are public endpoints (no JWT, only `X-Tenant-Slug` header).
+
+**Phase 1 — Calendar overview (range summary)**
+
+Loads all data for the date range in 3 DB queries. Use for week/month calendar rendering.
+
+```
+GET /v1/schedule/availability/summary?from=YYYY-MM-DD&to=YYYY-MM-DD&serviceIds=uuid1,uuid2
+X-Tenant-Slug: lavacar-test
+```
+
+Response `200`:
+```json
+[
+  { "date": "2026-06-01", "available": true,  "slotCount": 12 },
+  { "date": "2026-06-02", "available": false, "slotCount": 0  },
+  { "date": "2026-06-03", "available": true,  "slotCount": 5  }
+]
+```
+
+Errors:
+- `400` — serviceId not found, inactive, or from wrong tenant
+- `422` — `from > to`, or range exceeds `max_booking_advance_days` (default 90 days)
+
+Constraints: past dates return `{ available: false, slotCount: 0 }` without an error (for seamless calendar rendering).
+
+**Phase 2 — Day detail (single-date slots)**
+
+Called when user clicks a specific day. Returns full slot list with UTC timestamps.
+
+```
+GET /v1/schedule/availability?date=YYYY-MM-DD&serviceIds=uuid1,uuid2
+X-Tenant-Slug: lavacar-test
+```
+
+Response `200`:
+```json
+{
+  "date": "2026-06-01",
+  "available": true,
+  "slots": [
+    { "startsAt": "2026-06-01T12:00:00.000Z", "endsAt": "2026-06-01T13:15:00.000Z" },
+    { "startsAt": "2026-06-01T12:30:00.000Z", "endsAt": "2026-06-01T13:45:00.000Z" }
+  ]
+}
+```
+
+Errors:
+- `400` — serviceId not found, inactive, or from wrong tenant
+- `422` — date is in the past
 
 ### **Schedule Closures (UC-010a, UC-010b)**
 Auth: JWT + `MANAGER|STAFF` on all write endpoints.

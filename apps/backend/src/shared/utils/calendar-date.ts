@@ -19,6 +19,11 @@ const WEEKDAY_NAMES: WeekDayName[] = [
   'saturday',
 ];
 
+/** Returns today's date as a YYYY-MM-DD string in UTC. */
+export function todayUTC(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 /**
  * Returns the UTC day-of-week name for a YYYY-MM-DD date string.
  * Uses UTC parsing to avoid local-timezone day shifts.
@@ -43,4 +48,12 @@ export function localDateTimeToUTCIso(date: string, time: string, timezone: stri
  */
 export function utcDateToLocalHHMM(utcDate: Date, timezone: string): string {
   return DateTime.fromJSDate(utcDate, { zone: 'utc' }).setZone(timezone).toFormat('HH:mm');
+}
+
+/**
+ * Converts a UTC Date to a YYYY-MM-DD date string in the given IANA timezone.
+ * Use this when grouping stored UTC bookings by their local calendar date.
+ */
+export function utcDateToLocalDate(utcDate: Date, timezone: string): string {
+  return DateTime.fromJSDate(utcDate, { zone: 'utc' }).setZone(timezone).toISODate()!;
 }

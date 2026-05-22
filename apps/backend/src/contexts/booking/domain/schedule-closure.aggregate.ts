@@ -1,3 +1,4 @@
+import { todayUTC } from '../../../shared/utils/calendar-date';
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
 import { TimeOfDay } from '../../../shared/value-objects/time-of-day.vo';
@@ -110,7 +111,7 @@ export class ScheduleClosure extends AggregateRoot {
     if (!Object.values(ClosureReason).includes(reason)) {
       throw new BookingDomainError(`Invalid closure reason: ${reason}`);
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayUTC();
     if (date < today) throw new ClosureDateInPastError();
     ScheduleClosure.assertTimeRange(startTime, endTime);
   }

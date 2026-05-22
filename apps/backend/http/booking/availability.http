@@ -1,0 +1,68 @@
+# Booking — Schedule Availability endpoint
+# UC-011 (guest views calendar availability)
+# TenantContext populated from X-Tenant-ID header (public endpoint — no actor headers needed).
+#
+# Prerequisites:
+#   1. pnpm infra:up
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run dev
+#
+# REST Client environment: select "local" in VS Code status bar
+
+@baseUrl   = {{backendUrl}}
+@tenantId  = 10000000-0000-4000-8000-000000000001
+@serviceId = 40000000-0000-4000-8000-000000000001
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — open day, one service, no closures
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/schedule/availability?date=2026-06-01&serviceIds={{serviceId}}
+X-Tenant-ID: {{tenantId}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — multiple services
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/schedule/availability?date=2026-06-01&serviceIds={{serviceId}},40000000-0000-4000-8000-000000000002
+X-Tenant-ID: {{tenantId}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 422 — date in the past
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/schedule/availability?date=2020-01-01&serviceIds={{serviceId}}
+X-Tenant-ID: {{tenantId}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 400 — serviceId not found / wrong tenant
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/schedule/availability?date=2026-06-01&serviceIds=00000000-0000-7000-8000-000000099999
+X-Tenant-ID: {{tenantId}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 400 — missing serviceIds param (Zod validation)
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/schedule/availability?date=2026-06-01
+X-Tenant-ID: {{tenantId}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 400 — malformed date param
+# ─────────────────────────────────────────────────────────────────────────────
+
+GET {{baseUrl}}/schedule/availability?date=not-a-date&serviceIds={{serviceId}}
+X-Tenant-ID: {{tenantId}}
+
+###

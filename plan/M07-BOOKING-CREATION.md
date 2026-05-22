@@ -148,6 +148,9 @@ Implement the TypeORM entities, repository adapter, and the transactional outbox
   - `findAllByTenant(tenantId, filters): Promise<Booking[]>` — filters: status, customerId, scheduledAfter, scheduledBefore
   - `findApprovedByTenantAndDate(tenantId, date): Promise<Booking[]>` — used by availability algorithm
   - `save(booking, tenantId): Promise<void>` — within one transaction: persist aggregate + publish domain events via `IEventBus`
+- `TypeOrmBookingAvailabilityAdapter` — implements `IBookingAvailabilityPort` (replaces the M06 stub):
+  - `findApprovedByTenantAndDate(tenantId, date): Promise<BookedSlot[]>` — returns `{ scheduledAt, totalDurationMins }` for all APPROVED bookings on `date` (UTC) for the tenant
+  - `findApprovedByTenantAndDateRange(tenantId, from, to): Promise<BookedSlot[]>` — returns all APPROVED bookings whose `scheduled_at` falls in the UTC date range `[from 00:00:00Z, to 23:59:59Z]`; single query, used by the calendar summary endpoint (M06-S08)
 - `PubSubEventBusAdapter` — implements `IEventBus`, publishes events to Pub/Sub emulator (wraps Google Pub/Sub client)
 
 **Transactional approach:**
@@ -160,6 +163,8 @@ Implement the TypeORM entities, repository adapter, and the transactional outbox
 - [ ] `save()` persists both `bookings` and `booking_lines` rows in a single transaction
 - [ ] If `IEventBus.publish()` throws, the DB is NOT rolled back (events are best-effort post-commit)
 - [ ] `findApprovedByTenantAndDate` returns only APPROVED bookings for a specific UTC date, filtered by `tenant_id`
+- [ ] `findApprovedByTenantAndDateRange` returns all APPROVED bookings within the UTC date range, filtered by `tenant_id`; single query; used by the calendar summary endpoint
+- [ ] `TypeOrmBookingAvailabilityAdapter` is wired into `BookingModule` replacing the M06 stub (`InMemoryBookingAvailabilityAdapter`)
 - [ ] Booking entity correctly reconstructs the `Booking` domain aggregate including all lines
 - [ ] Integration test: save a booking → read it back → assert all fields, including `lines[]`, match
 - [ ] All queries include `WHERE tenant_id = :tenantId`

@@ -26,3 +26,22 @@ export interface ScheduleOpeningResponse {
 export interface ScheduleOpeningListResponse {
   items: ScheduleOpeningResponse[];
 }
+
+export interface AvailableSlot {
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface AvailabilityResponse {
+  date: string;
+  slots: AvailableSlot[];
+  available: boolean;
+}
+
+export interface DaySummary {
+  date: string;
+  available: boolean;
+  slotCount: number;
+}
+
+export type AvailabilitySummaryResponse = DaySummary[];

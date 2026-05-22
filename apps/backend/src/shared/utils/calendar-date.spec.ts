@@ -1,4 +1,20 @@
-import { getUtcWeekDayName, localDateTimeToUTCIso, utcDateToLocalHHMM } from './calendar-date';
+import {
+  getUtcWeekDayName,
+  localDateTimeToUTCIso,
+  todayUTC,
+  utcDateToLocalDate,
+  utcDateToLocalHHMM,
+} from './calendar-date';
+
+describe('todayUTC', () => {
+  it('returns a YYYY-MM-DD string', () => {
+    expect(todayUTC()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('matches the UTC date of new Date()', () => {
+    expect(todayUTC()).toBe(new Date().toISOString().slice(0, 10));
+  });
+});
 
 describe('getUtcWeekDayName', () => {
   it('returns sunday for a known Sunday', () => {
@@ -50,5 +66,23 @@ describe('utcDateToLocalHHMM', () => {
 
   it('converts midnight UTC to 21:00 local the previous day (correct cross-day offset)', () => {
     expect(utcDateToLocalHHMM(new Date('2026-06-02T00:00:00Z'), TZ)).toBe('21:00');
+  });
+});
+
+describe('utcDateToLocalDate', () => {
+  const TZ = 'America/Sao_Paulo'; // UTC-3
+
+  it('converts a UTC date to the correct local date', () => {
+    // 12:00 UTC = 09:00 local — same calendar date
+    expect(utcDateToLocalDate(new Date('2026-06-01T12:00:00Z'), TZ)).toBe('2026-06-01');
+  });
+
+  it('shifts to the previous local date when UTC time is before 03:00 (offset)', () => {
+    // 00:00 UTC = 21:00 on Jun 1 local — date shifts back one day
+    expect(utcDateToLocalDate(new Date('2026-06-02T00:00:00Z'), TZ)).toBe('2026-06-01');
+  });
+
+  it('returns a YYYY-MM-DD string', () => {
+    expect(utcDateToLocalDate(new Date('2026-06-01T12:00:00Z'), TZ)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
