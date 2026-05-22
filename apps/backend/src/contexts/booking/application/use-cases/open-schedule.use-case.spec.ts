@@ -1,9 +1,9 @@
-import { pastDate } from '../../../../test/utils/date-helpers';
+import { pastDate, nextWeekday } from '../../../../test/utils/date-helpers';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryScheduleOpeningRepository } from '../../../../test/repositories/booking/in-memory-schedule-opening.repository';
+import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
 import { ScheduleOpeningBuilder } from '../../../../test/builders/booking/schedule-opening.builder';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
-import { IScheduleTenantSettingsPort } from '../ports/schedule-tenant-settings.port';
 import { OpenScheduleUseCase } from './open-schedule.use-case';
 import {
   DayAlreadyOpenInSettingsError,
@@ -14,51 +14,21 @@ import {
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const ACTOR_ID = '00000000-0000-7000-8000-000000000002';
 
-// sunday = null (closed), monday = open in default settings
-const makeSettingsPort = (): IScheduleTenantSettingsPort => ({
-  getBusinessHours: jest.fn().mockResolvedValue({
-    timezone: 'America/Sao_Paulo',
-    monday: { open: '09:00', close: '18:00' },
-    tuesday: { open: '09:00', close: '18:00' },
-    wednesday: { open: '09:00', close: '18:00' },
-    thursday: { open: '09:00', close: '18:00' },
-    friday: { open: '09:00', close: '18:00' },
-    saturday: { open: '09:00', close: '17:00' },
-    sunday: null,
-  }),
-});
-
-// Returns a Sunday date that is in the future
-function nextSunday(weeksAhead = 1): string {
-  const d = new Date();
-  const daysUntilSunday = (7 - d.getUTCDay()) % 7 || 7;
-  d.setUTCDate(d.getUTCDate() + daysUntilSunday + (weeksAhead - 1) * 7);
-  return d.toISOString().slice(0, 10);
-}
-
-// Returns a Monday date that is in the future
-function nextMonday(weeksAhead = 1): string {
-  const d = new Date();
-  const daysUntilMonday = (8 - d.getUTCDay()) % 7 || 7;
-  d.setUTCDate(d.getUTCDate() + daysUntilMonday + (weeksAhead - 1) * 7);
-  return d.toISOString().slice(0, 10);
-}
-
 describe('OpenScheduleUseCase', () => {
   let repo: InMemoryScheduleOpeningRepository;
   let useCase: OpenScheduleUseCase;
-  let settingsPort: IScheduleTenantSettingsPort;
+  let settingsPort: InMemoryScheduleTenantSettingsPort;
 
   beforeEach(() => {
     repo = new InMemoryScheduleOpeningRepository();
-    settingsPort = makeSettingsPort();
+    settingsPort = new InMemoryScheduleTenantSettingsPort();
     const ctx = new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build();
     const tx = new InMemoryTransactionManager();
     useCase = new OpenScheduleUseCase(repo, settingsPort, tx, ctx);
   });
 
   it('creates an opening for a normally-closed day', async () => {
-    const date = nextSunday();
+    const date = nextWeekday(0); // Sunday — closed by default
     const result = await useCase.execute({ date, startTime: '09:00', endTime: '14:00' });
 
     expect(result.id).toBeDefined();
@@ -69,7 +39,7 @@ describe('OpenScheduleUseCase', () => {
   });
 
   it('stores the opening in the repository', async () => {
-    const date = nextSunday();
+    const date = nextWeekday(0);
     await useCase.execute({ date, startTime: '10:00', endTime: '13:00' });
 
     const stored = await repo.findByTenantAndDate(TENANT_ID, date);
@@ -84,14 +54,14 @@ describe('OpenScheduleUseCase', () => {
   });
 
   it('throws DayAlreadyOpenInSettingsError when day is open in business_hours', async () => {
-    const date = nextMonday();
+    const date = nextWeekday(1); // Monday — open by default
     await expect(useCase.execute({ date, startTime: '09:00', endTime: '14:00' })).rejects.toThrow(
       DayAlreadyOpenInSettingsError,
     );
   });
 
   it('throws ScheduleOpeningAlreadyExistsError when opening already exists', async () => {
-    const date = nextSunday();
+    const date = nextWeekday(0);
     await repo.save(new ScheduleOpeningBuilder().withTenantId(TENANT_ID).withDate(date).build());
 
     await expect(useCase.execute({ date, startTime: '09:00', endTime: '14:00' })).rejects.toThrow(
@@ -100,7 +70,7 @@ describe('OpenScheduleUseCase', () => {
   });
 
   it('saves optional notes when provided', async () => {
-    const date = nextSunday();
+    const date = nextWeekday(0);
     const result = await useCase.execute({
       date,
       startTime: '09:00',

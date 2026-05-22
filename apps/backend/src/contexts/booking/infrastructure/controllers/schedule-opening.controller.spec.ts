@@ -1,10 +1,10 @@
 import { HttpException } from '@nestjs/common';
-import { futureDate, pastDate } from '../../../../test/utils/date-helpers';
+import { futureDate, nextWeekday, pastDate } from '../../../../test/utils/date-helpers';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryScheduleOpeningRepository } from '../../../../test/repositories/booking/in-memory-schedule-opening.repository';
+import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
 import { ScheduleOpeningBuilder } from '../../../../test/builders/booking/schedule-opening.builder';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
-import { IScheduleTenantSettingsPort } from '../../application/ports/schedule-tenant-settings.port';
 import { OpenScheduleUseCase } from '../../application/use-cases/open-schedule.use-case';
 import { ListOpeningsUseCase } from '../../application/use-cases/list-openings.use-case';
 import { RemoveScheduleOpeningUseCase } from '../../application/use-cases/remove-schedule-opening.use-case';
@@ -12,35 +12,6 @@ import { ScheduleOpeningController } from './schedule-opening.controller';
 
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 const ACTOR_ID = '00000000-0000-7000-8000-000000000002';
-
-const makeSettingsPort = (): IScheduleTenantSettingsPort => ({
-  getBusinessHours: jest.fn().mockResolvedValue({
-    timezone: 'America/Sao_Paulo',
-    monday: { open: '09:00', close: '18:00' },
-    tuesday: { open: '09:00', close: '18:00' },
-    wednesday: { open: '09:00', close: '18:00' },
-    thursday: { open: '09:00', close: '18:00' },
-    friday: { open: '09:00', close: '18:00' },
-    saturday: { open: '09:00', close: '17:00' },
-    sunday: null,
-  }),
-});
-
-// Returns the next Sunday (UTC) at least 1 day in the future
-function nextSunday(): string {
-  const d = new Date();
-  const daysUntilSunday = (7 - d.getUTCDay()) % 7 || 7;
-  d.setUTCDate(d.getUTCDate() + daysUntilSunday);
-  return d.toISOString().slice(0, 10);
-}
-
-// Returns the next Monday (UTC) at least 1 day in the future
-function nextMonday(): string {
-  const d = new Date();
-  const daysUntilMonday = (8 - d.getUTCDay()) % 7 || 7;
-  d.setUTCDate(d.getUTCDate() + daysUntilMonday);
-  return d.toISOString().slice(0, 10);
-}
 
 describe('ScheduleOpeningController', () => {
   let repo: InMemoryScheduleOpeningRepository;
@@ -50,9 +21,8 @@ describe('ScheduleOpeningController', () => {
     repo = new InMemoryScheduleOpeningRepository();
     const ctx = new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build();
     const tx = new InMemoryTransactionManager();
-    const settingsPort = makeSettingsPort();
     controller = new ScheduleOpeningController(
-      new OpenScheduleUseCase(repo, settingsPort, tx, ctx),
+      new OpenScheduleUseCase(repo, new InMemoryScheduleTenantSettingsPort(), tx, ctx),
       new RemoveScheduleOpeningUseCase(repo, tx, ctx),
       new ListOpeningsUseCase(repo, ctx),
     );
@@ -60,7 +30,7 @@ describe('ScheduleOpeningController', () => {
 
   describe('create()', () => {
     it('returns 201 result for a normally-closed day', async () => {
-      const date = nextSunday();
+      const date = nextWeekday(0); // Sunday — closed by default
       const result = await controller.create({ date, startTime: '09:00', endTime: '14:00' });
 
       expect(result.id).toBeDefined();
@@ -80,7 +50,7 @@ describe('ScheduleOpeningController', () => {
 
     it('maps DayAlreadyOpenInSettingsError to 422', async () => {
       const err = await controller
-        .create({ date: nextMonday(), startTime: '09:00', endTime: '14:00' })
+        .create({ date: nextWeekday(1), startTime: '09:00', endTime: '14:00' }) // Monday — open by default
         .catch((e: unknown) => e);
 
       expect(err).toBeInstanceOf(HttpException);
@@ -88,7 +58,7 @@ describe('ScheduleOpeningController', () => {
     });
 
     it('maps ScheduleOpeningAlreadyExistsError to 409', async () => {
-      const date = nextSunday();
+      const date = nextWeekday(0);
       await repo.save(new ScheduleOpeningBuilder().withTenantId(TENANT_ID).withDate(date).build());
 
       const err = await controller
