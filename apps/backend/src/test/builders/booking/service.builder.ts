@@ -3,7 +3,7 @@ import { Money } from '../../../shared/value-objects/money';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
 
 export class ServiceBuilder {
-  private id = uuidv7();
+  private readonly id = uuidv7();
   private tenantId = '00000000-0000-7000-8000-000000000001';
   private name = 'Lavagem Simples';
   private price = Money.from(100, 'BRL');
