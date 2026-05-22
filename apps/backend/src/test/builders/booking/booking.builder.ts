@@ -28,22 +28,22 @@ export class BookingBuilder {
   private totalDurationMins = 30;
   private totalPrice = Money.from(100, 'BRL');
   private totalActualPrice: Money | null = null;
-  private beforeServicePhotoUrls: string[] = [];
-  private afterServicePhotoUrls: string[] = [];
+  private readonly beforeServicePhotoUrls: string[] = [];
+  private readonly afterServicePhotoUrls: string[] = [];
   private adminNotes: string | null = null;
-  private infoRequestMessage: string | null = null;
-  private infoResponseMessage: string | null = null;
+  private readonly infoRequestMessage: string | null = null;
+  private readonly infoResponseMessage: string | null = null;
   private approvedAt: Date | null = null;
   private approvedBy: string | null = null;
-  private completedAt: Date | null = null;
-  private completedBy: string | null = null;
-  private cancelledAt: Date | null = null;
-  private cancelledBy: string | null = null;
-  private cancellationReason: string | null = null;
-  private rejectedAt: Date | null = null;
-  private rejectedBy: string | null = null;
-  private rejectionReason: string | null = null;
-  private createdAt = new Date();
+  private readonly completedAt: Date | null = null;
+  private readonly completedBy: string | null = null;
+  private readonly cancelledAt: Date | null = null;
+  private readonly cancelledBy: string | null = null;
+  private readonly cancellationReason: string | null = null;
+  private readonly rejectedAt: Date | null = null;
+  private readonly rejectedBy: string | null = null;
+  private readonly rejectionReason: string | null = null;
+  private readonly createdAt = new Date();
 
   withId(id: string): this {
     this.id = id;

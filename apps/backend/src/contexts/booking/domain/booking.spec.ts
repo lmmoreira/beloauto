@@ -3,7 +3,7 @@ import { testAddress } from '../../../test/utils/address-helpers';
 import { BookingBuilder } from '../../../test/builders/booking/booking.builder';
 import { BookingLineBuilder } from '../../../test/builders/booking/booking-line.builder';
 import { BookingLineInputBuilder } from '../../../test/builders/booking/booking-line-input.builder';
-import { Booking, BookingStatus } from './booking.aggregate';
+import { Booking, BookingStatus, RequestBookingInput } from './booking.aggregate';
 import {
   BookingLineRequiredError,
   InvalidBookingTransitionError,
@@ -28,6 +28,20 @@ function lineInput(): BookingLineInputBuilder {
   return new BookingLineInputBuilder();
 }
 
+function request(overrides: Partial<RequestBookingInput> = {}): Booking {
+  return Booking.requestBooking({
+    tenantId: TENANT_ID,
+    guestEmail: 'g@t.com',
+    guestName: 'Test Guest',
+    guestPhone: '31999999999',
+    scheduledAt: new Date(Date.now() + 3_600_000),
+    lineInputs: [lineInput().build()],
+    type: 'GUEST',
+    correlationId: CORRELATION_ID,
+    ...overrides,
+  });
+}
+
 describe('Booking.requestBooking()', () => {
   it('creates a PENDING booking with correct totals from lines', () => {
     const line1 = lineInput()
@@ -39,16 +53,11 @@ describe('Booking.requestBooking()', () => {
       .withDurationMinsAtBooking(15)
       .build();
 
-    const booking = Booking.requestBooking(
-      TENANT_ID,
-      'guest@test.com',
-      'João',
-      '31999999999',
-      new Date(Date.now() + 3_600_000),
-      [line1, line2],
-      'GUEST',
-      CORRELATION_ID,
-    );
+    const booking = request({
+      guestEmail: 'guest@test.com',
+      guestName: 'João',
+      lineInputs: [line1, line2],
+    });
 
     expect(booking.status).toBe(BookingStatus.PENDING);
     expect(booking.type).toBe('GUEST');
@@ -67,84 +76,33 @@ describe('Booking.requestBooking()', () => {
       zipCode: '31000000',
     });
 
-    const booking = Booking.requestBooking(
-      TENANT_ID,
-      'g@test.com',
-      'Maria',
-      '31999999999',
-      new Date(Date.now() + 3_600_000),
-      [lineInput().build()],
-      'GUEST',
-      CORRELATION_ID,
-      undefined,
-      guestAddr,
-      undefined,
-    );
+    const booking = request({
+      guestEmail: 'g@test.com',
+      guestName: 'Maria',
+      guestAddress: guestAddr,
+    });
 
     expect(booking.guestAddress?.city).toBe('BH');
     expect(booking.pickupAddress).toBeNull();
   });
 
   it('throws BookingLineRequiredError when lines array is empty', () => {
-    expect(() =>
-      Booking.requestBooking(
-        TENANT_ID,
-        'g@test.com',
-        'X',
-        '31999999999',
-        new Date(),
-        [],
-        'GUEST',
-        CORRELATION_ID,
-      ),
-    ).toThrow(BookingLineRequiredError);
+    expect(() => request({ lineInputs: [] })).toThrow(BookingLineRequiredError);
   });
 
   it('throws PickupAddressRequiredError when a pickup line has no pickupAddress', () => {
     const pickupLine = lineInput().withRequiresPickupAddressAtBooking(true).build();
-    expect(() =>
-      Booking.requestBooking(
-        TENANT_ID,
-        'g@test.com',
-        'X',
-        '31999999999',
-        new Date(),
-        [pickupLine],
-        'GUEST',
-        CORRELATION_ID,
-      ),
-    ).toThrow(PickupAddressRequiredError);
+    expect(() => request({ lineInputs: [pickupLine] })).toThrow(PickupAddressRequiredError);
   });
 
   it('accepts a pickup line when pickupAddress is provided', () => {
     const pickupLine = lineInput().withRequiresPickupAddressAtBooking(true).build();
-    const booking = Booking.requestBooking(
-      TENANT_ID,
-      'g@test.com',
-      'X',
-      '31999999999',
-      new Date(Date.now() + 3_600_000),
-      [pickupLine],
-      'GUEST',
-      CORRELATION_ID,
-      undefined,
-      undefined,
-      pickupAddr,
-    );
+    const booking = request({ lineInputs: [pickupLine], pickupAddress: pickupAddr });
     expect(booking.pickupAddress?.street).toBe('Rua das Flores');
   });
 
   it('emits BookingRequested domain event', () => {
-    const booking = Booking.requestBooking(
-      TENANT_ID,
-      'g@test.com',
-      'João',
-      '31999999999',
-      new Date(Date.now() + 3_600_000),
-      [lineInput().build()],
-      'GUEST',
-      CORRELATION_ID,
-    );
+    const booking = request({ guestEmail: 'g@test.com', guestName: 'João' });
     const events = booking.domainEvents;
     expect(events).toHaveLength(1);
     expect(events[0]).toBeInstanceOf(BookingRequested);
@@ -154,17 +112,13 @@ describe('Booking.requestBooking()', () => {
 
   it('sets type=CUSTOMER and customerId when authenticated', () => {
     const customerId = '00000000-0000-7000-8000-000000000099';
-    const booking = Booking.requestBooking(
-      TENANT_ID,
-      'c@test.com',
-      'Ana',
-      '31888888888',
-      new Date(Date.now() + 3_600_000),
-      [lineInput().build()],
-      'CUSTOMER',
-      CORRELATION_ID,
+    const booking = request({
+      guestEmail: 'c@test.com',
+      guestName: 'Ana',
+      guestPhone: '31888888888',
+      type: 'CUSTOMER',
       customerId,
-    );
+    });
     expect(booking.type).toBe('CUSTOMER');
     expect(booking.customerId).toBe(customerId);
   });
@@ -425,16 +379,7 @@ describe('Booking — totalPrice and totalDurationMins derived correctly', () =>
       lineInput().withPriceAtBooking(Money.from(120, 'BRL')).withDurationMinsAtBooking(45).build(),
       lineInput().withPriceAtBooking(Money.from(50, 'BRL')).withDurationMinsAtBooking(15).build(),
     ];
-    const booking = Booking.requestBooking(
-      TENANT_ID,
-      'g@t.com',
-      'X',
-      '31999999999',
-      new Date(Date.now() + 3_600_000),
-      lines,
-      'GUEST',
-      CORRELATION_ID,
-    );
+    const booking = request({ lineInputs: lines });
     expect(booking.totalDurationMins).toBe(80);
     expect(booking.totalPrice.amount.toFixed(2)).toBe('250.00');
   });
@@ -442,16 +387,7 @@ describe('Booking — totalPrice and totalDurationMins derived correctly', () =>
 
 describe('Booking domain events — event envelope fields', () => {
   it('BookingRequested carries correct tenantId and correlationId', () => {
-    const booking = Booking.requestBooking(
-      TENANT_ID,
-      'g@t.com',
-      'X',
-      '31999999999',
-      new Date(Date.now() + 3_600_000),
-      [lineInput().build()],
-      'GUEST',
-      CORRELATION_ID,
-    );
+    const booking = request();
     const event = booking.domainEvents[0] as BookingRequested;
     expect(event.tenantId).toBe(TENANT_ID);
     expect(event.correlationId).toBe(CORRELATION_ID);

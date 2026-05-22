@@ -64,6 +64,21 @@ export interface BookingProps {
   createdAt: Date;
 }
 
+export interface RequestBookingInput {
+  tenantId: string;
+  guestEmail: string;
+  guestName: string;
+  guestPhone: string;
+  scheduledAt: Date;
+  lineInputs: BookingLineInput[];
+  type: BookingType;
+  correlationId: string;
+  customerId?: string;
+  guestAddress?: Address;
+  pickupAddress?: Address;
+  beforeServicePhotoUrls?: string[];
+}
+
 export class Booking extends AggregateRoot {
   private readonly props: BookingProps;
 
@@ -166,20 +181,22 @@ export class Booking extends AggregateRoot {
     return this.props.createdAt;
   }
 
-  static requestBooking(
-    tenantId: string,
-    guestEmail: string,
-    guestName: string,
-    guestPhone: string,
-    scheduledAt: Date,
-    lineInputs: BookingLineInput[],
-    type: BookingType,
-    correlationId: string,
-    customerId?: string,
-    guestAddress?: Address,
-    pickupAddress?: Address,
-    beforeServicePhotoUrls: string[] = [],
-  ): Booking {
+  static requestBooking(input: RequestBookingInput): Booking {
+    const {
+      tenantId,
+      guestEmail,
+      guestName,
+      guestPhone,
+      scheduledAt,
+      lineInputs,
+      type,
+      correlationId,
+      customerId,
+      guestAddress,
+      pickupAddress,
+      beforeServicePhotoUrls = [],
+    } = input;
+
     if (!lineInputs.length) throw new BookingLineRequiredError();
 
     const requiresPickup = lineInputs.some((l) => l.requiresPickupAddressAtBooking);
