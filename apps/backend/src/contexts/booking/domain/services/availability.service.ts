@@ -1,10 +1,13 @@
-import { DateTime } from 'luxon';
 import {
   BookingSettings,
   BusinessHours,
   DayHours,
 } from '../../../../contexts/platform/domain/value-objects/tenant-settings.vo';
-import { getUtcWeekDayName } from '../../../../shared/utils/calendar-date';
+import {
+  getUtcWeekDayName,
+  localDateTimeToUTCIso,
+  utcDateToLocalHHMM,
+} from '../../../../shared/utils/calendar-date';
 import { TimeOfDay } from '../../../../shared/value-objects/time-of-day.vo';
 import { BookedSlot } from '../booked-slot';
 import { ScheduleClosure } from '../schedule-closure.aggregate';
@@ -53,7 +56,7 @@ export class AvailabilityService {
       services.reduce((sum, s) => sum + s.durationMinutes, 0) + serviceBufferMinutes;
 
     const bookedRanges = existingBookings.map((b) => {
-      const startHHMM = this.utcToLocalHHMM(b.scheduledAt, timezone);
+      const startHHMM = utcDateToLocalHHMM(b.scheduledAt, timezone);
       return {
         start: startHHMM,
         end: TimeOfDay.create(startHHMM).addMinutes(b.totalDurationMins).value,
@@ -77,8 +80,8 @@ export class AvailabilityService {
 
       if (!blockedByClosure && !blockedByBooking) {
         slots.push({
-          startsAt: this.toUTCIso(date, cursor.value, timezone),
-          endsAt: this.toUTCIso(date, endTime.value, timezone),
+          startsAt: localDateTimeToUTCIso(date, cursor.value, timezone),
+          endsAt: localDateTimeToUTCIso(date, endTime.value, timezone),
         });
       }
 
@@ -109,14 +112,6 @@ export class AvailabilityService {
       close: dayHours.close,
       partialClosures: closures.filter((c) => !c.isFullDay()),
     };
-  }
-
-  private utcToLocalHHMM(utcDate: Date, timezone: string): string {
-    return DateTime.fromJSDate(utcDate, { zone: 'utc' }).setZone(timezone).toFormat('HH:mm');
-  }
-
-  private toUTCIso(date: string, time: string, timezone: string): string {
-    return DateTime.fromISO(`${date}T${time}:00`, { zone: timezone }).toUTC().toISO()!;
   }
 
   /** Two HH:MM half-open intervals [aStart, aEnd) and [bStart, bEnd) overlap when aStart < bEnd && bStart < aEnd. */
