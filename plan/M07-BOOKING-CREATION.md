@@ -21,7 +21,7 @@
 Implement the core domain layer for `Booking` and `BookingLine`. This is the most important aggregate in the system — it owns the state machine, invariants, and emits all booking lifecycle events. Zero framework dependencies.
 
 **`Booking` aggregate (`apps/backend/src/contexts/booking/domain/`):**
-- Properties: `id` (UUID v7), `tenantId`, `status` (BookingStatus enum), `type` (GUEST | CUSTOMER), `customerId?`, `guestEmail`, `guestName`, `guestPhone` (Phone), `guestAddress?` (Address, optional general address), `pickupAddress?` (Address, required when any line has `requiresPickupAddressAtBooking=true`), `scheduledAt` (UTC), `totalDurationMins` (derived), `totalPrice` (Money, derived), `totalActualPrice?` (Money, null until COMPLETED), `lines` (BookingLine[]), `carPhotoUrls?[]`, `afterServicePhotoUrls?[]`, `adminNotes?`, `infoRequestMessage?`, `infoResponseMessage?`, `approvedAt?`, `completedAt?`, `cancelledAt?`, `createdAt`
+- Properties: `id` (UUID v7), `tenantId`, `status` (BookingStatus enum), `type` (GUEST | CUSTOMER), `customerId?`, `guestEmail`, `guestName`, `guestPhone` (Phone), `guestAddress?` (Address, optional general address), `pickupAddress?` (Address, required when any line has `requiresPickupAddressAtBooking=true`), `scheduledAt` (UTC), `totalDurationMins` (derived), `totalPrice` (Money, derived), `totalActualPrice?` (Money, null until COMPLETED), `lines` (BookingLine[]), `beforeServicePhotoUrls?[]`, `afterServicePhotoUrls?[]`, `adminNotes?`, `infoRequestMessage?`, `infoResponseMessage?`, `approvedAt?`, `completedAt?`, `cancelledAt?`, `createdAt`
 
 - **State machine methods:**
   - `requestBooking(tenantId, guestEmail, guestName, guestPhone, scheduledAt, lines, type, customerId?, guestAddress?, pickupAddress?)` — static factory, status=PENDING, emits `BookingRequested`
@@ -89,7 +89,7 @@ scheduled_at             TIMESTAMPTZ NOT NULL
 total_duration_mins      INTEGER NOT NULL
 total_price_amount       NUMERIC(10,2) NOT NULL
 total_actual_price_amount NUMERIC(10,2)                    ← null until COMPLETED
-car_photo_urls           TEXT[]   DEFAULT '{}'
+before_service_photo_urls TEXT[]  DEFAULT '{}'
 after_service_photo_urls TEXT[]   DEFAULT '{}'
 admin_notes              TEXT
 info_request_message     TEXT

@@ -46,7 +46,7 @@ export interface BookingProps {
   totalPrice: Money;
   totalActualPrice: Money | null;
   lines: BookingLine[];
-  carPhotoUrls: string[];
+  beforeServicePhotoUrls: string[];
   afterServicePhotoUrls: string[];
   adminNotes: string | null;
   infoRequestMessage: string | null;
@@ -117,8 +117,8 @@ export class Booking extends AggregateRoot {
   get lines(): BookingLine[] {
     return [...this.props.lines];
   }
-  get carPhotoUrls(): string[] {
-    return [...this.props.carPhotoUrls];
+  get beforeServicePhotoUrls(): string[] {
+    return [...this.props.beforeServicePhotoUrls];
   }
   get afterServicePhotoUrls(): string[] {
     return [...this.props.afterServicePhotoUrls];
@@ -178,7 +178,7 @@ export class Booking extends AggregateRoot {
     customerId?: string,
     guestAddress?: Address,
     pickupAddress?: Address,
-    carPhotoUrls: string[] = [],
+    beforeServicePhotoUrls: string[] = [],
   ): Booking {
     if (!lineInputs.length) throw new BookingLineRequiredError();
 
@@ -206,7 +206,7 @@ export class Booking extends AggregateRoot {
       totalPrice,
       totalActualPrice: null,
       lines,
-      carPhotoUrls: [...carPhotoUrls],
+      beforeServicePhotoUrls: [...beforeServicePhotoUrls],
       afterServicePhotoUrls: [],
       adminNotes: null,
       infoRequestMessage: null,
@@ -249,7 +249,7 @@ export class Booking extends AggregateRoot {
           pointsValueAtBooking: l.pointsValueAtBooking,
           requiresPickupAddressAtBooking: l.requiresPickupAddressAtBooking,
         })),
-        carPhotoUrls: [...carPhotoUrls],
+        beforeServicePhotoUrls: [...beforeServicePhotoUrls],
       }),
     );
 
@@ -347,6 +347,7 @@ export class Booking extends AggregateRoot {
     submittedByEmail: string,
     infoPayload: Record<string, unknown>,
     correlationId: string,
+    photoUrls: string[] = [],
     customerId?: string,
   ): void {
     if (this.props.status !== BookingStatus.INFO_REQUESTED) {
@@ -357,12 +358,17 @@ export class Booking extends AggregateRoot {
     this.props.infoResponseMessage =
       typeof infoPayload['notes'] === 'string' ? infoPayload['notes'] : null;
 
+    if (photoUrls.length) {
+      this.props.beforeServicePhotoUrls.push(...photoUrls);
+    }
+
     this.addDomainEvent(
       new BookingInfoSubmitted(this.props.tenantId, correlationId, {
         bookingId: this.props.id,
         customerId: customerId ?? null,
         submittedByEmail,
         infoPayload,
+        photoUrls,
       }),
     );
   }

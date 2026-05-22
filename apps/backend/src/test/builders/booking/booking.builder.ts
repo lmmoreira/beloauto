@@ -28,7 +28,7 @@ export class BookingBuilder {
   private totalDurationMins = 30;
   private totalPrice = Money.from(100, 'BRL');
   private totalActualPrice: Money | null = null;
-  private carPhotoUrls: string[] = [];
+  private beforeServicePhotoUrls: string[] = [];
   private afterServicePhotoUrls: string[] = [];
   private adminNotes: string | null = null;
   private infoRequestMessage: string | null = null;
@@ -135,7 +135,7 @@ export class BookingBuilder {
       totalPrice: this.totalPrice,
       totalActualPrice: this.totalActualPrice,
       lines: this.lines,
-      carPhotoUrls: this.carPhotoUrls,
+      beforeServicePhotoUrls: this.beforeServicePhotoUrls,
       afterServicePhotoUrls: this.afterServicePhotoUrls,
       adminNotes: this.adminNotes,
       infoRequestMessage: this.infoRequestMessage,

@@ -116,7 +116,7 @@ Booking {
   scheduledAt
   totalDurationMins   = SUM(lines.durationMinsAtBooking)   -- denormalised, derived
   totalPrice          = SUM(lines.priceAtBooking)          -- denormalised, derived
-  carPhotoUrls[]
+  beforeServicePhotoUrls[]
   afterServicePhotoUrls[]
   adminNotes, rejectionReason, cancellationReason
   infoRequestText, infoSubmittedPayload, infoRequested/SubmittedAt/By
@@ -200,7 +200,7 @@ Completions count: `SELECT service_id, COUNT(*) GROUP BY service_id` (no `expire
 Every event has the standard envelope `{ eventId, tenantId, occurredAt, correlationId, data: {...} }`. The fields below are the `data` payload.
 
 ```
-BookingRequested        { bookingId, type, email, scheduledAt, totalPrice, totalDurationMins, lines[…], carPhotoUrls[] }
+BookingRequested        { bookingId, type, email, scheduledAt, totalPrice, totalDurationMins, lines[…], beforeServicePhotoUrls[] }
 BookingApproved         { bookingId, customerId?, approvedBy, approvedSlot, totalPrice, lineSummary[] }
 BookingRejected         { bookingId, reason, rejectedBy }
 BookingInfoRequested    { bookingId, informationNeeded, requestedBy }

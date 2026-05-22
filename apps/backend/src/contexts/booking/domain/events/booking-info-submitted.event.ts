@@ -5,6 +5,7 @@ interface BookingInfoSubmittedData extends Record<string, unknown> {
   customerId: string | null;
   submittedByEmail: string;
   infoPayload: Record<string, unknown>;
+  photoUrls: string[];
 }
 
 export class BookingInfoSubmitted extends DomainEvent<BookingInfoSubmittedData> {

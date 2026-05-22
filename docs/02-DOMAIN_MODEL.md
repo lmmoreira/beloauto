@@ -134,7 +134,7 @@ Booking {
   lines:                BookingLine[]   -- ≥ 1 (a booking with zero lines is invalid)
   pickupAddress:        Address | null  -- required when any line has requiresPickupAddressAtBooking=true;
                                         -- null for bookings with no pickup service
-  carPhotoUrls:         String[]        -- before, uploaded by customer/guest (UC-001)
+  beforeServicePhotoUrls:         String[]        -- before, uploaded by customer/guest (UC-001)
   afterServicePhotoUrls: String[]       -- after, uploaded by staff (UC-009)
 
   createdAt:        DateTime
@@ -220,7 +220,7 @@ BookingLine {
   Stores photos. Publishes `BookingCompleted` **with the full line list including `actualPriceCharged`**.
 - `cancelBooking(actor, reason?)` → validates `tenants.settings.cancellation_window_hours` rule, transitions to `CANCELLED`, publishes `BookingCancelled`.
 - `isEligibleForCancellation(now)` → checks the cancellation-window rule.
-- `uploadCarPhotos(photoUrls)` → appends to `carPhotoUrls`.
+- `uploadBeforeServicePhotos(photoUrls)` → appends to `beforeServicePhotoUrls`.
 - `uploadAfterServicePhotos(photoUrls)` → appends to `afterServicePhotoUrls`.
 
 ---

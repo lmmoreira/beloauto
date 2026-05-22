@@ -246,7 +246,7 @@ Used before creating a booking (UC-001) or marking it complete (UC-009).
    Response: { "uploadUrl": "https://...", "fileUrl": "https://...", "expiresAt": "..." }
 3. Frontend uploads directly to uploadUrl (S3/GCS)
 4. Frontend collects all fileUrls
-5. Frontend submits POST /bookings with carPhotoUrls: [fileUrl1, fileUrl2, ...]
+5. Frontend submits POST /bookings with beforeServicePhotoUrls: [fileUrl1, fileUrl2, ...]
 6. System validates URLs and creates booking
 ```
 
@@ -269,7 +269,7 @@ A booking has **1..N service lines**. Order in the `serviceIds` array is preserv
       "state":        "MG",
       "zipCode":      "30130010"
     },
-    "carPhotoUrls": ["https://..."]
+    "beforeServicePhotoUrls": ["https://..."]
   }
   ```
   - `pickupAddress` is **required** when any `serviceId` has `requiresPickupAddress = true`; omit otherwise.
@@ -305,7 +305,7 @@ A booking has **1..N service lines**. Order in the `serviceIds` array is preserv
         "requiresPickupAddressAtBooking":  true
       }
     ],
-    "carPhotoUrls": ["https://..."]
+    "beforeServicePhotoUrls": ["https://..."]
   }
   ```
 

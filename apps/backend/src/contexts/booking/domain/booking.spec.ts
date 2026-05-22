@@ -279,6 +279,22 @@ describe('Booking.submitInformation()', () => {
     expect(booking.status).toBe(BookingStatus.PENDING);
     const events = booking.domainEvents;
     expect(events[0]).toBeInstanceOf(BookingInfoSubmitted);
+    expect((events[0] as BookingInfoSubmitted).data.photoUrls).toEqual([]);
+  });
+
+  it('appends photos to beforeServicePhotoUrls when provided', () => {
+    const booking = new BookingBuilder().withStatus(BookingStatus.INFO_REQUESTED).build();
+    booking.submitInformation('g@t.com', {}, CORRELATION_ID, ['extra1.jpg', 'extra2.jpg']);
+
+    expect(booking.beforeServicePhotoUrls).toEqual(['extra1.jpg', 'extra2.jpg']);
+    const event = booking.domainEvents[0] as BookingInfoSubmitted;
+    expect(event.data.photoUrls).toEqual(['extra1.jpg', 'extra2.jpg']);
+  });
+
+  it('does not modify beforeServicePhotoUrls when no photos provided', () => {
+    const booking = new BookingBuilder().withStatus(BookingStatus.INFO_REQUESTED).build();
+    booking.submitInformation('g@t.com', {}, CORRELATION_ID);
+    expect(booking.beforeServicePhotoUrls).toEqual([]);
   });
 
   it('throws when not INFO_REQUESTED', () => {

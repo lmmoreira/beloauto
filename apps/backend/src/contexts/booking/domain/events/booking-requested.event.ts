@@ -33,7 +33,7 @@ interface BookingRequestedData extends Record<string, unknown> {
   requiresPickup: boolean;
   pickupAddress: AddressEventPayload | null;
   lines: BookingLineEventPayload[];
-  carPhotoUrls: string[];
+  beforeServicePhotoUrls: string[];
 }
 
 export class BookingRequested extends DomainEvent<BookingRequestedData> {
