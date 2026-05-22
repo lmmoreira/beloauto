@@ -11,7 +11,7 @@
 
 ---
 
-### M07-S01 — Booking + BookingLine aggregates domain layer
+### M07-S01 — Booking + BookingLine aggregates domain layer ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** L  
