@@ -4,7 +4,10 @@ import {
   BookingSettings,
   BusinessHours,
 } from '../../../platform/domain/value-objects/tenant-settings.vo';
-import { IScheduleTenantSettingsPort } from '../../application/ports/schedule-tenant-settings.port';
+import {
+  IScheduleTenantSettingsPort,
+  SchedulingSettings,
+} from '../../application/ports/schedule-tenant-settings.port';
 
 @Injectable()
 export class ScheduleTenantSettingsAdapter implements IScheduleTenantSettingsPort {
@@ -18,5 +21,10 @@ export class ScheduleTenantSettingsAdapter implements IScheduleTenantSettingsPor
   async getBookingSettings(tenantId: string): Promise<BookingSettings> {
     const { settings } = await this.getTenantById.execute(tenantId);
     return settings.booking;
+  }
+
+  async getSchedulingSettings(tenantId: string): Promise<SchedulingSettings> {
+    const { settings } = await this.getTenantById.execute(tenantId);
+    return { businessHours: settings.business_hours, bookingSettings: settings.booking };
   }
 }

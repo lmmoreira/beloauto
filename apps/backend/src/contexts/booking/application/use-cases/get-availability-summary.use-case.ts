@@ -54,10 +54,8 @@ export class GetAvailabilitySummaryUseCase {
       throw new AvailabilityRangeInvalidError('from must not be after to');
     }
 
-    const [businessHours, bookingSettings] = await Promise.all([
-      this.settingsPort.getBusinessHours(tenantId),
-      this.settingsPort.getBookingSettings(tenantId),
-    ]);
+    const { businessHours, bookingSettings } =
+      await this.settingsPort.getSchedulingSettings(tenantId);
 
     const rangeDays = this.daysBetween(dto.from, dto.to);
     if (rangeDays > bookingSettings.max_booking_advance_days) {

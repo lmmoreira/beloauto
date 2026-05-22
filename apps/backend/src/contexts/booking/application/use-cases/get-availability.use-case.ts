@@ -56,10 +56,8 @@ export class GetAvailabilityUseCase {
     const today = todayUTC();
     if (dto.date < today) throw new AvailabilityDateInPastError();
 
-    const [businessHours, bookingSettings] = await Promise.all([
-      this.settingsPort.getBusinessHours(tenantId),
-      this.settingsPort.getBookingSettings(tenantId),
-    ]);
+    const { businessHours, bookingSettings } =
+      await this.settingsPort.getSchedulingSettings(tenantId);
 
     const services = await this.serviceRepo.findByIds(dto.serviceIds, tenantId);
 
