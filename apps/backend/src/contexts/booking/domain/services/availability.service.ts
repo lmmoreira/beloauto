@@ -4,6 +4,7 @@ import {
   BusinessHours,
   DayHours,
 } from '../../../../contexts/platform/domain/value-objects/tenant-settings.vo';
+import { getUtcWeekDayName } from '../../../../shared/utils/calendar-date';
 import { BookedSlot } from '../booked-slot';
 import { ScheduleClosure } from '../schedule-closure.aggregate';
 import { ScheduleOpening } from '../schedule-opening.aggregate';
@@ -27,18 +28,6 @@ export interface AvailableSlot {
   startsAt: string; // ISO-8601 UTC
   endsAt: string; // ISO-8601 UTC
 }
-
-type WeekDay = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
-
-const DAY_NAMES: WeekDay[] = [
-  'sunday',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-];
 
 export class AvailabilityService {
   calculate(input: AvailabilityInput): AvailableSlot[] {
@@ -109,9 +98,7 @@ export class AvailabilityService {
       return { open: opening.startTime.value, close: opening.endTime.value, partialClosures: [] };
     }
 
-    const [year, month, day] = date.split('-').map(Number) as [number, number, number];
-    const dayIndex = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-    const dayHours: DayHours = businessHours[DAY_NAMES[dayIndex]];
+    const dayHours: DayHours = businessHours[getUtcWeekDayName(date)];
 
     if (!dayHours) return null;
 
