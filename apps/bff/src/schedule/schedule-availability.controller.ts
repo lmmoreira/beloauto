@@ -23,16 +23,14 @@ export class ScheduleAvailabilityController {
     @Query(new ZodValidationPipe(GetAvailabilityQuerySchema)) query: GetAvailabilityQuery,
   ): Promise<AvailabilityResponse> {
     if (!tenantSlug) {
-      return Promise.reject(
-        new HttpException(
-          {
-            type: 'about:blank',
-            title: 'Bad Request',
-            status: 400,
-            detail: 'X-Tenant-Slug header is required',
-          },
-          HttpStatus.BAD_REQUEST,
-        ),
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Bad Request',
+          status: 400,
+          detail: 'X-Tenant-Slug header is required',
+        },
+        HttpStatus.BAD_REQUEST,
       );
     }
 

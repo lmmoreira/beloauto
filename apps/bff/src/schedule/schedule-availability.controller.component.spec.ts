@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { HttpException, INestApplication } from '@nestjs/common';
 import { MockBackendHttpService, createTestApp, request } from '../test/component-test.helpers';
 import { AvailabilityResponse } from './schedule.types';
 
@@ -88,7 +88,7 @@ describe('ScheduleAvailabilityController (component)', () => {
   it('propagates backend 422 for past date', async () => {
     backendHttpService.get.mockResolvedValueOnce({ id: TENANT_ID });
     backendHttpService.getForPublic.mockRejectedValueOnce(
-      Object.assign(new Error('past'), { status: 422, response: { status: 422 } }),
+      new HttpException({ title: 'Unprocessable Entity', status: 422 }, 422),
     );
 
     const res = await request(app.getHttpServer())
@@ -101,7 +101,7 @@ describe('ScheduleAvailabilityController (component)', () => {
   it('propagates backend 400 for invalid serviceId', async () => {
     backendHttpService.get.mockResolvedValueOnce({ id: TENANT_ID });
     backendHttpService.getForPublic.mockRejectedValueOnce(
-      Object.assign(new Error('bad service'), { status: 400, response: { status: 400 } }),
+      new HttpException({ title: 'Bad Request', status: 400 }, 400),
     );
 
     const res = await request(app.getHttpServer())
