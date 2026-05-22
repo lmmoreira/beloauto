@@ -247,9 +247,9 @@ Wire up the availability domain service (M06-S03) into a use case and expose it 
 **Docs to load:** `docs/08-TESTING_STRATEGY.md` § tenant isolation pattern, `docs/06-TENANT_ISOLATION_STRATEGY.md`
 
 **Description:**  
-Write a dedicated test suite for availability edge cases and tenant isolation. This is a separate story from M06-S04 because the edge cases are numerous and the tenant isolation tests require Testcontainers setup.
+Write a dedicated integration test suite for both availability endpoints (single-date detail and range summary) covering edge cases and tenant isolation. Requires Testcontainers.
 
-**Test scenarios to cover:**
+**Test scenarios — single-date endpoint (`GET /schedule/availability`)**
 
 Closure + opening scenarios:
 - Date has a full-day `ScheduleClosure` → returns `[]`
@@ -258,22 +258,90 @@ Closure + opening scenarios:
 - Date has a `ScheduleOpening` → uses opening hours; full-day closure on same date is ignored (opening wins)
 - Day-of-week is `null` in business_hours, `ScheduleOpening` exists → slots within opening window returned
 
-Booking + tenant isolation scenarios:
+Booking + tenant isolation:
 - Two tenants with bookings on the same date — Tenant A's booking does not affect Tenant B's availability
-- All slots taken by existing bookings → returns `[]`
+- All slots taken by existing bookings → returns `{ available: false, slots: [] }`
 - A CANCELLED booking does NOT block slots (only APPROVED blocks)
 - `serviceIds` from Tenant B while querying as Tenant A → `400`
 - Date exactly on business hours boundary (first and last slots are edge cases)
 - `ScheduleOpening` exists but APPROVED booking fills the window → correct partial availability
 
+**Test scenarios — range summary endpoint (`GET /schedule/availability/summary`)**
+
+- Week range (7 days): returns 7 entries, one per date
+- Day with full-day closure → `{ available: false, slotCount: 0 }` in result
+- Day with ScheduleOpening on a Sunday → `{ available: true }` in result
+- Range spanning closed + open days returns correct mix
+- Tenant isolation: Tenant A's bookings do not affect Tenant B's summary
+- Past dates in range → `{ available: false, slotCount: 0 }` without error
+- `from > to` → 422
+- Range > 90 days → 422
+
 **Acceptance criteria:**
 - [ ] All scenarios above have dedicated integration tests with descriptive names
-- [ ] Tenant isolation: Tenant A's booked slot does NOT block Tenant B's availability
+- [ ] Tenant isolation verified for both endpoints
 - [ ] Testcontainers PostgreSQL used for all integration assertions
 - [ ] No `.skip()`, `.only()`, or `setTimeout`
 - [ ] Tests run under 30 seconds
 
-**Dependencies:** M06-S04
+**Dependencies:** M06-S04, M06-S08
+
+---
+
+### M06-S08 — Calendar availability summary endpoint (range)
+
+**Agent:** `backend-ts` + `bff-ts`  
+**Complexity:** M  
+**Docs to load:** `docs/04-USE_CASES.md` § UC-011 two-phase flow, `docs/14-API_CONTRACTS.md` § Customer Availability, `docs/02-DOMAIN_MODEL.md` § IBookingAvailabilityPort
+
+**Description:**  
+Implement the range-based availability summary endpoint — Phase 1 of the two-phase calendar UX. A single call loads all data for the requested date range in 3 DB queries, runs `AvailabilityService.calculate()` per day in memory, and returns a lightweight per-day summary `[{ date, available, slotCount }]`.
+
+**Port extension — `IBookingAvailabilityPort`:**
+Add `findApprovedByTenantAndDateRange(tenantId, from, to): Promise<BookedSlot[]>`.
+- Update `InMemoryBookingAvailabilityPort` (test) with a sensible default (filter by date range using `utcDateToLocalDate`)
+- Update `InMemoryBookingAvailabilityAdapter` (production stub) to return `[]`
+
+**New domain error:**
+- `AvailabilityRangeInvalidError` → 422 (`from > to`, or `to - from > max_booking_advance_days`)
+
+**New DTO — `GetAvailabilitySummaryDto`:**
+```typescript
+{ from: string; to: string; serviceIds: string[] }
+```
+Zod schema: `from`, `to` as YYYY-MM-DD regex; `serviceIds` comma-split → `z.array(z.uuid()).min(1)`.
+
+**New use case — `GetAvailabilitySummaryUseCase`:**
+1. Validate `from ≤ to`; range ≤ `bookingSettings.max_booking_advance_days`
+2. Load services by IDs; validate all exist and active
+3. Load in parallel: `closures = findByTenantAndDateRange(from, to)`, `openings = findByTenantAndDateRange(from, to)`, `bookings = findApprovedByTenantAndDateRange(from, to)`
+4. Load `businessHours` + `bookingSettings` via settings port
+5. For each date in `[from..to]` (inclusive):
+   - Filter `closures`, `openings`, `bookings` for this date
+   - Call `AvailabilityService.calculate({date, closures: dayClosures, opening: dayOpening, existingBookings: dayBookings, ...})`
+   - Push `{ date, available: slots.length > 0, slotCount: slots.length }`
+6. Return array
+
+Result type: `GetAvailabilitySummaryUseCaseResult = Array<{ date: string; available: boolean; slotCount: number }>`
+
+**Backend controller:** `GET /schedule/availability/summary` — no auth, `TenantContext` from `X-Tenant-ID` header.
+
+**BFF controller:** `GET /v1/schedule/availability/summary` — `@Public()`, `X-Tenant-Slug` required, slug→tenantId resolution, calls `getForPublic`.
+
+**Acceptance criteria:**
+- [ ] `GET /v1/schedule/availability/summary?from=2026-06-01&to=2026-06-07&serviceIds=<id>` returns 7 entries
+- [ ] Day with full-day closure → `{ available: false, slotCount: 0 }`
+- [ ] Sunday (null in business_hours, no opening) → `{ available: false, slotCount: 0 }`
+- [ ] Sunday with ScheduleOpening → `{ available: true, slotCount: > 0 }`
+- [ ] Past dates → `{ available: false, slotCount: 0 }` (no error)
+- [ ] `from > to` → 422
+- [ ] Range > 90 days → 422
+- [ ] Unknown/inactive serviceId → 400
+- [ ] No JWT required — public endpoint
+- [ ] Unit tests follow `beforeEach` pattern; ≥8 tests on use case, ≥5 on controller
+- [ ] BFF unit + component specs included
+
+**Dependencies:** M06-S04, M06-S03
 
 ---
 

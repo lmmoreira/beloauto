@@ -483,29 +483,59 @@ Start 15:00: ✗ (15:00 occupied)
 Start 15:30: ✓ (15:30 free + 16:00 free = available — if fits in business hours)
 ```
 
+#### **Two-Phase Calendar Flow**
+
+UC-011 is implemented as two distinct API calls that match the UI interaction model:
+
+**Phase 1 — Calendar Overview (week/month navigation)**
+
+Called once per calendar view (e.g. user opens the booking page or presses `>` to go to the next week). Returns a lightweight per-day summary — no slot times, just green/grey per day.
+
+```
+GET /v1/schedule/availability/summary?from=YYYY-MM-DD&to=YYYY-MM-DD&serviceIds=uuid,uuid
+```
+
+Backend loads ScheduleClosures, ScheduleOpenings, and APPROVED bookings for the **full date range in 3 DB queries**, then runs `AvailabilityService.calculate()` per day (pure in-memory). Returns:
+```json
+[
+  { "date": "2026-06-01", "available": true,  "slotCount": 12 },
+  { "date": "2026-06-02", "available": false, "slotCount": 0  }
+]
+```
+
+Constraints: `from ≤ to`; range ≤ 90 days (tenant's `max_booking_advance_days`). Past dates return `available: false, slotCount: 0` without an error.
+
+**Phase 2 — Day Detail (user clicks a specific day)**
+
+Called when the user selects a specific green day from the calendar. Returns the full list of available time slots for that date.
+
+```
+GET /v1/schedule/availability?date=YYYY-MM-DD&serviceIds=uuid,uuid
+```
+
+Returns:
+```json
+{ "date": "2026-06-01", "available": true, "slots": [{ "startsAt": "2026-06-01T12:00:00.000Z", "endsAt": "2026-06-01T13:00:00.000Z" }] }
+```
+
 #### **Main Flow:**
-1. System computes `totalDurationMins = SUM(selectedServices.durationMins) + tenants.settings.booking.service_buffer_minutes`
-2. System computes `requiredSlots = CEIL(totalDurationMins / tenants.settings.booking.slot_granularity_minutes)`
-3. System fetches:
-   - All `ScheduleClosures` for the tenant in the query window (full-day and partial)
-   - All `ScheduleOpenings` for the tenant in the query window
-   - All APPROVED bookings in the next 90 days for the tenant
-   - The tenant's business hours and timezone
-4. For each day in the next 90 days:
-   - For each potential 1-hour start slot in business hours:
-     - Check if all `requiredSlots` consecutive slots are available
-     - Mark as available (green) or unavailable (grey)
-5. System displays calendar with available and unavailable slots
-6. User picks an available start-time → system confirms
-7. User proceeds to booking form with `scheduledAt = [selected date + time]`
+1. Frontend loads calendar view → calls Phase 1 summary for the current week/month range.
+2. System loads in one pass: `ScheduleClosures`, `ScheduleOpenings`, APPROVED bookings for the range + tenant settings.
+3. For each date in the range, system runs the 3-layer resolution algorithm and returns `{ date, available, slotCount }`.
+4. Frontend renders the calendar: green days (`available: true`), grey days (`available: false`).
+5. User navigates to next/previous week → repeat from step 1 for the new range.
+6. User clicks a green day → calls Phase 2 detail for that specific date.
+7. System returns the full slot list with UTC `startsAt`/`endsAt` for each available slot.
+8. User picks a slot → proceeds to the booking form with `scheduledAt = startsAt`.
 
 - **Alternative Flows:**
-   - **A1: No slots in the next 7 days** → System suggests dates further out (next 90 days)
-   - **A2: Required duration exceeds business-hours window** → System shows error: "This combination takes [N] minutes ([M] hours) — longer than our working day. Please remove a service or contact us."
-   - **A3: User changes basket after picking a slot** → System invalidates the chosen slot, recalculates `requiredSlots`, and re-runs steps 1–4
+   - **A1: Entire week is grey** → Calendar shows no available days; user presses `>` to try next week.
+   - **A2: User clicks a day but no slots are available** → Phase 2 returns `{ available: false, slots: [] }`. Frontend re-greys the day and shows message.
+   - **A3: User changes basket after opening Phase 2** → Frontend invalidates the slot list and calls Phase 2 again with updated `serviceIds`.
+   - **A4: Range > 90 days** → 422 error; frontend should cap requests to `max_booking_advance_days`.
 
-- **Postconditions:** User has selected a date/time with start slot = available start time, duration = calculated booking duration
-- **Events Triggered:** None (read operation)
+- **Postconditions:** User has selected a date/time with start slot = available start time, duration = calculated booking duration.
+- **Events Triggered:** None (read operation).
 
 
 ---
