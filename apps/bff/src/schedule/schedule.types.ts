@@ -37,3 +37,11 @@ export interface AvailabilityResponse {
   slots: AvailableSlot[];
   available: boolean;
 }
+
+export interface DaySummary {
+  date: string;
+  available: boolean;
+  slotCount: number;
+}
+
+export type AvailabilitySummaryResponse = DaySummary[];

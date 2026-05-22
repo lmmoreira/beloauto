@@ -12,6 +12,7 @@ import { CloseScheduleUseCase } from './application/use-cases/close-schedule.use
 import { CreateServiceUseCase } from './application/use-cases/create-service.use-case';
 import { DeactivateServiceUseCase } from './application/use-cases/deactivate-service.use-case';
 import { GetAvailabilityUseCase } from './application/use-cases/get-availability.use-case';
+import { GetAvailabilitySummaryUseCase } from './application/use-cases/get-availability-summary.use-case';
 import { ListClosuresUseCase } from './application/use-cases/list-closures.use-case';
 import { ListOpeningsUseCase } from './application/use-cases/list-openings.use-case';
 import { ListServicesUseCase } from './application/use-cases/list-services.use-case';
@@ -23,6 +24,7 @@ import { ScheduleClosureEntity } from './infrastructure/entities/schedule-closur
 import { ScheduleOpeningEntity } from './infrastructure/entities/schedule-opening.entity';
 import { ServiceEntity } from './infrastructure/entities/service.entity';
 import { ScheduleAvailabilityController } from './infrastructure/controllers/schedule-availability.controller';
+import { ScheduleAvailabilitySummaryController } from './infrastructure/controllers/schedule-availability-summary.controller';
 import { ScheduleClosureController } from './infrastructure/controllers/schedule-closure.controller';
 import { ScheduleOpeningController } from './infrastructure/controllers/schedule-opening.controller';
 import { ServiceController } from './infrastructure/controllers/service.controller';
@@ -45,6 +47,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     ScheduleClosureController,
     ScheduleOpeningController,
     ScheduleAvailabilityController,
+    ScheduleAvailabilitySummaryController,
   ],
   providers: [
     { provide: SERVICE_REPOSITORY, useClass: TypeOrmServiceRepository },
@@ -64,6 +67,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     RemoveScheduleOpeningUseCase,
     ListOpeningsUseCase,
     GetAvailabilityUseCase,
+    GetAvailabilitySummaryUseCase,
   ],
 })
 export class BookingModule {}

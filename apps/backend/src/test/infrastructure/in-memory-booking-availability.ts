@@ -12,4 +12,12 @@ export class InMemoryBookingAvailabilityPort implements IBookingAvailabilityPort
   async findApprovedByTenantAndDate(_tenantId: string, _date: string): Promise<BookedSlot[]> {
     return [...this.slots];
   }
+
+  async findApprovedByTenantAndDateRange(
+    _tenantId: string,
+    _from: string,
+    _to: string,
+  ): Promise<BookedSlot[]> {
+    return [...this.slots];
+  }
 }

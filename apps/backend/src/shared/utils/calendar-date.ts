@@ -49,3 +49,11 @@ export function localDateTimeToUTCIso(date: string, time: string, timezone: stri
 export function utcDateToLocalHHMM(utcDate: Date, timezone: string): string {
   return DateTime.fromJSDate(utcDate, { zone: 'utc' }).setZone(timezone).toFormat('HH:mm');
 }
+
+/**
+ * Converts a UTC Date to a YYYY-MM-DD date string in the given IANA timezone.
+ * Use this when grouping stored UTC bookings by their local calendar date.
+ */
+export function utcDateToLocalDate(utcDate: Date, timezone: string): string {
+  return DateTime.fromJSDate(utcDate, { zone: 'utc' }).setZone(timezone).toISODate()!;
+}

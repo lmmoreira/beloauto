@@ -8,4 +8,12 @@ export class InMemoryBookingAvailabilityAdapter implements IBookingAvailabilityP
   async findApprovedByTenantAndDate(_tenantId: string, _date: string): Promise<BookedSlot[]> {
     return [];
   }
+
+  async findApprovedByTenantAndDateRange(
+    _tenantId: string,
+    _from: string,
+    _to: string,
+  ): Promise<BookedSlot[]> {
+    return [];
+  }
 }

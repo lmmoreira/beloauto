@@ -75,3 +75,10 @@ export class AvailabilityDateInPastError extends BookingDomainError {
     this.name = 'AvailabilityDateInPastError';
   }
 }
+
+export class AvailabilityRangeInvalidError extends BookingDomainError {
+  constructor(reason: string) {
+    super(`Invalid availability range: ${reason}`);
+    this.name = 'AvailabilityRangeInvalidError';
+  }
+}
