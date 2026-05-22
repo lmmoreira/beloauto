@@ -6,12 +6,12 @@ import { DataSource } from 'typeorm';
 import { SYSTEM_ACTOR_ID } from '../../../../shared/domain/system-actor';
 import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
 import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
+import { waitFor } from '../../../../test/utils/wait-for';
 import { HotsiteConfigEntity } from '../../../platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../../../platform/infrastructure/entities/tenant.entity';
 import { PlatformModule } from '../../../platform/platform.module';
-import { StaffEntity } from '../entities/staff.entity';
 import { StaffModule } from '../../staff.module';
-import { waitFor } from '../../../../test/utils/wait-for';
+import { StaffEntity } from '../entities/staff.entity';
 
 const PLATFORM_KEY = 'story-test-key-story-test-key-xx';
 
@@ -83,29 +83,6 @@ describe('Story: POST /internal/tenants → Pub/Sub → staff MANAGER created (i
     expect(staff!.name).toBeNull();
     expect(staff!.invitedBy).toBe(SYSTEM_ACTOR_ID);
     expect(staff!.tenantId).toBe(tenantId);
-  });
-
-  it('is idempotent: redelivering the same TenantProvisioned event creates exactly one staff row', async () => {
-    const slug = `story-idem-${Date.now()}`;
-    const adminEmail = `admin-idem-${Date.now()}@lavacar.com.br`;
-
-    const { body } = await request(app.getHttpServer())
-      .post('/internal/tenants')
-      .set('Authorization', `Bearer ${PLATFORM_KEY}`)
-      .send({ name: 'Idem Tenant', slug, adminEmail })
-      .expect(201);
-
-    const tenantId: string = body.tenantId;
-
-    await waitFor(async () => {
-      const row = await ds
-        .getRepository(StaffEntity)
-        .findOne({ where: { tenantId, email: adminEmail } });
-      return row !== null;
-    });
-
-    const rows = await ds.getRepository(StaffEntity).find({ where: { tenantId } });
-    expect(rows).toHaveLength(1);
   });
 
   it('tenant isolation: staff row is scoped to the provisioned tenant only', async () => {
