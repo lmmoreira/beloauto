@@ -18,7 +18,7 @@ import {
   IScheduleTenantSettingsPort,
   SCHEDULE_TENANT_SETTINGS_PORT,
 } from '../ports/schedule-tenant-settings.port';
-import { getUtcWeekDayName } from '../../../../shared/utils/calendar-date';
+import { getUtcWeekDayName, todayUTC } from '../../../../shared/utils/calendar-date';
 import { OpenScheduleDto } from '../dtos/open-schedule.dto';
 
 export interface OpenScheduleUseCaseResult {
@@ -46,7 +46,7 @@ export class OpenScheduleUseCase {
     const tenantId = this.tenantContext.tenantId;
     const createdBy = this.tenantContext.actorId ?? '';
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayUTC();
     if (dto.date < today) throw new OpeningDateInPastError();
 
     const businessHours = await this.tenantSettings.getBusinessHours(tenantId);

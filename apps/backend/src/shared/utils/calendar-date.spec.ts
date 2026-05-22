@@ -1,4 +1,19 @@
-import { getUtcWeekDayName, localDateTimeToUTCIso, utcDateToLocalHHMM } from './calendar-date';
+import {
+  getUtcWeekDayName,
+  localDateTimeToUTCIso,
+  todayUTC,
+  utcDateToLocalHHMM,
+} from './calendar-date';
+
+describe('todayUTC', () => {
+  it('returns a YYYY-MM-DD string', () => {
+    expect(todayUTC()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('matches the UTC date of new Date()', () => {
+    expect(todayUTC()).toBe(new Date().toISOString().slice(0, 10));
+  });
+});
 
 describe('getUtcWeekDayName', () => {
   it('returns sunday for a known Sunday', () => {

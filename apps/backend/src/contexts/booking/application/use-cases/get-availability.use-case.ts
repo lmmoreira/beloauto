@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { todayUTC } from '../../../../shared/utils/calendar-date';
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
 import { AvailabilityService } from '../../domain/services/availability.service';
 import {
@@ -52,7 +53,7 @@ export class GetAvailabilityUseCase {
   async execute(dto: GetAvailabilityDto): Promise<GetAvailabilityUseCaseResult> {
     const tenantId = this.tenantContext.tenantId;
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayUTC();
     if (dto.date < today) throw new AvailabilityDateInPastError();
 
     const [businessHours, bookingSettings] = await Promise.all([
