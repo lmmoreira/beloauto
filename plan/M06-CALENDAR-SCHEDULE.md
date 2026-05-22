@@ -288,7 +288,7 @@ Booking + tenant isolation:
 
 ---
 
-### M06-S08 — Calendar availability summary endpoint (range)
+### M06-S08 — Calendar availability summary endpoint (range) ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
