@@ -52,6 +52,10 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     guestEmail:        string
     guestName:         string
     guestPhone:        string
+    guestAddress: {                                          // non-null if guest provided general address
+      street: string, number: string, complement: string | null,
+      neighborhood: string, city: string, state: string, zipCode: string
+    } | null
     scheduledAt:       ISO8601                                // start of the slot
     totalDurationMins: number                                 // SUM(lines.durationMinsAtBooking)
     totalPrice:        { amount: number, currency: string }   // SUM(lines.priceAtBooking)

@@ -21,10 +21,10 @@
 Implement the core domain layer for `Booking` and `BookingLine`. This is the most important aggregate in the system — it owns the state machine, invariants, and emits all booking lifecycle events. Zero framework dependencies.
 
 **`Booking` aggregate (`apps/backend/src/contexts/booking/domain/`):**
-- Properties: `id` (UUID v7), `tenantId`, `status` (BookingStatus enum), `type` (GUEST | CUSTOMER), `customerId?`, `guestEmail`, `guestName`, `scheduledAt` (UTC), `totalDurationMins` (derived), `totalPrice` (Money, derived), `totalActualPrice?` (Money, null until COMPLETED), `lines` (BookingLine[]), `carPhotoUrls?[]`, `afterServicePhotoUrls?[]`, `adminNotes?`, `infoRequestMessage?`, `infoResponseMessage?`, `approvedAt?`, `completedAt?`, `cancelledAt?`, `createdAt`
+- Properties: `id` (UUID v7), `tenantId`, `status` (BookingStatus enum), `type` (GUEST | CUSTOMER), `customerId?`, `guestEmail`, `guestName`, `guestPhone` (Phone), `guestAddress?` (Address, optional general address), `pickupAddress?` (Address, required when any line has `requiresPickupAddressAtBooking=true`), `scheduledAt` (UTC), `totalDurationMins` (derived), `totalPrice` (Money, derived), `totalActualPrice?` (Money, null until COMPLETED), `lines` (BookingLine[]), `carPhotoUrls?[]`, `afterServicePhotoUrls?[]`, `adminNotes?`, `infoRequestMessage?`, `infoResponseMessage?`, `approvedAt?`, `completedAt?`, `cancelledAt?`, `createdAt`
 
 - **State machine methods:**
-  - `requestBooking(tenantId, guestEmail, guestName, scheduledAt, lines, type, customerId?)` — static factory, status=PENDING, emits `BookingRequested`
+  - `requestBooking(tenantId, guestEmail, guestName, guestPhone, scheduledAt, lines, type, customerId?, guestAddress?, pickupAddress?)` — static factory, status=PENDING, emits `BookingRequested`
   - `approve(staffId)` — PENDING|INFO_REQUESTED → APPROVED, freezes lines, emits `BookingApproved`
   - `reject(staffId, reason)` — PENDING|INFO_REQUESTED → REJECTED, emits `BookingRejected`
   - `requestMoreInfo(staffId, message)` — PENDING → INFO_REQUESTED, emits `BookingInfoRequested`
@@ -40,10 +40,10 @@ Implement the core domain layer for `Booking` and `BookingLine`. This is the mos
   - Lines are frozen once APPROVED (no further changes to `lines[]`)
   - Invalid state transitions throw domain errors with descriptive messages
   - `totalActualPrice` is null until COMPLETED
-  - `requiresPickupAddress` on any line → `guestAddress` must be provided
+  - `requiresPickupAddress` on any line → `pickupAddress` must be provided
 
 **`BookingLine` entity (child of Booking):**
-- Properties: `lineId` (UUID v7), `serviceId`, `serviceNameAtBooking`, `priceAtBooking` (Money), `durationMinsAtBooking`, `pointsValueAtBooking`, `actualPriceCharged?` (Money)
+- Properties: `lineId` (UUID v7), `serviceId`, `serviceNameAtBooking`, `priceAtBooking` (Money), `durationMinsAtBooking`, `pointsValueAtBooking`, `requiresPickupAddressAtBooking` (boolean), `actualPriceCharged?` (Money)
 - Snapshots service data at booking time — price/duration changes to Service never affect this
 
 **Domain events emitted (from `docs/03-DOMAIN_EVENTS.md`):**
@@ -82,7 +82,9 @@ type                     VARCHAR(20) NOT NULL CHECK (type IN ('GUEST','CUSTOMER'
 customer_id              UUID                               ← nullable for guest bookings
 guest_email              VARCHAR(255) NOT NULL
 guest_name               VARCHAR(255) NOT NULL
-guest_address            JSONB
+guest_phone              VARCHAR(30) NOT NULL
+guest_address            JSONB                              ← optional general address (non-pickup)
+pickup_address           JSONB                              ← null unless a pickup service was selected
 scheduled_at             TIMESTAMPTZ NOT NULL
 total_duration_mins      INTEGER NOT NULL
 total_price_amount       NUMERIC(10,2) NOT NULL
@@ -98,6 +100,7 @@ cancelled_at             TIMESTAMPTZ
 created_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 
+UNIQUE (tenant_id, id)
 INDEX (tenant_id)
 INDEX (tenant_id, status)
 INDEX (tenant_id, customer_id)
@@ -107,14 +110,16 @@ INDEX (tenant_id, scheduled_at)
 **Table: `booking.booking_lines`**
 ```sql
 line_id                  UUID PRIMARY KEY
-booking_id               UUID NOT NULL REFERENCES booking.bookings(id)
+booking_id               UUID NOT NULL
 tenant_id                UUID NOT NULL               ← denormalized for tenant isolation
+FOREIGN KEY (tenant_id, booking_id) REFERENCES booking.bookings(tenant_id, id)
 service_id               UUID NOT NULL
 service_name_at_booking  VARCHAR(255) NOT NULL
 price_at_booking_amount  NUMERIC(10,2) NOT NULL
 duration_mins_at_booking INTEGER NOT NULL
-points_value_at_booking  INTEGER NOT NULL DEFAULT 0
-actual_price_charged_amount NUMERIC(10,2)            ← null until COMPLETED
+points_value_at_booking            INTEGER NOT NULL DEFAULT 0
+requires_pickup_address_at_booking BOOLEAN NOT NULL DEFAULT false
+actual_price_charged_amount        NUMERIC(10,2)     ← null until COMPLETED
 
 INDEX (tenant_id)
 INDEX (booking_id)
@@ -124,7 +129,8 @@ INDEX (tenant_id, service_id)
 **Acceptance criteria:**
 - [ ] Both tables created via `pnpm db:migrate` without errors
 - [ ] `booking.booking_lines.tenant_id` is denormalized (redundant but required for isolation)
-- [ ] REFERENCES constraint from `booking_lines.booking_id` → `bookings.id` exists
+- [ ] Composite FK `(tenant_id, booking_id) REFERENCES booking.bookings(tenant_id, id)` exists
+- [ ] `UNIQUE(tenant_id, id)` constraint exists on `booking.bookings`
 - [ ] Migration reverts cleanly (drops lines first, then bookings)
 - [ ] All indexes exist as specified
 
@@ -154,10 +160,10 @@ Implement the TypeORM entities, repository adapter, and the transactional outbox
 - `PubSubEventBusAdapter` — implements `IEventBus`, publishes events to Pub/Sub emulator (wraps Google Pub/Sub client)
 
 **Transactional approach:**
-- `save()` opens a TypeORM `QueryRunner` transaction
-- Persists `BookingEntity` + `BookingLineEntity[]`
-- On commit success → call `IEventBus.publish()` for each domain event
-- On failure → rollback (events are not published)
+- Use case wraps `repo.save()` in `ITransactionManager.run()` — transaction is managed by the use case, not inside the repository
+- Repository checks `getActiveEntityManager()` to participate in the active transaction; persists both `BookingEntity` and `BookingLineEntity[]` within it
+- After `txManager.run()` completes, use case calls `aggregate.clearDomainEvents()` and publishes each via `IEventBus`
+- If `IEventBus.publish()` throws, the DB is NOT rolled back — events are best-effort post-commit
 
 **Acceptance criteria:**
 - [ ] `save()` persists both `bookings` and `booking_lines` rows in a single transaction
@@ -186,7 +192,7 @@ Implement the guest booking request use case. No authentication required — onl
 1. Load tenant + settings
 2. Load requested services (validate all active, all belong to tenant)
 3. Re-verify slot availability via `AvailabilityService` (slot could have been taken since calendar view)
-4. If slot unavailable → return `409` with nearest available slots
+4. If slot unavailable → return `409` with "slot no longer available" error message
 5. Create `Booking` via `Booking.requestBooking(...)` with `type=GUEST`
 6. Persist via `IBookingRepository.save()` (emits `BookingRequested`)
 
@@ -197,11 +203,14 @@ Implement the guest booking request use case. No authentication required — onl
 {
   "guestEmail": "cliente@email.com",
   "guestName": "João Silva",
-  "guestAddress": { "street": "...", "zipCode": "..." },
+  "guestPhone": "+5531999999999",
+  "guestAddress": { "street": "...", "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30100000" },
+  "pickupAddress": { "street": "...", "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30100000" },
   "scheduledAt": "2026-06-15T10:00:00Z",
   "serviceIds": ["uuid1", "uuid2"]
 }
 ```
+(`guestAddress` is always optional. `pickupAddress` is required only when any selected service has `requiresPickupAddress=true`, absent otherwise.)
 - Returns: `201 { bookingId, status: 'PENDING', scheduledAt, totalPrice, totalDurationMins }`
 
 **Acceptance criteria:**
@@ -211,7 +220,9 @@ Implement the guest booking request use case. No authentication required — onl
 - [ ] Service not belonging to the tenant returns `400`
 - [ ] Deactivated service returns `400`
 - [ ] `guestEmail` validation: invalid format returns `400`
-- [ ] `guestAddress` required when any service has `requiresPickupAddress=true`
+- [ ] `guestPhone` validation: invalid Brazilian E.164 format returns `400`
+- [ ] `pickupAddress` required when any service has `requiresPickupAddress=true`; absent → `400`
+- [ ] `guestAddress` is optional — booking accepted without it
 - [ ] Integration test: full flow from POST to DB assertion + Pub/Sub emulator event verification
 - [ ] Tenant isolation: booking is created with correct `tenant_id` from `X-Tenant-Slug` resolution
 
@@ -232,13 +243,14 @@ Implement the authenticated variant of booking creation. Same as UC-001 but with
 - Requires JWT (`role: CUSTOMER`)
 - `customer_id` is populated from JWT `sub`
 - `guestEmail` and `guestName` auto-populated from Customer record (can be overridden in body)
-- `guestAddress` pre-filled from `Customer.defaultAddress` if not provided in request body
+- `guestAddress` pre-filled from `Customer.defaultAddress` if not provided in request body (optional)
+- `pickupAddress` pre-filled from `Customer.defaultAddress` if not provided and any service requires pickup
 - `type=CUSTOMER`
 
 **Acceptance criteria:**
 - [ ] Authenticated booking is created with `type=CUSTOMER` and `customer_id` populated from JWT
 - [ ] `guestEmail` is auto-populated from the Customer record if not provided in body
-- [ ] `guestAddress` is auto-populated from `Customer.defaultAddress` if not provided and a service requires it
+- [ ] `pickupAddress` is auto-populated from `Customer.defaultAddress` if not provided and a service requires pickup
 - [ ] Customer from a different tenant calling this endpoint (wrong JWT tenant vs X-Tenant-Slug) returns `403`
 - [ ] Integration test: create customer → POST booking with JWT → assert `customer_id` is set
 
