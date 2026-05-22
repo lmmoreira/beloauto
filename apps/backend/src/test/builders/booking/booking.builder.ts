@@ -1,0 +1,157 @@
+import {
+  Booking,
+  BookingProps,
+  BookingStatus,
+  BookingType,
+} from '../../../contexts/booking/domain/booking.aggregate';
+import { BookingLine } from '../../../contexts/booking/domain/booking-line.entity';
+import { Address } from '../../../shared/value-objects/address';
+import { Email } from '../../../shared/value-objects/email.vo';
+import { Money } from '../../../shared/value-objects/money';
+import { PhoneNumber } from '../../../shared/value-objects/phone-number.vo';
+import { uuidv7 } from '../../../shared/domain/uuid-v7';
+import { BookingLineBuilder } from './booking-line.builder';
+
+export class BookingBuilder {
+  private id = uuidv7();
+  private tenantId = '00000000-0000-7000-8000-000000000001';
+  private status = BookingStatus.PENDING;
+  private type: BookingType = 'GUEST';
+  private customerId: string | null = null;
+  private guestEmail = Email.create('guest@example.com');
+  private guestName = 'João Silva';
+  private guestPhone = PhoneNumber.create('31999999999');
+  private guestAddress: Address | null = null;
+  private pickupAddress: Address | null = null;
+  private scheduledAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  private lines: BookingLine[] = [new BookingLineBuilder().build()];
+  private totalDurationMins = 30;
+  private totalPrice = Money.from(100, 'BRL');
+  private totalActualPrice: Money | null = null;
+  private carPhotoUrls: string[] = [];
+  private afterServicePhotoUrls: string[] = [];
+  private adminNotes: string | null = null;
+  private infoRequestMessage: string | null = null;
+  private infoResponseMessage: string | null = null;
+  private approvedAt: Date | null = null;
+  private approvedBy: string | null = null;
+  private completedAt: Date | null = null;
+  private completedBy: string | null = null;
+  private cancelledAt: Date | null = null;
+  private cancelledBy: string | null = null;
+  private cancellationReason: string | null = null;
+  private rejectedAt: Date | null = null;
+  private rejectedBy: string | null = null;
+  private rejectionReason: string | null = null;
+  private createdAt = new Date();
+
+  withId(id: string): this {
+    this.id = id;
+    return this;
+  }
+  withTenantId(tenantId: string): this {
+    this.tenantId = tenantId;
+    return this;
+  }
+  withStatus(status: BookingStatus): this {
+    this.status = status;
+    return this;
+  }
+  withType(type: BookingType): this {
+    this.type = type;
+    return this;
+  }
+  withCustomerId(customerId: string | null): this {
+    this.customerId = customerId;
+    return this;
+  }
+  withGuestEmail(email: string): this {
+    this.guestEmail = Email.create(email);
+    return this;
+  }
+  withGuestName(name: string): this {
+    this.guestName = name;
+    return this;
+  }
+  withGuestPhone(phone: string): this {
+    this.guestPhone = PhoneNumber.create(phone);
+    return this;
+  }
+  withGuestAddress(address: Address | null): this {
+    this.guestAddress = address;
+    return this;
+  }
+  withPickupAddress(address: Address | null): this {
+    this.pickupAddress = address;
+    return this;
+  }
+  withScheduledAt(scheduledAt: Date): this {
+    this.scheduledAt = scheduledAt;
+    return this;
+  }
+  withLines(lines: BookingLine[]): this {
+    this.lines = lines;
+    return this;
+  }
+  withTotalDurationMins(mins: number): this {
+    this.totalDurationMins = mins;
+    return this;
+  }
+  withTotalPrice(price: Money): this {
+    this.totalPrice = price;
+    return this;
+  }
+  withTotalActualPrice(price: Money | null): this {
+    this.totalActualPrice = price;
+    return this;
+  }
+  withApprovedAt(at: Date | null): this {
+    this.approvedAt = at;
+    return this;
+  }
+  withApprovedBy(by: string | null): this {
+    this.approvedBy = by;
+    return this;
+  }
+  withAdminNotes(notes: string | null): this {
+    this.adminNotes = notes;
+    return this;
+  }
+
+  build(): Booking {
+    const props: BookingProps = {
+      id: this.id,
+      tenantId: this.tenantId,
+      status: this.status,
+      type: this.type,
+      customerId: this.customerId,
+      guestEmail: this.guestEmail,
+      guestName: this.guestName,
+      guestPhone: this.guestPhone,
+      guestAddress: this.guestAddress,
+      pickupAddress: this.pickupAddress,
+      scheduledAt: this.scheduledAt,
+      totalDurationMins: this.totalDurationMins,
+      totalPrice: this.totalPrice,
+      totalActualPrice: this.totalActualPrice,
+      lines: this.lines,
+      carPhotoUrls: this.carPhotoUrls,
+      afterServicePhotoUrls: this.afterServicePhotoUrls,
+      adminNotes: this.adminNotes,
+      infoRequestMessage: this.infoRequestMessage,
+      infoResponseMessage: this.infoResponseMessage,
+      approvedAt: this.approvedAt,
+      approvedBy: this.approvedBy,
+      completedAt: this.completedAt,
+      completedBy: this.completedBy,
+      cancelledAt: this.cancelledAt,
+      cancelledBy: this.cancelledBy,
+      cancellationReason: this.cancellationReason,
+      rejectedAt: this.rejectedAt,
+      rejectedBy: this.rejectedBy,
+      rejectionReason: this.rejectionReason,
+      createdAt: this.createdAt,
+    };
+    return Booking.reconstitute(props);
+  }
+}

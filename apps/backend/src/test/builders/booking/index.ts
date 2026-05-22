@@ -4,3 +4,5 @@ export { ScheduleClosureBuilder } from './schedule-closure.builder';
 export { ScheduleClosureEntityBuilder } from './schedule-closure-entity.builder';
 export { ScheduleOpeningBuilder } from './schedule-opening.builder';
 export { ScheduleOpeningEntityBuilder } from './schedule-opening-entity.builder';
+export { BookingBuilder } from './booking.builder';
+export { BookingLineBuilder } from './booking-line.builder';
