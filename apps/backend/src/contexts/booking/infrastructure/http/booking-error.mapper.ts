@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { ProblemDetail } from '../../../../shared/http/problem-detail';
 import {
+  AvailabilityDateInPastError,
   BookingDomainError,
   ClosureDateInPastError,
   DayAlreadyOpenInSettingsError,
@@ -43,7 +44,8 @@ export function mapBookingError(err: unknown): never {
   if (
     err instanceof ClosureDateInPastError ||
     err instanceof OpeningDateInPastError ||
-    err instanceof DayAlreadyOpenInSettingsError
+    err instanceof DayAlreadyOpenInSettingsError ||
+    err instanceof AvailabilityDateInPastError
   ) {
     const body: ProblemDetail = {
       type: 'about:blank',

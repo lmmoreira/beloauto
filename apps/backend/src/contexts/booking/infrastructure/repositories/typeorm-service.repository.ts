@@ -19,6 +19,12 @@ export class TypeOrmServiceRepository implements IServiceRepository {
     return entity ? this.toDomain(entity) : null;
   }
 
+  async findByIds(ids: string[], tenantId: string): Promise<Service[]> {
+    if (ids.length === 0) return [];
+    const entities = await this.repo.find({ where: ids.map((id) => ({ id, tenantId })) });
+    return entities.map((e) => this.toDomain(e));
+  }
+
   async findAllByTenant(tenantId: string, onlyActive = false): Promise<Service[]> {
     const where = onlyActive ? { tenantId, isActive: true } : { tenantId };
     const entities = await this.repo.find({ where, order: { createdAt: 'ASC' } });

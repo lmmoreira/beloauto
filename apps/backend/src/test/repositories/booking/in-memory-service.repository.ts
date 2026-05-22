@@ -10,6 +10,12 @@ export class InMemoryServiceRepository implements IServiceRepository {
     return service;
   }
 
+  async findByIds(ids: string[], tenantId: string): Promise<Service[]> {
+    return ids
+      .map((id) => this.store.get(id))
+      .filter((s): s is Service => s !== undefined && s.tenantId === tenantId);
+  }
+
   async findAllByTenant(tenantId: string, onlyActive = false): Promise<Service[]> {
     const all = Array.from(this.store.values()).filter((s) => s.tenantId === tenantId);
     return onlyActive ? all.filter((s) => s.isActive) : all;

@@ -1,7 +1,9 @@
 import { Service } from '../../../contexts/booking/domain/service.aggregate';
 import { Money } from '../../../shared/value-objects/money';
+import { uuidv7 } from '../../../shared/domain/uuid-v7';
 
 export class ServiceBuilder {
+  private id = uuidv7();
   private tenantId = '00000000-0000-7000-8000-000000000001';
   private name = 'Lavagem Simples';
   private price = Money.from(100, 'BRL');
@@ -9,6 +11,7 @@ export class ServiceBuilder {
   private loyaltyPointsValue = 5;
   private requiresPickupAddress = false;
   private description: string | undefined = undefined;
+  private isActive = true;
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;
@@ -45,15 +48,24 @@ export class ServiceBuilder {
     return this;
   }
 
+  withIsActive(isActive: boolean): this {
+    this.isActive = isActive;
+    return this;
+  }
+
   build(): Service {
-    return Service.create(
-      this.tenantId,
-      this.name,
-      this.price,
-      this.durationMinutes,
-      this.loyaltyPointsValue,
-      this.requiresPickupAddress,
-      this.description,
-    );
+    return Service.reconstitute({
+      id: this.id,
+      tenantId: this.tenantId,
+      name: this.name,
+      price: this.price,
+      durationMinutes: this.durationMinutes,
+      loyaltyPointsValue: this.loyaltyPointsValue,
+      requiresPickupAddress: this.requiresPickupAddress,
+      description: this.description ?? null,
+      isActive: this.isActive,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
   }
 }

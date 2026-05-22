@@ -68,3 +68,10 @@ export class ScheduleOpeningNotFoundError extends BookingDomainError {
     this.name = 'ScheduleOpeningNotFoundError';
   }
 }
+
+export class AvailabilityDateInPastError extends BookingDomainError {
+  constructor() {
+    super('Cannot check availability for a past date');
+    this.name = 'AvailabilityDateInPastError';
+  }
+}
