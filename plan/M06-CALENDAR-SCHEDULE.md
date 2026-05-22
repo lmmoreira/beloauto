@@ -318,7 +318,7 @@ UNIQUE (tenant_id, date)   ← one opening per date per tenant
 
 ---
 
-### M06-S07 — UC-010c/d: Admin manages schedule openings
+### M06-S07 — UC-010c/d: Admin manages schedule openings ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** S  
