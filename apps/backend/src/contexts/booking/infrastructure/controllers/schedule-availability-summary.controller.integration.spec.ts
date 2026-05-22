@@ -4,6 +4,9 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
+import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
+import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { TenantInterceptor } from '../../../../shared/tenant/tenant.interceptor';
 import { TenantModule } from '../../../../shared/tenant/tenant.module';
@@ -12,17 +15,20 @@ import {
   ScheduleOpeningEntityBuilder,
   ServiceEntityBuilder,
 } from '../../../../test/builders/booking/index';
-import { TenantEntityBuilder } from '../../../../test/builders/platform/tenant-entity.builder';
 import { addDays, nextWeekday, pastDate } from '../../../../test/utils/date-helpers';
+import { HotsiteConfigEntity } from '../../../platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../../../platform/infrastructure/entities/tenant.entity';
+import { PlatformModule } from '../../../platform/platform.module';
 import { ScheduleClosureEntity } from '../entities/schedule-closure.entity';
 import { ScheduleOpeningEntity } from '../entities/schedule-opening.entity';
 import { ServiceEntity } from '../entities/service.entity';
 import { BookingModule } from '../../booking.module';
 
-// Isolated tenant IDs.
-const TENANT_A = '10000000-0000-4000-8000-000000000600';
-const TENANT_B = '10000000-0000-4000-8000-000000000601';
+const TEST_KEY = 'summary-integ-test-key-summary-xxxxx'; // 36 chars
+
+// Monday 4 weeks out — anchor for all range tests in this file.
+const RANGE_START = nextWeekday(1, 4);
+const RANGE_END = addDays(RANGE_START, 6); // the following Sunday
 
 function tenantHeader(tenantId: string): Record<string, string> {
   return { 'x-tenant-id': tenantId, 'x-correlation-id': 'test-correlation-id' };
@@ -31,46 +37,64 @@ function tenantHeader(tenantId: string): Record<string, string> {
 describe('ScheduleAvailabilitySummaryController (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
+  let tenantAId: string;
+  let tenantBId: string;
   let serviceId: string;
 
-  // Monday of a week well in the future — used as the anchor for range tests.
-  const RANGE_START = nextWeekday(1, 4); // 4 weeks from now, Monday
-  const RANGE_END = addDays(RANGE_START, 6); // Sunday of the same week
-
   beforeAll(async () => {
+    process.env['PLATFORM_ADMIN_KEY'] = TEST_KEY;
+
     const moduleRef = await Test.createTestingModule({
       imports: [
         TypeOrmModule.forRoot({
           type: 'postgres',
           url: process.env['TEST_DATABASE_URL'],
-          entities: [ServiceEntity, ScheduleClosureEntity, ScheduleOpeningEntity, TenantEntity],
+          entities: [
+            TenantEntity,
+            HotsiteConfigEntity,
+            ServiceEntity,
+            ScheduleClosureEntity,
+            ScheduleOpeningEntity,
+          ],
           synchronize: false,
         }),
+        EventBusModule,
         TransactionManagerModule,
         TenantModule,
+        PlatformModule,
         BookingModule,
       ],
       providers: [{ provide: APP_INTERCEPTOR, useClass: TenantInterceptor }],
-    }).compile();
+    })
+      .overrideProvider(EVENT_BUS)
+      .useValue(new InMemoryEventBus())
+      .compile();
 
     app = moduleRef.createNestApplication();
     await app.init();
     ds = moduleRef.get(DataSource);
 
-    const tenantRepo = ds.getRepository(TenantEntity);
-    await tenantRepo.save(
-      new TenantEntityBuilder().withId(TENANT_A).withSlug('summary-tenant-a-600').build(),
-    );
-    await tenantRepo.save(
-      new TenantEntityBuilder().withId(TENANT_B).withSlug('summary-tenant-b-601').build(),
-    );
+    const { body: a } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${TEST_KEY}`)
+      .send({ name: 'Summary Tenant A', slug: 'summary-tenant-a', adminEmail: 'a@summary.test' })
+      .expect(201);
+    tenantAId = a.tenantId as string;
 
-    const svc = new ServiceEntityBuilder().withTenantId(TENANT_A).withDurationMinutes(30).build();
+    const { body: b } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${TEST_KEY}`)
+      .send({ name: 'Summary Tenant B', slug: 'summary-tenant-b', adminEmail: 'b@summary.test' })
+      .expect(201);
+    tenantBId = b.tenantId as string;
+
+    const svc = new ServiceEntityBuilder().withTenantId(tenantAId).withDurationMinutes(30).build();
     await ds.getRepository(ServiceEntity).save(svc);
     serviceId = svc.id;
   });
 
   afterAll(async () => {
+    delete process.env['PLATFORM_ADMIN_KEY'];
     await app.close();
   });
 
@@ -82,13 +106,12 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
         .get(
           `/schedule/availability/summary?from=${RANGE_START}&to=${RANGE_END}&serviceIds=${serviceId}`,
         )
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(200);
 
       expect(Array.isArray(body)).toBe(true);
       expect(body).toHaveLength(7);
 
-      // Each entry must have the correct shape.
       for (const entry of body as { date: string; available: boolean; slotCount: number }[]) {
         expect(entry.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         expect(typeof entry.available).toBe('boolean');
@@ -101,7 +124,7 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
         .get(
           `/schedule/availability/summary?from=${RANGE_START}&to=${RANGE_END}&serviceIds=${serviceId}`,
         )
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(200);
 
       const sunday = body.find((e: { date: string }) => e.date === RANGE_END);
@@ -109,7 +132,6 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
       expect(sunday.available).toBe(false);
       expect(sunday.slotCount).toBe(0);
 
-      // Monday (RANGE_START) must be open.
       const monday = body.find((e: { date: string }) => e.date === RANGE_START);
       expect(monday).toBeDefined();
       expect(monday.available).toBe(true);
@@ -121,34 +143,38 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
 
   describe('GET /schedule/availability/summary — closures and openings', () => {
     it('day with a full-day closure returns available:false and slotCount:0', async () => {
-      const CLOSURE_TENANT = '10000000-0000-4000-8000-000000000610';
-      await ds
-        .getRepository(TenantEntity)
-        .save(
-          new TenantEntityBuilder()
-            .withId(CLOSURE_TENANT)
-            .withSlug('summary-closure-tenant-610')
-            .build(),
-        );
+      const { body: tenantBody } = await request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${TEST_KEY}`)
+        .send({
+          name: 'Summary Closure Tenant',
+          slug: 'summary-closure',
+          adminEmail: 'closure@summary.test',
+        })
+        .expect(201);
+      const closureTenantId = tenantBody.tenantId as string;
+
       const svc = new ServiceEntityBuilder()
-        .withTenantId(CLOSURE_TENANT)
+        .withTenantId(closureTenantId)
         .withDurationMinutes(30)
         .build();
       await ds.getRepository(ServiceEntity).save(svc);
 
-      // Close Tuesday (day 1 in the range = RANGE_START + 1).
       const tuesday = addDays(RANGE_START, 1);
       await ds
         .getRepository(ScheduleClosureEntity)
         .save(
-          new ScheduleClosureEntityBuilder().withTenantId(CLOSURE_TENANT).withDate(tuesday).build(),
+          new ScheduleClosureEntityBuilder()
+            .withTenantId(closureTenantId)
+            .withDate(tuesday)
+            .build(),
         );
 
       const { body } = await request(app.getHttpServer())
         .get(
           `/schedule/availability/summary?from=${RANGE_START}&to=${RANGE_END}&serviceIds=${svc.id}`,
         )
-        .set(tenantHeader(CLOSURE_TENANT))
+        .set(tenantHeader(closureTenantId))
         .expect(200);
 
       const tuesdayEntry = (body as { date: string; available: boolean; slotCount: number }[]).find(
@@ -160,23 +186,25 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
     });
 
     it('Sunday with a ScheduleOpening returns available:true', async () => {
-      const OPENING_TENANT = '10000000-0000-4000-8000-000000000611';
-      await ds
-        .getRepository(TenantEntity)
-        .save(
-          new TenantEntityBuilder()
-            .withId(OPENING_TENANT)
-            .withSlug('summary-opening-tenant-611')
-            .build(),
-        );
+      const { body: tenantBody } = await request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${TEST_KEY}`)
+        .send({
+          name: 'Summary Opening Tenant',
+          slug: 'summary-opening',
+          adminEmail: 'opening@summary.test',
+        })
+        .expect(201);
+      const openingTenantId = tenantBody.tenantId as string;
+
       const svc = new ServiceEntityBuilder()
-        .withTenantId(OPENING_TENANT)
+        .withTenantId(openingTenantId)
         .withDurationMinutes(30)
         .build();
       await ds.getRepository(ServiceEntity).save(svc);
       await ds.getRepository(ScheduleOpeningEntity).save(
         new ScheduleOpeningEntityBuilder()
-          .withTenantId(OPENING_TENANT)
+          .withTenantId(openingTenantId)
           .withDate(RANGE_END) // Sunday
           .withStartTime('09:00')
           .withEndTime('14:00')
@@ -187,7 +215,7 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
         .get(
           `/schedule/availability/summary?from=${RANGE_START}&to=${RANGE_END}&serviceIds=${svc.id}`,
         )
-        .set(tenantHeader(OPENING_TENANT))
+        .set(tenantHeader(openingTenantId))
         .expect(200);
 
       const sundayEntry = (body as { date: string; available: boolean; slotCount: number }[]).find(
@@ -199,13 +227,12 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
     });
 
     it('past dates in range return available:false without error', async () => {
-      // Use a range entirely in the past (the use case marks any date < today as unavailable).
       const from = pastDate(7);
       const to = pastDate(2);
 
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability/summary?from=${from}&to=${to}&serviceIds=${serviceId}`)
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(200);
 
       expect(Array.isArray(body)).toBe(true);
@@ -224,19 +251,18 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
         .get(
           `/schedule/availability/summary?from=${RANGE_END}&to=${RANGE_START}&serviceIds=${serviceId}`,
         )
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(422);
 
       expect(body.status).toBe(422);
     });
 
     it('returns 422 when range exceeds 90 days', async () => {
-      const from = RANGE_START;
       const to = addDays(RANGE_START, 91);
 
       const { body } = await request(app.getHttpServer())
-        .get(`/schedule/availability/summary?from=${from}&to=${to}&serviceIds=${serviceId}`)
-        .set(tenantHeader(TENANT_A))
+        .get(`/schedule/availability/summary?from=${RANGE_START}&to=${to}&serviceIds=${serviceId}`)
+        .set(tenantHeader(tenantAId))
         .expect(422);
 
       expect(body.status).toBe(422);
@@ -249,7 +275,7 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
         .get(
           `/schedule/availability/summary?from=${RANGE_START}&to=${RANGE_END}&serviceIds=${unknownId}`,
         )
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(400);
 
       expect(body.status).toBe(400);
@@ -270,42 +296,23 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
 
   describe('GET /schedule/availability/summary — tenant isolation', () => {
     it("Tenant B's closure does not affect Tenant A's summary", async () => {
-      // Add a full-day closure for TENANT_B on Monday of the test week.
-      const isolationTenantB = '10000000-0000-4000-8000-000000000602';
-      await ds
-        .getRepository(TenantEntity)
-        .save(
-          new TenantEntityBuilder()
-            .withId(isolationTenantB)
-            .withSlug('summary-isolation-tenant-b-602')
-            .build(),
-        );
-      const tenantBSvc = new ServiceEntityBuilder()
-        .withTenantId(isolationTenantB)
-        .withDurationMinutes(30)
-        .build();
-      await ds.getRepository(ServiceEntity).save(tenantBSvc);
       await ds
         .getRepository(ScheduleClosureEntity)
         .save(
-          new ScheduleClosureEntityBuilder()
-            .withTenantId(isolationTenantB)
-            .withDate(RANGE_START)
-            .build(),
+          new ScheduleClosureEntityBuilder().withTenantId(tenantBId).withDate(RANGE_START).build(),
         );
 
       const { body } = await request(app.getHttpServer())
         .get(
           `/schedule/availability/summary?from=${RANGE_START}&to=${RANGE_END}&serviceIds=${serviceId}`,
         )
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(200);
 
       const mondayEntry = (body as { date: string; available: boolean; slotCount: number }[]).find(
         (e) => e.date === RANGE_START,
       );
       expect(mondayEntry).toBeDefined();
-      // TENANT_A has no closure on this Monday — must be available.
       expect(mondayEntry!.available).toBe(true);
       expect(mondayEntry!.slotCount).toBeGreaterThan(0);
     });

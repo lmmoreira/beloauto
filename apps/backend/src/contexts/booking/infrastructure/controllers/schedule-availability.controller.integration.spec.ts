@@ -4,6 +4,9 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
+import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
+import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { TenantInterceptor } from '../../../../shared/tenant/tenant.interceptor';
 import { TenantModule } from '../../../../shared/tenant/tenant.module';
@@ -12,17 +15,16 @@ import {
   ScheduleOpeningEntityBuilder,
   ServiceEntityBuilder,
 } from '../../../../test/builders/booking/index';
-import { TenantEntityBuilder } from '../../../../test/builders/platform/tenant-entity.builder';
 import { nextWeekday } from '../../../../test/utils/date-helpers';
+import { HotsiteConfigEntity } from '../../../platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../../../platform/infrastructure/entities/tenant.entity';
+import { PlatformModule } from '../../../platform/platform.module';
 import { ScheduleClosureEntity } from '../entities/schedule-closure.entity';
 import { ScheduleOpeningEntity } from '../entities/schedule-opening.entity';
 import { ServiceEntity } from '../entities/service.entity';
 import { BookingModule } from '../../booking.module';
 
-// Isolated tenant IDs — each group owns its own data space.
-const TENANT_A = '10000000-0000-4000-8000-000000000500';
-const TENANT_B = '10000000-0000-4000-8000-000000000501';
+const TEST_KEY = 'availability-integ-test-key-avail-xx'; // 36 chars
 
 // UTC day-of-week constants (0=Sun, 1=Mon, …, 6=Sat).
 const MONDAY = nextWeekday(1);
@@ -35,44 +37,65 @@ function tenantHeader(tenantId: string): Record<string, string> {
 describe('ScheduleAvailabilityController (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
+  let tenantAId: string;
+  let tenantBId: string;
   let serviceId: string;
 
   beforeAll(async () => {
+    process.env['PLATFORM_ADMIN_KEY'] = TEST_KEY;
+
     const moduleRef = await Test.createTestingModule({
       imports: [
         TypeOrmModule.forRoot({
           type: 'postgres',
           url: process.env['TEST_DATABASE_URL'],
-          entities: [ServiceEntity, ScheduleClosureEntity, ScheduleOpeningEntity, TenantEntity],
+          entities: [
+            TenantEntity,
+            HotsiteConfigEntity,
+            ServiceEntity,
+            ScheduleClosureEntity,
+            ScheduleOpeningEntity,
+          ],
           synchronize: false,
         }),
+        EventBusModule,
         TransactionManagerModule,
         TenantModule,
+        PlatformModule,
         BookingModule,
       ],
       providers: [{ provide: APP_INTERCEPTOR, useClass: TenantInterceptor }],
-    }).compile();
+    })
+      .overrideProvider(EVENT_BUS)
+      .useValue(new InMemoryEventBus())
+      .compile();
 
     app = moduleRef.createNestApplication();
     await app.init();
     ds = moduleRef.get(DataSource);
 
-    // Seed tenants (availability use case loads business_hours from DB via GetTenantByIdUseCase).
-    const tenantRepo = ds.getRepository(TenantEntity);
-    await tenantRepo.save(
-      new TenantEntityBuilder().withId(TENANT_A).withSlug('avail-tenant-a-500').build(),
-    );
-    await tenantRepo.save(
-      new TenantEntityBuilder().withId(TENANT_B).withSlug('avail-tenant-b-501').build(),
-    );
+    // Seed base tenants via the canonical API — no direct DB access to the platform context.
+    const { body: a } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${TEST_KEY}`)
+      .send({ name: 'Avail Tenant A', slug: 'avail-tenant-a', adminEmail: 'a@avail.test' })
+      .expect(201);
+    tenantAId = a.tenantId as string;
 
-    // Seed one active service for TENANT_A.
-    const svc = new ServiceEntityBuilder().withTenantId(TENANT_A).withDurationMinutes(30).build();
+    const { body: b } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${TEST_KEY}`)
+      .send({ name: 'Avail Tenant B', slug: 'avail-tenant-b', adminEmail: 'b@avail.test' })
+      .expect(201);
+    tenantBId = b.tenantId as string;
+
+    const svc = new ServiceEntityBuilder().withTenantId(tenantAId).withDurationMinutes(30).build();
     await ds.getRepository(ServiceEntity).save(svc);
     serviceId = svc.id;
   });
 
   afterAll(async () => {
+    delete process.env['PLATFORM_ADMIN_KEY'];
     await app.close();
   });
 
@@ -82,14 +105,13 @@ describe('ScheduleAvailabilityController (integration)', () => {
     it('returns available slots for an open weekday with no closures', async () => {
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${MONDAY}&serviceIds=${serviceId}`)
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(200);
 
       expect(body.date).toBe(MONDAY);
       expect(body.available).toBe(true);
       expect(Array.isArray(body.slots)).toBe(true);
       expect(body.slots.length).toBeGreaterThan(0);
-      // Each slot must carry an ISO-8601 startsAt and endsAt.
       expect(body.slots[0]).toMatchObject({
         startsAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/),
         endsAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/),
@@ -99,7 +121,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
     it('returns empty slots for a normally-closed day (Sunday)', async () => {
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${SUNDAY}&serviceIds=${serviceId}`)
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(200);
 
       expect(body.available).toBe(false);
@@ -111,29 +133,31 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
   describe('GET /schedule/availability — closure scenarios', () => {
     it('returns empty slots when a full-day closure exists', async () => {
-      const CLOSURE_TENANT = '10000000-0000-4000-8000-000000000510';
-      await ds
-        .getRepository(TenantEntity)
-        .save(
-          new TenantEntityBuilder()
-            .withId(CLOSURE_TENANT)
-            .withSlug('avail-closure-tenant-510')
-            .build(),
-        );
+      const { body: tenantBody } = await request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${TEST_KEY}`)
+        .send({
+          name: 'Avail Closure Tenant',
+          slug: 'avail-closure',
+          adminEmail: 'closure@avail.test',
+        })
+        .expect(201);
+      const closureTenantId = tenantBody.tenantId as string;
+
       const svc = new ServiceEntityBuilder()
-        .withTenantId(CLOSURE_TENANT)
+        .withTenantId(closureTenantId)
         .withDurationMinutes(30)
         .build();
       await ds.getRepository(ServiceEntity).save(svc);
       await ds
         .getRepository(ScheduleClosureEntity)
         .save(
-          new ScheduleClosureEntityBuilder().withTenantId(CLOSURE_TENANT).withDate(MONDAY).build(),
+          new ScheduleClosureEntityBuilder().withTenantId(closureTenantId).withDate(MONDAY).build(),
         );
 
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${MONDAY}&serviceIds=${svc.id}`)
-        .set(tenantHeader(CLOSURE_TENANT))
+        .set(tenantHeader(closureTenantId))
         .expect(200);
 
       expect(body.available).toBe(false);
@@ -141,17 +165,19 @@ describe('ScheduleAvailabilityController (integration)', () => {
     });
 
     it('blocks only the closure window for a partial closure', async () => {
-      const PARTIAL_TENANT = '10000000-0000-4000-8000-000000000511';
-      await ds
-        .getRepository(TenantEntity)
-        .save(
-          new TenantEntityBuilder()
-            .withId(PARTIAL_TENANT)
-            .withSlug('avail-partial-tenant-511')
-            .build(),
-        );
+      const { body: tenantBody } = await request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${TEST_KEY}`)
+        .send({
+          name: 'Avail Partial Tenant',
+          slug: 'avail-partial',
+          adminEmail: 'partial@avail.test',
+        })
+        .expect(201);
+      const partialTenantId = tenantBody.tenantId as string;
+
       const svc = new ServiceEntityBuilder()
-        .withTenantId(PARTIAL_TENANT)
+        .withTenantId(partialTenantId)
         .withDurationMinutes(30)
         .build();
       await ds.getRepository(ServiceEntity).save(svc);
@@ -162,7 +188,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
         .getRepository(ScheduleClosureEntity)
         .save(
           new ScheduleClosureEntityBuilder()
-            .withTenantId(PARTIAL_TENANT)
+            .withTenantId(partialTenantId)
             .withDate(MONDAY)
             .withStartTime('10:00')
             .withEndTime('12:00')
@@ -171,12 +197,12 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
       const { body: withoutClosure } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${nextWeekday(2)}&serviceIds=${svc.id}`)
-        .set(tenantHeader(PARTIAL_TENANT))
+        .set(tenantHeader(partialTenantId))
         .expect(200);
 
       const { body: withClosure } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${MONDAY}&serviceIds=${svc.id}`)
-        .set(tenantHeader(PARTIAL_TENANT))
+        .set(tenantHeader(partialTenantId))
         .expect(200);
 
       // Partial closure reduces — but does not eliminate — available slots.
@@ -186,14 +212,19 @@ describe('ScheduleAvailabilityController (integration)', () => {
     });
 
     it('respects multiple partial closures on the same day', async () => {
-      const MULTI_TENANT = '10000000-0000-4000-8000-000000000512';
-      await ds
-        .getRepository(TenantEntity)
-        .save(
-          new TenantEntityBuilder().withId(MULTI_TENANT).withSlug('avail-multi-tenant-512').build(),
-        );
+      const { body: tenantBody } = await request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${TEST_KEY}`)
+        .send({
+          name: 'Avail Multi Tenant',
+          slug: 'avail-multi',
+          adminEmail: 'multi@avail.test',
+        })
+        .expect(201);
+      const multiTenantId = tenantBody.tenantId as string;
+
       const svc = new ServiceEntityBuilder()
-        .withTenantId(MULTI_TENANT)
+        .withTenantId(multiTenantId)
         .withDurationMinutes(30)
         .build();
       await ds.getRepository(ServiceEntity).save(svc);
@@ -203,7 +234,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
         .getRepository(ScheduleClosureEntity)
         .save(
           new ScheduleClosureEntityBuilder()
-            .withTenantId(MULTI_TENANT)
+            .withTenantId(multiTenantId)
             .withDate(closureDate)
             .withStartTime('09:00')
             .withEndTime('12:00')
@@ -213,7 +244,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
         .getRepository(ScheduleClosureEntity)
         .save(
           new ScheduleClosureEntityBuilder()
-            .withTenantId(MULTI_TENANT)
+            .withTenantId(multiTenantId)
             .withDate(closureDate)
             .withStartTime('14:00')
             .withEndTime('16:00')
@@ -222,12 +253,12 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
       const { body: noClosures } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${MONDAY}&serviceIds=${svc.id}`)
-        .set(tenantHeader(MULTI_TENANT))
+        .set(tenantHeader(multiTenantId))
         .expect(200);
 
       const { body: twoClosures } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${closureDate}&serviceIds=${svc.id}`)
-        .set(tenantHeader(MULTI_TENANT))
+        .set(tenantHeader(multiTenantId))
         .expect(200);
 
       expect(twoClosures.available).toBe(true);
@@ -239,17 +270,19 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
   describe('GET /schedule/availability — opening scenarios', () => {
     it('returns slots for a normally-closed day that has a ScheduleOpening', async () => {
-      const OPENING_TENANT = '10000000-0000-4000-8000-000000000520';
-      await ds
-        .getRepository(TenantEntity)
-        .save(
-          new TenantEntityBuilder()
-            .withId(OPENING_TENANT)
-            .withSlug('avail-opening-tenant-520')
-            .build(),
-        );
+      const { body: tenantBody } = await request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${TEST_KEY}`)
+        .send({
+          name: 'Avail Opening Tenant',
+          slug: 'avail-opening',
+          adminEmail: 'opening@avail.test',
+        })
+        .expect(201);
+      const openingTenantId = tenantBody.tenantId as string;
+
       const svc = new ServiceEntityBuilder()
-        .withTenantId(OPENING_TENANT)
+        .withTenantId(openingTenantId)
         .withDurationMinutes(30)
         .build();
       await ds.getRepository(ServiceEntity).save(svc);
@@ -257,7 +290,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
         .getRepository(ScheduleOpeningEntity)
         .save(
           new ScheduleOpeningEntityBuilder()
-            .withTenantId(OPENING_TENANT)
+            .withTenantId(openingTenantId)
             .withDate(SUNDAY)
             .withStartTime('09:00')
             .withEndTime('14:00')
@@ -266,7 +299,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${SUNDAY}&serviceIds=${svc.id}`)
-        .set(tenantHeader(OPENING_TENANT))
+        .set(tenantHeader(openingTenantId))
         .expect(200);
 
       expect(body.available).toBe(true);
@@ -274,28 +307,29 @@ describe('ScheduleAvailabilityController (integration)', () => {
     });
 
     it('opening overrides a full-day closure on the same date', async () => {
-      const OVERRIDE_TENANT = '10000000-0000-4000-8000-000000000521';
-      await ds
-        .getRepository(TenantEntity)
-        .save(
-          new TenantEntityBuilder()
-            .withId(OVERRIDE_TENANT)
-            .withSlug('avail-override-tenant-521')
-            .build(),
-        );
+      const { body: tenantBody } = await request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${TEST_KEY}`)
+        .send({
+          name: 'Avail Override Tenant',
+          slug: 'avail-override',
+          adminEmail: 'override@avail.test',
+        })
+        .expect(201);
+      const overrideTenantId = tenantBody.tenantId as string;
+
       const svc = new ServiceEntityBuilder()
-        .withTenantId(OVERRIDE_TENANT)
+        .withTenantId(overrideTenantId)
         .withDurationMinutes(30)
         .build();
       await ds.getRepository(ServiceEntity).save(svc);
 
       const openDate = nextWeekday(3); // Wednesday
-      // Add a full-day closure AND a ScheduleOpening on the same date.
       await ds
         .getRepository(ScheduleClosureEntity)
         .save(
           new ScheduleClosureEntityBuilder()
-            .withTenantId(OVERRIDE_TENANT)
+            .withTenantId(overrideTenantId)
             .withDate(openDate)
             .build(),
         );
@@ -303,7 +337,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
         .getRepository(ScheduleOpeningEntity)
         .save(
           new ScheduleOpeningEntityBuilder()
-            .withTenantId(OVERRIDE_TENANT)
+            .withTenantId(overrideTenantId)
             .withDate(openDate)
             .withStartTime('10:00')
             .withEndTime('15:00')
@@ -312,7 +346,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${openDate}&serviceIds=${svc.id}`)
-        .set(tenantHeader(OVERRIDE_TENANT))
+        .set(tenantHeader(overrideTenantId))
         .expect(200);
 
       // Opening wins — slots are available despite the full-day closure.
@@ -321,7 +355,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
     });
   });
 
-  // ─── Error cases ──────────────────────────────────────────────────────────────
+  // ─── Validation errors ────────────────────────────────────────────────────────
 
   describe('GET /schedule/availability — validation errors', () => {
     it('returns 422 for a past date', async () => {
@@ -331,7 +365,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${past}&serviceIds=${serviceId}`)
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(422);
 
       expect(body.status).toBe(422);
@@ -339,14 +373,14 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
     it('returns 400 for a service that does not belong to the tenant', async () => {
       const tenantBSvc = new ServiceEntityBuilder()
-        .withTenantId(TENANT_B)
+        .withTenantId(tenantBId)
         .withDurationMinutes(30)
         .build();
       await ds.getRepository(ServiceEntity).save(tenantBSvc);
 
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${MONDAY}&serviceIds=${tenantBSvc.id}`)
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(400);
 
       expect(body.status).toBe(400);
@@ -354,7 +388,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
     it('returns 400 for a deactivated service', async () => {
       const inactiveSvc = new ServiceEntityBuilder()
-        .withTenantId(TENANT_A)
+        .withTenantId(tenantAId)
         .withIsActive(false)
         .withDurationMinutes(30)
         .build();
@@ -362,7 +396,7 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${MONDAY}&serviceIds=${inactiveSvc.id}`)
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(400);
 
       expect(body.status).toBe(400);
@@ -381,14 +415,13 @@ describe('ScheduleAvailabilityController (integration)', () => {
 
   describe('GET /schedule/availability — tenant isolation', () => {
     it("Tenant B's full-day closure does not affect Tenant A's availability", async () => {
-      // Tenant B has a full-day closure on MONDAY; Tenant A has none.
       await ds
         .getRepository(ScheduleClosureEntity)
-        .save(new ScheduleClosureEntityBuilder().withTenantId(TENANT_B).withDate(MONDAY).build());
+        .save(new ScheduleClosureEntityBuilder().withTenantId(tenantBId).withDate(MONDAY).build());
 
       const { body } = await request(app.getHttpServer())
         .get(`/schedule/availability?date=${MONDAY}&serviceIds=${serviceId}`)
-        .set(tenantHeader(TENANT_A))
+        .set(tenantHeader(tenantAId))
         .expect(200);
 
       expect(body.available).toBe(true);
