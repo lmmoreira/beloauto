@@ -159,32 +159,39 @@ INDEX (tenant_id, service_id)
 Implement the TypeORM entities, repository adapter, and the transactional outbox pattern for the Booking aggregate. The transactional outbox ensures that domain events are published atomically with the state change — if the DB commit succeeds, the event will eventually be published; if it fails, neither the state change nor the event is persisted.
 
 **What to create:**
-- `BookingEntity` + `BookingLineEntity` (TypeORM) — map to migration tables; reconstruct `Booking` aggregate on load
+- `IBookingRepository` port (`application/ports/booking-repository.port.ts`) + `BOOKING_REPOSITORY` injection token
+- `BookingEntity` + `BookingLineEntity` (TypeORM) — map to migration tables; reconstruct `Booking` aggregate on load; register both in `BookingModule` `TypeOrmModule.forFeature()` and in `integration-global-setup.ts`
 - `TypeOrmBookingRepository` — implements `IBookingRepository`:
   - `findById(id, tenantId): Promise<Booking | null>`
   - `findAllByTenant(tenantId, filters): Promise<Booking[]>` — filters: status, customerId, scheduledAfter, scheduledBefore
-  - `findApprovedByTenantAndDate(tenantId, date): Promise<Booking[]>` — used by availability algorithm
-  - `save(booking, tenantId): Promise<void>` — within one transaction: persist aggregate + publish domain events via `IEventBus`
-- `TypeOrmBookingAvailabilityAdapter` — implements `IBookingAvailabilityPort` (replaces the M06 stub):
-  - `findApprovedByTenantAndDate(tenantId, date): Promise<BookedSlot[]>` — returns `{ scheduledAt, totalDurationMins }` for all APPROVED bookings on `date` (UTC) for the tenant
-  - `findApprovedByTenantAndDateRange(tenantId, from, to): Promise<BookedSlot[]>` — returns all APPROVED bookings whose `scheduled_at` falls in the UTC date range `[from 00:00:00Z, to 23:59:59Z]`; single query, used by the calendar summary endpoint (M06-S08)
-- `PubSubEventBusAdapter` — implements `IEventBus`, publishes events to Pub/Sub emulator (wraps Google Pub/Sub client)
+  - `save(booking): Promise<void>` — persists aggregate only; checks `getActiveEntityManager()` to join the active transaction when called inside `txManager.run()`
+- `TypeOrmBookingAvailabilityAdapter` — implements `IBookingAvailabilityPort` (replaces the M06 stub); uses `@InjectRepository(BookingEntity)` directly for lightweight queries — does NOT inject `IBookingRepository`:
+  - `findApprovedByTenantAndDate(tenantId, date): Promise<BookedSlot[]>` — returns `{ scheduledAt, totalDurationMins }` for all APPROVED bookings on `date` (UTC)
+  - `findApprovedByTenantAndDateRange(tenantId, from, to): Promise<BookedSlot[]>` — APPROVED bookings whose `scheduled_at` falls in `[from 00:00:00Z, to 23:59:59Z]`; single query
+- `InMemoryBookingRepository` test double (`src/test/repositories/booking/in-memory-booking.repository.ts`) — needed by M07-S04/S05 unit tests
+- Wire `EventBusModule` into `BookingModule` imports — do NOT create a new `IEventBus` adapter; `GcpPubSubEventBusAdapter` already exists in shared infrastructure
 
-**Transactional approach:**
-- Use case wraps `repo.save()` in `ITransactionManager.run()` — transaction is managed by the use case, not inside the repository
-- Repository checks `getActiveEntityManager()` to participate in the active transaction; persists both `BookingEntity` and `BookingLineEntity[]` within it
-- After `txManager.run()` completes, use case calls `aggregate.clearDomainEvents()` and publishes each via `IEventBus`
-- If `IEventBus.publish()` throws, the DB is NOT rolled back — events are best-effort post-commit
+**Transactional approach (use case responsibility, not repository):**
+- Use case wraps `repo.save()` in `ITransactionManager.run()` — transaction is managed by the use case
+- Repository `save()` calls `getActiveEntityManager()` to join the active transaction; persists `BookingEntity` + `BookingLineEntity[]` within it
+- After `txManager.run()` completes, use case flushes events: `for (const e of booking.clearDomainEvents()) await eventBus.publish(e)`
+- `repo.save()` never publishes events — that is exclusively the use case's responsibility
+- If `IEventBus.publish()` throws after a successful commit, the DB change is NOT rolled back — events are best-effort post-commit
 
 **Acceptance criteria:**
+- [ ] `IBookingRepository` port file and `BOOKING_REPOSITORY` token exist
 - [ ] `save()` persists both `bookings` and `booking_lines` rows in a single transaction
+- [ ] `save()` does NOT publish domain events — the use case does that post-commit
 - [ ] If `IEventBus.publish()` throws, the DB is NOT rolled back (events are best-effort post-commit)
-- [ ] `findApprovedByTenantAndDate` returns only APPROVED bookings for a specific UTC date, filtered by `tenant_id`
-- [ ] `findApprovedByTenantAndDateRange` returns all APPROVED bookings within the UTC date range, filtered by `tenant_id`; single query; used by the calendar summary endpoint
-- [ ] `TypeOrmBookingAvailabilityAdapter` is wired into `BookingModule` replacing the M06 stub (`InMemoryBookingAvailabilityAdapter`)
-- [ ] Booking entity correctly reconstructs the `Booking` domain aggregate including all lines
+- [ ] `TypeOrmBookingAvailabilityAdapter.findApprovedByTenantAndDate` returns only APPROVED bookings for the given UTC date, filtered by `tenant_id`
+- [ ] `TypeOrmBookingAvailabilityAdapter.findApprovedByTenantAndDateRange` returns APPROVED bookings within the UTC date range; single query
+- [ ] `TypeOrmBookingAvailabilityAdapter` is wired into `BookingModule` replacing `InMemoryBookingAvailabilityAdapter`
+- [ ] `BookingEntity` and `BookingLineEntity` are registered in `integration-global-setup.ts`
+- [ ] Booking entity correctly reconstructs the `Booking` domain aggregate including all fields and lines
+- [ ] Tenant isolation: `findById(id, tenantB)` for a booking that belongs to `tenantA` returns `null`
 - [ ] Integration test: save a booking → read it back → assert all fields, including `lines[]`, match
-- [ ] All queries include `WHERE tenant_id = :tenantId`
+- [ ] `InMemoryBookingRepository` exists in `src/test/repositories/booking/`
+- [ ] All queries filter by `tenant_id`
 
 **Dependencies:** M07-S01, M07-S02, M02-S04
 
@@ -222,7 +229,7 @@ Implement the guest booking request use case. No authentication required — onl
 }
 ```
 (`guestAddress` is always optional. `pickupAddress` is required only when any selected service has `requiresPickupAddress=true`, absent otherwise.)
-- Returns: `201 { bookingId, status: 'PENDING', scheduledAt, totalPrice, totalDurationMins }`
+- Returns: `201 { bookingId, status: 'PENDING', scheduledAt, totalPrice, totalDurationMins, pickupAddress?, lines[] }`
 
 **Acceptance criteria:**
 - [ ] Guest booking created with `type=GUEST` and `customer_id=null`
@@ -328,4 +335,4 @@ Expose a `GET /v1/customers/me` endpoint so the frontend can pre-fill the bookin
 - [ ] Customer from Tenant A cannot access Tenant B customer data (different JWT + tenant slug)
 - [ ] `PATCH /v1/customers/me` updates only the provided fields
 - [ ] Phone number must be valid Brazilian E.164 format (`+55...`)
-- [ ] `zipCode` must match Brazilian format (`NNNNN-NNN`)
+- [ ] `zipCode` is an 8-digit CEP; hyphen is optional and normalized by the `Address` VO
