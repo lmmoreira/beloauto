@@ -13,6 +13,7 @@ import { TypeOrmBookingRepository } from './typeorm-booking.repository';
 const TENANT_A = '00000000-0000-7000-8000-000000000060';
 const TENANT_B = '00000000-0000-7000-8000-000000000061';
 const SERVICE_ID = '00000000-0000-7000-8000-000000000070';
+const SERVICE_ID_2 = '00000000-0000-7000-8000-000000000071';
 
 describe('TypeOrmBookingRepository (integration)', () => {
   let dataSource: DataSource;
@@ -97,8 +98,8 @@ describe('TypeOrmBookingRepository (integration)', () => {
   it('updates lines on re-save (delete + re-insert)', async () => {
     const tenantId = '00000000-0000-7000-8000-000000000062';
 
-    // Seed service for this tenant
-    const svc = new ServiceEntityBuilder().withId(SERVICE_ID).withTenantId(tenantId).build();
+    // Use a unique service ID to avoid TypeORM UPDATE collision with the beforeAll service
+    const svc = new ServiceEntityBuilder().withId(SERVICE_ID_2).withTenantId(tenantId).build();
     await dataSource.getRepository(ServiceEntity).save(svc);
 
     const booking = new BookingBuilder()
@@ -108,7 +109,7 @@ describe('TypeOrmBookingRepository (integration)', () => {
           lineId: '00000000-0000-7000-8000-000000000081',
           bookingId: 'placeholder',
           tenantId,
-          serviceId: SERVICE_ID,
+          serviceId: SERVICE_ID_2,
           serviceNameAtBooking: 'Original',
           priceAtBooking: Money.from(100, 'BRL'),
           durationMinsAtBooking: 30,
@@ -153,14 +154,6 @@ describe('TypeOrmBookingRepository (integration)', () => {
     const tenantId = '00000000-0000-7000-8000-000000000063';
     const otherTenant = '00000000-0000-7000-8000-000000000064';
 
-    // Seed service for both tenants
-    await dataSource
-      .getRepository(ServiceEntity)
-      .save([
-        new ServiceEntityBuilder().withId(SERVICE_ID).withTenantId(tenantId).build(),
-        new ServiceEntityBuilder().withId(SERVICE_ID).withTenantId(otherTenant).build(),
-      ]);
-
     const b1 = new BookingBuilder().withTenantId(tenantId).withLines([]).build();
     const b2 = new BookingBuilder().withTenantId(tenantId).withLines([]).build();
     const b3 = new BookingBuilder().withTenantId(otherTenant).withLines([]).build();
@@ -178,10 +171,6 @@ describe('TypeOrmBookingRepository (integration)', () => {
 
   it('findAllByTenant with status filter returns only matching bookings', async () => {
     const tenantId = '00000000-0000-7000-8000-000000000065';
-
-    await dataSource
-      .getRepository(ServiceEntity)
-      .save(new ServiceEntityBuilder().withId(SERVICE_ID).withTenantId(tenantId).build());
 
     const pending = new BookingBuilder().withTenantId(tenantId).withLines([]).build();
     const approved = new BookingBuilder()
