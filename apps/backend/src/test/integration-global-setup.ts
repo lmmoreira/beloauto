@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { GenericContainer, Wait } from 'testcontainers';
 import { DataSource } from 'typeorm';
+import { BookingEntity } from '../contexts/booking/infrastructure/entities/booking.entity';
+import { BookingLineEntity } from '../contexts/booking/infrastructure/entities/booking-line.entity';
 import { ScheduleClosureEntity } from '../contexts/booking/infrastructure/entities/schedule-closure.entity';
 import { ScheduleOpeningEntity } from '../contexts/booking/infrastructure/entities/schedule-opening.entity';
 import { ServiceEntity } from '../contexts/booking/infrastructure/entities/service.entity';
@@ -59,6 +61,8 @@ export default async function globalSetup(): Promise<void> {
       ServiceEntity,
       ScheduleClosureEntity,
       ScheduleOpeningEntity,
+      BookingEntity,
+      BookingLineEntity,
       CustomerEntity,
       StaffEntity,
       NotificationLogEntity,
