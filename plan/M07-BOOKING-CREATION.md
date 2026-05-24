@@ -64,7 +64,7 @@ All events must use the standard 7-field envelope + their specific `data` payloa
 
 ---
 
-### M07-S02 — Booking database migrations
+### M07-S02 — Booking database migrations ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
