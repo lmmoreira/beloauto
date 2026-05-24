@@ -36,6 +36,7 @@ export class BookingEntityBuilder {
   private readonly rejectionReason: string | null = null;
   private readonly createdAt = new Date();
   private readonly updatedAt = new Date();
+  private version = 1;
 
   withId(id: string): this {
     this.id = id;
@@ -90,6 +91,11 @@ export class BookingEntityBuilder {
     return this;
   }
 
+  withVersion(version: number): this {
+    this.version = version;
+    return this;
+  }
+
   build(): BookingEntity {
     const entity = new BookingEntity();
     entity.id = this.id;
@@ -126,6 +132,7 @@ export class BookingEntityBuilder {
     entity.rejectionReason = this.rejectionReason;
     entity.createdAt = this.createdAt;
     entity.updatedAt = this.updatedAt;
+    entity.version = this.version;
     return entity;
   }
 }

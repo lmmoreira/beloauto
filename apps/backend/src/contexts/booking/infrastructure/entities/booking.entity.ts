@@ -1,4 +1,4 @@
-import { Column, Entity, Index, PrimaryColumn } from 'typeorm';
+import { Column, Entity, Index, PrimaryColumn, VersionColumn } from 'typeorm';
 
 @Entity('bookings', { schema: 'booking' })
 @Index(['tenantId'])
@@ -113,4 +113,7 @@ export class BookingEntity {
 
   @Column({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
+
+  @VersionColumn({ name: 'version', default: 1 })
+  version!: number;
 }

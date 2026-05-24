@@ -63,22 +63,29 @@ export class TypeOrmBookingRepository implements IBookingRepository {
 
   async save(booking: Booking): Promise<void> {
     const bookingEntity = this.toEntity(booking);
-    const lineEntities = booking.lines.map((l) =>
-      this.toLineEntity(l, booking.id, booking.tenantId),
-    );
 
     const manager = getActiveEntityManager();
     if (manager) {
       await manager.save(BookingEntity, bookingEntity);
-      await manager.delete(BookingLineEntity, {
-        bookingId: booking.id,
-        tenantId: booking.tenantId,
-      });
-      await manager.save(BookingLineEntity, lineEntities);
+      if (booking.linesModified) {
+        const lineEntities = booking.lines.map((l) =>
+          this.toLineEntity(l, booking.id, booking.tenantId),
+        );
+        await manager.delete(BookingLineEntity, {
+          bookingId: booking.id,
+          tenantId: booking.tenantId,
+        });
+        await manager.save(BookingLineEntity, lineEntities);
+      }
     } else {
       await this.repo.save(bookingEntity);
-      await this.lineRepo.delete({ bookingId: booking.id, tenantId: booking.tenantId });
-      await this.lineRepo.save(lineEntities);
+      if (booking.linesModified) {
+        const lineEntities = booking.lines.map((l) =>
+          this.toLineEntity(l, booking.id, booking.tenantId),
+        );
+        await this.lineRepo.delete({ bookingId: booking.id, tenantId: booking.tenantId });
+        await this.lineRepo.save(lineEntities);
+      }
     }
   }
 
@@ -141,6 +148,7 @@ export class TypeOrmBookingRepository implements IBookingRepository {
       rejectedBy: entity.rejectedBy,
       rejectionReason: entity.rejectionReason,
       createdAt: entity.createdAt,
+      version: entity.version,
     };
 
     return Booking.reconstitute(props);
@@ -188,6 +196,7 @@ export class TypeOrmBookingRepository implements IBookingRepository {
     entity.rejectionReason = booking.rejectionReason;
     entity.createdAt = booking.createdAt;
     entity.updatedAt = new Date();
+    if (booking.version !== undefined) entity.version = booking.version;
     return entity;
   }
 

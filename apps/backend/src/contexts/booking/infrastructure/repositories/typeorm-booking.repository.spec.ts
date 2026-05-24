@@ -5,6 +5,7 @@ import {
   BookingEntityBuilder,
   BookingLineEntityBuilder,
 } from '../../../../test/builders/booking/index';
+import { Money } from '../../../../shared/value-objects/money';
 import { BookingStatus } from '../../domain/booking.aggregate';
 import { BookingEntity } from '../entities/booking.entity';
 import { BookingLineEntity } from '../entities/booking-line.entity';
@@ -141,22 +142,19 @@ describe('TypeOrmBookingRepository', () => {
   });
 
   describe('save', () => {
-    it('persists booking entity and replaces lines', async () => {
+    it('saves booking header without touching lines when linesModified is false', async () => {
       ormRepo.save.mockResolvedValue({} as BookingEntity);
-      ormLineRepo.delete.mockResolvedValue({ affected: 1, raw: [] });
-      (ormLineRepo.save as jest.Mock).mockResolvedValue([]);
 
-      const booking = new BookingEntityBuilder()
+      const bookingEntity = new BookingEntityBuilder()
         .withId('00000000-0000-7000-8000-000000000020')
         .withTenantId('tenant-1')
         .build();
-
       const lineEntity = new BookingLineEntityBuilder()
         .withBookingId('00000000-0000-7000-8000-000000000020')
         .withTenantId('tenant-1')
         .build();
 
-      ormRepo.findOne.mockResolvedValue(booking);
+      ormRepo.findOne.mockResolvedValue(bookingEntity);
       ormLineRepo.find.mockResolvedValue([lineEntity]);
 
       const aggregate = await repo.findById('00000000-0000-7000-8000-000000000020', 'tenant-1');
@@ -165,8 +163,40 @@ describe('TypeOrmBookingRepository', () => {
       expect(ormRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ id: '00000000-0000-7000-8000-000000000020' }),
       );
+      expect(ormLineRepo.delete).not.toHaveBeenCalled();
+      expect(ormLineRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('deletes and re-inserts lines when linesModified is true', async () => {
+      ormRepo.save.mockResolvedValue({} as BookingEntity);
+      ormLineRepo.delete.mockResolvedValue({ affected: 1, raw: [] });
+      (ormLineRepo.save as jest.Mock).mockResolvedValue([]);
+
+      const LINE_ID = '00000000-0000-7000-8000-000000000023';
+      const bookingEntity = new BookingEntityBuilder()
+        .withId('00000000-0000-7000-8000-000000000022')
+        .withTenantId('tenant-1')
+        .withStatus('APPROVED')
+        .build();
+      const lineEntity = new BookingLineEntityBuilder()
+        .withLineId(LINE_ID)
+        .withBookingId('00000000-0000-7000-8000-000000000022')
+        .withTenantId('tenant-1')
+        .build();
+
+      ormRepo.findOne.mockResolvedValue(bookingEntity);
+      ormLineRepo.find.mockResolvedValue([lineEntity]);
+
+      const aggregate = await repo.findById('00000000-0000-7000-8000-000000000022', 'tenant-1');
+      aggregate!.complete('staff-id', new Map([[LINE_ID, Money.from(100, 'BRL')]]), [], 'corr-1');
+      aggregate!.clearDomainEvents();
+      await repo.save(aggregate!);
+
+      expect(ormRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ id: '00000000-0000-7000-8000-000000000022' }),
+      );
       expect(ormLineRepo.delete).toHaveBeenCalledWith({
-        bookingId: '00000000-0000-7000-8000-000000000020',
+        bookingId: '00000000-0000-7000-8000-000000000022',
         tenantId: 'tenant-1',
       });
       expect(ormLineRepo.save).toHaveBeenCalled();
@@ -174,8 +204,6 @@ describe('TypeOrmBookingRepository', () => {
 
     it('maps totalPriceAmount as fixed-point string', async () => {
       ormRepo.save.mockResolvedValue({} as BookingEntity);
-      ormLineRepo.delete.mockResolvedValue({ affected: 0, raw: [] });
-      (ormLineRepo.save as jest.Mock).mockResolvedValue([]);
 
       const bookingEntity = new BookingEntityBuilder()
         .withId('00000000-0000-7000-8000-000000000021')
