@@ -63,7 +63,9 @@ export class TypeOrmBookingRepository implements IBookingRepository {
 
   async save(booking: Booking): Promise<void> {
     const bookingEntity = this.toEntity(booking);
-    const lineEntities = booking.lines.map((l) => this.toLineEntity(l));
+    const lineEntities = booking.lines.map((l) =>
+      this.toLineEntity(l, booking.id, booking.tenantId),
+    );
 
     const manager = getActiveEntityManager();
     if (manager) {
@@ -189,11 +191,11 @@ export class TypeOrmBookingRepository implements IBookingRepository {
     return entity;
   }
 
-  private toLineEntity(line: BookingLine): BookingLineEntity {
+  private toLineEntity(line: BookingLine, bookingId: string, tenantId: string): BookingLineEntity {
     const entity = new BookingLineEntity();
     entity.lineId = line.lineId;
-    entity.bookingId = line.bookingId;
-    entity.tenantId = line.tenantId;
+    entity.bookingId = bookingId;
+    entity.tenantId = tenantId;
     entity.serviceId = line.serviceId;
     entity.serviceNameAtBooking = line.serviceNameAtBooking;
     entity.priceAtBookingAmount = line.priceAtBooking.amount.toFixed(2);

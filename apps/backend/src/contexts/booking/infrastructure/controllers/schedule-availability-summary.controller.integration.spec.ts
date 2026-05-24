@@ -19,6 +19,8 @@ import { addDays, nextWeekday, pastDate } from '../../../../test/utils/date-help
 import { HotsiteConfigEntity } from '../../../platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../../../platform/infrastructure/entities/tenant.entity';
 import { PlatformModule } from '../../../platform/platform.module';
+import { BookingEntity } from '../entities/booking.entity';
+import { BookingLineEntity } from '../entities/booking-line.entity';
 import { ScheduleClosureEntity } from '../entities/schedule-closure.entity';
 import { ScheduleOpeningEntity } from '../entities/schedule-opening.entity';
 import { ServiceEntity } from '../entities/service.entity';
@@ -55,6 +57,8 @@ describe('ScheduleAvailabilitySummaryController (integration)', () => {
             ServiceEntity,
             ScheduleClosureEntity,
             ScheduleOpeningEntity,
+            BookingEntity,
+            BookingLineEntity,
           ],
           synchronize: false,
         }),

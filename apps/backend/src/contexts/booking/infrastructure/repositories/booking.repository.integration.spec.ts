@@ -142,7 +142,7 @@ describe('TypeOrmBookingRepository (integration)', () => {
   });
 
   it('findById returns null for wrong tenant (isolation)', async () => {
-    const booking = new BookingBuilder().withTenantId(TENANT_A).build();
+    const booking = new BookingBuilder().withTenantId(TENANT_A).withLines([]).build();
     await repo.save(booking);
 
     const result = await repo.findById(booking.id, TENANT_B);
@@ -161,9 +161,9 @@ describe('TypeOrmBookingRepository (integration)', () => {
         new ServiceEntityBuilder().withId(SERVICE_ID).withTenantId(otherTenant).build(),
       ]);
 
-    const b1 = new BookingBuilder().withTenantId(tenantId).build();
-    const b2 = new BookingBuilder().withTenantId(tenantId).build();
-    const b3 = new BookingBuilder().withTenantId(otherTenant).build();
+    const b1 = new BookingBuilder().withTenantId(tenantId).withLines([]).build();
+    const b2 = new BookingBuilder().withTenantId(tenantId).withLines([]).build();
+    const b3 = new BookingBuilder().withTenantId(otherTenant).withLines([]).build();
 
     await repo.save(b1);
     await repo.save(b2);
@@ -183,12 +183,13 @@ describe('TypeOrmBookingRepository (integration)', () => {
       .getRepository(ServiceEntity)
       .save(new ServiceEntityBuilder().withId(SERVICE_ID).withTenantId(tenantId).build());
 
-    const pending = new BookingBuilder().withTenantId(tenantId).build();
+    const pending = new BookingBuilder().withTenantId(tenantId).withLines([]).build();
     const approved = new BookingBuilder()
       .withTenantId(tenantId)
       .withStatus(BookingStatus.APPROVED)
       .withApprovedAt(new Date())
       .withApprovedBy('00000000-0000-7000-8000-000000000099')
+      .withLines([])
       .build();
 
     await repo.save(pending);
