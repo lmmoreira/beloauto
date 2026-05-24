@@ -149,14 +149,14 @@ INDEX (tenant_id, service_id)
 
 ---
 
-### M07-S03 — Booking infrastructure (TypeORM + transactional outbox)
+### M07-S03 — Booking infrastructure (TypeORM entities, repository, event publishing)
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
 **Docs to load:** `docs/11-ARCHITECTURE.md` § hexagonal layers, `docs/05-BOUNDED_CONTEXTS.md` § event publishing pattern
 
 **Description:**  
-Implement the TypeORM entities, repository adapter, and the transactional outbox pattern for the Booking aggregate. The transactional outbox ensures that domain events are published atomically with the state change — if the DB commit succeeds, the event will eventually be published; if it fails, neither the state change nor the event is persisted.
+Implement the TypeORM entities, repository adapter, and event publishing wiring for the Booking aggregate. Follows the established post-commit flush pattern used by every other use case in this codebase: the use case wraps `repo.save()` in `txManager.run()`, then calls `booking.clearDomainEvents()` and flushes each event to `eventBus.publish()` after the transaction completes. This is NOT a transactional outbox (no relay table, no background worker) — event publishing is best-effort post-commit.
 
 **What to create:**
 - `IBookingRepository` port (`application/ports/booking-repository.port.ts`) + `BOOKING_REPOSITORY` injection token
@@ -171,12 +171,12 @@ Implement the TypeORM entities, repository adapter, and the transactional outbox
 - `InMemoryBookingRepository` test double (`src/test/repositories/booking/in-memory-booking.repository.ts`) — needed by M07-S04/S05 unit tests
 - Wire `EventBusModule` into `BookingModule` imports — do NOT create a new `IEventBus` adapter; `GcpPubSubEventBusAdapter` already exists in shared infrastructure
 
-**Transactional approach (use case responsibility, not repository):**
-- Use case wraps `repo.save()` in `ITransactionManager.run()` — transaction is managed by the use case
+**Event publishing (use case responsibility, not repository):**
+- Use case wraps `repo.save()` in `ITransactionManager.run()` — same pattern as every other write use case
 - Repository `save()` calls `getActiveEntityManager()` to join the active transaction; persists `BookingEntity` + `BookingLineEntity[]` within it
-- After `txManager.run()` completes, use case flushes events: `for (const e of booking.clearDomainEvents()) await eventBus.publish(e)`
+- After `txManager.run()` completes, use case flushes: `for (const e of booking.clearDomainEvents()) await eventBus.publish(e)`
 - `repo.save()` never publishes events — that is exclusively the use case's responsibility
-- If `IEventBus.publish()` throws after a successful commit, the DB change is NOT rolled back — events are best-effort post-commit
+- If the process crashes between commit and `publish()`, the event is lost — this is a known, accepted tradeoff for MVP
 
 **Acceptance criteria:**
 - [ ] `IBookingRepository` port file and `BOOKING_REPOSITORY` token exist
