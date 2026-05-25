@@ -204,12 +204,20 @@ describe('BookingRequestedHandler integration', () => {
       return logs.length >= 2;
     });
 
+    const countBeforeRedeliver = dispatcher.dispatched.length;
+
     // Publish the same event again (re-delivery simulation)
     await eventBus.publish(event);
 
-    // Allow time for the second delivery to be processed before asserting
-    const afterRedeliver = Date.now() + 600;
-    await waitFor(async () => Date.now() >= afterRedeliver);
+    // Wait up to 2s for the second delivery to be processed; fail immediately
+    // if a new email is dispatched (which would mean idempotency is broken).
+    const redeliveryDeadline = Date.now() + 2000;
+    await waitFor(async () => {
+      if (dispatcher.dispatched.length > countBeforeRedeliver) {
+        throw new Error('Idempotency broken: new email dispatched after re-delivery');
+      }
+      return Date.now() >= redeliveryDeadline;
+    });
 
     const logs = await ds
       .getRepository(NotificationLogEntity)

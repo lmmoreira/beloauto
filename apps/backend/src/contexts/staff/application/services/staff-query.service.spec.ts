@@ -63,6 +63,21 @@ describe('StaffQueryService', () => {
     expect(emails).toHaveLength(0);
   });
 
+  it('does not return deactivated managers', async () => {
+    const deactivatedMgr = new StaffBuilder()
+      .withTenantId(TENANT_ID)
+      .withRole('MANAGER')
+      .withEmail('deactivated-mgr@lavacar.com.br')
+      .withGoogleOAuthId('google-oauth-id-deactivated')
+      .build();
+    deactivatedMgr.deactivate('system', 'corr-deactivate');
+    await staffRepo.save(deactivatedMgr);
+
+    const emails = await service.findManagersByTenant(TENANT_ID);
+
+    expect(emails).toHaveLength(0);
+  });
+
   it('tenant isolation: does not return managers from another tenant', async () => {
     await staffRepo.save(
       new StaffBuilder()

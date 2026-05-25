@@ -76,21 +76,23 @@ export class SendBookingRequestedNotificationUseCase {
     if (!existingAdmin) {
       const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
       if (managerEmails.length > 0) {
-        for (const email of managerEmails) {
-          await this.dispatcher.dispatch({
-            tenantId: dto.tenantId,
-            to: email,
-            subject: `Nova solicitação de agendamento — ${serviceNames}`,
-            templateKey: 'booking-requested-admin',
-            data: {
-              guestName: dto.guestName,
-              scheduledAt: dto.scheduledAt,
-              serviceNames,
-              totalPrice: formattedPrice,
-              pickupAddress: dto.pickupAddress,
-            },
-          });
-        }
+        await Promise.all(
+          managerEmails.map((email) =>
+            this.dispatcher.dispatch({
+              tenantId: dto.tenantId,
+              to: email,
+              subject: `Nova solicitação de agendamento — ${serviceNames}`,
+              templateKey: 'booking-requested-admin',
+              data: {
+                guestName: dto.guestName,
+                scheduledAt: dto.scheduledAt,
+                serviceNames,
+                totalPrice: formattedPrice,
+                pickupAddress: dto.pickupAddress,
+              },
+            }),
+          ),
+        );
         const adminLog = NotificationLog.create({
           tenantId: dto.tenantId,
           eventId: dto.eventId,
