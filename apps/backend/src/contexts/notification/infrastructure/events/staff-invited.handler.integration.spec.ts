@@ -81,11 +81,19 @@ describe('Story: POST /internal/tenants → Pub/Sub → invitation email dispatc
     const tenantId: string = body.tenantId;
 
     // Wait for the manager staff record so we can get its real staffId.
+    // Wait for both the manager staff record AND the provisioning's notification log.
+    // The provisioning flow publishes its own StaffInvited event; if that email arrives
+    // after we capture countBeforeRedeliver, the 2-second wait window would miscount it
+    // as idempotency broken. Waiting for the log here drains that background noise first.
     await waitFor(async () => {
       const staff = await ds
         .getRepository(StaffEntity)
         .findOne({ where: { tenantId, role: 'MANAGER' } });
-      return staff !== null;
+      if (!staff) return false;
+      const provisioningLog = await ds
+        .getRepository(NotificationLogEntity)
+        .findOne({ where: { tenantId, notificationType: 'STAFF_INVITED', channel: 'EMAIL' } });
+      return provisioningLog !== null;
     });
 
     const staff = await ds
