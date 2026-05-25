@@ -290,7 +290,7 @@ Injected dependencies: `TenantContext`, `IServiceRepository` (`SERVICE_REPOSITOR
 
 ---
 
-### M07-S05 — UC-002: Authenticated customer requests booking
+### M07-S05 — UC-002: Authenticated customer requests booking ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
