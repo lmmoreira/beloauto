@@ -253,6 +253,7 @@ Injected dependencies: `TenantContext`, `IServiceRepository` (`SERVICE_REPOSITOR
   "totalPrice": { "amount": 120.00, "currency": "BRL" },
   "totalDurationMins": 85,
   "pickupAddress": { "street": "...", "number": "123", "complement": null, "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30100000" },
+  "beforeServicePhotoUrls": [],
   "lines": [
     {
       "lineId": "uuid",
@@ -292,28 +293,164 @@ Injected dependencies: `TenantContext`, `IServiceRepository` (`SERVICE_REPOSITOR
 ### M07-S05 — UC-002: Authenticated customer requests booking
 
 **Agent:** `backend-ts` + `bff-ts`  
-**Complexity:** S  
-**Docs to load:** `docs/04-USE_CASES.md` § UC-002, `docs/14-API_CONTRACTS.md` § POST /bookings
+**Complexity:** M  
+**Docs to load:** `docs/04-USE_CASES.md` § UC-002, `docs/14-API_CONTRACTS.md` § POST /bookings/authenticated
 
 **Description:**  
-Implement the authenticated variant of booking creation. Same as UC-001 but with a JWT. The customer's `id` is attached to the booking (`customer_id`), their profile data pre-fills the guest fields, and `type=CUSTOMER`.
+Implement the authenticated variant of booking creation via two new dedicated endpoints (separate from the existing guest `POST /bookings` route):
+- **Backend:** `POST /bookings/authenticated`
+- **BFF:** `POST /v1/bookings/authenticated`
 
-**Differences from UC-001:**
-- Requires JWT (`role: CUSTOMER`)
-- `customer_id` is populated from JWT `sub`
-- `guestEmail` and `guestName` auto-populated from Customer record (can be overridden in body)
-- `guestAddress` pre-filled from `Customer.defaultAddress` if not provided in request body (optional)
-- `pickupAddress` pre-filled from `Customer.defaultAddress` if not provided and any service requires pickup
-- `type=CUSTOMER`
+Guest fields (`guestEmail`, `guestName`, `guestPhone`, `guestAddress`) are never accepted in the request body — the backend reads them from the Customer record via a new cross-context port. `customerId` is read from `TenantContext.actorId` (set by `TenantInterceptor` from the `X-Actor-ID` header that the BFF forwards).
+
+Also fixes the M07-S04 implementation gap: add `beforeServicePhotoUrls: string[]` to `RequestBookingUseCaseResult`, `toResult()`, and the BFF `BookingResponse` type.
+
+---
+
+**New cross-context port — `ICustomerProfilePort`**
+
+`apps/backend/src/contexts/booking/application/ports/customer-profile.port.ts`
+
+```ts
+export const CUSTOMER_PROFILE_PORT = Symbol('ICustomerProfilePort');
+
+export interface CustomerProfileDto {
+  email: string;
+  name: string;
+  phone: string | null;
+  defaultAddress: Address | null;
+}
+
+export interface ICustomerProfilePort {
+  findById(customerId: string, tenantId: string): Promise<CustomerProfileDto | null>;
+}
+```
+
+Infrastructure adapter: `apps/backend/src/contexts/booking/infrastructure/adapters/customer-profile.adapter.ts`
+- Implements `ICustomerProfilePort`; registered in `BookingModule` as `{ provide: CUSTOMER_PROFILE_PORT, useClass: CustomerProfileAdapter }`
+- Injects `CustomerQueryService` (see below) — **never** injects `CUSTOMER_REPOSITORY` directly
+
+**`CustomerQueryService` (new — Customer context):**
+- `apps/backend/src/contexts/customer/application/services/customer-query.service.ts`
+- `@Injectable()` — single method: `findById(id: string, tenantId: string): Promise<Customer | null>`
+- Injects `CUSTOMER_REPOSITORY`; delegates to `customerRepo.findById(id, tenantId)`
+- Exported from `CustomerModule`; `BookingModule` imports `CustomerModule`
+
+---
+
+**New DTO — `RequestAuthenticatedBookingDto`**
+
+`apps/backend/src/contexts/booking/application/dtos/request-authenticated-booking.dto.ts`
+
+```ts
+export const RequestAuthenticatedBookingSchema = z.object({
+  scheduledAt:            z.iso.datetime(),
+  serviceIds:             z.array(z.uuid()).min(1),
+  pickupAddress:          AddressSchema.optional(),
+  beforeServicePhotoUrls: z.array(z.url()).optional(),
+});
+
+export type RequestAuthenticatedBookingDto = z.infer<typeof RequestAuthenticatedBookingSchema>;
+```
+
+No guest fields. `AddressSchema` is the same Zod shape used in `RequestBookingSchema`.
+
+---
+
+**New use case — `RequestAuthenticatedBookingUseCase`**
+
+`apps/backend/src/contexts/booking/application/use-cases/request-authenticated-booking.use-case.ts`
+
+Result type: `RequestAuthenticatedBookingUseCaseResult` — same shape as `RequestBookingUseCaseResult` including `beforeServicePhotoUrls: string[]`.
+
+Injected dependencies: `TenantContext`, `ICustomerProfilePort` (`CUSTOMER_PROFILE_PORT`), `IServiceRepository` (`SERVICE_REPOSITORY`), `IBookingAvailabilityPort` (`BOOKING_AVAILABILITY_PORT`), `IScheduleTenantSettingsPort` (`SCHEDULE_TENANT_SETTINGS_PORT`), `IBookingRepository` (`BOOKING_REPOSITORY`), `ITransactionManager` (`TRANSACTION_MANAGER`), `IEventBus` (`EVENT_BUS`).
+
+Logic:
+1. Read `customerId` from `TenantContext.actorId`. Call `customerProfilePort.findById(customerId, tenantId)`. If not found → throw `BookingCustomerNotFoundError`.
+2. If `customer.phone === null` → throw `CustomerPhoneNotSetError`.
+3. Resolve `pickupAddress`: use `dto.pickupAddress` if provided; otherwise fall back to `customer.defaultAddress` when any requested service has `requiresPickupAddress = true`.
+4. Execute the same service validation, slot check, and booking creation logic as `RequestBookingUseCase`, with:
+   - `guestEmail = customer.email`
+   - `guestName = customer.name`
+   - `guestPhone = customer.phone`
+   - `guestAddress = customer.defaultAddress`
+   - `type = 'CUSTOMER'`
+   - `customerId = TenantContext.actorId`
+5. Persist inside `txManager.run()`, then flush domain events post-commit.
+
+---
+
+**New domain errors** (add to `booking-domain.error.ts`):
+- `CustomerPhoneNotSetError` — customer.phone is null
+- `BookingCustomerNotFoundError` — customer record not found for actorId + tenantId
+
+**Error mapper additions** (update `booking-error.mapper.ts`):
+- `CustomerPhoneNotSetError` → `422 Unprocessable Entity`
+- `BookingCustomerNotFoundError` → `404 Not Found`
+
+---
+
+**New backend route** (add to `BookingController`):
+
+```ts
+@Post('authenticated')
+@HttpCode(HttpStatus.CREATED)
+@Roles('CUSTOMER')
+async createAuthenticated(
+  @Body(new ZodValidationPipe(RequestAuthenticatedBookingSchema)) dto: RequestAuthenticatedBookingDto,
+): Promise<RequestAuthenticatedBookingUseCaseResult> {
+  return this.requestAuthenticatedBookingUseCase.execute(dto).catch(mapBookingError);
+}
+```
+
+---
+
+**New BFF endpoint** (add to `BookingsController`):
+
+BFF Zod schema (`AuthenticatedBookingBodySchema`): `scheduledAt`, `serviceIds`, `pickupAddress?`, `beforeServicePhotoUrls?`. No guest fields. No tenant-slug resolution — tenant comes from JWT `tenantId` via `buildBackendHeaders()`.
+
+```ts
+@Post('authenticated')
+@HttpCode(HttpStatus.CREATED)
+@Roles('CUSTOMER')
+async createAuthenticated(
+  @Body(new ZodValidationPipe(AuthenticatedBookingBodySchema)) body: AuthenticatedBookingBody,
+): Promise<BookingResponse> {
+  return this.backendHttp.post<BookingResponse>('/bookings/authenticated', body);
+}
+```
+
+(`backendHttp.post()` already forwards `X-Actor-ID`, `X-Tenant-ID`, and `X-Actor-Role` headers via `buildBackendHeaders()`.)
+
+---
 
 **Acceptance criteria:**
-- [ ] Authenticated booking is created with `type=CUSTOMER` and `customer_id` populated from JWT
-- [ ] `guestEmail` is auto-populated from the Customer record if not provided in body
-- [ ] `pickupAddress` is auto-populated from `Customer.defaultAddress` if not provided and a service requires pickup
-- [ ] Customer from a different tenant calling this endpoint (wrong JWT tenant vs X-Tenant-Slug) returns `403`
-- [ ] Integration test: create customer → POST booking with JWT → assert `customer_id` is set
 
-**Dependencies:** M07-S04, M03-S01
+**M07-S04 fix (beforeServicePhotoUrls):**
+- [ ] `RequestBookingUseCaseResult` includes `beforeServicePhotoUrls: string[]`
+- [ ] `RequestBookingUseCase.toResult()` maps `booking.beforeServicePhotoUrls` to the result
+- [ ] BFF `BookingResponse` type includes `beforeServicePhotoUrls: string[]`
+
+**M07-S05 core:**
+- [ ] `ICustomerProfilePort` + `CUSTOMER_PROFILE_PORT` token exist in `booking/application/ports/`
+- [ ] `CustomerProfileAdapter` implements `ICustomerProfilePort`; registered in `BookingModule`
+- [ ] `CustomerQueryService` exists in Customer context; exported from `CustomerModule`
+- [ ] `BookingModule` imports `CustomerModule`
+- [ ] `RequestAuthenticatedBookingDto` + `RequestAuthenticatedBookingSchema` exist; no guest fields
+- [ ] `RequestAuthenticatedBookingUseCaseResult` includes `beforeServicePhotoUrls: string[]`
+- [ ] Booking created with `type=CUSTOMER`, `customerId` from `TenantContext.actorId`
+- [ ] `guestEmail`, `guestName`, `guestPhone` always sourced from Customer record; never from request body
+- [ ] `pickupAddress` falls back to `Customer.defaultAddress` when not in request body and a service requires pickup
+- [ ] `customer.phone === null` → `422 customer-phone-not-set`
+- [ ] Customer not found for `actorId` + `tenantId` → `404`
+- [ ] No JWT or wrong role → `401` / `403` (enforced by `JwtAuthGuard` + `RolesGuard`)
+- [ ] Backend: controller unit spec + integration spec (seed customer → `POST /bookings/authenticated` → assert `customer_id` set, `type=CUSTOMER`, tenant isolation)
+- [ ] BFF unit spec (`bookings.controller.spec.ts`) updated for new route
+- [ ] BFF component spec (`bookings.controller.component.spec.ts`) updated: 401, 403, 422, 400 (Zod), happy path, backend error propagation
+- [ ] `booking-error.mapper.ts` updated: `CustomerPhoneNotSetError → 422`, `BookingCustomerNotFoundError → 404`
+- [ ] InMemory double `InMemoryCustomerProfilePort` added to `src/test/infrastructure/` for use in booking unit specs
+
+**Dependencies:** M07-S04, M03-S01, M07-S07 (PATCH /customers/me — users with no phone need a way to update their profile before booking)
 
 ---
 

@@ -250,76 +250,38 @@ Used before creating a booking (UC-001) or marking it complete (UC-009).
 6. System validates URLs and creates booking
 ```
 
-### **Booking Requests (UC-001, UC-002)**
+### **Booking Requests**
+
 A booking has **1..N service lines**. Order in the `serviceIds` array is preserved (so the customer sees the lines in the order they added them); duplicates are allowed (two `Basic Wash` lines = two cars).
 
-- `POST /bookings`
+#### **Guest Booking (UC-001) — `POST /bookings`**
+
+Public — requires only `X-Tenant-Slug` header. No authentication.
+
 - **Body:**
   ```json
   {
-    "serviceIds":   ["uuid-basic-wash", "uuid-pickup"],  // ≥ 1; duplicates OK
-    "scheduledAt":  "ISO8601",
-    "guestEmail":   "joao@example.com",
-    "guestName":    "João Silva",
-    "guestPhone":   "31999999999",
+    "serviceIds":            ["uuid-basic-wash", "uuid-pickup"],
+    "scheduledAt":           "ISO8601",
+    "guestEmail":            "joao@example.com",
+    "guestName":             "João Silva",
+    "guestPhone":            "31999999999",
     "guestAddress": {
-      "street":       "Rua das Acácias",
-      "number":       "45",
-      "complement":   null,
-      "neighborhood": "Jardim América",
-      "city":         "Belo Horizonte",
-      "state":        "MG",
-      "zipCode":      "30130020"
+      "street": "Rua das Acácias", "number": "45", "complement": null,
+      "neighborhood": "Jardim América", "city": "Belo Horizonte", "state": "MG", "zipCode": "30130020"
     },
-    "pickupAddress": {
-      "street":       "Rua das Flores",
-      "number":       "123",
-      "complement":   "Apto 4B",
-      "neighborhood": "Centro",
-      "city":         "Belo Horizonte",
-      "state":        "MG",
-      "zipCode":      "30130010"
-    },
-    "beforeServicePhotoUrls": ["https://..."]
-  }
-  ```
-  - `pickupAddress` is **required** when any `serviceId` has `requiresPickupAddress = true`; omit otherwise.
-  - `guestAddress` is optional (general home address for the guest).
-  - `guestEmail`, `guestName`, `guestPhone`, and `guestAddress` are omitted for authenticated customers (BFF reads name/email/phone from the Customer record).
-
-- **Response (`201 Created`):**
-  ```json
-  {
-    "bookingId":          "uuid",
-    "status":             "PENDING",
-    "scheduledAt":        "ISO8601",
-    "totalPrice":         { "amount": 120.00, "currency": "BRL" },
-    "totalDurationMins":  85,
     "pickupAddress": {
       "street": "Rua das Flores", "number": "123", "complement": "Apto 4B",
       "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30130010"
     },
-    "lines": [
-      {
-        "lineId":                          "uuid",
-        "serviceId":                       "uuid-basic-wash",
-        "priceAtBooking":                  { "amount": 100.00, "currency": "BRL" },
-        "durationMinsAtBooking":           30,
-        "pointsValueAtBooking":            1,
-        "requiresPickupAddressAtBooking":  false
-      },
-      {
-        "lineId":                          "uuid",
-        "serviceId":                       "uuid-pickup",
-        "priceAtBooking":                  { "amount": 20.00, "currency": "BRL" },
-        "durationMinsAtBooking":           15,
-        "pointsValueAtBooking":            1,
-        "requiresPickupAddressAtBooking":  true
-      }
-    ],
     "beforeServicePhotoUrls": ["https://..."]
   }
   ```
+  - `pickupAddress` **required** when any `serviceId` has `requiresPickupAddress = true`; omit otherwise.
+  - `guestAddress` optional (general home address for the guest).
+  - `beforeServicePhotoUrls` optional, defaults to `[]`.
+
+- **Response (`201 Created`):** see [Shared Response Shape](#shared-booking-201-response-shape) below.
 
 - **Errors (RFC 9457 Problem Details):**
   - `400 invalid-services-empty` — `serviceIds` is empty.
@@ -329,6 +291,70 @@ A booking has **1..N service lines**. Order in the `serviceIds` array is preserv
   - `400 missing-pickup-address` — one or more selected services require a pickup address but none was provided.
   - `400 invalid-pickup-address` — `pickupAddress` fields fail validation (e.g. `zipCode` not 8 digits, `state` not a valid UF).
   - `409 slot-unavailable` — the requested `scheduledAt + totalDurationMins` window overlaps another APPROVED booking or a `ScheduleClosure`.
+
+#### **Authenticated Customer Booking (UC-002) — `POST /bookings/authenticated`**
+
+Requires JWT with `role: CUSTOMER`. Tenant resolved from JWT `tenantId` — no `X-Tenant-Slug` needed.
+
+- **Body:**
+  ```json
+  {
+    "serviceIds":            ["uuid-basic-wash", "uuid-pickup"],
+    "scheduledAt":           "ISO8601",
+    "pickupAddress": {
+      "street": "Rua das Flores", "number": "123", "complement": "Apto 4B",
+      "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30130010"
+    },
+    "beforeServicePhotoUrls": ["https://..."]
+  }
+  ```
+  - Guest fields (`guestEmail`, `guestName`, `guestPhone`, `guestAddress`) are **not accepted** — the backend reads them from the Customer record identified by the JWT `sub`.
+  - `pickupAddress` **required** when any service has `requiresPickupAddress = true`. If omitted, falls back to `Customer.defaultAddress` when set; if that is also absent, returns `400 missing-pickup-address`.
+  - `beforeServicePhotoUrls` optional, defaults to `[]`.
+
+- **Response (`201 Created`):** see [Shared Response Shape](#shared-booking-201-response-shape) below.
+
+- **Errors (RFC 9457 Problem Details):**
+  - All errors from guest booking apply (`400`, `404`, `409`).
+  - `401 Unauthorized` — no valid JWT.
+  - `403 Forbidden` — JWT role is not `CUSTOMER`.
+  - `422 customer-phone-not-set` — the customer has not set a phone number on their profile; update via `PATCH /customers/me` before booking.
+
+#### **Shared Booking `201` Response Shape** {#shared-booking-201-response-shape}
+
+```json
+{
+  "bookingId":              "uuid",
+  "status":                 "PENDING",
+  "scheduledAt":            "ISO8601",
+  "totalPrice":             { "amount": 120.00, "currency": "BRL" },
+  "totalDurationMins":      85,
+  "pickupAddress": {
+    "street": "Rua das Flores", "number": "123", "complement": "Apto 4B",
+    "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30130010"
+  },
+  "beforeServicePhotoUrls": ["https://..."],
+  "lines": [
+    {
+      "lineId":                         "uuid",
+      "serviceId":                      "uuid-basic-wash",
+      "priceAtBooking":                 { "amount": 100.00, "currency": "BRL" },
+      "durationMinsAtBooking":          30,
+      "pointsValueAtBooking":           1,
+      "requiresPickupAddressAtBooking": false
+    },
+    {
+      "lineId":                         "uuid",
+      "serviceId":                      "uuid-pickup",
+      "priceAtBooking":                 { "amount": 20.00, "currency": "BRL" },
+      "durationMinsAtBooking":          15,
+      "pointsValueAtBooking":           1,
+      "requiresPickupAddressAtBooking": true
+    }
+  ]
+}
+```
+(`pickupAddress` omitted when null. `serviceNameAtBooking` stored on the line but not returned.)
 
 ### **Booking Management (UC-003 - UC-008)**
 - `GET /bookings` → List bookings. Filters: `status`, `dateRange`, `customerId`. Each list item includes `totalPrice`, `totalDurationMins`, and a compact `lineSummary: [{ serviceId, priceAtBooking }, …]`.

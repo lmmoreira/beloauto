@@ -71,28 +71,29 @@ UC-XXX: [Use Case Name]
 ### **UC-002: Authenticated Customer Requests Booking**
 
 - **Actor:** Customer (logged in via Google OAuth)
-- **Preconditions:** Customer is authenticated. System has available slots. Customer has previous booking history (optional).
+- **Preconditions:** Customer is authenticated and has a phone number set on their profile (`Customer.phone ≠ null`). System has available slots.
 - **Trigger:** Customer clicks "Request Booking"
+- **Endpoint:** `POST /bookings/authenticated` (JWT `role: CUSTOMER` required)
 - **Main Flow:**
-  1. System pre-fills name, email, phone, and general address (`guestAddress`) from the customer's profile (`Customer.defaultAddress`).
-  2. Customer selects **one or more services** from the tenant's catalog. Same multi-line model as UC-001 main flow steps 3–4.
-  3. If any selected service has `requiresPickupAddress = true`, the form reveals the **pickup address field**, pre-filled with `customer.defaultAddress` (if set). Customer can edit it for this booking.
-  4. System displays calendar with available slots filtered by total duration.
-  5. Customer selects preferred date/time.
-  6. Customer optionally uploads car photos.
-  7. System validates input (including ≥ 1 service selected, slot fits total duration, and pickup address present when required — same as UC-001 A7).
-  8. Customer clicks "Submit".
-  9. System creates `Booking` with status = PENDING and one `BookingLine` per selected service. `customerId` is linked. Snapshots `requiresPickupAddress` per line. `Booking.guestAddress` stored if provided. `Booking.pickupAddress` set from form value (not from profile — the booking owns its own copy).
-  10. System publishes `BookingRequested` event (envelope `tenantId`; `data.lines[]` ≥ 1; `data.pickupAddress` if applicable).
-  11. System displays: "Request submitted. View your bookings in your profile."
-  12. System shows the customer's current active-points total (e.g., "47 active points").
+  1. Customer selects **one or more services** from the tenant's catalog. Same multi-line model as UC-001 main flow steps 3–4. Guest fields (`guestEmail`, `guestName`, `guestPhone`, `guestAddress`) are **not shown on the UI form** — they are sourced from the Customer record by the backend.
+  2. If any selected service has `requiresPickupAddress = true`, the form reveals the **pickup address field**, pre-filled with `Customer.defaultAddress` (if set). Customer can edit it for this booking.
+  3. System displays calendar with available slots filtered by total duration.
+  4. Customer selects preferred date/time.
+  5. Customer optionally uploads car photos.
+  6. Customer clicks "Submit". The UI sends only `serviceIds`, `scheduledAt`, `pickupAddress?`, and `beforeServicePhotoUrls?`.
+  7. Backend validates slot (same rules as UC-001). Reads `guestEmail`, `guestName`, `guestPhone` from the Customer record (identified by JWT `sub`). Uses `Customer.defaultAddress` as `guestAddress`. If `pickupAddress` is absent from the request, falls back to `Customer.defaultAddress`; if that is also null and a service requires pickup, returns `400 missing-pickup-address`.
+  8. System creates `Booking` with `status = PENDING`, `type = CUSTOMER`, `customerId` linked. `guestEmail`, `guestName`, `guestPhone` set from Customer record. `Booking.guestAddress` set from `Customer.defaultAddress` (may be null). `Booking.pickupAddress` set from the resolved pickup address (request body takes precedence over profile default).
+  9. System publishes `BookingRequested` event (envelope `tenantId`; `data.lines[]` ≥ 1; `data.pickupAddress` if applicable).
+  10. System displays: "Solicitação enviada. Veja seus agendamentos no seu perfil."
+  11. System shows the customer's current active-points total (e.g., "47 pontos ativos").
 
 - **Alternative Flows:**
-  - Same A1–A8 as UC-001.
-  - **A9: Customer has no defaultAddress and selects pickup service** → Address field shown empty; customer must fill it in.
+  - Same A1–A8 as UC-001 (invalid services, slot unavailable, invalid pickup address, etc.).
+  - **A9: Customer has no defaultAddress and selects pickup service** → pickup address field shown empty; customer must fill it in manually.
   - **A10: Customer views past bookings** → System shows COMPLETED / CANCELLED history with each booking's line list and pickup address if applicable.
+  - **A11: Customer has no phone set on their profile** → System returns `422 customer-phone-not-set`. UI prompts the customer to update their profile (`PATCH /customers/me`) before booking.
 
-- **Postconditions:** Booking created with ≥ 1 lines (and `pickupAddress` if applicable), linked to customer. No loyalty effect yet.
+- **Postconditions:** Booking created with ≥ 1 lines (and `pickupAddress` if applicable), linked to customer. `type = CUSTOMER`. No loyalty effect yet.
 - **Events Triggered:** `BookingRequested`
 
 ---
