@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { uuidv7 } from '../../../../shared/domain/uuid-v7';
 import { CustomerEntityBuilder } from '../../../../test/builders/customer/index';
 import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { createCustomerIntegrationApp } from '../../../../test/utils/customer-integration-app';
@@ -102,7 +103,7 @@ describe('CustomerController (integration)', () => {
     beforeEach(async () => {
       const entity = new CustomerEntityBuilder()
         .withTenantId(tenantAId)
-        .withGoogleOAuthId(`google-patch-test-${Date.now()}`)
+        .withGoogleOAuthId(`google-patch-${uuidv7()}`)
         .withEmail('patchme@profile.test')
         .withName('Original Name')
         .withPhone(null)

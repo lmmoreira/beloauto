@@ -32,17 +32,20 @@ export class UpdateCustomerProfileUseCase {
     const customer = await this.customerRepo.findById(customerId, tenantId);
     if (!customer) throw new CustomerNotFoundError(customerId);
 
-    const name = dto.name !== undefined ? dto.name : customer.name;
-    const phone = dto.phone !== undefined ? dto.phone : (customer.phone?.value ?? null);
-    const defaultAddress =
-      dto.defaultAddress !== undefined
-        ? dto.defaultAddress === null
-          ? null
-          : Address.create({
-              ...dto.defaultAddress,
-              complement: dto.defaultAddress.complement ?? undefined,
-            })
-        : customer.defaultAddress;
+    const name = dto.name ?? customer.name;
+    const phone = dto.phone === undefined ? (customer.phone?.value ?? null) : dto.phone;
+
+    let defaultAddress: Address | null;
+    if (dto.defaultAddress === undefined) {
+      defaultAddress = customer.defaultAddress;
+    } else if (dto.defaultAddress === null) {
+      defaultAddress = null;
+    } else {
+      defaultAddress = Address.create({
+        ...dto.defaultAddress,
+        complement: dto.defaultAddress.complement ?? undefined,
+      });
+    }
 
     customer.updateProfile(name, phone, defaultAddress);
 
