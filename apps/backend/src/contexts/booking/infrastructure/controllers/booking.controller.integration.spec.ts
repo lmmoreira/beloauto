@@ -169,6 +169,16 @@ describe('BookingController (integration)', () => {
       expect(body.status).toBe(400);
     });
 
+    it('returns 400 when guestPhone is invalid (too short)', async () => {
+      const { body } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), guestPhone: 'abc' })
+        .expect(400);
+
+      expect(body.status).toBe(400);
+    });
+
     it('returns 400 when serviceIds is missing', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/bookings')

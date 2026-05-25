@@ -13,7 +13,10 @@ const AddressSchema = z.object({
 export const RequestBookingSchema = z.object({
   guestEmail: z.email(),
   guestName: z.string().min(1),
-  guestPhone: z.string().min(1),
+  guestPhone: z.string().refine((v) => {
+    const d = v.replace(/\D/g, '');
+    return d.length === 10 || d.length === 11;
+  }, 'guestPhone must have 10 or 11 digits'),
   guestAddress: AddressSchema.optional(),
   pickupAddress: AddressSchema.optional(),
   scheduledAt: z.iso.datetime(),

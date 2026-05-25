@@ -74,17 +74,19 @@ export class RequestBookingUseCase {
     const correlationId = this.tenantContext.correlationId;
 
     const services = await this.serviceRepo.findByIds(dto.serviceIds, tenantId);
+    const serviceMap = new Map(services.map((s) => [s.id, s]));
     const uniqueIds = [...new Set(dto.serviceIds)];
     for (const serviceId of uniqueIds) {
-      const service = services.find((s) => s.id === serviceId);
+      const service = serviceMap.get(serviceId);
       if (!service) throw new BookingServiceNotInTenantError(serviceId);
       if (!service.isActive) throw new BookingServiceNotActiveError(serviceId);
     }
 
     const scheduledAt = new Date(dto.scheduledAt);
-    const totalDurationMins = dto.serviceIds.reduce((sum, id) => {
-      return sum + (services.find((s) => s.id === id)?.durationMinutes ?? 0);
-    }, 0);
+    const totalDurationMins = dto.serviceIds.reduce(
+      (sum, id) => sum + (serviceMap.get(id)?.durationMinutes ?? 0),
+      0,
+    );
 
     const { businessHours } = await this.settingsPort.getSchedulingSettings(tenantId);
     const localDate = utcDateToLocalDate(scheduledAt, businessHours.timezone);
@@ -100,7 +102,7 @@ export class RequestBookingUseCase {
     if (hasOverlap) throw new BookingSlotUnavailableError();
 
     const lineInputs: BookingLineInput[] = dto.serviceIds.map((serviceId) => {
-      const service = services.find((s) => s.id === serviceId);
+      const service = serviceMap.get(serviceId);
       if (!service) throw new BookingServiceNotInTenantError(serviceId);
       return {
         serviceId: service.id,

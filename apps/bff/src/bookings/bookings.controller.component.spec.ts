@@ -78,6 +78,14 @@ describe('BookingsController (component)', () => {
       expect(res.status).toBe(400);
     });
 
+    it('returns 400 when guestPhone is invalid (too short)', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/bookings')
+        .set('X-Tenant-Slug', TENANT_SLUG)
+        .send({ ...validBody, guestPhone: 'abc' });
+      expect(res.status).toBe(400);
+    });
+
     it('returns 400 when serviceIds is empty', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/bookings')
