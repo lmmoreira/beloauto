@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
+import { endOfDayUTC, startOfDayUTC } from '../../../../shared/utils/calendar-date';
 import { IBookingAvailabilityPort } from '../../application/ports/booking-availability.port';
 import { BookedSlot } from '../../domain/booked-slot';
 import { BookingStatus } from '../../domain/booking.aggregate';
@@ -14,7 +15,7 @@ export class TypeOrmBookingAvailabilityAdapter implements IBookingAvailabilityPo
   ) {}
 
   async findApprovedByTenantAndDate(tenantId: string, date: string): Promise<BookedSlot[]> {
-    return this.queryApproved(tenantId, `${date}T00:00:00.000Z`, `${date}T23:59:59.999Z`);
+    return this.queryApproved(tenantId, startOfDayUTC(date), endOfDayUTC(date));
   }
 
   async findApprovedByTenantAndDateRange(
@@ -22,7 +23,7 @@ export class TypeOrmBookingAvailabilityAdapter implements IBookingAvailabilityPo
     from: string,
     to: string,
   ): Promise<BookedSlot[]> {
-    return this.queryApproved(tenantId, `${from}T00:00:00.000Z`, `${to}T23:59:59.999Z`);
+    return this.queryApproved(tenantId, startOfDayUTC(from), endOfDayUTC(to));
   }
 
   private async queryApproved(

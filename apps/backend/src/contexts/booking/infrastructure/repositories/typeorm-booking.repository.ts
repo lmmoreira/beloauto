@@ -78,14 +78,16 @@ export class TypeOrmBookingRepository implements IBookingRepository {
         await manager.save(BookingLineEntity, lineEntities);
       }
     } else {
-      await this.repo.save(bookingEntity);
-      if (booking.linesModified) {
-        const lineEntities = booking.lines.map((l) =>
-          this.toLineEntity(l, booking.id, booking.tenantId),
-        );
-        await this.lineRepo.delete({ bookingId: booking.id, tenantId: booking.tenantId });
-        await this.lineRepo.save(lineEntities);
-      }
+      await this.repo.manager.transaction(async (tx) => {
+        await tx.save(BookingEntity, bookingEntity);
+        if (booking.linesModified) {
+          const lineEntities = booking.lines.map((l) =>
+            this.toLineEntity(l, booking.id, booking.tenantId),
+          );
+          await tx.delete(BookingLineEntity, { bookingId: booking.id, tenantId: booking.tenantId });
+          await tx.save(BookingLineEntity, lineEntities);
+        }
+      });
     }
   }
 
