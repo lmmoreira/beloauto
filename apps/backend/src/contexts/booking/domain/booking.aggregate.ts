@@ -579,7 +579,9 @@ export class Booking extends AggregateRoot {
     return Date.now() < this.props.scheduledAt.getTime() - windowMs;
   }
 
-  static reconstitute(props: BookingProps): Booking {
-    return new Booking(props);
+  static reconstitute(props: BookingProps, linesModified = false): Booking {
+    const booking = new Booking(props);
+    booking._linesModified = linesModified;
+    return booking;
   }
 }
