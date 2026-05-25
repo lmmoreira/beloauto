@@ -1,8 +1,6 @@
 import { Booking } from '../../domain/booking.aggregate';
 import { BookingLineInput } from '../../domain/booking-line.entity';
-import {
-  BookingServiceNotInTenantError,
-} from '../../domain/errors/booking-domain.error';
+import { BookingServiceNotInTenantError } from '../../domain/errors/booking-domain.error';
 import { Service } from '../../domain/service.aggregate';
 import { AddressResult, BookingLineResult } from './request-booking.use-case';
 
