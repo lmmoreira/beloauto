@@ -70,6 +70,15 @@ export class BackendHttpService {
     );
   }
 
+  async postForPublic<T>(path: string, body: unknown, tenantId: string): Promise<T> {
+    return this.call(
+      this.http.post<T>(`${this.baseUrl}${path}`, body, {
+        headers: { 'X-Tenant-ID': tenantId },
+        timeout: 10_000,
+      }),
+    );
+  }
+
   private async call<T>(observable: Observable<AxiosResponse<T>>): Promise<T> {
     try {
       const { data } = await firstValueFrom(observable);

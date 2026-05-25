@@ -1,6 +1,8 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import {
   BookingDomainError,
+  BookingNotFoundError,
+  BookingSlotUnavailableError,
   ClosureDateInPastError,
   ScheduleAlreadyClosedError,
   ScheduleClosureNotFoundError,
@@ -31,6 +33,12 @@ describe('mapBookingError', () => {
     expect(err.getStatus()).toBe(HttpStatus.NOT_FOUND);
   });
 
+  it('maps BookingNotFoundError to 404', () => {
+    const err = call(new BookingNotFoundError('bk-id'));
+    expect(err).toBeInstanceOf(HttpException);
+    expect(err.getStatus()).toBe(HttpStatus.NOT_FOUND);
+  });
+
   it('maps ServiceDeactivatedError to 409', () => {
     const err = call(new ServiceDeactivatedError());
     expect(err).toBeInstanceOf(HttpException);
@@ -39,6 +47,12 @@ describe('mapBookingError', () => {
 
   it('maps ScheduleAlreadyClosedError to 409', () => {
     const err = call(new ScheduleAlreadyClosedError('2026-12-25'));
+    expect(err).toBeInstanceOf(HttpException);
+    expect(err.getStatus()).toBe(HttpStatus.CONFLICT);
+  });
+
+  it('maps BookingSlotUnavailableError to 409', () => {
+    const err = call(new BookingSlotUnavailableError());
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getStatus()).toBe(HttpStatus.CONFLICT);
   });
