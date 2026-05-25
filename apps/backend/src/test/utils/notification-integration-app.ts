@@ -1,7 +1,11 @@
 import { INestApplication } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import type { ModuleMetadata } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
+import { TenantModule } from '../../shared/tenant/tenant.module';
 import { EventBusModule } from '../../shared/infrastructure/event-bus.module';
 import { TransactionManagerModule } from '../../shared/infrastructure/transaction-manager.module';
 import { HotsiteConfigEntity } from '../../contexts/platform/infrastructure/entities/hotsite-config.entity';
@@ -15,22 +19,39 @@ import { NotificationModule } from '../../contexts/notification/notification.mod
 import { InMemoryNotificationDispatcher } from '../infrastructure/in-memory-notification-dispatcher';
 import { EVENT_BUS, IEventBus } from '../../shared/ports/event-bus.port';
 
+type EntityClass = abstract new (...args: unknown[]) => unknown;
+
 export interface NotificationIntegrationAppOptions {
   dispatcher: InMemoryNotificationDispatcher;
   configure?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
+  extraModules?: NonNullable<ModuleMetadata['imports']>;
+  extraEntities?: EntityClass[];
+  withTenantInterceptor?: boolean;
 }
 
 export async function createNotificationIntegrationApp(
   options: NotificationIntegrationAppOptions,
 ): Promise<{ app: INestApplication; ds: DataSource; eventBus: IEventBus }> {
-  const { dispatcher, configure } = options;
+  const {
+    dispatcher,
+    configure,
+    extraModules = [],
+    extraEntities = [],
+    withTenantInterceptor = false,
+  } = options;
 
   let builder: TestingModuleBuilder = Test.createTestingModule({
     imports: [
       TypeOrmModule.forRoot({
         type: 'postgres',
         url: process.env['TEST_DATABASE_URL'],
-        entities: [TenantEntity, HotsiteConfigEntity, StaffEntity, NotificationLogEntity],
+        entities: [
+          TenantEntity,
+          HotsiteConfigEntity,
+          StaffEntity,
+          NotificationLogEntity,
+          ...extraEntities,
+        ],
         synchronize: false,
       }),
       EventBusModule,
@@ -38,7 +59,12 @@ export async function createNotificationIntegrationApp(
       PlatformModule,
       StaffModule,
       NotificationModule,
+      ...(withTenantInterceptor ? [TenantModule] : []),
+      ...extraModules,
     ],
+    providers: withTenantInterceptor
+      ? [{ provide: APP_INTERCEPTOR, useClass: TenantInterceptor }]
+      : [],
   })
     .overrideProvider(NOTIFICATION_DISPATCHER)
     .useValue(dispatcher);
