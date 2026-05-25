@@ -1,22 +1,13 @@
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { InMemoryNotificationDispatcher } from '../../../../test/infrastructure/in-memory-notification-dispatcher';
-import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
-import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
-import { HotsiteConfigEntity } from '../../../platform/infrastructure/entities/hotsite-config.entity';
-import { TenantEntity } from '../../../platform/infrastructure/entities/tenant.entity';
-import { PlatformModule } from '../../../platform/platform.module';
-import { StaffEntity } from '../../../staff/infrastructure/entities/staff.entity';
-import { StaffModule } from '../../../staff/staff.module';
-import { NOTIFICATION_DISPATCHER } from '../../application/ports/notification-dispatcher.port';
+import { createNotificationIntegrationApp } from '../../../../test/utils/notification-integration-app';
 import { NotificationLogEntity } from '../entities/notification-log.entity';
-import { NotificationModule } from '../../notification.module';
+import { StaffEntity } from '../../../staff/infrastructure/entities/staff.entity';
 import { waitFor } from '../../../../test/utils/wait-for';
 import { BookingRequested } from '../../../booking/domain/events/booking-requested.event';
-import { EVENT_BUS, IEventBus } from '../../../../shared/ports/event-bus.port';
+import { IEventBus } from '../../../../shared/ports/event-bus.port';
 import { StaffInvitedHandler } from './staff-invited.handler';
 
 const PLATFORM_KEY = 'booking-notif-test-key-xxxxxxxxx';
@@ -39,32 +30,10 @@ describe('BookingRequestedHandler integration', () => {
     process.env['PLATFORM_ADMIN_KEY'] = PLATFORM_KEY;
     process.env['PUBSUB_SUBSCRIPTION_SUFFIX'] = `-bkr-${Date.now()}`;
     dispatcher = new InMemoryNotificationDispatcher();
-
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        TypeOrmModule.forRoot({
-          type: 'postgres',
-          url: process.env['TEST_DATABASE_URL'],
-          entities: [TenantEntity, HotsiteConfigEntity, StaffEntity, NotificationLogEntity],
-          synchronize: false,
-        }),
-        EventBusModule,
-        TransactionManagerModule,
-        PlatformModule,
-        StaffModule,
-        NotificationModule,
-      ],
-    })
-      .overrideProvider(NOTIFICATION_DISPATCHER)
-      .useValue(dispatcher)
-      .overrideProvider(StaffInvitedHandler)
-      .useValue(noOpStaffInvitedHandler)
-      .compile();
-
-    app = moduleRef.createNestApplication();
-    await app.init();
-    ds = moduleRef.get(DataSource);
-    eventBus = moduleRef.get(EVENT_BUS);
+    ({ app, ds, eventBus } = await createNotificationIntegrationApp({
+      dispatcher,
+      configure: (b) => b.overrideProvider(StaffInvitedHandler).useValue(noOpStaffInvitedHandler),
+    }));
   });
 
   afterAll(async () => {

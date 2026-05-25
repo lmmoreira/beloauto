@@ -1,20 +1,13 @@
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
+import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
-import { INotificationTenantPort } from '../../ports/notification-tenant.port';
 import { SendBookingRequestedNotificationDto } from '../../dtos/send-booking-requested-notification.dto';
 import { SendBookingRequestedNotificationUseCase } from './send-booking-requested-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 const EVENT_ID = 'cccccccc-0000-4000-8000-000000000001';
-
-const tenantPort: INotificationTenantPort = {
-  getTenantInfo: async (tenantId) => {
-    if (tenantId === TENANT_ID) return { id: TENANT_ID, name: 'Lava Car', slug: 'lavacar' };
-    return null;
-  },
-};
 
 const baseDto: SendBookingRequestedNotificationDto = {
   tenantId: TENANT_ID,
@@ -32,6 +25,7 @@ describe('SendBookingRequestedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
   let dispatcher: InMemoryNotificationDispatcher;
   let staffPort: InMemoryNotificationStaffPort;
+  let tenantPort: InMemoryNotificationTenantPort;
   let useCase: SendBookingRequestedNotificationUseCase;
 
   beforeEach(() => {
@@ -39,6 +33,8 @@ describe('SendBookingRequestedNotificationUseCase', () => {
     dispatcher = new InMemoryNotificationDispatcher();
     staffPort = new InMemoryNotificationStaffPort();
     staffPort.setManagerEmails(TENANT_ID, ['manager@lavacar.com.br']);
+    tenantPort = new InMemoryNotificationTenantPort();
+    tenantPort.setTenantInfo(TENANT_ID, { id: TENANT_ID, name: 'Lava Car', slug: 'lavacar' });
     useCase = new SendBookingRequestedNotificationUseCase(
       logRepo,
       dispatcher,

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { formatBRL } from '../../../../../shared/utils/money-format';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
@@ -65,10 +66,7 @@ export class SendBookingRequestedNotificationUseCase {
     ]);
 
     const serviceNames = dto.lines.map((l) => l.serviceNameAtBooking).join(', ');
-    const formattedPrice = Number(dto.totalPrice.amount).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
+    const formattedPrice = formatBRL(dto.totalPrice.amount);
 
     let adminEmailSent = false;
     let customerEmailSent = false;
