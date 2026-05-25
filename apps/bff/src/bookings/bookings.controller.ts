@@ -61,16 +61,14 @@ export class BookingsController {
     @Body(new ZodValidationPipe(RequestBookingBodySchema)) body: RequestBookingBody,
   ): Promise<BookingResponse> {
     if (!tenantSlug) {
-      return Promise.reject(
-        new HttpException(
-          {
-            type: 'about:blank',
-            title: 'Bad Request',
-            status: HttpStatus.BAD_REQUEST,
-            detail: 'X-Tenant-Slug header is required',
-          },
-          HttpStatus.BAD_REQUEST,
-        ),
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Bad Request',
+          status: HttpStatus.BAD_REQUEST,
+          detail: 'X-Tenant-Slug header is required',
+        },
+        HttpStatus.BAD_REQUEST,
       );
     }
 
