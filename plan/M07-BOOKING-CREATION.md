@@ -461,26 +461,81 @@ async createAuthenticated(
 **Docs to load:** `docs/03-DOMAIN_EVENTS.md` § BookingRequested, `docs/05-BOUNDED_CONTEXTS.md` § Notification context
 
 **Description:**  
-Implement the Notification context's consumer for `BookingRequested`. Two emails are sent: one to the admin (new booking alert) and one to the customer/guest (booking acknowledgement). Both emails are in pt-BR. Emails are verified visually in MailHog.
+Implement the Notification context's consumer for `BookingRequested`. One use case sends two emails: one to all MANAGER-role staff (new booking alert) and one to the customer/guest (booking acknowledgement). Both are in pt-BR. Each email has its own `NotificationLog` entry for independent idempotency.
 
-**`BookingRequestedHandler`:**
-1. Idempotency check via `eventId`
-2. Send admin notification email (to: tenant's MANAGER email addresses):
-   - Subject: `"Nova solicitação de agendamento — [Service Names]"`
-   - Body: booking details (customer name, date/time, services, total price in R$)
-3. Send customer acknowledgement email (to: `guestEmail`):
-   - Subject: `"Seu agendamento foi recebido"`
-   - Body: pt-BR confirmation with booking details + "aguarde aprovação"
+---
+
+**Prerequisite — `serviceNameAtBooking` in event payload (update booking aggregate):**
+
+The `BookingLineEventPayload` and `BookingRequestedData` must include `serviceNameAtBooking: string` so the admin email subject can list service names without a DB query. Update:
+1. `BookingLineEventPayload` interface in `booking-requested.event.ts`
+2. `booking.aggregate.ts` `requestBooking()` — add `serviceNameAtBooking: l.serviceNameAtBooking` in the `lines.map()`
+
+---
+
+**Prerequisite — `getManagerEmails` on `INotificationStaffPort`:**
+
+Add `getManagerEmails(tenantId: string): Promise<string[]>` to:
+1. `notification/application/ports/notification-staff.port.ts`
+2. `notification/infrastructure/cross-context/staff-info.adapter.ts` — implement via a new `StaffQueryService.findManagersByTenant(tenantId)` exported from `StaffModule` (same pattern as `CustomerQueryService`)
+3. `StaffModule` — export `StaffQueryService`
+4. `staff/application/services/staff-query.service.ts` (NEW) — wraps `findAllByTenant` and filters by `role === 'MANAGER'`
+
+---
+
+**`BookingRequestedHandler`** — `notification/infrastructure/events/booking-requested.handler.ts`:
+- Subscribes to `'BookingRequested'` with consumer name `'notification'`
+- Calls `SendBookingRequestedNotificationUseCase.execute(dto)` and rethrows on error
+
+**`SendBookingRequestedNotificationUseCase`** — one use case, two emails, two log rows:
+
+```
+notificationType keys:
+  'BOOKING_REQUESTED_ADMIN'    → admin email (one log row regardless of how many managers)
+  'BOOKING_REQUESTED_CUSTOMER' → customer/guest email
+```
+
+Execution flow:
+1. Check `NotificationLog` for `(eventId, 'BOOKING_REQUESTED_ADMIN', 'EMAIL')` — skip if found
+2. Check `NotificationLog` for `(eventId, 'BOOKING_REQUESTED_CUSTOMER', 'EMAIL')` — skip if found
+3. Get manager emails: `staffPort.getManagerEmails(tenantId)` — skip admin email if empty
+4. Format price: `Number(totalPrice.amount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })` → `R$ 150,00`
+5. Build service names string: `lines.map(l => l.serviceNameAtBooking).join(', ')`
+6. Send admin email via dispatcher (to each manager address, or aggregate into one call)
+7. Write `NotificationLog` for admin email inside `txManager.run()`
+8. Send customer/guest email via dispatcher (to: `guestEmail`)
+9. Write `NotificationLog` for customer email inside `txManager.run()`
+
+**Admin email:**
+- `templateKey`: `'booking-requested-admin'`
+- `subject`: `"Nova solicitação de agendamento — {serviceNames}"`
+- `data`: `{ guestName, scheduledAt (formatted pt-BR), serviceNames, totalPrice (R$ format), pickupAddress | null }`
+
+**Customer/guest email:**
+- `templateKey`: `'booking-requested-customer'`
+- `subject`: `"Seu agendamento foi recebido"`
+- `data`: `{ guestName, scheduledAt (formatted pt-BR), serviceNames, totalPrice (R$ format), tenantName }`
+
+---
 
 **Acceptance criteria:**
-- [ ] Two emails appear in MailHog after a booking is requested
-- [ ] Admin email subject starts with `"Nova solicitação"`
-- [ ] Customer email subject is `"Seu agendamento foi recebido"` (pt-BR)
-- [ ] Prices in email bodies use `R$ 150,00` format (not `150.00`)
-- [ ] If `BookingRequested` event is delivered twice (same `eventId`), only 2 emails total (idempotent)
-- [ ] `IEmailSender` is injected — no direct SMTP client in handler
+- [ ] `serviceNameAtBooking` added to `BookingLineEventPayload` and published by the aggregate
+- [ ] `getManagerEmails(tenantId)` added to `INotificationStaffPort` and `StaffInfoAdapter`
+- [ ] `StaffQueryService` created and exported from `StaffModule`
+- [ ] `BookingRequestedHandler` subscribes on `'notification'` consumer and rethrows errors
+- [ ] `SendBookingRequestedNotificationUseCase` exists with `SendBookingRequestedNotificationUseCaseResult` return type
+- [ ] Two emails dispatched after a booking (admin + customer)
+- [ ] Admin email subject: `"Nova solicitação de agendamento — Lavagem Completa"` (service names joined)
+- [ ] Customer email subject: `"Seu agendamento foi recebido"`
+- [ ] Prices in email data use `R$ 150,00` pt-BR format
+- [ ] Re-delivery of same `eventId` → still exactly 2 emails total (idempotent via two log rows)
+- [ ] If no MANAGERs exist for tenant, admin email is skipped gracefully (no crash)
+- [ ] `NotificationModule` registers `BookingRequestedHandler` and `SendBookingRequestedNotificationUseCase`
+- [ ] Unit spec: `SendBookingRequestedNotificationUseCase` (sends both, idempotency, no-managers path)
+- [ ] Unit spec: `BookingRequestedHandler` (delegates and rethrows)
+- [ ] Integration spec: booking → `BookingRequested` Pub/Sub → both emails dispatched → both log rows written
 
-**Dependencies:** M07-S04, M04-S05
+**Dependencies:** M07-S04, M07-S05, M04-S05
 
 ---
 

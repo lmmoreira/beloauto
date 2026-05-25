@@ -68,6 +68,7 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
       {
         lineId:                          string
         serviceId:                       string
+        serviceNameAtBooking:            string               // point-in-time name; may differ from current Service.name
         priceAtBooking:                  { amount: number, currency: string }
         durationMinsAtBooking:           number
         pointsValueAtBooking:            number
@@ -78,8 +79,8 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
   }
   ```
 - **Consumers:**
-  - **Notification Context** → email to admin: "New booking request from [name]" (if pickup: includes pickup address)
-  - **Notification Context** → email to guest: "Your booking request is pending" (if pickup: confirms the address)
+  - **Notification Context** → admin email: subject `"Nova solicitação de agendamento — [service names joined by ', ']"`; body includes customer name, date/time, services, total price formatted as `R$ 1.234,56`
+  - **Notification Context** → customer/guest email: subject `"Seu agendamento foi recebido"`; body includes booking details + "aguarde aprovação"
 
 > Loyalty Context does NOT consume this event. Loyalty only reacts to `BookingCompleted` — points are awarded after the visit, not on request or approval.
 
