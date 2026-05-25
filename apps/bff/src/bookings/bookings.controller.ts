@@ -32,7 +32,7 @@ export const RequestBookingBodySchema = z.object({
   pickupAddress: AddressSchema.optional(),
   scheduledAt: z.string().datetime(),
   serviceIds: z.array(z.uuid()).min(1),
-  beforeServicePhotoUrls: z.array(z.string().url()).optional(),
+  beforeServicePhotoUrls: z.array(z.url()).optional(),
 });
 
 type RequestBookingBody = z.infer<typeof RequestBookingBodySchema>;

@@ -15,42 +15,6 @@ import { RequestBookingUseCase } from './request-booking.use-case';
 const TENANT_A = '10000000-0000-4000-8000-000000000100';
 const CORRELATION_ID = 'corr-request-booking-test';
 
-function makeUseCase(
-  overrides: {
-    serviceRepo?: InMemoryServiceRepository;
-    availabilityPort?: InMemoryBookingAvailabilityPort;
-    settingsPort?: InMemoryScheduleTenantSettingsPort;
-    bookingRepo?: InMemoryBookingRepository;
-    eventBus?: InMemoryEventBus;
-  } = {},
-) {
-  const serviceRepo = overrides.serviceRepo ?? new InMemoryServiceRepository();
-  const availabilityPort = overrides.availabilityPort ?? new InMemoryBookingAvailabilityPort();
-  const settingsPort = overrides.settingsPort ?? new InMemoryScheduleTenantSettingsPort();
-  const bookingRepo = overrides.bookingRepo ?? new InMemoryBookingRepository();
-  const eventBus = overrides.eventBus ?? new InMemoryEventBus();
-  const txManager = new InMemoryTransactionManager();
-  const ctx = new TenantContextBuilder()
-    .withTenantId(TENANT_A)
-    .withCorrelationId(CORRELATION_ID)
-    .build();
-  return {
-    useCase: new RequestBookingUseCase(
-      serviceRepo,
-      availabilityPort,
-      settingsPort,
-      bookingRepo,
-      txManager,
-      eventBus,
-      ctx,
-    ),
-    serviceRepo,
-    availabilityPort,
-    bookingRepo,
-    eventBus,
-  };
-}
-
 const scheduledAt = `${futureDate(1)}T10:00:00.000Z`;
 
 describe('RequestBookingUseCase', () => {
@@ -62,7 +26,25 @@ describe('RequestBookingUseCase', () => {
   let serviceId: string;
 
   beforeEach(async () => {
-    ({ useCase, serviceRepo, availabilityPort, bookingRepo, eventBus } = makeUseCase());
+    serviceRepo = new InMemoryServiceRepository();
+    availabilityPort = new InMemoryBookingAvailabilityPort();
+    const settingsPort = new InMemoryScheduleTenantSettingsPort();
+    bookingRepo = new InMemoryBookingRepository();
+    eventBus = new InMemoryEventBus();
+    const txManager = new InMemoryTransactionManager();
+    const ctx = new TenantContextBuilder()
+      .withTenantId(TENANT_A)
+      .withCorrelationId(CORRELATION_ID)
+      .build();
+    useCase = new RequestBookingUseCase(
+      serviceRepo,
+      availabilityPort,
+      settingsPort,
+      bookingRepo,
+      txManager,
+      eventBus,
+      ctx,
+    );
     const service = new ServiceBuilder().withTenantId(TENANT_A).withName('Lavagem Simples').build();
     await serviceRepo.save(service);
     serviceId = service.id;

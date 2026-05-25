@@ -100,7 +100,8 @@ export class RequestBookingUseCase {
     if (hasOverlap) throw new BookingSlotUnavailableError();
 
     const lineInputs: BookingLineInput[] = dto.serviceIds.map((serviceId) => {
-      const service = services.find((s) => s.id === serviceId)!;
+      const service = services.find((s) => s.id === serviceId);
+      if (!service) throw new BookingServiceNotInTenantError(serviceId);
       return {
         serviceId: service.id,
         serviceNameAtBooking: service.name,
