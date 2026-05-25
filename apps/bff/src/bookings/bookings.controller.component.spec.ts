@@ -4,6 +4,7 @@ import {
   MockHttpService,
   MockBackendHttpService,
   createTestApp,
+  makeCustomerJwt,
   makeManagerJwt,
   setupActiveGuardMock,
   request,
@@ -21,6 +22,7 @@ const mockBookingResponse: BookingResponse = {
   totalPrice: { amount: 100, currency: 'BRL' },
   totalDurationMins: 30,
   pickupAddress: null,
+  beforeServicePhotoUrls: [],
   lines: [
     {
       lineId: '50000000-0000-4000-8000-000000000001',
@@ -35,10 +37,15 @@ const mockBookingResponse: BookingResponse = {
 
 const tenantInfo = { id: TENANT_ID, slug: TENANT_SLUG, name: 'Lavacar BH' };
 
-const validBody = {
+const validGuestBody = {
   guestEmail: 'joao@example.com',
   guestName: 'João Silva',
   guestPhone: '31999999999',
+  scheduledAt: '2026-06-15T10:00:00.000Z',
+  serviceIds: [SERVICE_ID],
+};
+
+const validAuthBody = {
   scheduledAt: '2026-06-15T10:00:00.000Z',
   serviceIds: [SERVICE_ID],
 };
@@ -63,9 +70,9 @@ describe('BookingsController (component)', () => {
     jest.resetAllMocks();
   });
 
-  describe('POST /v1/bookings (public)', () => {
+  describe('POST /v1/bookings (public — guest)', () => {
     it('returns 400 when X-Tenant-Slug header is missing', async () => {
-      const res = await request(app.getHttpServer()).post('/v1/bookings').send(validBody);
+      const res = await request(app.getHttpServer()).post('/v1/bookings').send(validGuestBody);
       expect(res.status).toBe(400);
       expect(res.body.status).toBe(400);
     });
@@ -74,7 +81,7 @@ describe('BookingsController (component)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/bookings')
         .set('X-Tenant-Slug', TENANT_SLUG)
-        .send({ ...validBody, guestEmail: 'not-an-email' });
+        .send({ ...validGuestBody, guestEmail: 'not-an-email' });
       expect(res.status).toBe(400);
     });
 
@@ -82,7 +89,7 @@ describe('BookingsController (component)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/bookings')
         .set('X-Tenant-Slug', TENANT_SLUG)
-        .send({ ...validBody, guestPhone: 'abc' });
+        .send({ ...validGuestBody, guestPhone: 'abc' });
       expect(res.status).toBe(400);
     });
 
@@ -90,7 +97,7 @@ describe('BookingsController (component)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/bookings')
         .set('X-Tenant-Slug', TENANT_SLUG)
-        .send({ ...validBody, serviceIds: [] });
+        .send({ ...validGuestBody, serviceIds: [] });
       expect(res.status).toBe(400);
     });
 
@@ -101,14 +108,14 @@ describe('BookingsController (component)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/bookings')
         .set('X-Tenant-Slug', TENANT_SLUG)
-        .send(validBody);
+        .send(validGuestBody);
 
       expect(res.status).toBe(201);
       expect(res.body.bookingId).toBe(mockBookingResponse.bookingId);
       expect(res.body.status).toBe('PENDING');
       expect(backendHttpService.postForPublic).toHaveBeenCalledWith(
         '/bookings',
-        expect.objectContaining({ guestEmail: validBody.guestEmail }),
+        expect.objectContaining({ guestEmail: validGuestBody.guestEmail }),
         TENANT_ID,
       );
     });
@@ -123,7 +130,7 @@ describe('BookingsController (component)', () => {
         .post('/v1/bookings')
         .set('X-Tenant-Slug', TENANT_SLUG)
         .set('Authorization', `Bearer ${token}`)
-        .send(validBody);
+        .send(validGuestBody);
 
       expect(res.status).toBe(201);
     });
@@ -138,7 +145,7 @@ describe('BookingsController (component)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/bookings')
         .set('X-Tenant-Slug', TENANT_SLUG)
-        .send(validBody);
+        .send(validGuestBody);
 
       expect(res.status).toBe(409);
     });
@@ -152,9 +159,96 @@ describe('BookingsController (component)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/bookings')
         .set('X-Tenant-Slug', 'unknown-slug')
-        .send(validBody);
+        .send(validGuestBody);
 
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('POST /v1/bookings/authenticated', () => {
+    it('returns 401 when no JWT is provided', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/bookings/authenticated')
+        .send(validAuthBody);
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when JWT role is not CUSTOMER (MANAGER)', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/bookings/authenticated')
+        .set('Authorization', `Bearer ${token}`)
+        .send(validAuthBody);
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 400 when body fails Zod validation (serviceIds empty)', async () => {
+      const token = makeCustomerJwt(jwtService);
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/bookings/authenticated')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ ...validAuthBody, serviceIds: [] });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when scheduledAt is missing', async () => {
+      const token = makeCustomerJwt(jwtService);
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/bookings/authenticated')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ serviceIds: [SERVICE_ID] });
+      expect(res.status).toBe(400);
+    });
+
+    it('creates a booking with CUSTOMER JWT', async () => {
+      const token = makeCustomerJwt(jwtService);
+      backendHttpService.post.mockResolvedValueOnce(mockBookingResponse);
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/bookings/authenticated')
+        .set('Authorization', `Bearer ${token}`)
+        .send(validAuthBody);
+
+      expect(res.status).toBe(201);
+      expect(res.body.bookingId).toBe(mockBookingResponse.bookingId);
+      expect(backendHttpService.post).toHaveBeenCalledWith(
+        '/bookings/authenticated',
+        validAuthBody,
+      );
+    });
+
+    it('propagates 422 from backend when customer phone is not set', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeCustomerJwt(jwtService);
+      backendHttpService.post.mockRejectedValueOnce(
+        new HE({ status: 422, detail: 'customer-phone-not-set' }, 422),
+      );
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/bookings/authenticated')
+        .set('Authorization', `Bearer ${token}`)
+        .send(validAuthBody);
+
+      expect(res.status).toBe(422);
+    });
+
+    it('propagates 409 from backend when slot is unavailable', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeCustomerJwt(jwtService);
+      backendHttpService.post.mockRejectedValueOnce(
+        new HE({ status: 409, detail: 'slot-unavailable' }, 409),
+      );
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/bookings/authenticated')
+        .set('Authorization', `Bearer ${token}`)
+        .send(validAuthBody);
+
+      expect(res.status).toBe(409);
     });
   });
 });

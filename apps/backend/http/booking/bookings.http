@@ -1,4 +1,4 @@
-# Booking — Guest booking request
+# Booking — Guest & Authenticated booking requests
 # UC-001 (guest), UC-002 (authenticated customer)
 # TenantContext is populated from X-Tenant-ID header (set by BFF).
 #
@@ -10,6 +10,7 @@
 @baseUrl = {{backendUrl}}
 @tenantId = 10000000-0000-4000-8000-000000000001
 @serviceId = 30000000-0000-4000-8000-000000000001
+@customerId = 20000000-0000-4000-8000-000000000001
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — guest booking (no pickup service)
@@ -136,6 +137,130 @@ X-Correlation-ID: test-corr-006
   "guestEmail": "joao@example.com",
   "guestName": "João Silva",
   "guestPhone": "31999999999",
+  "scheduledAt": "2026-06-15T10:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — authenticated customer booking (UC-002)
+# X-Actor-ID is forwarded by BFF from JWT sub claim
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/bookings/authenticated
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: test-corr-007
+
+{
+  "scheduledAt": "2026-06-16T13:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — authenticated customer booking with explicit pickupAddress
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/bookings/authenticated
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: test-corr-008
+
+{
+  "scheduledAt": "2026-06-16T14:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"],
+  "pickupAddress": {
+    "street": "Rua das Flores",
+    "number": "123",
+    "complement": "Apto 4B",
+    "neighborhood": "Centro",
+    "city": "Belo Horizonte",
+    "state": "MG",
+    "zipCode": "30130010"
+  }
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — customer not found → 404
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/bookings/authenticated
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: 00000000-0000-4000-8000-000000009999
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: test-corr-009
+
+{
+  "scheduledAt": "2026-06-16T13:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — customer has no phone → 422
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/bookings/authenticated
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: test-corr-010
+
+{
+  "scheduledAt": "2026-06-16T13:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — missing serviceIds → 400
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/bookings/authenticated
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: test-corr-011
+
+{
+  "scheduledAt": "2026-06-16T13:00:00.000Z",
+  "serviceIds": []
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — slot unavailable (authenticated) → 409
+# ─────────────────────────────────────────────────────────────────────────────
+
+POST {{baseUrl}}/bookings/authenticated
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: test-corr-012
+
+{
   "scheduledAt": "2026-06-15T10:00:00.000Z",
   "serviceIds": ["{{serviceId}}"]
 }

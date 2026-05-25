@@ -14,6 +14,7 @@ const mockBookingResponse: BookingResponse = {
   totalPrice: { amount: 100, currency: 'BRL' },
   totalDurationMins: 30,
   pickupAddress: null,
+  beforeServicePhotoUrls: [],
   lines: [
     {
       lineId: '50000000-0000-4000-8000-000000000001',
@@ -84,6 +85,38 @@ describe('BookingsController', () => {
       const err = await controller.create('unknown-slug', validBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(404);
+    });
+  });
+
+  describe('createAuthenticated()', () => {
+    const authBody = {
+      scheduledAt: '2026-06-15T10:00:00.000Z',
+      serviceIds: [SERVICE_ID],
+    };
+
+    it('calls post /bookings/authenticated and returns the booking', async () => {
+      const backendHttp = makeBackendHttp({
+        post: jest.fn().mockResolvedValue(mockBookingResponse),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const result = await controller.createAuthenticated(authBody);
+
+      expect(backendHttp.post).toHaveBeenCalledWith('/bookings/authenticated', authBody);
+      expect(result).toBe(mockBookingResponse);
+    });
+
+    it('propagates backend errors (422 phone-not-set)', async () => {
+      const backendHttp = makeBackendHttp({
+        post: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 422, detail: 'phone not set' }, 422)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller.createAuthenticated(authBody).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(422);
     });
   });
 });

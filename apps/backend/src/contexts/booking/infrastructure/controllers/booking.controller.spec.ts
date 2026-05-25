@@ -3,6 +3,7 @@ import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-even
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
 import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { InMemoryCustomerProfilePort } from '../../../../test/infrastructure/in-memory-customer-profile.port';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
@@ -10,8 +11,10 @@ import { TenantContextBuilder } from '../../../../test/factories/tenant-context.
 import { futureDate } from '../../../../test/utils/date-helpers';
 import { BookingController } from './booking.controller';
 import { RequestBookingUseCase } from '../../application/use-cases/request-booking.use-case';
+import { RequestAuthenticatedBookingUseCase } from '../../application/use-cases/request-authenticated-booking.use-case';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000110';
+const CUSTOMER_ID = '20000000-0000-4000-8000-000000000110';
 const CORRELATION_ID = 'corr-booking-ctrl-test';
 
 describe('BookingController', () => {
@@ -21,10 +24,24 @@ describe('BookingController', () => {
 
   beforeEach(async () => {
     serviceRepo = new InMemoryServiceRepository();
-    const ctx = new TenantContextBuilder()
+    const guestCtx = new TenantContextBuilder()
       .withTenantId(TENANT_A)
       .withCorrelationId(CORRELATION_ID)
       .build();
+    const customerCtx = new TenantContextBuilder()
+      .withTenantId(TENANT_A)
+      .withCorrelationId(CORRELATION_ID)
+      .withActorId(CUSTOMER_ID)
+      .withActorType('CUSTOMER')
+      .withActorRole('CUSTOMER')
+      .build();
+    const customerProfilePort = new InMemoryCustomerProfilePort();
+    customerProfilePort.setProfile(CUSTOMER_ID, {
+      email: 'cliente@example.com',
+      name: 'Maria Silva',
+      phone: '31988888888',
+      defaultAddress: null,
+    });
     controller = new BookingController(
       new RequestBookingUseCase(
         serviceRepo,
@@ -33,7 +50,17 @@ describe('BookingController', () => {
         new InMemoryBookingRepository(),
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
-        ctx,
+        guestCtx,
+      ),
+      new RequestAuthenticatedBookingUseCase(
+        customerProfilePort,
+        serviceRepo,
+        new InMemoryBookingAvailabilityPort(),
+        new InMemoryScheduleTenantSettingsPort(),
+        new InMemoryBookingRepository(),
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+        customerCtx,
       ),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
@@ -66,10 +93,21 @@ describe('BookingController', () => {
         .withTenantId(TENANT_A)
         .withCorrelationId(CORRELATION_ID)
         .build();
+      const customerProfilePort = new InMemoryCustomerProfilePort();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
           availabilityPort,
+          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingRepository(),
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+          ctx,
+        ),
+        new RequestAuthenticatedBookingUseCase(
+          customerProfilePort,
+          serviceRepo,
+          new InMemoryBookingAvailabilityPort(),
           new InMemoryScheduleTenantSettingsPort(),
           new InMemoryBookingRepository(),
           new InMemoryTransactionManager(),
@@ -88,6 +126,62 @@ describe('BookingController', () => {
         .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    });
+  });
+
+  describe('createAuthenticated()', () => {
+    const authBody = () => ({
+      scheduledAt: `${futureDate(1)}T10:00:00.000Z`,
+      serviceIds: [serviceId],
+    });
+
+    it('creates a CUSTOMER booking and returns 201 shape', async () => {
+      const result = await controller.createAuthenticated(authBody());
+      expect(result.bookingId).toBeDefined();
+      expect(result.status).toBe('PENDING');
+      expect(result.lines).toHaveLength(1);
+    });
+
+    it('maps CustomerPhoneNotSetError to 422', async () => {
+      const { CustomerPhoneNotSetError } = await import('../../domain/errors/booking-domain.error');
+      const noPhonePort = new InMemoryCustomerProfilePort();
+      noPhonePort.setProfile(CUSTOMER_ID, {
+        email: 'nophone@example.com',
+        name: 'Sem Telefone',
+        phone: null,
+        defaultAddress: null,
+      });
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withCorrelationId(CORRELATION_ID)
+        .withActorId(CUSTOMER_ID)
+        .withActorType('CUSTOMER')
+        .build();
+      const ctrl = new BookingController(
+        new RequestBookingUseCase(
+          serviceRepo,
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingRepository(),
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+          ctx,
+        ),
+        new RequestAuthenticatedBookingUseCase(
+          noPhonePort,
+          serviceRepo,
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingRepository(),
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+          ctx,
+        ),
+      );
+      const err = await ctrl.createAuthenticated(authBody()).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+      expect(err).not.toBeInstanceOf(CustomerPhoneNotSetError);
     });
   });
 });

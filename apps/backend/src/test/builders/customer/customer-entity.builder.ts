@@ -7,7 +7,7 @@ export class CustomerEntityBuilder {
   private googleOAuthId = 'google-sub-customer-a';
   private email = 'customer@example.com';
   private name = 'Cliente Teste';
-  private readonly phone: string | null = null;
+  private phone: string | null = null;
   private readonly defaultAddress: Record<string, unknown> | null = null;
   private readonly createdAt = new Date('2026-01-01T00:00:00Z');
   private readonly updatedAt = new Date('2026-01-01T00:00:00Z');
@@ -34,6 +34,11 @@ export class CustomerEntityBuilder {
 
   withName(name: string): this {
     this.name = name;
+    return this;
+  }
+
+  withPhone(phone: string | null): this {
+    this.phone = phone;
     return this;
   }
 
