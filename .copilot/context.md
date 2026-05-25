@@ -3,7 +3,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-05-25 (M07-S03 — calendar-date utils, Repository manager mock anti-pattern)
+**Last updated:** 2026-05-25 (M07-S06 — notification integration spec isolation, idempotency baseline drain, phone format)
 
 ---
 
@@ -193,6 +193,8 @@ Examples already there: `deepMerge` (`src/shared/utils/deep-merge.ts`), `startOf
 
 Every value object must have a `.spec.ts` unit test covering valid and invalid inputs. Never duplicate a `isValidXxx` function — put it in the VO once.
 
+**`PhoneNumber` HTTP format (mandatory):** HTTP request bodies (`guestPhone`, customer `phone`) must send digits only, no country-code prefix — 10–11 digits (`31999999999` ✓, `+5531999999999` ✗). `PhoneNumber.create()` strips non-digits and validates length 10–11. Domain event payloads constructed directly in tests bypass Zod and may carry any format, but HTTP bodies go through `ZodValidationPipe` and will 400 if the prefix is included.
+
 **VOs are the single normalisation boundary for their input type (mandatory).** When the DB returns a format the VO doesn't expect (e.g. PostgreSQL `time` columns return `HH:MM:SS`; the domain uses `HH:MM`), fix the VO to normalise in `create()` — never add `.slice()` or format-stripping inside repository `toDomain()` mappers. One VO fix propagates to every mapper automatically and is covered by a single spec. Example: `TimeOfDay.create('09:00:00')` normalises to `'09:00'`.
 
 ### Value-object-typed aggregate fields (mandatory — Option A)
@@ -309,6 +311,15 @@ Event handlers live in `<context>/infrastructure/events/`. They are **infrastruc
 
 `waitFor()` utility lives at `src/test/utils/wait-for.ts`. Use it in story integration specs to poll for async side effects — this is the approved pattern instead of raw `setTimeout` in tests.
 
+**Notification integration spec helper (mandatory):** All notification story integration specs must use `createNotificationIntegrationApp()` from `src/test/utils/notification-integration-app.ts`. Options: `dispatcher` (required), `configure` (override providers), `extraModules` (e.g. `BookingModule`), `extraEntities` (e.g. booking entities), `withTenantInterceptor` (enables `X-Tenant-ID` / `X-Actor-*` header reading). Returns `{ app, ds, eventBus }`. Never repeat `TypeOrmModule.forRoot` inline in notification specs.
+
+**Notification integration spec cross-handler isolation (mandatory):** `NotificationModule` registers ALL handlers (`StaffInvitedHandler`, `BookingRequestedHandler`, etc.). When a notification spec runs concurrently with another spec that publishes events handled by one of those handlers, the handler will process those foreign events and write `notification_logs` rows — this contaminates idempotency checks and log-count assertions. For every handler that subscribes to an event type you are NOT testing in the current spec, suppress it with a no-op override via the `configure` callback:
+```typescript
+const noOpXxxHandler = { onModuleInit: () => undefined, handle: async () => undefined };
+configure: (b) => b.overrideProvider(XxxHandler).useValue(noOpXxxHandler)
+```
+Canonical example: `booking-requested.handler.integration.spec.ts` suppresses `StaffInvitedHandler` because the staff-invited spec runs concurrently and publishes `StaffInvited` events.
+
 **Shared test date helpers (mandatory — never inline):** `src/test/utils/date-helpers.ts` exports `futureDate(daysAhead = 1)` and `pastDate(daysAgo = 1)` — both return `YYYY-MM-DD` strings offset from today in UTC. Always import these; never define `function futureDate()` / `function pastDate()` inline in any spec file. See `schedule-closure.spec.ts` and `schedule-opening.spec.ts` as canonical examples.
 
 ### Testing
@@ -330,6 +341,17 @@ Three layers: **Unit** (`.spec.ts`, Jest) · **Integration** (`.integration.spec
 - **Shared test address helper (mandatory — never inline):** `src/test/utils/address-helpers.ts` exports `testAddress(overrides?: Partial<AddressProps>): Address` — a valid Brazilian `Address` VO with sensible defaults. Always import it instead of calling `Address.create({...})` inline in specs. Pass `overrides` to change specific fields only.
 - No `.skip()`, `.only()`, `setTimeout` in tests.
 - **Integration test DB isolation (mandatory):** Integration tests share a live DB with no cleanup between tests within the same file. Any `it()` sensitive to aggregate counts (`countActiveManagersByTenant`, `total` in pagination, etc.) **must use a unique tenant UUID** that no other test in the file creates data in. Never reuse suite-level `TENANT_A`/`TENANT_B` constants for count-sensitive assertions — define an inline UUID for that specific test instead.
+- **Notification handler idempotency test — drain provisioning noise first (mandatory):** When the provisioning flow (`POST /internal/tenants` → `TenantProvisioned` → handler chain) also emits an event of the same type you are testing idempotency for (e.g. `StaffInvited`), the provisioning's notification email may arrive asynchronously and after you have captured `countBeforeRedeliver`. This produces a false-positive "idempotency broken" failure. Fix: extend the initial `waitFor` to also confirm the provisioning's `NotificationLog` row is written before recording the baseline count. Pattern:
+  ```typescript
+  await waitFor(async () => {
+    const aggregate = await ds.getRepository(XxxEntity).findOne({ where: { tenantId, ... } });
+    if (!aggregate) return false;
+    const provisioningLog = await ds.getRepository(NotificationLogEntity)
+      .findOne({ where: { tenantId, notificationType: 'STAFF_INVITED', channel: 'EMAIL' } });
+    return provisioningLog !== null;
+  });
+  ```
+  Only after this `waitFor` returns should you publish the synthetic event and record `countBeforeRedeliver`.
 
 ### CI gates (block merge)
 - ESLint + Prettier — zero warnings
