@@ -112,7 +112,10 @@ export class RequestBookingUseCase {
     });
 
     const guestAddress = dto.guestAddress
-      ? Address.create({ ...dto.guestAddress, complement: dto.guestAddress.complement ?? undefined })
+      ? Address.create({
+          ...dto.guestAddress,
+          complement: dto.guestAddress.complement ?? undefined,
+        })
       : undefined;
     const pickupAddress = dto.pickupAddress
       ? Address.create({
