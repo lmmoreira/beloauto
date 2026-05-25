@@ -7,17 +7,17 @@ import {
 export class BookingRequestedEventBuilder {
   private tenantId = 'aaaaaaaa-0000-4000-8000-000000000001';
   private correlationId = 'corr-1';
-  private bookingId = 'dddddddd-0000-4000-8000-000000000001';
-  private type: 'GUEST' | 'CUSTOMER' = 'GUEST';
-  private customerId: string | null = null;
+  private readonly bookingId = 'dddddddd-0000-4000-8000-000000000001';
+  private readonly type: 'GUEST' | 'CUSTOMER' = 'GUEST';
+  private readonly customerId: string | null = null;
   private guestEmail = 'joao@example.com';
   private guestName = 'João Silva';
-  private guestPhone = '+5531999999999';
-  private guestAddress: AddressEventPayload | null = null;
+  private readonly guestPhone = '+5531999999999';
+  private readonly guestAddress: AddressEventPayload | null = null;
   private scheduledAt = '2026-06-15T13:00:00.000Z';
-  private totalDurationMins = 60;
+  private readonly totalDurationMins = 60;
   private totalPrice = { amount: '150.00', currency: 'BRL' };
-  private requiresPickup = false;
+  private readonly requiresPickup = false;
   private pickupAddress: AddressEventPayload | null = null;
   private lines: BookingLineEventPayload[] = [
     {
@@ -30,7 +30,7 @@ export class BookingRequestedEventBuilder {
       requiresPickupAddressAtBooking: false,
     },
   ];
-  private beforeServicePhotoUrls: string[] = [];
+  private readonly beforeServicePhotoUrls: string[] = [];
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;
