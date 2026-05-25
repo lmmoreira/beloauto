@@ -105,7 +105,7 @@ describe('BookingRequestedHandler integration', () => {
       .send({
         guestEmail,
         guestName: 'João Silva',
-        guestPhone: '+5531999999999',
+        guestPhone: '31999999999',
         scheduledAt: '2026-06-15T13:00:00.000Z',
         serviceIds: [service.id],
       })
@@ -170,7 +170,7 @@ describe('BookingRequestedHandler integration', () => {
           .withId(customerId)
           .withTenantId(tenantId)
           .withEmail(customerEmail)
-          .withPhone('+5531888888888')
+          .withPhone('31888888888')
           .build(),
       );
 
