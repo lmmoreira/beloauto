@@ -454,7 +454,7 @@ async createAuthenticated(
 
 ---
 
-### M07-S06 — BookingRequested event consumer (Notification context)
+### M07-S06 — BookingRequested event consumer (Notification context) ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
