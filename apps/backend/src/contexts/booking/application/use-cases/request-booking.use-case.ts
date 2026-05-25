@@ -8,7 +8,6 @@ import {
 } from '../../../../shared/ports/transaction-manager.port';
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
 import { Booking } from '../../domain/booking.aggregate';
-import { BookingLineInput } from '../../domain/booking-line.entity';
 import {
   BookingServiceNotActiveError,
   BookingServiceNotInTenantError,
@@ -25,6 +24,7 @@ import {
 } from '../ports/schedule-tenant-settings.port';
 import { IServiceRepository, SERVICE_REPOSITORY } from '../ports/service-repository.port';
 import { RequestBookingDto } from '../dtos/request-booking.dto';
+import { buildLineInputs, toBookingResult, BookingRequestResult } from './booking-request.helpers';
 
 export interface BookingLineResult {
   lineId: string;
@@ -45,16 +45,7 @@ export interface AddressResult {
   zipCode: string;
 }
 
-export interface RequestBookingUseCaseResult {
-  bookingId: string;
-  status: string;
-  scheduledAt: string;
-  totalPrice: { amount: number; currency: string };
-  totalDurationMins: number;
-  pickupAddress: AddressResult | null;
-  beforeServicePhotoUrls: string[];
-  lines: BookingLineResult[];
-}
+export type RequestBookingUseCaseResult = BookingRequestResult;
 
 @Injectable()
 export class RequestBookingUseCase {
@@ -102,18 +93,7 @@ export class RequestBookingUseCase {
     });
     if (hasOverlap) throw new BookingSlotUnavailableError();
 
-    const lineInputs: BookingLineInput[] = dto.serviceIds.map((serviceId) => {
-      const service = serviceMap.get(serviceId);
-      if (!service) throw new BookingServiceNotInTenantError(serviceId);
-      return {
-        serviceId: service.id,
-        serviceNameAtBooking: service.name,
-        priceAtBooking: service.price,
-        durationMinsAtBooking: service.durationMinutes,
-        pointsValueAtBooking: service.loyaltyPointsValue,
-        requiresPickupAddressAtBooking: service.requiresPickupAddress,
-      };
-    });
+    const lineInputs = buildLineInputs(dto.serviceIds, serviceMap);
 
     const guestAddress = dto.guestAddress
       ? Address.create({
@@ -154,39 +134,6 @@ export class RequestBookingUseCase {
   }
 
   private toResult(booking: Booking): RequestBookingUseCaseResult {
-    const pickup = booking.pickupAddress;
-    return {
-      bookingId: booking.id,
-      status: booking.status,
-      scheduledAt: booking.scheduledAt.toISOString(),
-      totalPrice: {
-        amount: booking.totalPrice.amount.toNumber(),
-        currency: booking.totalPrice.currency,
-      },
-      totalDurationMins: booking.totalDurationMins,
-      pickupAddress: pickup
-        ? {
-            street: pickup.street,
-            number: pickup.number,
-            complement: pickup.complement ?? null,
-            neighborhood: pickup.neighborhood,
-            city: pickup.city,
-            state: pickup.state,
-            zipCode: pickup.zipCode,
-          }
-        : null,
-      beforeServicePhotoUrls: booking.beforeServicePhotoUrls ?? [],
-      lines: booking.lines.map((l) => ({
-        lineId: l.lineId,
-        serviceId: l.serviceId,
-        priceAtBooking: {
-          amount: l.priceAtBooking.amount.toNumber(),
-          currency: l.priceAtBooking.currency,
-        },
-        durationMinsAtBooking: l.durationMinsAtBooking,
-        pointsValueAtBooking: l.pointsValueAtBooking,
-        requiresPickupAddressAtBooking: l.requiresPickupAddressAtBooking,
-      })),
-    };
+    return toBookingResult(booking);
   }
 }
