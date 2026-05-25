@@ -33,7 +33,11 @@ describe('TypeOrmBookingRepository', () => {
             find: jest.fn(),
             save: jest.fn(),
             delete: jest.fn(),
-            manager: { transaction: jest.fn().mockImplementation(async (cb: (tx: typeof mockTx) => Promise<void>) => cb(mockTx)) },
+            manager: {
+              transaction: jest
+                .fn()
+                .mockImplementation(async (cb: (tx: typeof mockTx) => Promise<void>) => cb(mockTx)),
+            },
           },
         },
         {
