@@ -6,6 +6,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env.validation';
 import { HealthController } from './health/health.controller';
 import { AuthModule } from './auth/auth.module';
+import { BookingsModule } from './bookings/bookings.module';
 import { ScheduleModule } from './schedule/schedule.module';
 import { ServicesModule } from './services/services.module';
 import { StaffModule } from './staff/staff.module';
@@ -34,6 +35,7 @@ import { ErrorInterceptor } from './shared/interceptors/error.interceptor';
       },
     ]),
     AuthModule,
+    BookingsModule,
     ScheduleModule,
     ServicesModule,
     StaffModule,

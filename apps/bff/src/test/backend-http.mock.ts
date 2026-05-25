@@ -6,6 +6,7 @@ export type MockBackendHttpService = {
   patch: jest.Mock;
   delete: jest.Mock;
   getForPublic: jest.Mock;
+  postForPublic: jest.Mock;
 };
 
 export function makeBackendHttp(
@@ -17,6 +18,7 @@ export function makeBackendHttp(
     delete: jest.fn(),
     patch: jest.fn(),
     getForPublic: jest.fn(),
+    postForPublic: jest.fn(),
     ...overrides,
   } as unknown as jest.Mocked<BackendHttpService>;
 }

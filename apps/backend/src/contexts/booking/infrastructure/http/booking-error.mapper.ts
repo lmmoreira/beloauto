@@ -4,6 +4,8 @@ import {
   AvailabilityDateInPastError,
   AvailabilityRangeInvalidError,
   BookingDomainError,
+  BookingNotFoundError,
+  BookingSlotUnavailableError,
   ClosureDateInPastError,
   DayAlreadyOpenInSettingsError,
   OpeningDateInPastError,
@@ -19,7 +21,8 @@ export function mapBookingError(err: unknown): never {
   if (
     err instanceof ServiceNotFoundError ||
     err instanceof ScheduleClosureNotFoundError ||
-    err instanceof ScheduleOpeningNotFoundError
+    err instanceof ScheduleOpeningNotFoundError ||
+    err instanceof BookingNotFoundError
   ) {
     const body: ProblemDetail = {
       type: 'about:blank',
@@ -32,7 +35,8 @@ export function mapBookingError(err: unknown): never {
   if (
     err instanceof ServiceDeactivatedError ||
     err instanceof ScheduleAlreadyClosedError ||
-    err instanceof ScheduleOpeningAlreadyExistsError
+    err instanceof ScheduleOpeningAlreadyExistsError ||
+    err instanceof BookingSlotUnavailableError
   ) {
     const body: ProblemDetail = {
       type: 'about:blank',

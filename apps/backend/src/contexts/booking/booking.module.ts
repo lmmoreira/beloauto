@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventBusModule } from '../../shared/infrastructure/event-bus.module';
 import { TenantModule } from '../../shared/tenant/tenant.module';
 import { TransactionManagerModule } from '../../shared/infrastructure/transaction-manager.module';
 import { PlatformSettingsModule } from '../platform/platform-settings.module';
@@ -11,6 +12,7 @@ import { SCHEDULE_TENANT_SETTINGS_PORT } from './application/ports/schedule-tena
 import { SERVICE_REPOSITORY } from './application/ports/service-repository.port';
 import { CloseScheduleUseCase } from './application/use-cases/close-schedule.use-case';
 import { CreateServiceUseCase } from './application/use-cases/create-service.use-case';
+import { RequestBookingUseCase } from './application/use-cases/request-booking.use-case';
 import { DeactivateServiceUseCase } from './application/use-cases/deactivate-service.use-case';
 import { GetAvailabilityUseCase } from './application/use-cases/get-availability.use-case';
 import { GetAvailabilitySummaryUseCase } from './application/use-cases/get-availability-summary.use-case';
@@ -26,6 +28,7 @@ import { BookingLineEntity } from './infrastructure/entities/booking-line.entity
 import { ScheduleClosureEntity } from './infrastructure/entities/schedule-closure.entity';
 import { ScheduleOpeningEntity } from './infrastructure/entities/schedule-opening.entity';
 import { ServiceEntity } from './infrastructure/entities/service.entity';
+import { BookingController } from './infrastructure/controllers/booking.controller';
 import { ScheduleAvailabilityController } from './infrastructure/controllers/schedule-availability.controller';
 import { ScheduleAvailabilitySummaryController } from './infrastructure/controllers/schedule-availability-summary.controller';
 import { ScheduleClosureController } from './infrastructure/controllers/schedule-closure.controller';
@@ -48,11 +51,13 @@ import { AvailabilityService } from './domain/services/availability.service';
       BookingEntity,
       BookingLineEntity,
     ]),
+    EventBusModule,
     TenantModule,
     TransactionManagerModule,
     PlatformSettingsModule,
   ],
   controllers: [
+    BookingController,
     ServiceController,
     ScheduleClosureController,
     ScheduleOpeningController,
@@ -68,6 +73,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     { provide: BOOKING_REPOSITORY, useClass: TypeOrmBookingRepository },
     AvailabilityService,
     CreateServiceUseCase,
+    RequestBookingUseCase,
     ListServicesUseCase,
     UpdateServiceUseCase,
     DeactivateServiceUseCase,
