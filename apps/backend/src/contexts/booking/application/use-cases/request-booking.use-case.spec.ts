@@ -15,18 +15,18 @@ import { RequestBookingUseCase } from './request-booking.use-case';
 const TENANT_A = '10000000-0000-4000-8000-000000000100';
 const CORRELATION_ID = 'corr-request-booking-test';
 
-function makeUseCase(overrides: {
-  serviceRepo?: InMemoryServiceRepository;
-  availabilityPort?: InMemoryBookingAvailabilityPort;
-  settingsPort?: InMemoryScheduleTenantSettingsPort;
-  bookingRepo?: InMemoryBookingRepository;
-  eventBus?: InMemoryEventBus;
-} = {}) {
+function makeUseCase(
+  overrides: {
+    serviceRepo?: InMemoryServiceRepository;
+    availabilityPort?: InMemoryBookingAvailabilityPort;
+    settingsPort?: InMemoryScheduleTenantSettingsPort;
+    bookingRepo?: InMemoryBookingRepository;
+    eventBus?: InMemoryEventBus;
+  } = {},
+) {
   const serviceRepo = overrides.serviceRepo ?? new InMemoryServiceRepository();
-  const availabilityPort =
-    overrides.availabilityPort ?? new InMemoryBookingAvailabilityPort();
-  const settingsPort =
-    overrides.settingsPort ?? new InMemoryScheduleTenantSettingsPort();
+  const availabilityPort = overrides.availabilityPort ?? new InMemoryBookingAvailabilityPort();
+  const settingsPort = overrides.settingsPort ?? new InMemoryScheduleTenantSettingsPort();
   const bookingRepo = overrides.bookingRepo ?? new InMemoryBookingRepository();
   const eventBus = overrides.eventBus ?? new InMemoryEventBus();
   const txManager = new InMemoryTransactionManager();
@@ -63,10 +63,7 @@ describe('RequestBookingUseCase', () => {
 
   beforeEach(async () => {
     ({ useCase, serviceRepo, availabilityPort, bookingRepo, eventBus } = makeUseCase());
-    const service = new ServiceBuilder()
-      .withTenantId(TENANT_A)
-      .withName('Lavagem Simples')
-      .build();
+    const service = new ServiceBuilder().withTenantId(TENANT_A).withName('Lavagem Simples').build();
     await serviceRepo.save(service);
     serviceId = service.id;
   });
@@ -160,24 +157,20 @@ describe('RequestBookingUseCase', () => {
       },
     ]);
 
-    await expect(useCase.execute(baseDto())).rejects.toBeInstanceOf(
-      BookingSlotUnavailableError,
-    );
+    await expect(useCase.execute(baseDto())).rejects.toBeInstanceOf(BookingSlotUnavailableError);
   });
 
   it('throws BookingServiceNotInTenantError when a serviceId is not found', async () => {
-    const { BookingServiceNotInTenantError } = await import(
-      '../../domain/errors/booking-domain.error'
-    );
+    const { BookingServiceNotInTenantError } =
+      await import('../../domain/errors/booking-domain.error');
     await expect(
       useCase.execute({ ...baseDto(), serviceIds: ['00000000-0000-4000-8000-000000009999'] }),
     ).rejects.toBeInstanceOf(BookingServiceNotInTenantError);
   });
 
   it('throws BookingServiceNotActiveError when a service is deactivated', async () => {
-    const { BookingServiceNotActiveError } = await import(
-      '../../domain/errors/booking-domain.error'
-    );
+    const { BookingServiceNotActiveError } =
+      await import('../../domain/errors/booking-domain.error');
     const inactive = new ServiceBuilder().withTenantId(TENANT_A).build();
     inactive.deactivate();
     await serviceRepo.save(inactive);

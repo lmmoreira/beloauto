@@ -29,27 +29,31 @@ describe('BookingController (integration)', () => {
     ({ app, ds } = await createBookingIntegrationApp({ overrideEventBus: true }));
 
     // seed services
-    await ds.getRepository(ServiceEntity).save(
-      new ServiceEntityBuilder()
-        .withId(SERVICE_ID)
-        .withTenantId(TENANT_A)
-        .withName('Lavagem Completa')
-        .withPriceAmount('100.00')
-        .withDurationMinutes(30)
-        .withIsActive(true)
-        .build(),
-    );
-    await ds.getRepository(ServiceEntity).save(
-      new ServiceEntityBuilder()
-        .withId(SERVICE_PICKUP_ID)
-        .withTenantId(TENANT_A)
-        .withName('Coleta em Domicílio')
-        .withPriceAmount('50.00')
-        .withDurationMinutes(20)
-        .withRequiresPickupAddress(true)
-        .withIsActive(true)
-        .build(),
-    );
+    await ds
+      .getRepository(ServiceEntity)
+      .save(
+        new ServiceEntityBuilder()
+          .withId(SERVICE_ID)
+          .withTenantId(TENANT_A)
+          .withName('Lavagem Completa')
+          .withPriceAmount('100.00')
+          .withDurationMinutes(30)
+          .withIsActive(true)
+          .build(),
+      );
+    await ds
+      .getRepository(ServiceEntity)
+      .save(
+        new ServiceEntityBuilder()
+          .withId(SERVICE_PICKUP_ID)
+          .withTenantId(TENANT_A)
+          .withName('Coleta em Domicílio')
+          .withPriceAmount('50.00')
+          .withDurationMinutes(20)
+          .withRequiresPickupAddress(true)
+          .withIsActive(true)
+          .build(),
+      );
   });
 
   afterAll(async () => {
@@ -101,9 +105,7 @@ describe('BookingController (integration)', () => {
         .send({ ...validBody(), beforeServicePhotoUrls: ['https://s3.example.com/car.jpg'] })
         .expect(201);
 
-      const row = await ds
-        .getRepository(BookingEntity)
-        .findOne({ where: { id: body.bookingId } });
+      const row = await ds.getRepository(BookingEntity).findOne({ where: { id: body.bookingId } });
       expect(row!.beforeServicePhotoUrls).toContain('https://s3.example.com/car.jpg');
     });
 
@@ -125,9 +127,7 @@ describe('BookingController (integration)', () => {
       expect(body.pickupAddress).not.toBeNull();
       expect(body.pickupAddress.city).toBe('Belo Horizonte');
 
-      const row = await ds
-        .getRepository(BookingEntity)
-        .findOne({ where: { id: body.bookingId } });
+      const row = await ds.getRepository(BookingEntity).findOne({ where: { id: body.bookingId } });
       expect(row!.pickupAddress).not.toBeNull();
     });
 
