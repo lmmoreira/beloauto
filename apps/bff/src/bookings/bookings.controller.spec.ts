@@ -75,7 +75,9 @@ describe('BookingsController', () => {
 
     it('propagates 404 from backend when slug is not found', async () => {
       const backendHttp = makeBackendHttp({
-        get: jest.fn().mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
+        get: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
       });
       const controller = new BookingsController(backendHttp);
 

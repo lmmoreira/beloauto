@@ -65,9 +65,7 @@ describe('BookingsController (component)', () => {
 
   describe('POST /v1/bookings (public)', () => {
     it('returns 400 when X-Tenant-Slug header is missing', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/v1/bookings')
-        .send(validBody);
+      const res = await request(app.getHttpServer()).post('/v1/bookings').send(validBody);
       expect(res.status).toBe(400);
       expect(res.body.status).toBe(400);
     });
