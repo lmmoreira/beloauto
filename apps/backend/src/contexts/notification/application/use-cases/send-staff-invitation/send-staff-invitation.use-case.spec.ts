@@ -16,6 +16,7 @@ const staffPort: INotificationStaffPort = {
     }
     return null;
   },
+  getManagerEmails: async () => [],
 };
 
 const tenantPort: INotificationTenantPort = {

@@ -13,6 +13,7 @@ const STAFF_ID = 'bbbbbbbb-0000-4000-8000-000000000001';
 
 const staffPort: INotificationStaffPort = {
   getStaffInfo: async () => ({ id: STAFF_ID, email: 'maria@lavacar.com.br', name: 'Maria' }),
+  getManagerEmails: async () => [],
 };
 
 const tenantPort: INotificationTenantPort = {
@@ -66,6 +67,7 @@ describe('StaffInvitedHandler', () => {
         email: 'admin@tenant.com.br',
         name: null,
       }),
+      getManagerEmails: async () => [],
     };
 
     const logRepo = new InMemoryNotificationLogRepository();

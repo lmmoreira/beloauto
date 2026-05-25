@@ -25,6 +25,7 @@ describe('Story: POST /internal/tenants → Pub/Sub → invitation email dispatc
 
   beforeAll(async () => {
     process.env['PLATFORM_ADMIN_KEY'] = PLATFORM_KEY;
+    process.env['PUBSUB_SUBSCRIPTION_SUFFIX'] = `-si-${Date.now()}`;
     dispatcher = new InMemoryNotificationDispatcher();
 
     const moduleRef = await Test.createTestingModule({
@@ -54,6 +55,7 @@ describe('Story: POST /internal/tenants → Pub/Sub → invitation email dispatc
   afterAll(async () => {
     await app.close();
     delete process.env['PLATFORM_ADMIN_KEY'];
+    delete process.env['PUBSUB_SUBSCRIPTION_SUFFIX'];
   });
 
   afterEach(() => {
