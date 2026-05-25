@@ -138,3 +138,17 @@ export class CancellationWindowExpiredError extends BookingDomainError {
     this.name = 'CancellationWindowExpiredError';
   }
 }
+
+export class BookingCustomerNotFoundError extends BookingDomainError {
+  constructor(customerId: string) {
+    super(`Customer not found: ${customerId}`);
+    this.name = 'BookingCustomerNotFoundError';
+  }
+}
+
+export class CustomerPhoneNotSetError extends BookingDomainError {
+  constructor() {
+    super('Customer must set a phone number before booking');
+    this.name = 'CustomerPhoneNotSetError';
+  }
+}

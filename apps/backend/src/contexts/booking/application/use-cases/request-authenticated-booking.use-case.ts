@@ -9,47 +9,32 @@ import {
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
 import { Booking } from '../../domain/booking.aggregate';
 import {
+  BookingCustomerNotFoundError,
   BookingServiceNotActiveError,
   BookingServiceNotInTenantError,
   BookingSlotUnavailableError,
+  CustomerPhoneNotSetError,
 } from '../../domain/errors/booking-domain.error';
 import {
   IBookingAvailabilityPort,
   BOOKING_AVAILABILITY_PORT,
 } from '../ports/booking-availability.port';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
+import { ICustomerProfilePort, CUSTOMER_PROFILE_PORT } from '../ports/customer-profile.port';
 import {
   IScheduleTenantSettingsPort,
   SCHEDULE_TENANT_SETTINGS_PORT,
 } from '../ports/schedule-tenant-settings.port';
 import { IServiceRepository, SERVICE_REPOSITORY } from '../ports/service-repository.port';
-import { RequestBookingDto } from '../dtos/request-booking.dto';
+import { RequestAuthenticatedBookingDto } from '../dtos/request-authenticated-booking.dto';
 import { buildLineInputs, toBookingResult, BookingRequestResult } from './booking-request.helpers';
 
-export interface BookingLineResult {
-  lineId: string;
-  serviceId: string;
-  priceAtBooking: { amount: number; currency: string };
-  durationMinsAtBooking: number;
-  pointsValueAtBooking: number;
-  requiresPickupAddressAtBooking: boolean;
-}
-
-export interface AddressResult {
-  street: string;
-  number: string;
-  complement: string | null;
-  neighborhood: string;
-  city: string;
-  state: string;
-  zipCode: string;
-}
-
-export type RequestBookingUseCaseResult = BookingRequestResult;
+export type RequestAuthenticatedBookingUseCaseResult = BookingRequestResult;
 
 @Injectable()
-export class RequestBookingUseCase {
+export class RequestAuthenticatedBookingUseCase {
   constructor(
+    @Inject(CUSTOMER_PROFILE_PORT) private readonly customerProfilePort: ICustomerProfilePort,
     @Inject(SERVICE_REPOSITORY) private readonly serviceRepo: IServiceRepository,
     @Inject(BOOKING_AVAILABILITY_PORT)
     private readonly availabilityPort: IBookingAvailabilityPort,
@@ -61,9 +46,16 @@ export class RequestBookingUseCase {
     private readonly tenantContext: TenantContext,
   ) {}
 
-  async execute(dto: RequestBookingDto): Promise<RequestBookingUseCaseResult> {
+  async execute(
+    dto: RequestAuthenticatedBookingDto,
+  ): Promise<RequestAuthenticatedBookingUseCaseResult> {
     const tenantId = this.tenantContext.tenantId;
     const correlationId = this.tenantContext.correlationId;
+    const customerId = this.tenantContext.actorId!;
+
+    const customer = await this.customerProfilePort.findById(customerId, tenantId);
+    if (!customer) throw new BookingCustomerNotFoundError(customerId);
+    if (!customer.phone) throw new CustomerPhoneNotSetError();
 
     const services = await this.serviceRepo.findByIds(dto.serviceIds, tenantId);
     const serviceMap = new Map(services.map((s) => [s.id, s]));
@@ -72,6 +64,18 @@ export class RequestBookingUseCase {
       const service = serviceMap.get(serviceId);
       if (!service) throw new BookingServiceNotInTenantError(serviceId);
       if (!service.isActive) throw new BookingServiceNotActiveError(serviceId);
+    }
+
+    const requiresPickup = dto.serviceIds.some((id) => serviceMap.get(id)?.requiresPickupAddress);
+
+    let pickupAddress: Address | undefined;
+    if (dto.pickupAddress) {
+      pickupAddress = Address.create({
+        ...dto.pickupAddress,
+        complement: dto.pickupAddress.complement ?? undefined,
+      });
+    } else if (requiresPickup && customer.defaultAddress) {
+      pickupAddress = customer.defaultAddress;
     }
 
     const scheduledAt = new Date(dto.scheduledAt);
@@ -95,28 +99,18 @@ export class RequestBookingUseCase {
 
     const lineInputs = buildLineInputs(dto.serviceIds, serviceMap);
 
-    const guestAddress = dto.guestAddress
-      ? Address.create({
-          ...dto.guestAddress,
-          complement: dto.guestAddress.complement ?? undefined,
-        })
-      : undefined;
-    const pickupAddress = dto.pickupAddress
-      ? Address.create({
-          ...dto.pickupAddress,
-          complement: dto.pickupAddress.complement ?? undefined,
-        })
-      : undefined;
+    const guestAddress = customer.defaultAddress ?? undefined;
 
     const booking = Booking.requestBooking({
       tenantId,
-      guestEmail: dto.guestEmail,
-      guestName: dto.guestName,
-      guestPhone: dto.guestPhone,
+      guestEmail: customer.email,
+      guestName: customer.name,
+      guestPhone: customer.phone,
       scheduledAt,
       lineInputs,
-      type: 'GUEST',
+      type: 'CUSTOMER',
       correlationId,
+      customerId,
       guestAddress,
       pickupAddress,
       beforeServicePhotoUrls: dto.beforeServicePhotoUrls,
@@ -133,7 +127,7 @@ export class RequestBookingUseCase {
     return this.toResult(booking);
   }
 
-  private toResult(booking: Booking): RequestBookingUseCaseResult {
+  private toResult(booking: Booking): RequestAuthenticatedBookingUseCaseResult {
     return toBookingResult(booking);
   }
 }

@@ -14,6 +14,7 @@ import { ScheduleClosureEntity } from '../../contexts/booking/infrastructure/ent
 import { ScheduleOpeningEntity } from '../../contexts/booking/infrastructure/entities/schedule-opening.entity';
 import { ServiceEntity } from '../../contexts/booking/infrastructure/entities/service.entity';
 import { BookingModule } from '../../contexts/booking/booking.module';
+import { CustomerEntity } from '../../contexts/customer/infrastructure/entities/customer.entity';
 import { HotsiteConfigEntity } from '../../contexts/platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../../contexts/platform/infrastructure/entities/tenant.entity';
 import { InMemoryEventBus } from '../infrastructure/in-memory-event-bus';
@@ -36,6 +37,7 @@ export async function createBookingIntegrationApp(
         entities: [
           TenantEntity,
           HotsiteConfigEntity,
+          CustomerEntity,
           ServiceEntity,
           ScheduleClosureEntity,
           ScheduleOpeningEntity,

@@ -24,5 +24,6 @@ export interface BookingResponse {
   totalPrice: { amount: number; currency: string };
   totalDurationMins: number;
   pickupAddress: AddressResponse | null;
+  beforeServicePhotoUrls: string[];
   lines: BookingLineResponse[];
 }

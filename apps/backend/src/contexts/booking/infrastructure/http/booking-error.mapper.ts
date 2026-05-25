@@ -3,10 +3,12 @@ import { ProblemDetail } from '../../../../shared/http/problem-detail';
 import {
   AvailabilityDateInPastError,
   AvailabilityRangeInvalidError,
+  BookingCustomerNotFoundError,
   BookingDomainError,
   BookingNotFoundError,
   BookingSlotUnavailableError,
   ClosureDateInPastError,
+  CustomerPhoneNotSetError,
   DayAlreadyOpenInSettingsError,
   OpeningDateInPastError,
   ScheduleAlreadyClosedError,
@@ -18,11 +20,21 @@ import {
 } from '../../domain/errors/booking-domain.error';
 
 export function mapBookingError(err: unknown): never {
+  if (err instanceof CustomerPhoneNotSetError) {
+    const body: ProblemDetail = {
+      type: 'about:blank',
+      title: 'Unprocessable Entity',
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      detail: err.message,
+    };
+    throw new HttpException(body, HttpStatus.UNPROCESSABLE_ENTITY);
+  }
   if (
     err instanceof ServiceNotFoundError ||
     err instanceof ScheduleClosureNotFoundError ||
     err instanceof ScheduleOpeningNotFoundError ||
-    err instanceof BookingNotFoundError
+    err instanceof BookingNotFoundError ||
+    err instanceof BookingCustomerNotFoundError
   ) {
     const body: ProblemDetail = {
       type: 'about:blank',

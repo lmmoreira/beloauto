@@ -3,15 +3,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventBusModule } from '../../shared/infrastructure/event-bus.module';
 import { TenantModule } from '../../shared/tenant/tenant.module';
 import { TransactionManagerModule } from '../../shared/infrastructure/transaction-manager.module';
+import { CustomerModule } from '../customer/customer.module';
 import { PlatformSettingsModule } from '../platform/platform-settings.module';
 import { BOOKING_AVAILABILITY_PORT } from './application/ports/booking-availability.port';
 import { BOOKING_REPOSITORY } from './application/ports/booking-repository.port';
+import { CUSTOMER_PROFILE_PORT } from './application/ports/customer-profile.port';
 import { SCHEDULE_CLOSURE_REPOSITORY } from './application/ports/schedule-closure-repository.port';
 import { SCHEDULE_OPENING_REPOSITORY } from './application/ports/schedule-opening-repository.port';
 import { SCHEDULE_TENANT_SETTINGS_PORT } from './application/ports/schedule-tenant-settings.port';
 import { SERVICE_REPOSITORY } from './application/ports/service-repository.port';
 import { CloseScheduleUseCase } from './application/use-cases/close-schedule.use-case';
 import { CreateServiceUseCase } from './application/use-cases/create-service.use-case';
+import { RequestAuthenticatedBookingUseCase } from './application/use-cases/request-authenticated-booking.use-case';
 import { RequestBookingUseCase } from './application/use-cases/request-booking.use-case';
 import { DeactivateServiceUseCase } from './application/use-cases/deactivate-service.use-case';
 import { GetAvailabilityUseCase } from './application/use-cases/get-availability.use-case';
@@ -28,6 +31,7 @@ import { BookingLineEntity } from './infrastructure/entities/booking-line.entity
 import { ScheduleClosureEntity } from './infrastructure/entities/schedule-closure.entity';
 import { ScheduleOpeningEntity } from './infrastructure/entities/schedule-opening.entity';
 import { ServiceEntity } from './infrastructure/entities/service.entity';
+import { CustomerProfileAdapter } from './infrastructure/adapters/customer-profile.adapter';
 import { BookingController } from './infrastructure/controllers/booking.controller';
 import { ScheduleAvailabilityController } from './infrastructure/controllers/schedule-availability.controller';
 import { ScheduleAvailabilitySummaryController } from './infrastructure/controllers/schedule-availability-summary.controller';
@@ -54,6 +58,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     EventBusModule,
     TenantModule,
     TransactionManagerModule,
+    CustomerModule,
     PlatformSettingsModule,
   ],
   controllers: [
@@ -71,9 +76,11 @@ import { AvailabilityService } from './domain/services/availability.service';
     { provide: SCHEDULE_TENANT_SETTINGS_PORT, useClass: ScheduleTenantSettingsAdapter },
     { provide: BOOKING_AVAILABILITY_PORT, useClass: TypeOrmBookingAvailabilityAdapter },
     { provide: BOOKING_REPOSITORY, useClass: TypeOrmBookingRepository },
+    { provide: CUSTOMER_PROFILE_PORT, useClass: CustomerProfileAdapter },
     AvailabilityService,
     CreateServiceUseCase,
     RequestBookingUseCase,
+    RequestAuthenticatedBookingUseCase,
     ListServicesUseCase,
     UpdateServiceUseCase,
     DeactivateServiceUseCase,

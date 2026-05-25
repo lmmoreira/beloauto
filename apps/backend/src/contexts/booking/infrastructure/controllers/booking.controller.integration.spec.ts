@@ -2,11 +2,13 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { ServiceEntityBuilder } from '../../../../test/builders/booking/index';
+import { CustomerEntityBuilder } from '../../../../test/builders/customer/index';
 import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { futureDate } from '../../../../test/utils/date-helpers';
 import { createBookingIntegrationApp } from '../../../../test/utils/booking-integration-app';
 import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
 import { PlatformModule } from '../../../platform/platform.module';
+import { CustomerEntity } from '../../../customer/infrastructure/entities/customer.entity';
 import { ServiceEntity } from '../entities/service.entity';
 import { BookingEntity } from '../entities/booking.entity';
 import { BookingLineEntity } from '../entities/booking-line.entity';
@@ -211,6 +213,93 @@ describe('BookingController (integration)', () => {
 
       expect(body.lines).toHaveLength(2);
       expect(body.totalDurationMins).toBe(60);
+    });
+  });
+
+  describe('POST /bookings/authenticated', () => {
+    let customerId: string;
+
+    beforeAll(async () => {
+      const customer = new CustomerEntityBuilder()
+        .withTenantId(tenantAId)
+        .withEmail('cliente@auth-booking.test')
+        .withName('Cliente Auth')
+        .withPhone('31988888888')
+        .build();
+      await ds.getRepository(CustomerEntity).save(customer);
+      customerId = customer.id;
+    });
+
+    function customerHeaders(tenantId: string, cId: string) {
+      return actorHeaders(tenantId, cId, 'CUSTOMER');
+    }
+
+    const authBody = () => ({
+      scheduledAt,
+      serviceIds: [serviceId],
+    });
+
+    it('creates a PENDING CUSTOMER booking with customerId set', async () => {
+      const { body } = await request(app.getHttpServer())
+        .post('/bookings/authenticated')
+        .set(customerHeaders(tenantAId, customerId))
+        .send(authBody())
+        .expect(201);
+
+      expect(body.bookingId).toBeDefined();
+      expect(body.status).toBe('PENDING');
+      expect(body.lines).toHaveLength(1);
+
+      const row = await ds
+        .getRepository(BookingEntity)
+        .findOne({ where: { id: body.bookingId, tenantId: tenantAId } });
+      expect(row).not.toBeNull();
+      expect(row!.type).toBe('CUSTOMER');
+      expect(row!.customerId).toBe(customerId);
+      expect(row!.guestEmail).toBe('cliente@auth-booking.test');
+      expect(row!.guestName).toBe('Cliente Auth');
+    });
+
+    it('returns 422 when customer has no phone', async () => {
+      const noPhoneCustomer = new CustomerEntityBuilder()
+        .withTenantId(tenantAId)
+        .withGoogleOAuthId('google-sub-nophone-booking')
+        .withEmail('nophone@auth-booking.test')
+        .withName('Sem Telefone')
+        .withPhone(null)
+        .build();
+      await ds.getRepository(CustomerEntity).save(noPhoneCustomer);
+
+      const { body } = await request(app.getHttpServer())
+        .post('/bookings/authenticated')
+        .set(customerHeaders(tenantAId, noPhoneCustomer.id))
+        .send(authBody())
+        .expect(422);
+
+      expect(body.status).toBe(422);
+    });
+
+    it('returns 404 when customerId in context does not match any customer', async () => {
+      const { body } = await request(app.getHttpServer())
+        .post('/bookings/authenticated')
+        .set(customerHeaders(tenantAId, '00000000-0000-4000-8000-000000009999'))
+        .send(authBody())
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+
+    it('tenant isolation: booking is not visible from tenantB', async () => {
+      const { body } = await request(app.getHttpServer())
+        .post('/bookings/authenticated')
+        .set(customerHeaders(tenantAId, customerId))
+        .send({ ...authBody(), scheduledAt: `${futureDate(3)}T14:00:00.000Z` })
+        .expect(201);
+
+      const wrongTenant = await ds
+        .getRepository(BookingEntity)
+        .findOne({ where: { id: body.bookingId, tenantId: tenantBId } });
+      expect(wrongTenant).toBeNull();
     });
   });
 });

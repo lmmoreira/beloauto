@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { z } from 'zod';
 import { Public } from '../shared/decorators/public.decorator';
+import { Roles } from '../shared/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
 import { BackendHttpService } from '../shared/http/backend-http.service';
 import { TenantInfoResponse } from '../shared/types/backend-responses';
@@ -38,7 +39,15 @@ export const RequestBookingBodySchema = z.object({
   beforeServicePhotoUrls: z.array(z.url()).optional(),
 });
 
+export const AuthenticatedBookingBodySchema = z.object({
+  scheduledAt: z.iso.datetime(),
+  serviceIds: z.array(z.uuid()).min(1),
+  pickupAddress: AddressSchema.optional(),
+  beforeServicePhotoUrls: z.array(z.url()).optional(),
+});
+
 type RequestBookingBody = z.infer<typeof RequestBookingBodySchema>;
+type AuthenticatedBookingBody = z.infer<typeof AuthenticatedBookingBodySchema>;
 
 @Controller('bookings')
 export class BookingsController {
@@ -68,5 +77,14 @@ export class BookingsController {
     );
 
     return this.backendHttp.postForPublic<BookingResponse>('/bookings', body, tenant.id);
+  }
+
+  @Post('authenticated')
+  @HttpCode(HttpStatus.CREATED)
+  @Roles('CUSTOMER')
+  createAuthenticated(
+    @Body(new ZodValidationPipe(AuthenticatedBookingBodySchema)) body: AuthenticatedBookingBody,
+  ): Promise<BookingResponse> {
+    return this.backendHttp.post<BookingResponse>('/bookings/authenticated', body);
   }
 }
