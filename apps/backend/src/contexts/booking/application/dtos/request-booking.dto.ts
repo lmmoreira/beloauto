@@ -16,7 +16,7 @@ export const RequestBookingSchema = z.object({
   guestPhone: z.string().min(1),
   guestAddress: AddressSchema.optional(),
   pickupAddress: AddressSchema.optional(),
-  scheduledAt: z.string().datetime(),
+  scheduledAt: z.iso.datetime(),
   serviceIds: z.array(z.uuid()).min(1),
   beforeServicePhotoUrls: z.array(z.url()).optional(),
 });

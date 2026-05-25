@@ -30,7 +30,7 @@ export const RequestBookingBodySchema = z.object({
   guestPhone: z.string().min(1),
   guestAddress: AddressSchema.optional(),
   pickupAddress: AddressSchema.optional(),
-  scheduledAt: z.string().datetime(),
+  scheduledAt: z.iso.datetime(),
   serviceIds: z.array(z.uuid()).min(1),
   beforeServicePhotoUrls: z.array(z.url()).optional(),
 });
@@ -49,16 +49,14 @@ export class BookingsController {
     @Body(new ZodValidationPipe(RequestBookingBodySchema)) body: RequestBookingBody,
   ): Promise<BookingResponse> {
     if (!tenantSlug) {
-      return Promise.reject(
-        new HttpException(
-          {
-            type: 'about:blank',
-            title: 'Bad Request',
-            status: HttpStatus.BAD_REQUEST,
-            detail: 'X-Tenant-Slug header is required',
-          },
-          HttpStatus.BAD_REQUEST,
-        ),
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Bad Request',
+          status: HttpStatus.BAD_REQUEST,
+          detail: 'X-Tenant-Slug header is required',
+        },
+        HttpStatus.BAD_REQUEST,
       );
     }
 
