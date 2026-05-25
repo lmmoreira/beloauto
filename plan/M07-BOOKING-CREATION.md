@@ -539,7 +539,7 @@ Execution flow:
 
 ---
 
-### M07-S07 — Customer profile endpoint
+### M07-S07 — Customer profile endpoint ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** S  
