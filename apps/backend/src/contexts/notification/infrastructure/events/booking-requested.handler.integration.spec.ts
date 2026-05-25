@@ -17,8 +17,17 @@ import { NotificationModule } from '../../notification.module';
 import { waitFor } from '../../../../test/utils/wait-for';
 import { BookingRequested } from '../../../booking/domain/events/booking-requested.event';
 import { EVENT_BUS, IEventBus } from '../../../../shared/ports/event-bus.port';
+import { StaffInvitedHandler } from './staff-invited.handler';
 
 const PLATFORM_KEY = 'booking-notif-test-key-xxxxxxxxx';
+
+// Suppress StaffInvitedHandler in this spec to prevent cross-test Pub/Sub interference.
+// Both notification integration specs share a live Pub/Sub emulator and DB; if this spec
+// subscribes to beloauto-StaffInvited, its handler would process events from the
+// staff-invited spec and write notification logs under those eventIds. Those logs would
+// then be found by the staff-invited spec's idempotency check, causing it to skip
+// dispatching and fail its assertion.
+const noOpStaffInvitedHandler = { onModuleInit: () => undefined, handle: async () => undefined };
 
 describe('BookingRequestedHandler integration', () => {
   let app: INestApplication;
@@ -48,6 +57,8 @@ describe('BookingRequestedHandler integration', () => {
     })
       .overrideProvider(NOTIFICATION_DISPATCHER)
       .useValue(dispatcher)
+      .overrideProvider(StaffInvitedHandler)
+      .useValue(noOpStaffInvitedHandler)
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -78,15 +89,16 @@ describe('BookingRequestedHandler integration', () => {
 
     const tenantId: string = body.tenantId;
 
-    // Wait for manager staff to exist in DB (TenantProvisioned → StaffInvited flow completes)
+    // Wait for the manager staff record to exist — this confirms TenantProvisioned →
+    // CreateInitialManager completed. Querying StaffEntity directly avoids writing a
+    // STAFF_INVITED notification log here, which would cause idempotency conflicts with
+    // the staff-invited integration spec running concurrently.
     await waitFor(async () => {
-      const log = await ds.getRepository(NotificationLogEntity).findOne({
-        where: { tenantId, notificationType: 'STAFF_INVITED', channel: 'EMAIL' },
-      });
-      return log !== null;
+      const staff = await ds
+        .getRepository(StaffEntity)
+        .findOne({ where: { tenantId, role: 'MANAGER' } });
+      return staff !== null;
     });
-
-    dispatcher.clear();
 
     const guestEmail = `guest-${Date.now()}@example.com`;
     const event = new BookingRequested(tenantId, 'corr-booking-1', {
@@ -161,13 +173,11 @@ describe('BookingRequestedHandler integration', () => {
     const tenantId: string = body.tenantId;
 
     await waitFor(async () => {
-      const log = await ds.getRepository(NotificationLogEntity).findOne({
-        where: { tenantId, notificationType: 'STAFF_INVITED', channel: 'EMAIL' },
-      });
-      return log !== null;
+      const staff = await ds
+        .getRepository(StaffEntity)
+        .findOne({ where: { tenantId, role: 'MANAGER' } });
+      return staff !== null;
     });
-
-    dispatcher.clear();
 
     const event = new BookingRequested(tenantId, 'corr-idem-1', {
       bookingId: 'bbbbbbbb-2222-4000-8000-000000000001',
@@ -204,16 +214,24 @@ describe('BookingRequestedHandler integration', () => {
       return logs.length >= 2;
     });
 
-    const countBeforeRedeliver = dispatcher.dispatched.length;
+    // Count only booking-notification emails; concurrent test suites may dispatch
+    // other template emails to the same dispatcher via cross-test Pub/Sub delivery.
+    const bookingTemplates = ['booking-requested-admin', 'booking-requested-customer'];
+    const countBeforeRedeliver = dispatcher.dispatched.filter((m) =>
+      bookingTemplates.includes(m.templateKey),
+    ).length;
 
     // Publish the same event again (re-delivery simulation)
     await eventBus.publish(event);
 
     // Wait up to 2s for the second delivery to be processed; fail immediately
-    // if a new email is dispatched (which would mean idempotency is broken).
+    // if a new booking email is dispatched (which would mean idempotency is broken).
     const redeliveryDeadline = Date.now() + 2000;
     await waitFor(async () => {
-      if (dispatcher.dispatched.length > countBeforeRedeliver) {
+      const bookingCount = dispatcher.dispatched.filter((m) =>
+        bookingTemplates.includes(m.templateKey),
+      ).length;
+      if (bookingCount > countBeforeRedeliver) {
         throw new Error('Idempotency broken: new email dispatched after re-delivery');
       }
       return Date.now() >= redeliveryDeadline;
