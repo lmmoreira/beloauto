@@ -207,42 +207,83 @@ Implement the TypeORM entities, repository adapter, and event publishing wiring 
 Implement the guest booking request use case. No authentication required — only `X-Tenant-Slug`. The slot is re-validated at submission time (not just when the calendar was viewed), and a `BookingRequested` event is emitted.
 
 **Backend use case `RequestBookingUseCase`:**
-1. Load tenant + settings
-2. Load requested services (validate all active, all belong to tenant)
-3. Re-verify slot availability via `AvailabilityService` (slot could have been taken since calendar view)
-4. If slot unavailable → return `409` with "slot no longer available" error message
-5. Create `Booking` via `Booking.requestBooking(...)` with `type=GUEST`
-6. Persist via `IBookingRepository.save()` (emits `BookingRequested`)
+
+Injected dependencies: `TenantContext`, `IServiceRepository` (`SERVICE_REPOSITORY`), `IBookingAvailabilityPort` (`BOOKING_AVAILABILITY_PORT`), `IBookingRepository` (`BOOKING_REPOSITORY`), `ITransactionManager` (`TRANSACTION_MANAGER`), `IEventBus` (`EVENT_BUS`).
+
+1. Load services via `serviceRepo.findByIds(serviceIds, tenantId)`. For each requested `serviceId`: if not found in results → throw `BookingServiceNotInTenantError`; if `!service.isActive` → throw `BookingServiceNotActiveError`.
+2. Re-verify slot availability with a direct overlap query — do NOT run `AvailabilityService.calculate()` (too heavy for a write path). Call `bookingAvailabilityPort.findApprovedByTenantAndDate(tenantId, localDate)` where `localDate` is derived from `scheduledAt` via `utcDateToLocalDate(scheduledAt, businessHours.timezone)`. Check that no returned `BookedSlot` interval `[slot.scheduledAt, slot.scheduledAt + slot.totalDurationMins)` overlaps `[scheduledAt, scheduledAt + totalDurationMins)`. Overlap condition (half-open intervals): `slot.scheduledAt < end && scheduledAt < slotEnd`. If overlap found → throw `BookingSlotUnavailableError`.
+
+   > **Getting `timezone`:** call `settingsPort.getSchedulingSettings(tenantId)` to obtain `businessHours.timezone`. Add `IScheduleTenantSettingsPort` (`SCHEDULE_TENANT_SETTINGS_PORT`) to injected deps. This is the only field needed from settings for the slot check.
+
+3. Create `Booking` via `Booking.requestBooking({ tenantId, guestEmail, guestName, guestPhone, scheduledAt, lineInputs, type: 'GUEST', correlationId, guestAddress?, pickupAddress?, beforeServicePhotoUrls? })`. `correlationId` comes from `tenantContext.correlationId`. Build each `BookingLineInput` from the loaded `Service`: `{ serviceId, serviceNameAtBooking: service.name, priceAtBooking: service.price, durationMinsAtBooking: service.durationMinutes, pointsValueAtBooking: service.pointsValue, requiresPickupAddressAtBooking: service.requiresPickupAddress }`. Service order matches `serviceIds` input order; duplicates are allowed.
+4. Persist: wrap `bookingRepo.save(booking)` inside `txManager.run()`.
+5. Flush events post-commit: `for (const e of booking.clearDomainEvents()) await eventBus.publish(e)`. The repository does NOT publish events — this is exclusively the use case's responsibility.
+
+**Error mapper additions required** (update `booking-error.mapper.ts` as part of this story):
+- `BookingSlotUnavailableError` → `409 Conflict`
+- `BookingNotFoundError` → `404 Not Found`
+- `BookingServiceNotInTenantError` → `400 Bad Request`
+- `BookingServiceNotActiveError` → `400 Bad Request`
 
 **BFF endpoint:** `POST /v1/bookings`
-- **Public** — requires only `X-Tenant-Slug` (no JWT for guest booking)
-- Body:
+- **Public** — requires only `X-Tenant-Slug` (no JWT for guest booking); use `@Public()` decorator.
+- Resolves tenant: `GET /internal/tenants/by-slug/${tenantSlug}` → `tenantId`.
+- Forwards to backend via `backendHttp.postForPublic('/bookings', body, tenantId)`.
+- **`BackendHttpService.postForPublic(path, body, tenantId)` does not yet exist** — add it alongside the existing `getForPublic` method: sends only `X-Tenant-ID: tenantId` header, no auth headers.
+- Request body (Zod-validated):
 ```json
 {
   "guestEmail": "cliente@email.com",
   "guestName": "João Silva",
   "guestPhone": "+5531999999999",
-  "guestAddress": { "street": "...", "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30100000" },
-  "pickupAddress": { "street": "...", "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30100000" },
+  "guestAddress": { "street": "...", "number": "45", "complement": null, "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30100000" },
+  "pickupAddress": { "street": "...", "number": "123", "complement": null, "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30100000" },
   "scheduledAt": "2026-06-15T10:00:00Z",
-  "serviceIds": ["uuid1", "uuid2"]
+  "serviceIds": ["uuid1", "uuid2"],
+  "beforeServicePhotoUrls": ["https://..."]
 }
 ```
-(`guestAddress` is always optional. `pickupAddress` is required only when any selected service has `requiresPickupAddress=true`, absent otherwise.)
-- Returns: `201 { bookingId, status: 'PENDING', scheduledAt, totalPrice, totalDurationMins, pickupAddress?, lines[] }`
+(`guestAddress` always optional. `pickupAddress` required only when any selected service has `requiresPickupAddress=true`. `beforeServicePhotoUrls` optional, defaults to `[]`.)
+- Returns `201`:
+```json
+{
+  "bookingId": "uuid",
+  "status": "PENDING",
+  "scheduledAt": "2026-06-15T10:00:00Z",
+  "totalPrice": { "amount": 120.00, "currency": "BRL" },
+  "totalDurationMins": 85,
+  "pickupAddress": { "street": "...", "number": "123", "complement": null, "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30100000" },
+  "lines": [
+    {
+      "lineId": "uuid",
+      "serviceId": "uuid",
+      "priceAtBooking": { "amount": 100.00, "currency": "BRL" },
+      "durationMinsAtBooking": 60,
+      "pointsValueAtBooking": 1,
+      "requiresPickupAddressAtBooking": false
+    }
+  ]
+}
+```
+(`pickupAddress` omitted when null. `serviceNameAtBooking` is stored on the line but is NOT included in this response — follow API contracts exactly.)
 
 **Acceptance criteria:**
+- [ ] `booking-error.mapper.ts` updated: `BookingSlotUnavailableError → 409`, `BookingNotFoundError → 404`, `BookingServiceNotInTenantError → 400`, `BookingServiceNotActiveError → 400`
+- [ ] `BackendHttpService.postForPublic(path, body, tenantId)` method added
 - [ ] Guest booking created with `type=GUEST` and `customer_id=null`
+- [ ] `beforeServicePhotoUrls` stored on the booking when provided; defaults to `[]`
 - [ ] `BookingRequested` event published to Pub/Sub with all 7 envelope fields
-- [ ] Slot already taken by another APPROVED booking returns `409` with message in pt-BR
+- [ ] Slot already taken by another APPROVED booking returns `409`
+- [ ] Slot check is a direct overlap query via `IBookingAvailabilityPort` — does not invoke `AvailabilityService.calculate()`
 - [ ] Service not belonging to the tenant returns `400`
 - [ ] Deactivated service returns `400`
 - [ ] `guestEmail` validation: invalid format returns `400`
 - [ ] `guestPhone` validation: invalid Brazilian E.164 format returns `400`
 - [ ] `pickupAddress` required when any service has `requiresPickupAddress=true`; absent → `400`
 - [ ] `guestAddress` is optional — booking accepted without it
-- [ ] Integration test: full flow from POST to DB assertion + Pub/Sub emulator event verification
-- [ ] Tenant isolation: booking is created with correct `tenant_id` from `X-Tenant-Slug` resolution
+- [ ] Backend: controller unit spec + integration spec (save → read back → assert lines, tenant isolation)
+- [ ] BFF: `bookings.controller.spec.ts` (unit) + `bookings.controller.component.spec.ts` (component, per CLAUDE.md mandate — covers 401/400/happy-path/backend error propagation)
+- [ ] Backend integration test verifies `BookingRequested` event on the Pub/Sub emulator
 
 **Dependencies:** M07-S03, M06-S04, M03-S05
 
