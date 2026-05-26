@@ -13,6 +13,7 @@ import { BookingController } from './booking.controller';
 import { RequestBookingUseCase } from '../../application/use-cases/request-booking.use-case';
 import { RequestAuthenticatedBookingUseCase } from '../../application/use-cases/request-authenticated-booking.use-case';
 import { ApproveBookingUseCase } from '../../application/use-cases/approve-booking.use-case';
+import { BookingSlotConflictService } from '../../application/services/booking-slot-conflict.service';
 import { BookingStatus } from '../../domain/booking.aggregate';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000110';
@@ -20,6 +21,13 @@ const TENANT_B = '10000000-0000-4000-8000-000000000111';
 const CUSTOMER_ID = '20000000-0000-4000-8000-000000000110';
 const STAFF_ID = '20000000-0000-4000-8000-000000000112';
 const CORRELATION_ID = 'corr-booking-ctrl-test';
+
+function makeSlotService(port?: InMemoryBookingAvailabilityPort): BookingSlotConflictService {
+  return new BookingSlotConflictService(
+    port ?? new InMemoryBookingAvailabilityPort(),
+    new InMemoryScheduleTenantSettingsPort(),
+  );
+}
 
 describe('BookingController', () => {
   let controller: BookingController;
@@ -57,8 +65,7 @@ describe('BookingController', () => {
     controller = new BookingController(
       new RequestBookingUseCase(
         serviceRepo,
-        new InMemoryBookingAvailabilityPort(),
-        new InMemoryScheduleTenantSettingsPort(),
+        makeSlotService(),
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -67,8 +74,7 @@ describe('BookingController', () => {
       new RequestAuthenticatedBookingUseCase(
         customerProfilePort,
         serviceRepo,
-        new InMemoryBookingAvailabilityPort(),
-        new InMemoryScheduleTenantSettingsPort(),
+        makeSlotService(),
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -77,7 +83,7 @@ describe('BookingController', () => {
       new ApproveBookingUseCase(
         staffCtx,
         bookingRepo,
-        new InMemoryBookingAvailabilityPort(),
+        makeSlotService(),
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
@@ -104,34 +110,28 @@ describe('BookingController', () => {
     });
 
     it('maps BookingSlotUnavailableError to 409', async () => {
-      const availabilityPort = new InMemoryBookingAvailabilityPort();
-      availabilityPort.setSlots([
+      const conflictPort = new InMemoryBookingAvailabilityPort();
+      conflictPort.setSlots([
         { scheduledAt: new Date(`${futureDate(1)}T10:00:00.000Z`), totalDurationMins: 30 },
       ]);
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_A)
         .withCorrelationId(CORRELATION_ID)
         .build();
-      const customerProfilePort = new InMemoryCustomerProfilePort();
-      const staffCtxB = new TenantContextBuilder()
-        .withTenantId(TENANT_A)
-        .withActorId(STAFF_ID)
-        .build();
+      const staffCtxB = new TenantContextBuilder().withTenantId(TENANT_A).withActorId(STAFF_ID).build();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          availabilityPort,
-          new InMemoryScheduleTenantSettingsPort(),
+          makeSlotService(conflictPort),
           new InMemoryBookingRepository(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
           ctx,
         ),
         new RequestAuthenticatedBookingUseCase(
-          customerProfilePort,
+          new InMemoryCustomerProfilePort(),
           serviceRepo,
-          new InMemoryBookingAvailabilityPort(),
-          new InMemoryScheduleTenantSettingsPort(),
+          makeSlotService(),
           new InMemoryBookingRepository(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -140,7 +140,7 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtxB,
           new InMemoryBookingRepository(),
-          new InMemoryBookingAvailabilityPort(),
+          makeSlotService(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -196,8 +196,8 @@ describe('BookingController', () => {
 
     it('maps BookingSlotUnavailableError to 409 when slot is taken', async () => {
       const scheduledAt = new Date(`${futureDate(3)}T11:00:00.000Z`);
-      const availabilityPort = new InMemoryBookingAvailabilityPort();
-      availabilityPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
+      const conflictPort = new InMemoryBookingAvailabilityPort();
+      conflictPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
       const staffCtx = new TenantContextBuilder()
         .withTenantId(TENANT_A)
         .withCorrelationId(CORRELATION_ID)
@@ -208,8 +208,7 @@ describe('BookingController', () => {
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          new InMemoryBookingAvailabilityPort(),
-          new InMemoryScheduleTenantSettingsPort(),
+          makeSlotService(),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -218,8 +217,7 @@ describe('BookingController', () => {
         new RequestAuthenticatedBookingUseCase(
           new InMemoryCustomerProfilePort(),
           serviceRepo,
-          new InMemoryBookingAvailabilityPort(),
-          new InMemoryScheduleTenantSettingsPort(),
+          makeSlotService(),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -228,7 +226,7 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtx,
           bookingRepoB,
-          availabilityPort,
+          makeSlotService(conflictPort),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -285,15 +283,11 @@ describe('BookingController', () => {
         .withActorId(CUSTOMER_ID)
         .withActorType('CUSTOMER')
         .build();
-      const staffCtxC = new TenantContextBuilder()
-        .withTenantId(TENANT_A)
-        .withActorId(STAFF_ID)
-        .build();
+      const staffCtxC = new TenantContextBuilder().withTenantId(TENANT_A).withActorId(STAFF_ID).build();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          new InMemoryBookingAvailabilityPort(),
-          new InMemoryScheduleTenantSettingsPort(),
+          makeSlotService(),
           new InMemoryBookingRepository(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -302,8 +296,7 @@ describe('BookingController', () => {
         new RequestAuthenticatedBookingUseCase(
           noPhonePort,
           serviceRepo,
-          new InMemoryBookingAvailabilityPort(),
-          new InMemoryScheduleTenantSettingsPort(),
+          makeSlotService(),
           new InMemoryBookingRepository(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -312,7 +305,7 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtxC,
           new InMemoryBookingRepository(),
-          new InMemoryBookingAvailabilityPort(),
+          makeSlotService(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),

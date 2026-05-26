@@ -2,6 +2,7 @@ import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-even
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
 import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
@@ -28,7 +29,6 @@ describe('RequestBookingUseCase', () => {
   beforeEach(async () => {
     serviceRepo = new InMemoryServiceRepository();
     availabilityPort = new InMemoryBookingAvailabilityPort();
-    const settingsPort = new InMemoryScheduleTenantSettingsPort();
     bookingRepo = new InMemoryBookingRepository();
     eventBus = new InMemoryEventBus();
     const txManager = new InMemoryTransactionManager();
@@ -38,8 +38,7 @@ describe('RequestBookingUseCase', () => {
       .build();
     useCase = new RequestBookingUseCase(
       serviceRepo,
-      availabilityPort,
-      settingsPort,
+      new BookingSlotConflictService(availabilityPort, new InMemoryScheduleTenantSettingsPort()),
       bookingRepo,
       txManager,
       eventBus,

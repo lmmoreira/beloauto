@@ -47,10 +47,6 @@ describe('CustomerController (integration)', () => {
     await app.close();
   });
 
-  function customerHeaders(tenantId: string, customerId: string) {
-    return actorHeaders(tenantId, customerId, 'CUSTOMER');
-  }
-
   describe('GET /customers/me', () => {
     let customerId: string;
 
@@ -68,7 +64,7 @@ describe('CustomerController (integration)', () => {
     it('returns the customer profile for the authenticated actor', async () => {
       const { body } = await request(app.getHttpServer())
         .get('/customers/me')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .expect(200);
 
       expect(body.customerId).toBe(customerId);
@@ -81,7 +77,7 @@ describe('CustomerController (integration)', () => {
     it('returns 404 when actorId has no customer in this tenant', async () => {
       const { body } = await request(app.getHttpServer())
         .get('/customers/me')
-        .set(customerHeaders(tenantAId, '00000000-0000-4000-8000-000000009996'))
+        .set(actorHeaders(tenantAId, '00000000-0000-4000-8000-000000009996', 'CUSTOMER'))
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -90,7 +86,7 @@ describe('CustomerController (integration)', () => {
     it('tenant isolation: customer from tenant A is not found under tenant B context', async () => {
       const { body } = await request(app.getHttpServer())
         .get('/customers/me')
-        .set(customerHeaders(tenantBId, customerId))
+        .set(actorHeaders(tenantBId, customerId, 'CUSTOMER'))
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -115,7 +111,7 @@ describe('CustomerController (integration)', () => {
     it('updates name, phone, and defaultAddress', async () => {
       const { body } = await request(app.getHttpServer())
         .patch('/customers/me')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .send({
           name: 'Updated Name',
           phone: '31988888888',
@@ -143,13 +139,13 @@ describe('CustomerController (integration)', () => {
     it('partial update: leaves unspecified fields unchanged', async () => {
       await request(app.getHttpServer())
         .patch('/customers/me')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .send({ phone: '31977777777' })
         .expect(200);
 
       const { body } = await request(app.getHttpServer())
         .patch('/customers/me')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .send({ name: 'Only Name Changed' })
         .expect(200);
 
@@ -160,7 +156,7 @@ describe('CustomerController (integration)', () => {
     it('clears defaultAddress when set to null', async () => {
       await request(app.getHttpServer())
         .patch('/customers/me')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .send({
           defaultAddress: {
             street: 'Rua A',
@@ -175,7 +171,7 @@ describe('CustomerController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .patch('/customers/me')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .send({ defaultAddress: null })
         .expect(200);
 
@@ -185,7 +181,7 @@ describe('CustomerController (integration)', () => {
     it('normalises zipCode with hyphen to 8 digits', async () => {
       const { body } = await request(app.getHttpServer())
         .patch('/customers/me')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .send({
           defaultAddress: {
             street: 'Rua B',
@@ -204,7 +200,7 @@ describe('CustomerController (integration)', () => {
     it('returns 400 for invalid phone', async () => {
       const { body } = await request(app.getHttpServer())
         .patch('/customers/me')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .send({ phone: '123' })
         .expect(400);
 
@@ -214,7 +210,7 @@ describe('CustomerController (integration)', () => {
     it('tenant isolation: cannot update customer from tenant A via tenant B context', async () => {
       const { body } = await request(app.getHttpServer())
         .patch('/customers/me')
-        .set(customerHeaders(tenantBId, customerId))
+        .set(actorHeaders(tenantBId, customerId, 'CUSTOMER'))
         .send({ name: 'Hacked' })
         .expect(404);
 

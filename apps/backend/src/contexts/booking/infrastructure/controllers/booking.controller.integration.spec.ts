@@ -23,10 +23,6 @@ function guestHeaders(tenantId: string) {
   return { 'x-tenant-id': tenantId, 'x-correlation-id': 'test-corr-id' };
 }
 
-function staffHeaders(tenantId: string) {
-  return actorHeaders(tenantId, STAFF_ID, 'MANAGER');
-}
-
 describe('BookingController (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
@@ -231,7 +227,7 @@ describe('BookingController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/approve`)
-        .set(staffHeaders(tenantAId))
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
         .expect(200);
 
       expect(body.status).toBe('APPROVED');
@@ -264,13 +260,13 @@ describe('BookingController (integration)', () => {
       // Approve first — slot is now taken
       await request(app.getHttpServer())
         .patch(`/bookings/${first.bookingId}/approve`)
-        .set(staffHeaders(tenantAId))
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
         .expect(200);
 
       // Second approval should conflict
       const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${second.bookingId}/approve`)
-        .set(staffHeaders(tenantAId))
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
         .expect(409);
 
       expect(body.status).toBe(409);
@@ -285,12 +281,12 @@ describe('BookingController (integration)', () => {
 
       await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/approve`)
-        .set(staffHeaders(tenantAId))
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
         .expect(200);
 
       const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/approve`)
-        .set(staffHeaders(tenantAId))
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
         .expect(422);
 
       expect(body.status).toBe(422);
@@ -299,7 +295,7 @@ describe('BookingController (integration)', () => {
     it('returns 404 when booking does not exist', async () => {
       const { body } = await request(app.getHttpServer())
         .patch('/bookings/00000000-0000-4000-8000-000000009999/approve')
-        .set(staffHeaders(tenantAId))
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -340,7 +336,7 @@ describe('BookingController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/approve`)
-        .set(staffHeaders(tenantAId))
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -361,10 +357,6 @@ describe('BookingController (integration)', () => {
       customerId = customer.id;
     });
 
-    function customerHeaders(tenantId: string, cId: string) {
-      return actorHeaders(tenantId, cId, 'CUSTOMER');
-    }
-
     const authBody = () => ({
       scheduledAt,
       serviceIds: [serviceId],
@@ -373,7 +365,7 @@ describe('BookingController (integration)', () => {
     it('creates a PENDING CUSTOMER booking with customerId set', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/bookings/authenticated')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .send(authBody())
         .expect(201);
 
@@ -403,7 +395,7 @@ describe('BookingController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .post('/bookings/authenticated')
-        .set(customerHeaders(tenantAId, noPhoneCustomer.id))
+        .set(actorHeaders(tenantAId, noPhoneCustomer.id, 'CUSTOMER'))
         .send(authBody())
         .expect(422);
 
@@ -413,7 +405,7 @@ describe('BookingController (integration)', () => {
     it('returns 404 when customerId in context does not match any customer', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/bookings/authenticated')
-        .set(customerHeaders(tenantAId, '00000000-0000-4000-8000-000000009999'))
+        .set(actorHeaders(tenantAId, '00000000-0000-4000-8000-000000009999', 'CUSTOMER'))
         .send(authBody())
         .expect(404);
 
@@ -423,7 +415,7 @@ describe('BookingController (integration)', () => {
     it('tenant isolation: booking is not visible from tenantB', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/bookings/authenticated')
-        .set(customerHeaders(tenantAId, customerId))
+        .set(actorHeaders(tenantAId, customerId, 'CUSTOMER'))
         .send({ ...authBody(), scheduledAt: `${futureDate(3)}T14:00:00.000Z` })
         .expect(201);
 

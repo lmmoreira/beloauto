@@ -7,15 +7,11 @@ import {
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
 import {
   BookingNotFoundError,
-  BookingSlotUnavailableError,
   InvalidBookingTransitionError,
 } from '../../domain/errors/booking-domain.error';
 import { BookingStatus } from '../../domain/booking.aggregate';
-import {
-  IBookingAvailabilityPort,
-  BOOKING_AVAILABILITY_PORT,
-} from '../ports/booking-availability.port';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
+import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
 import { ApproveBookingDto, ApproveBookingUseCaseResult } from '../dtos/approve-booking.dto';
 
 @Injectable()
@@ -23,7 +19,7 @@ export class ApproveBookingUseCase {
   constructor(
     private readonly tenantContext: TenantContext,
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
-    @Inject(BOOKING_AVAILABILITY_PORT) private readonly availabilityPort: IBookingAvailabilityPort,
+    private readonly slotConflictService: BookingSlotConflictService,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
   ) {}
@@ -43,7 +39,11 @@ export class ApproveBookingUseCase {
       throw new InvalidBookingTransitionError(booking.status, BookingStatus.APPROVED);
     }
 
-    await this.assertSlotFree(tenantId, booking.scheduledAt, booking.totalDurationMins);
+    await this.slotConflictService.assertSlotFree(
+      tenantId,
+      booking.scheduledAt,
+      booking.totalDurationMins,
+    );
 
     booking.approve(staffId, correlationId);
 
@@ -60,28 +60,5 @@ export class ApproveBookingUseCase {
       status: booking.status,
       approvedAt: booking.approvedAt!.toISOString(),
     };
-  }
-
-  private async assertSlotFree(
-    tenantId: string,
-    scheduledAt: Date,
-    totalDurationMins: number,
-  ): Promise<void> {
-    const dateStr = scheduledAt.toISOString().slice(0, 10);
-    const existingSlots = await this.availabilityPort.findApprovedByTenantAndDate(
-      tenantId,
-      dateStr,
-    );
-
-    const bookingStart = scheduledAt.getTime();
-    const bookingEnd = bookingStart + totalDurationMins * 60_000;
-
-    const hasConflict = existingSlots.some((slot) => {
-      const slotStart = slot.scheduledAt.getTime();
-      const slotEnd = slotStart + slot.totalDurationMins * 60_000;
-      return slotStart < bookingEnd && bookingStart < slotEnd;
-    });
-
-    if (hasConflict) throw new BookingSlotUnavailableError();
   }
 }

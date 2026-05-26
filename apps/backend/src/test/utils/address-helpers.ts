@@ -9,8 +9,12 @@ const DEFAULT_ADDRESS: AddressProps = {
   zipCode: '30100000',
 };
 
-// Returns a valid Brazilian Address for use in tests.
-// Pass overrides to change specific fields without repeating the full object.
+/** Returns a valid Brazilian Address VO for use in tests. */
 export function testAddress(overrides: Partial<AddressProps> = {}): Address {
   return Address.create({ ...DEFAULT_ADDRESS, ...overrides });
+}
+
+/** Returns raw AddressProps (plain object) for use in DTO / controller tests. */
+export function testAddressProps(overrides: Partial<AddressProps> = {}): AddressProps {
+  return { ...DEFAULT_ADDRESS, ...overrides };
 }

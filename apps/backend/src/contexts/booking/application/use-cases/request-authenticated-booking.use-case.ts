@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { utcDateToLocalDate } from '../../../../shared/utils/calendar-date';
 import { Address } from '../../../../shared/value-objects/address';
 import { IEventBus, EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import {
@@ -12,20 +11,12 @@ import {
   BookingCustomerNotFoundError,
   BookingServiceNotActiveError,
   BookingServiceNotInTenantError,
-  BookingSlotUnavailableError,
   CustomerPhoneNotSetError,
 } from '../../domain/errors/booking-domain.error';
-import {
-  IBookingAvailabilityPort,
-  BOOKING_AVAILABILITY_PORT,
-} from '../ports/booking-availability.port';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
 import { ICustomerProfilePort, CUSTOMER_PROFILE_PORT } from '../ports/customer-profile.port';
-import {
-  IScheduleTenantSettingsPort,
-  SCHEDULE_TENANT_SETTINGS_PORT,
-} from '../ports/schedule-tenant-settings.port';
 import { IServiceRepository, SERVICE_REPOSITORY } from '../ports/service-repository.port';
+import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
 import { RequestAuthenticatedBookingDto } from '../dtos/request-authenticated-booking.dto';
 import { buildLineInputs, toBookingResult, BookingRequestResult } from './booking-request.helpers';
 
@@ -36,10 +27,7 @@ export class RequestAuthenticatedBookingUseCase {
   constructor(
     @Inject(CUSTOMER_PROFILE_PORT) private readonly customerProfilePort: ICustomerProfilePort,
     @Inject(SERVICE_REPOSITORY) private readonly serviceRepo: IServiceRepository,
-    @Inject(BOOKING_AVAILABILITY_PORT)
-    private readonly availabilityPort: IBookingAvailabilityPort,
-    @Inject(SCHEDULE_TENANT_SETTINGS_PORT)
-    private readonly settingsPort: IScheduleTenantSettingsPort,
+    private readonly slotConflictService: BookingSlotConflictService,
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
@@ -84,18 +72,7 @@ export class RequestAuthenticatedBookingUseCase {
       0,
     );
 
-    const { businessHours } = await this.settingsPort.getSchedulingSettings(tenantId);
-    const localDate = utcDateToLocalDate(scheduledAt, businessHours.timezone);
-    const existingSlots = await this.availabilityPort.findApprovedByTenantAndDate(
-      tenantId,
-      localDate,
-    );
-    const slotEnd = new Date(scheduledAt.getTime() + totalDurationMins * 60_000);
-    const hasOverlap = existingSlots.some((slot) => {
-      const existingEnd = new Date(slot.scheduledAt.getTime() + slot.totalDurationMins * 60_000);
-      return slot.scheduledAt < slotEnd && scheduledAt < existingEnd;
-    });
-    if (hasOverlap) throw new BookingSlotUnavailableError();
+    await this.slotConflictService.assertSlotFree(tenantId, scheduledAt, totalDurationMins);
 
     const lineInputs = buildLineInputs(dto.serviceIds, serviceMap);
 

@@ -1,4 +1,5 @@
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
+import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
@@ -11,6 +12,7 @@ import {
   BookingSlotUnavailableError,
   InvalidBookingTransitionError,
 } from '../../domain/errors/booking-domain.error';
+import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
 import { ApproveBookingUseCase } from './approve-booking.use-case';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000201';
@@ -40,7 +42,7 @@ describe('ApproveBookingUseCase', () => {
       useCase = new ApproveBookingUseCase(
         ctx,
         bookingRepo,
-        availabilityPort,
+        new BookingSlotConflictService(availabilityPort, new InMemoryScheduleTenantSettingsPort()),
         new InMemoryTransactionManager(),
         eventBus,
       );
@@ -150,60 +152,28 @@ describe('ApproveBookingUseCase', () => {
     });
 
     it('throws BookingSlotUnavailableError when slot overlaps an approved booking', async () => {
-      const conflictPort = new InMemoryBookingAvailabilityPort();
-      conflictPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
-      const conflictRepo = new InMemoryBookingRepository();
-      const ctx = new TenantContextBuilder()
-        .withTenantId(TENANT_A)
-        .withCorrelationId(CORRELATION_ID)
-        .withActorId(STAFF_ID)
-        .withActorRole('MANAGER')
-        .build();
-      const uc = new ApproveBookingUseCase(
-        ctx,
-        conflictRepo,
-        conflictPort,
-        new InMemoryTransactionManager(),
-        new InMemoryEventBus(),
-      );
-
+      availabilityPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
         .withScheduledAt(scheduledAt)
         .build();
-      await conflictRepo.save(booking);
+      await bookingRepo.save(booking);
 
-      await expect(uc.execute({ bookingId: booking.id })).rejects.toThrow(
+      await expect(useCase.execute({ bookingId: booking.id })).rejects.toThrow(
         BookingSlotUnavailableError,
       );
     });
 
     it('allows approval when existing slot is non-overlapping (adjacent)', async () => {
       const otherSlotAt = new Date(scheduledAt.getTime() + 30 * 60_000);
-      const adjacentPort = new InMemoryBookingAvailabilityPort();
-      adjacentPort.setSlots([{ scheduledAt: otherSlotAt, totalDurationMins: 30 }]);
-      const adjacentRepo = new InMemoryBookingRepository();
-      const ctx = new TenantContextBuilder()
-        .withTenantId(TENANT_A)
-        .withCorrelationId(CORRELATION_ID)
-        .withActorId(STAFF_ID)
-        .withActorRole('MANAGER')
-        .build();
-      const uc = new ApproveBookingUseCase(
-        ctx,
-        adjacentRepo,
-        adjacentPort,
-        new InMemoryTransactionManager(),
-        new InMemoryEventBus(),
-      );
-
+      availabilityPort.setSlots([{ scheduledAt: otherSlotAt, totalDurationMins: 30 }]);
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
         .withScheduledAt(scheduledAt)
         .build();
-      await adjacentRepo.save(booking);
+      await bookingRepo.save(booking);
 
-      const result = await uc.execute({ bookingId: booking.id });
+      const result = await useCase.execute({ bookingId: booking.id });
       expect(result.status).toBe(BookingStatus.APPROVED);
     });
 

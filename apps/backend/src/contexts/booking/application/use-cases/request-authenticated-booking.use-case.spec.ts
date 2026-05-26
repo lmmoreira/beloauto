@@ -2,6 +2,7 @@ import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-even
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
 import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
 import { InMemoryCustomerProfilePort } from '../../../../test/infrastructure/in-memory-customer-profile.port';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
@@ -38,7 +39,6 @@ describe('RequestAuthenticatedBookingUseCase', () => {
     bookingRepo = new InMemoryBookingRepository();
     eventBus = new InMemoryEventBus();
     customerProfilePort = new InMemoryCustomerProfilePort();
-    const settingsPort = new InMemoryScheduleTenantSettingsPort();
     const txManager = new InMemoryTransactionManager();
     const ctx = new TenantContextBuilder()
       .withTenantId(TENANT_A)
@@ -51,8 +51,7 @@ describe('RequestAuthenticatedBookingUseCase', () => {
     useCase = new RequestAuthenticatedBookingUseCase(
       customerProfilePort,
       serviceRepo,
-      availabilityPort,
-      settingsPort,
+      new BookingSlotConflictService(availabilityPort, new InMemoryScheduleTenantSettingsPort()),
       bookingRepo,
       txManager,
       eventBus,
@@ -120,8 +119,7 @@ describe('RequestAuthenticatedBookingUseCase', () => {
     const uc = new RequestAuthenticatedBookingUseCase(
       emptyPort,
       serviceRepo,
-      availabilityPort,
-      new InMemoryScheduleTenantSettingsPort(),
+      new BookingSlotConflictService(availabilityPort, new InMemoryScheduleTenantSettingsPort()),
       bookingRepo,
       new InMemoryTransactionManager(),
       new InMemoryEventBus(),
