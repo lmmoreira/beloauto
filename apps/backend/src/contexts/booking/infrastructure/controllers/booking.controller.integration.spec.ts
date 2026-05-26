@@ -667,7 +667,12 @@ describe('BookingController (integration)', () => {
       const { body: created } = await request(app.getHttpServer())
         .post('/bookings')
         .set(guestHeaders(tenantBId))
-        .send({ ...validBody(), guestEmail, serviceIds: [svcB2.id], scheduledAt: `${futureDate(8)}T10:00:00.000Z` })
+        .send({
+          ...validBody(),
+          guestEmail,
+          serviceIds: [svcB2.id],
+          scheduledAt: `${futureDate(8)}T10:00:00.000Z`,
+        })
         .expect(201);
 
       await request(app.getHttpServer())
