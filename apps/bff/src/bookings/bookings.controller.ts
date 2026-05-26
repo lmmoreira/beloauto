@@ -52,9 +52,14 @@ export const RejectBookingBodySchema = z.object({
   reason: z.string().trim().min(10),
 });
 
+export const RequestMoreInfoBodySchema = z.object({
+  message: z.string().trim().min(20),
+});
+
 type RequestBookingBody = z.infer<typeof RequestBookingBodySchema>;
 type AuthenticatedBookingBody = z.infer<typeof AuthenticatedBookingBodySchema>;
 type RejectBookingBody = z.infer<typeof RejectBookingBodySchema>;
+type RequestMoreInfoBody = z.infer<typeof RequestMoreInfoBodySchema>;
 
 @Controller('bookings')
 export class BookingsController {
@@ -112,5 +117,15 @@ export class BookingsController {
     @Body(new ZodValidationPipe(RejectBookingBodySchema)) body: RejectBookingBody,
   ): Promise<{ bookingId: string; status: string; rejectedAt: string }> {
     return this.backendHttp.patch(`/bookings/${id}/reject`, body);
+  }
+
+  @Patch(':id/request-info')
+  @HttpCode(HttpStatus.OK)
+  @Roles('MANAGER', 'STAFF')
+  requestInfo(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(RequestMoreInfoBodySchema)) body: RequestMoreInfoBody,
+  ): Promise<{ bookingId: string; status: string; infoRequestedAt: string }> {
+    return this.backendHttp.patch(`/bookings/${id}/request-info`, body);
   }
 }

@@ -5,6 +5,7 @@ import { BookingLineBuilder } from '../../../test/builders/booking/booking-line.
 import { BookingLineInputBuilder } from '../../../test/builders/booking/booking-line-input.builder';
 import { Booking, BookingStatus, RequestBookingInput } from './booking.aggregate';
 import {
+  BookingInfoMessageTooShortError,
   BookingLineRequiredError,
   BookingRejectionReasonTooShortError,
   InvalidBookingTransitionError,
@@ -214,11 +215,22 @@ describe('Booking.requestMoreInfo()', () => {
     expect(events[0]).toBeInstanceOf(BookingInfoRequested);
   });
 
-  it('throws when already INFO_REQUESTED', () => {
-    const booking = new BookingBuilder().withStatus(BookingStatus.INFO_REQUESTED).build();
-    expect(() => booking.requestMoreInfo(STAFF_ID, 'Again', CORRELATION_ID)).toThrow(
-      InvalidBookingTransitionError,
+  it('throws BookingInfoMessageTooShortError when message is shorter than 20 chars', () => {
+    const booking = new BookingBuilder().withStatus(BookingStatus.PENDING).build();
+    expect(() => booking.requestMoreInfo(STAFF_ID, 'Too short', CORRELATION_ID)).toThrow(
+      BookingInfoMessageTooShortError,
     );
+  });
+
+  it('throws InvalidBookingTransitionError when already INFO_REQUESTED', () => {
+    const booking = new BookingBuilder().withStatus(BookingStatus.INFO_REQUESTED).build();
+    expect(() =>
+      booking.requestMoreInfo(
+        STAFF_ID,
+        'Please provide more details about the vehicle',
+        CORRELATION_ID,
+      ),
+    ).toThrow(InvalidBookingTransitionError);
   });
 });
 

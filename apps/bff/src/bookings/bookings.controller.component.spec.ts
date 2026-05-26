@@ -337,6 +337,106 @@ describe('BookingsController (component)', () => {
     });
   });
 
+  describe('PATCH /v1/bookings/:id/request-info', () => {
+    const BOOKING_ID_INFO = '40000000-0000-4000-8000-000000000004';
+    const mockInfoResponse = {
+      bookingId: BOOKING_ID_INFO,
+      status: 'INFO_REQUESTED',
+      infoRequestedAt: '2026-06-15T13:00:00.000Z',
+    };
+    const validInfoBody = { message: 'Please provide clearer photos of the vehicle' };
+
+    it('returns 401 when no JWT is provided', async () => {
+      const res = await request(app.getHttpServer()).patch(
+        `/v1/bookings/${BOOKING_ID_INFO}/request-info`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when JWT role is CUSTOMER', async () => {
+      const token = makeCustomerJwt(jwtService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_INFO}/request-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validInfoBody);
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 400 when message is shorter than 20 chars', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_INFO}/request-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ message: 'Too short' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when message is missing', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_INFO}/request-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('requests more info on a PENDING booking with MANAGER JWT', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockResolvedValueOnce(mockInfoResponse);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_INFO}/request-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validInfoBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('INFO_REQUESTED');
+      expect(res.body.infoRequestedAt).toBeDefined();
+      expect(backendHttpService.patch).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID_INFO}/request-info`,
+        validInfoBody,
+      );
+    });
+
+    it('propagates 422 from backend when booking is not in PENDING state', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 422, detail: 'invalid transition' }, 422),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_INFO}/request-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validInfoBody);
+
+      expect(res.status).toBe(422);
+    });
+
+    it('propagates 404 from backend when booking is not found', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 404, detail: 'not found' }, 404),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_INFO}/request-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validInfoBody);
+
+      expect(res.status).toBe(404);
+    });
+  });
+
   describe('POST /v1/bookings/authenticated', () => {
     it('returns 401 when no JWT is provided', async () => {
       const res = await request(app.getHttpServer())

@@ -149,6 +149,78 @@ X-Correlation-ID: test-corr-reject-004
 ###
 
 # ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — request more info on a PENDING booking (UC-005a)
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reqinfo-001
+
+{
+  "message": "Please provide clearer photos of the vehicle exterior"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — message too short (under 20 chars) → 400
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reqinfo-002
+
+{
+  "message": "Too short"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — booking already INFO_REQUESTED → 422
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reqinfo-003
+
+{
+  "message": "Please provide clearer photos of the vehicle exterior"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — booking not found → 404
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/00000000-0000-4000-8000-000000009999/request-info
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reqinfo-004
+
+{
+  "message": "Please provide clearer photos of the vehicle exterior"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — guest booking (no pickup service)
 # ─────────────────────────────────────────────────────────────────────────────
 

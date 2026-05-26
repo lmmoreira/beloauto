@@ -5,6 +5,7 @@ import {
   AvailabilityRangeInvalidError,
   BookingCustomerNotFoundError,
   BookingDomainError,
+  BookingInfoMessageTooShortError,
   BookingNotFoundError,
   BookingRejectionReasonTooShortError,
   BookingSlotUnavailableError,
@@ -22,7 +23,10 @@ import {
 } from '../../domain/errors/booking-domain.error';
 
 export function mapBookingError(err: unknown): never {
-  if (err instanceof BookingRejectionReasonTooShortError) {
+  if (
+    err instanceof BookingInfoMessageTooShortError ||
+    err instanceof BookingRejectionReasonTooShortError
+  ) {
     const body: ProblemDetail = {
       type: 'about:blank',
       title: 'Bad Request',

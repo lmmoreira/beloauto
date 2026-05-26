@@ -14,6 +14,7 @@ import { RequestBookingUseCase } from '../../application/use-cases/request-booki
 import { RequestAuthenticatedBookingUseCase } from '../../application/use-cases/request-authenticated-booking.use-case';
 import { ApproveBookingUseCase } from '../../application/use-cases/approve-booking.use-case';
 import { RejectBookingUseCase } from '../../application/use-cases/reject-booking.use-case';
+import { RequestMoreInfoUseCase } from '../../application/use-cases/request-more-info.use-case';
 import { BookingSlotConflictService } from '../../application/services/booking-slot-conflict.service';
 import { BookingStatus } from '../../domain/booking.aggregate';
 
@@ -22,25 +23,6 @@ const TENANT_B = '10000000-0000-4000-8000-000000000111';
 const CUSTOMER_ID = '20000000-0000-4000-8000-000000000110';
 const STAFF_ID = '20000000-0000-4000-8000-000000000112';
 const CORRELATION_ID = 'corr-booking-ctrl-test';
-
-function makeSlotService(port?: InMemoryBookingAvailabilityPort): BookingSlotConflictService {
-  return new BookingSlotConflictService(
-    port ?? new InMemoryBookingAvailabilityPort(),
-    new InMemoryScheduleTenantSettingsPort(),
-  );
-}
-
-function makeRejectUseCase(
-  ctx: ReturnType<TenantContextBuilder['build']>,
-  repo: InMemoryBookingRepository,
-): RejectBookingUseCase {
-  return new RejectBookingUseCase(
-    ctx,
-    repo,
-    new InMemoryTransactionManager(),
-    new InMemoryEventBus(),
-  );
-}
 
 describe('BookingController', () => {
   let controller: BookingController;
@@ -78,7 +60,10 @@ describe('BookingController', () => {
     controller = new BookingController(
       new RequestBookingUseCase(
         serviceRepo,
-        makeSlotService(),
+        new BookingSlotConflictService(
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+        ),
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -87,7 +72,10 @@ describe('BookingController', () => {
       new RequestAuthenticatedBookingUseCase(
         customerProfilePort,
         serviceRepo,
-        makeSlotService(),
+        new BookingSlotConflictService(
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+        ),
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -96,11 +84,25 @@ describe('BookingController', () => {
       new ApproveBookingUseCase(
         staffCtx,
         bookingRepo,
-        makeSlotService(),
+        new BookingSlotConflictService(
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+        ),
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
-      makeRejectUseCase(staffCtx, bookingRepo),
+      new RejectBookingUseCase(
+        staffCtx,
+        bookingRepo,
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      ),
+      new RequestMoreInfoUseCase(
+        staffCtx,
+        bookingRepo,
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      ),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
     await serviceRepo.save(service);
@@ -140,7 +142,7 @@ describe('BookingController', () => {
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          makeSlotService(conflictPort),
+          new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -149,7 +151,10 @@ describe('BookingController', () => {
         new RequestAuthenticatedBookingUseCase(
           new InMemoryCustomerProfilePort(),
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -158,11 +163,25 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtxB,
           repoB,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
-        makeRejectUseCase(staffCtxB, repoB),
+        new RejectBookingUseCase(
+          staffCtxB,
+          repoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RequestMoreInfoUseCase(
+          staffCtxB,
+          repoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
       );
       const err = await ctrl.create(validBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -227,7 +246,10 @@ describe('BookingController', () => {
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -236,7 +258,10 @@ describe('BookingController', () => {
         new RequestAuthenticatedBookingUseCase(
           new InMemoryCustomerProfilePort(),
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -245,11 +270,22 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtx,
           bookingRepoB,
-          makeSlotService(conflictPort),
+          new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
-        makeRejectUseCase(staffCtx, bookingRepoB),
+        new RejectBookingUseCase(
+          staffCtx,
+          bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RequestMoreInfoUseCase(
+          staffCtx,
+          bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
       );
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
@@ -353,6 +389,74 @@ describe('BookingController', () => {
     });
   });
 
+  describe('requestInfo()', () => {
+    const validMessage = 'Please provide clearer photos of the vehicle';
+
+    it('transitions PENDING → INFO_REQUESTED and returns 200 shape', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const result = await controller.requestInfo(booking.id, { message: validMessage });
+      expect(result.status).toBe(BookingStatus.INFO_REQUESTED);
+      expect(result.bookingId).toBe(booking.id);
+      expect(result.infoRequestedAt).toBeDefined();
+    });
+
+    it('maps BookingNotFoundError to 404', async () => {
+      const err = await controller
+        .requestInfo('00000000-0000-4000-8000-000000009999', { message: validMessage })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+
+    it('maps InvalidBookingTransitionError to 422 when booking is already INFO_REQUESTED', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withStatus(BookingStatus.INFO_REQUESTED)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .requestInfo(booking.id, { message: validMessage })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+    });
+
+    it('maps BookingInfoMessageTooShortError to 400', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .requestInfo(booking.id, { message: 'short' })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    });
+
+    it('tenant isolation: cannot request info on a booking from tenantB (returns 404)', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_B)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .requestInfo(booking.id, { message: validMessage })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+  });
+
   describe('createAuthenticated()', () => {
     const authBody = () => ({
       scheduledAt: `${futureDate(1)}T10:00:00.000Z`,
@@ -389,7 +493,10 @@ describe('BookingController', () => {
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -398,7 +505,10 @@ describe('BookingController', () => {
         new RequestAuthenticatedBookingUseCase(
           noPhonePort,
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -407,11 +517,25 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtxC,
           repoC,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
-        makeRejectUseCase(staffCtxC, repoC),
+        new RejectBookingUseCase(
+          staffCtxC,
+          repoC,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RequestMoreInfoUseCase(
+          staffCtxC,
+          repoC,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
       );
       const err = await ctrl.createAuthenticated(authBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
