@@ -31,30 +31,6 @@ function makeSlotService(port?: InMemoryBookingAvailabilityPort): BookingSlotCon
   );
 }
 
-function makeRejectUseCase(
-  ctx: ReturnType<TenantContextBuilder['build']>,
-  repo: InMemoryBookingRepository,
-): RejectBookingUseCase {
-  return new RejectBookingUseCase(
-    ctx,
-    repo,
-    new InMemoryTransactionManager(),
-    new InMemoryEventBus(),
-  );
-}
-
-function makeRequestMoreInfoUseCase(
-  ctx: ReturnType<TenantContextBuilder['build']>,
-  repo: InMemoryBookingRepository,
-): RequestMoreInfoUseCase {
-  return new RequestMoreInfoUseCase(
-    ctx,
-    repo,
-    new InMemoryTransactionManager(),
-    new InMemoryEventBus(),
-  );
-}
-
 describe('BookingController', () => {
   let controller: BookingController;
   let serviceRepo: InMemoryServiceRepository;
@@ -113,8 +89,18 @@ describe('BookingController', () => {
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
-      makeRejectUseCase(staffCtx, bookingRepo),
-      makeRequestMoreInfoUseCase(staffCtx, bookingRepo),
+      new RejectBookingUseCase(
+        staffCtx,
+        bookingRepo,
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      ),
+      new RequestMoreInfoUseCase(
+        staffCtx,
+        bookingRepo,
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      ),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
     await serviceRepo.save(service);
@@ -176,8 +162,18 @@ describe('BookingController', () => {
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
-        makeRejectUseCase(staffCtxB, repoB),
-        makeRequestMoreInfoUseCase(staffCtxB, repoB),
+        new RejectBookingUseCase(
+          staffCtxB,
+          repoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RequestMoreInfoUseCase(
+          staffCtxB,
+          repoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
       );
       const err = await ctrl.create(validBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -264,8 +260,18 @@ describe('BookingController', () => {
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
-        makeRejectUseCase(staffCtx, bookingRepoB),
-        makeRequestMoreInfoUseCase(staffCtx, bookingRepoB),
+        new RejectBookingUseCase(
+          staffCtx,
+          bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RequestMoreInfoUseCase(
+          staffCtx,
+          bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
       );
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
@@ -495,8 +501,18 @@ describe('BookingController', () => {
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
-        makeRejectUseCase(staffCtxC, repoC),
-        makeRequestMoreInfoUseCase(staffCtxC, repoC),
+        new RejectBookingUseCase(
+          staffCtxC,
+          repoC,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RequestMoreInfoUseCase(
+          staffCtxC,
+          repoC,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
       );
       const err = await ctrl.createAuthenticated(authBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
