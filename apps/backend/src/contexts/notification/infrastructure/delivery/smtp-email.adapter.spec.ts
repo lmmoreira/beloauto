@@ -89,7 +89,12 @@ describe('SmtpEmailAdapter', () => {
         ...message,
         data: {
           ...message.data,
-          pickupAddress: { street: 'Rua das Flores', number: '10', city: 'Belo Horizonte', state: 'MG' },
+          pickupAddress: {
+            street: 'Rua das Flores',
+            number: '10',
+            city: 'Belo Horizonte',
+            state: 'MG',
+          },
         },
       };
       await adapter.send(withPickup);
