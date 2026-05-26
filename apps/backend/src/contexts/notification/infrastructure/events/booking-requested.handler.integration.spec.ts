@@ -19,16 +19,19 @@ import { waitFor } from '../../../../test/utils/wait-for';
 import { BookingRequested } from '../../../booking/domain/events/booking-requested.event';
 import { IEventBus } from '../../../../shared/ports/event-bus.port';
 import { StaffInvitedHandler } from './staff-invited.handler';
+import { BookingApprovedHandler } from './booking-approved.handler';
+import { BookingRejectedHandler } from './booking-rejected.handler';
+import { BookingInfoRequestedHandler } from './booking-info-requested.handler';
+import { BookingInfoSubmittedHandler } from './booking-info-submitted.handler';
 
 const PLATFORM_KEY = 'booking-notif-test-key-xxxxxxxxx';
 
-// Suppress StaffInvitedHandler in this spec to prevent cross-test Pub/Sub interference.
-// Both notification integration specs share a live Pub/Sub emulator and DB; if this spec
-// subscribes to beloauto-StaffInvited, its handler would process events from the
-// staff-invited spec and write notification logs under those eventIds. Those logs would
-// then be found by the staff-invited spec's idempotency check, causing it to skip
-// dispatching and fail its assertion.
-const noOpStaffInvitedHandler = { onModuleInit: () => undefined, handle: async () => undefined };
+// Suppress unrelated handlers to prevent cross-spec Pub/Sub interference.
+// All notification integration specs share a live Pub/Sub emulator and DB. Each spec must
+// suppress handlers it doesn't own so that events published by other specs don't get
+// processed here — which would save duplicate notification_log rows and cause idempotency
+// checks in the owning spec to fire prematurely, skipping dispatch and failing assertions.
+const noOpHandler = { onModuleInit: () => undefined, handle: async () => undefined };
 
 const BOOKING_ENTITIES = [
   BookingEntity,
@@ -51,7 +54,18 @@ describe('BookingRequestedHandler integration', () => {
     dispatcher = new InMemoryNotificationDispatcher();
     ({ app, ds, eventBus } = await createNotificationIntegrationApp({
       dispatcher,
-      configure: (b) => b.overrideProvider(StaffInvitedHandler).useValue(noOpStaffInvitedHandler),
+      configure: (b) =>
+        b
+          .overrideProvider(StaffInvitedHandler)
+          .useValue(noOpHandler)
+          .overrideProvider(BookingApprovedHandler)
+          .useValue(noOpHandler)
+          .overrideProvider(BookingRejectedHandler)
+          .useValue(noOpHandler)
+          .overrideProvider(BookingInfoRequestedHandler)
+          .useValue(noOpHandler)
+          .overrideProvider(BookingInfoSubmittedHandler)
+          .useValue(noOpHandler),
       extraModules: [BookingModule],
       extraEntities: [...BOOKING_ENTITIES],
       withTenantInterceptor: true,

@@ -68,6 +68,12 @@ export const SubmitGuestBookingInfoBodySchema = z.object({
   photoUrls: z.array(z.url()).optional(),
 });
 
+const GuestTokenPayloadSchema = z.object({
+  bookingId: z.string(),
+  tenantId: z.string(),
+  guestEmail: z.email(),
+});
+
 type RequestBookingBody = z.infer<typeof RequestBookingBodySchema>;
 type AuthenticatedBookingBody = z.infer<typeof AuthenticatedBookingBodySchema>;
 type RejectBookingBody = z.infer<typeof RejectBookingBodySchema>;
@@ -173,12 +179,13 @@ export class BookingsController {
       );
     }
 
+    // JWT_SECRET is validated at startup by ConfigModule — the env guard is a defensive fallback.
     const secret = process.env['JWT_SECRET'];
     if (!secret) throw new HttpException({ status: 500 }, 500);
 
-    let payload: { bookingId: string; tenantId: string; guestEmail: string };
+    let rawPayload: unknown;
     try {
-      payload = jwt.verify(token, secret) as typeof payload;
+      rawPayload = jwt.verify(token, secret, { algorithms: ['HS256'] });
     } catch {
       throw new HttpException(
         {
@@ -190,6 +197,21 @@ export class BookingsController {
         HttpStatus.UNAUTHORIZED,
       );
     }
+
+    const payloadResult = GuestTokenPayloadSchema.safeParse(rawPayload);
+    if (!payloadResult.success) {
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Bad Request',
+          status: HttpStatus.BAD_REQUEST,
+          detail: 'Guest token payload is malformed',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const payload = payloadResult.data;
 
     if (payload.bookingId !== id) {
       throw new HttpException(

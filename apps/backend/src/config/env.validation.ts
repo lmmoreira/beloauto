@@ -22,6 +22,7 @@ const schema = z.object({
   SMTP_PORT: z.coerce.number().default(1025),
   SMTP_FROM: z.string().default('noreply@beloauto.com.br'),
   FRONTEND_URL: z.string().default('http://localhost:3000'),
+  JWT_SECRET: z.string().min(32, { message: 'JWT_SECRET must be at least 32 characters' }),
 });
 
 export type Env = z.infer<typeof schema>;
