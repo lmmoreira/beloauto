@@ -18,7 +18,7 @@ if [ -z "$BRANCH" ] || [ "$BRANCH" = "HEAD" ]; then
   exit 1
 fi
 
-PR_NUMBER=$(gh pr view --repo "$REPO" --json number --jq '.number' 2>/dev/null || true)
+PR_NUMBER=$(gh pr list --repo "$REPO" --head "$BRANCH" --json number --jq '.[0].number' 2>/dev/null || true)
 if [ -z "$PR_NUMBER" ]; then
   echo "❌ No open PR found for branch '$BRANCH'."
   exit 1
@@ -42,8 +42,8 @@ while true; do
   break
 done
 
-PASSED=$(echo "$OUTPUT" | grep -c $'\tpass\t' || echo 0)
-FAILED=$(echo "$OUTPUT" | grep -c $'\tfail\t' || echo 0)
+PASSED=$(echo "$OUTPUT" | grep -c $'\tpass\t' || true)
+FAILED=$(echo "$OUTPUT" | grep -c $'\tfail\t' || true)
 TOTAL=$(( PASSED + FAILED ))
 
 if [ "$FAILED" -eq 0 ]; then
