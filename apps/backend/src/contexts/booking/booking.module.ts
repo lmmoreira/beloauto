@@ -26,6 +26,8 @@ import { OpenScheduleUseCase } from './application/use-cases/open-schedule.use-c
 import { RemoveClosureUseCase } from './application/use-cases/remove-closure.use-case';
 import { RemoveScheduleOpeningUseCase } from './application/use-cases/remove-schedule-opening.use-case';
 import { UpdateServiceUseCase } from './application/use-cases/update-service.use-case';
+import { ApproveBookingUseCase } from './application/use-cases/approve-booking.use-case';
+import { BookingSlotConflictService } from './application/services/booking-slot-conflict.service';
 import { BookingEntity } from './infrastructure/entities/booking.entity';
 import { BookingLineEntity } from './infrastructure/entities/booking-line.entity';
 import { ScheduleClosureEntity } from './infrastructure/entities/schedule-closure.entity';
@@ -78,6 +80,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     { provide: BOOKING_REPOSITORY, useClass: TypeOrmBookingRepository },
     { provide: CUSTOMER_PROFILE_PORT, useClass: CustomerProfileAdapter },
     AvailabilityService,
+    BookingSlotConflictService,
     CreateServiceUseCase,
     RequestBookingUseCase,
     RequestAuthenticatedBookingUseCase,
@@ -92,6 +95,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     ListOpeningsUseCase,
     GetAvailabilityUseCase,
     GetAvailabilitySummaryUseCase,
+    ApproveBookingUseCase,
   ],
 })
 export class BookingModule {}

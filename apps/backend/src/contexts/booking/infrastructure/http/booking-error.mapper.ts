@@ -10,6 +10,7 @@ import {
   ClosureDateInPastError,
   CustomerPhoneNotSetError,
   DayAlreadyOpenInSettingsError,
+  InvalidBookingTransitionError,
   OpeningDateInPastError,
   ScheduleAlreadyClosedError,
   ScheduleClosureNotFoundError,
@@ -57,6 +58,15 @@ export function mapBookingError(err: unknown): never {
       detail: err.message,
     };
     throw new HttpException(body, HttpStatus.CONFLICT);
+  }
+  if (err instanceof InvalidBookingTransitionError) {
+    const body: ProblemDetail = {
+      type: 'about:blank',
+      title: 'Unprocessable Entity',
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      detail: err.message,
+    };
+    throw new HttpException(body, HttpStatus.UNPROCESSABLE_ENTITY);
   }
   if (
     err instanceof ClosureDateInPastError ||

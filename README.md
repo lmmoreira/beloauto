@@ -98,6 +98,31 @@ pnpm ci:local   # ~5min — everything above + integration tests
 git config core.hooksPath .githooks
 ```
 
+## Monitoring CI checks after a push
+
+After pushing a branch or opening a PR, run this script to wait for all GitHub CI checks to complete and get a one-line result:
+
+```bash
+bash scripts/wait-ci.sh
+```
+
+It auto-detects the open PR for the current branch, waits for checks to queue, polls every 30 s, and prints either:
+
+```
+✅ All 13 CI checks passed on PR #62.
+```
+```
+❌ 2 of 13 CI checks failed on PR #62 — please verify: ESLint, SonarCloud Analysis
+```
+
+**Running inside Claude** — prefix the command with `!` so the output lands directly in the conversation:
+
+```
+! bash scripts/wait-ci.sh
+```
+
+Claude reads the result and acts on any failures immediately, without needing polling loops in the session.
+
 ## Common Commands
 
 ```bash

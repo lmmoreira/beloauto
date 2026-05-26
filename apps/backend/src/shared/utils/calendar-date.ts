@@ -19,9 +19,14 @@ const WEEKDAY_NAMES: WeekDayName[] = [
   'saturday',
 ];
 
+/** Returns a Date as a YYYY-MM-DD string in UTC. */
+export function utcDateString(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
 /** Returns today's date as a YYYY-MM-DD string in UTC. */
 export function todayUTC(): string {
-  return new Date().toISOString().slice(0, 10);
+  return utcDateString(new Date());
 }
 
 /**

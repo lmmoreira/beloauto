@@ -4,20 +4,10 @@ import { Repository } from 'typeorm';
 import { NotificationLog } from '../../domain/notification-log.entity';
 import { NotificationLogEntity } from '../entities/notification-log.entity';
 import { TypeOrmNotificationLogRepository } from './typeorm-notification-log.repository';
+import { NotificationLogEntityBuilder } from '../../../../test/builders/notification/notification-log-entity.builder';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 const EVENT_ID = 'bbbbbbbb-0000-4000-8000-000000000001';
-
-function makeEntity(overrides: Partial<NotificationLogEntity> = {}): NotificationLogEntity {
-  const e = new NotificationLogEntity();
-  e.id = 'cccccccc-0000-4000-8000-000000000001';
-  e.tenantId = TENANT_ID;
-  e.eventId = EVENT_ID;
-  e.notificationType = 'STAFF_INVITED';
-  e.channel = 'EMAIL';
-  e.createdAt = new Date('2026-01-01T00:00:00Z');
-  return Object.assign(e, overrides);
-}
 
 describe('TypeOrmNotificationLogRepository', () => {
   let repo: TypeOrmNotificationLogRepository;
@@ -56,7 +46,9 @@ describe('TypeOrmNotificationLogRepository', () => {
     });
 
     it('maps entity to NotificationLog domain object', async () => {
-      ormRepo.findOne.mockResolvedValue(makeEntity());
+      ormRepo.findOne.mockResolvedValue(
+        new NotificationLogEntityBuilder().withTenantId(TENANT_ID).withEventId(EVENT_ID).build(),
+      );
 
       const result = await repo.findByEventAndChannel(
         TENANT_ID,
@@ -90,7 +82,9 @@ describe('TypeOrmNotificationLogRepository', () => {
 
   describe('save', () => {
     it('persists the notification log via TypeORM save', async () => {
-      ormRepo.save.mockResolvedValue(makeEntity());
+      ormRepo.save.mockResolvedValue(
+        new NotificationLogEntityBuilder().withTenantId(TENANT_ID).withEventId(EVENT_ID).build(),
+      );
       const log = NotificationLog.create({
         tenantId: TENANT_ID,
         eventId: EVENT_ID,

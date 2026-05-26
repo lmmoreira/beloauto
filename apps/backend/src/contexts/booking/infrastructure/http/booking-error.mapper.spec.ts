@@ -4,6 +4,7 @@ import {
   BookingNotFoundError,
   BookingSlotUnavailableError,
   ClosureDateInPastError,
+  InvalidBookingTransitionError,
   ScheduleAlreadyClosedError,
   ScheduleClosureNotFoundError,
   ServiceDeactivatedError,
@@ -55,6 +56,12 @@ describe('mapBookingError', () => {
     const err = call(new BookingSlotUnavailableError());
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getStatus()).toBe(HttpStatus.CONFLICT);
+  });
+
+  it('maps InvalidBookingTransitionError to 422', () => {
+    const err = call(new InvalidBookingTransitionError('COMPLETED', 'APPROVED'));
+    expect(err).toBeInstanceOf(HttpException);
+    expect(err.getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
   });
 
   it('maps ClosureDateInPastError to 422', () => {

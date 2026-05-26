@@ -3,20 +3,12 @@ import { CustomerBuilder } from '../../../../test/builders/customer/customer.bui
 import { InMemoryCustomerRepository } from '../../../../test/repositories/customer/in-memory-customer.repository';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
+import { testAddressProps } from '../../../../test/utils/address-helpers';
 import { GetCustomerProfileUseCase } from '../../application/use-cases/get-customer-profile.use-case';
 import { UpdateCustomerProfileUseCase } from '../../application/use-cases/update-customer-profile.use-case';
 import { CustomerController } from './customer.controller';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000140';
-
-const validAddress = {
-  street: 'Rua das Flores',
-  number: '100',
-  neighborhood: 'Centro',
-  city: 'Belo Horizonte',
-  state: 'MG',
-  zipCode: '30100000',
-};
 
 describe('CustomerController', () => {
   let controller: CustomerController;
@@ -78,7 +70,7 @@ describe('CustomerController', () => {
     });
 
     it('accepts a valid defaultAddress', async () => {
-      const result = await controller.updateMe({ defaultAddress: validAddress });
+      const result = await controller.updateMe({ defaultAddress: testAddressProps() });
       expect(result.defaultAddress).not.toBeNull();
     });
 
