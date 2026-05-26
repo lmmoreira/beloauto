@@ -30,11 +30,16 @@ ok "TypeScript"
 # ─── Tests ───────────────────────────────────────────────────────────────────
 step "Unit tests"
 pnpm --filter @beloauto/backend test:unit
+pnpm --filter @beloauto/bff test:unit
 ok "Unit tests"
 
 step "Integration tests"
 pnpm --filter @beloauto/backend test:integration
 ok "Integration tests"
+
+step "BFF Component tests"
+pnpm --filter @beloauto/bff test:component
+ok "BFF Component tests"
 
 # ─── Secret scan (gitleaks via Docker — no token needed) ─────────────────────
 step "Gitleaks secret scan"
