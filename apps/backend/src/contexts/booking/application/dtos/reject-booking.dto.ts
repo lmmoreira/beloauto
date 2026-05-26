@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const RejectBookingBodySchema = z.object({
-  reason: z.string().min(10),
+  reason: z.string().trim().min(10),
 });
 
 export type RejectBookingBody = z.infer<typeof RejectBookingBodySchema>;

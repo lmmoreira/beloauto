@@ -346,7 +346,8 @@ export class Booking extends AggregateRoot {
   }
 
   reject(staffId: string, reason: string, correlationId: string): void {
-    if (reason.trim().length < 10) {
+    const normalizedReason = reason.trim();
+    if (normalizedReason.length < 10) {
       throw new BookingRejectionReasonTooShortError();
     }
     if (
@@ -359,7 +360,7 @@ export class Booking extends AggregateRoot {
     this.props.status = BookingStatus.REJECTED;
     this.props.rejectedAt = new Date();
     this.props.rejectedBy = staffId;
-    this.props.rejectionReason = reason;
+    this.props.rejectionReason = normalizedReason;
 
     this.addDomainEvent(
       new BookingRejected(this.props.tenantId, correlationId, {
@@ -367,7 +368,7 @@ export class Booking extends AggregateRoot {
         customerId: this.props.customerId,
         guestEmail: this.props.guestEmail.address,
         guestName: this.props.guestName,
-        reason,
+        reason: normalizedReason,
         rejectedBy: staffId,
       }),
     );

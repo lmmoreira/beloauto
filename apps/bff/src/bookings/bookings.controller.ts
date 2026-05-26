@@ -49,7 +49,7 @@ export const AuthenticatedBookingBodySchema = z.object({
 });
 
 export const RejectBookingBodySchema = z.object({
-  reason: z.string().min(10),
+  reason: z.string().trim().min(10),
 });
 
 type RequestBookingBody = z.infer<typeof RequestBookingBodySchema>;
