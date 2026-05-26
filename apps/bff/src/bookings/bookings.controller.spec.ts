@@ -1,8 +1,12 @@
 import { HttpException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { makeBackendHttp } from '../test/backend-http.mock';
 import { BookingsController } from './bookings.controller';
 import { BookingResponse } from './bookings.types';
+
+const makeConfigService = (secret = 'test-secret-32-chars-for-bff-spec') =>
+  ({ getOrThrow: () => secret }) as unknown as ConfigService;
 
 const TENANT_SLUG = 'lavacar-bh';
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
@@ -71,7 +75,7 @@ describe('BookingsController', () => {
   describe('create()', () => {
     it('returns 400 when X-Tenant-Slug header is missing', async () => {
       const backendHttp = makeBackendHttp();
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.create(undefined, validBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -84,7 +88,7 @@ describe('BookingsController', () => {
         get: jest.fn().mockResolvedValue(tenantInfo),
         postForPublic: jest.fn().mockResolvedValue(mockBookingResponse),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const result = await controller.create(TENANT_SLUG, validBody);
 
@@ -99,7 +103,7 @@ describe('BookingsController', () => {
         get: jest.fn().mockResolvedValue(tenantInfo),
         postForPublic: jest.fn().mockRejectedValue(new Error('409')),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       await expect(controller.create(TENANT_SLUG, validBody)).rejects.toThrow('409');
     });
@@ -110,7 +114,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.create('unknown-slug', validBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -123,7 +127,7 @@ describe('BookingsController', () => {
       const backendHttp = makeBackendHttp({
         patch: jest.fn().mockResolvedValue(mockApproveResponse),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const result = await controller.approve(BOOKING_ID);
 
@@ -137,7 +141,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 409, detail: 'slot unavailable' }, 409)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.approve(BOOKING_ID).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -150,7 +154,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.approve(BOOKING_ID).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -163,7 +167,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.approve('unknown-id').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -176,7 +180,7 @@ describe('BookingsController', () => {
       const backendHttp = makeBackendHttp({
         patch: jest.fn().mockResolvedValue(mockRejectResponse),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const result = await controller.reject(BOOKING_ID, validRejectBody);
 
@@ -193,7 +197,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.reject(BOOKING_ID, validRejectBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -206,7 +210,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.reject('unknown-id', validRejectBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -219,7 +223,7 @@ describe('BookingsController', () => {
       const backendHttp = makeBackendHttp({
         patch: jest.fn().mockResolvedValue(mockRequestInfoResponse),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const result = await controller.requestInfo(BOOKING_ID, validRequestInfoBody);
 
@@ -236,7 +240,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller
         .requestInfo(BOOKING_ID, validRequestInfoBody)
@@ -251,7 +255,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller
         .requestInfo('unknown-id', validRequestInfoBody)
@@ -268,7 +272,7 @@ describe('BookingsController', () => {
       const backendHttp = makeBackendHttp({
         patch: jest.fn().mockResolvedValue(mockSubmitInfoResponse),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const result = await controller.submitInfo(BOOKING_ID, validSubmitBody);
 
@@ -285,7 +289,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 403, detail: 'forbidden' }, 403)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.submitInfo(BOOKING_ID, validSubmitBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -298,7 +302,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.submitInfo(BOOKING_ID, validSubmitBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -311,7 +315,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller
         .submitInfo('unknown-id', validSubmitBody)
@@ -330,17 +334,9 @@ describe('BookingsController', () => {
       infoSubmittedAt: '2026-06-15T14:00:00.000Z',
     };
 
-    beforeEach(() => {
-      process.env['JWT_SECRET'] = JWT_SECRET;
-    });
-
-    afterEach(() => {
-      delete process.env['JWT_SECRET'];
-    });
-
     it('returns 400 when token query param is missing', async () => {
       const backendHttp = makeBackendHttp();
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller
         .submitInfoGuest(BOOKING_ID, undefined, validSubmitBody)
@@ -351,7 +347,7 @@ describe('BookingsController', () => {
 
     it('returns 401 when token is invalid', async () => {
       const backendHttp = makeBackendHttp();
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller
         .submitInfoGuest(BOOKING_ID, 'invalid.token.here', validSubmitBody)
@@ -367,7 +363,7 @@ describe('BookingsController', () => {
         { expiresIn: 604800 },
       );
       const backendHttp = makeBackendHttp();
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller
         .submitInfoGuest(BOOKING_ID, token, validSubmitBody)
@@ -386,7 +382,7 @@ describe('BookingsController', () => {
       const backendHttp = makeBackendHttp({
         patchForPublic: jest.fn().mockResolvedValue(mockSubmitGuestResponse),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const result = await controller.submitInfoGuest(BOOKING_ID, token, validSubmitBody);
 
@@ -409,7 +405,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller
         .submitInfoGuest(BOOKING_ID, token, validSubmitBody)
@@ -429,7 +425,7 @@ describe('BookingsController', () => {
       const backendHttp = makeBackendHttp({
         post: jest.fn().mockResolvedValue(mockBookingResponse),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const result = await controller.createAuthenticated(authBody);
 
@@ -443,7 +439,7 @@ describe('BookingsController', () => {
           .fn()
           .mockRejectedValue(new HttpException({ status: 422, detail: 'phone not set' }, 422)),
       });
-      const controller = new BookingsController(backendHttp);
+      const controller = new BookingsController(backendHttp, makeConfigService());
 
       const err = await controller.createAuthenticated(authBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);

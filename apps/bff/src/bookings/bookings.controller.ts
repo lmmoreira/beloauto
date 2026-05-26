@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import { ConfigService } from '@nestjs/config';
 import { Public } from '../shared/decorators/public.decorator';
 import { Roles } from '../shared/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
@@ -83,7 +84,10 @@ type SubmitGuestBookingInfoBody = z.infer<typeof SubmitGuestBookingInfoBodySchem
 
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly backendHttp: BackendHttpService) {}
+  constructor(
+    private readonly backendHttp: BackendHttpService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -179,9 +183,7 @@ export class BookingsController {
       );
     }
 
-    // JWT_SECRET is validated at startup by ConfigModule — the env guard is a defensive fallback.
-    const secret = process.env['JWT_SECRET'];
-    if (!secret) throw new HttpException({ status: 500 }, 500);
+    const secret = this.config.getOrThrow<string>('JWT_SECRET');
 
     let rawPayload: unknown;
     try {
