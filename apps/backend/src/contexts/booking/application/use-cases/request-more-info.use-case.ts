@@ -5,11 +5,7 @@ import {
   TRANSACTION_MANAGER,
 } from '../../../../shared/ports/transaction-manager.port';
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
-import {
-  BookingNotFoundError,
-  InvalidBookingTransitionError,
-} from '../../domain/errors/booking-domain.error';
-import { BookingStatus } from '../../domain/booking.aggregate';
+import { BookingNotFoundError } from '../../domain/errors/booking-domain.error';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
 import { RequestMoreInfoDto } from '../dtos/request-more-info.dto';
 
@@ -35,10 +31,6 @@ export class RequestMoreInfoUseCase {
 
     const booking = await this.bookingRepo.findById(dto.bookingId, tenantId);
     if (!booking) throw new BookingNotFoundError(dto.bookingId);
-
-    if (booking.status !== BookingStatus.PENDING) {
-      throw new InvalidBookingTransitionError(booking.status, BookingStatus.INFO_REQUESTED);
-    }
 
     booking.requestMoreInfo(staffId, dto.message, correlationId);
 

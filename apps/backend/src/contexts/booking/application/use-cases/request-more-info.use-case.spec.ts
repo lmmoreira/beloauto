@@ -127,6 +127,19 @@ describe('RequestMoreInfoUseCase', () => {
     );
   });
 
+  it('throws BookingInfoMessageTooShortError even when booking is not PENDING (length checked first)', async () => {
+    const booking = new BookingBuilder()
+      .withTenantId(TENANT_A)
+      .withScheduledAt(scheduledAt)
+      .withStatus(BookingStatus.INFO_REQUESTED)
+      .build();
+    await bookingRepo.save(booking);
+
+    await expect(useCase.execute({ bookingId: booking.id, message: 'short' })).rejects.toThrow(
+      BookingInfoMessageTooShortError,
+    );
+  });
+
   it('throws BookingNotFoundError when booking does not exist', async () => {
     await expect(
       useCase.execute({
