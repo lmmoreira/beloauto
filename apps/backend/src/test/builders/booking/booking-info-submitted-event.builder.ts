@@ -2,14 +2,14 @@ import { BookingInfoSubmitted } from '../../../contexts/booking/domain/events/bo
 
 export class BookingInfoSubmittedEventBuilder {
   private tenantId = 'aaaaaaaa-0000-4000-8000-000000000001';
-  private correlationId = 'corr-info-sub-1';
+  private readonly correlationId = 'corr-info-sub-1';
   private bookingId = 'dddddddd-0004-4000-8000-000000000001';
   private customerId: string | null = null;
   private submittedByEmail = 'joao@example.com';
   private infoPayload: Record<string, unknown> = {
     notes: 'Aqui estão as fotos do veículo conforme solicitado',
   };
-  private photoUrls: string[] = [];
+  private readonly photoUrls: string[] = [];
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;

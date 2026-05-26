@@ -2,13 +2,13 @@ import { BookingInfoRequested } from '../../../contexts/booking/domain/events/bo
 
 export class BookingInfoRequestedEventBuilder {
   private tenantId = 'aaaaaaaa-0000-4000-8000-000000000001';
-  private correlationId = 'corr-info-req-1';
+  private readonly correlationId = 'corr-info-req-1';
   private bookingId = 'dddddddd-0003-4000-8000-000000000001';
   private customerId: string | null = null;
   private guestEmail = 'joao@example.com';
-  private guestName = 'João Silva';
-  private informationNeeded = 'Por favor envie fotos melhores do veículo';
-  private requestedBy = 'staffid-0000-4000-8000-000000000001';
+  private readonly guestName = 'João Silva';
+  private readonly informationNeeded = 'Por favor envie fotos melhores do veículo';
+  private readonly requestedBy = 'staffid-0000-4000-8000-000000000001';
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;

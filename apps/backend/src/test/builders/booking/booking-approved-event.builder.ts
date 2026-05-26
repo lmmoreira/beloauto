@@ -3,23 +3,23 @@ import { BookingApproved } from '../../../contexts/booking/domain/events/booking
 export class BookingApprovedEventBuilder {
   private tenantId = 'aaaaaaaa-0000-4000-8000-000000000001';
   private correlationId = 'corr-approved-1';
-  private bookingId = 'dddddddd-0001-4000-8000-000000000001';
+  private readonly bookingId = 'dddddddd-0001-4000-8000-000000000001';
   private customerId: string | null = null;
   private guestEmail = 'joao@example.com';
-  private guestName = 'João Silva';
-  private approvedSlot = {
+  private readonly guestName = 'João Silva';
+  private readonly approvedSlot = {
     startTime: '2026-06-15T16:00:00.000Z',
     endTime: '2026-06-15T17:00:00.000Z',
   };
-  private totalPrice = { amount: '150.00', currency: 'BRL' };
-  private lineSummary = [
+  private readonly totalPrice = { amount: '150.00', currency: 'BRL' };
+  private readonly lineSummary = [
     {
       serviceId: 'ffffffff-0001-4000-8000-000000000001',
       serviceNameAtBooking: 'Lavagem Completa',
       priceAtBooking: { amount: '150.00', currency: 'BRL' },
     },
   ];
-  private approvedBy = 'staffid-0000-4000-8000-000000000001';
+  private readonly approvedBy = 'staffid-0000-4000-8000-000000000001';
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;
