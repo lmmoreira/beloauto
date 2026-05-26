@@ -2,6 +2,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import {
   BookingDomainError,
   BookingNotFoundError,
+  BookingRejectionReasonTooShortError,
   BookingSlotUnavailableError,
   ClosureDateInPastError,
   InvalidBookingTransitionError,
@@ -68,6 +69,12 @@ describe('mapBookingError', () => {
     const err = call(new ClosureDateInPastError());
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+  });
+
+  it('maps BookingRejectionReasonTooShortError to 400', () => {
+    const err = call(new BookingRejectionReasonTooShortError());
+    expect(err).toBeInstanceOf(HttpException);
+    expect(err.getStatus()).toBe(HttpStatus.BAD_REQUEST);
   });
 
   it('maps generic BookingDomainError to 400', () => {

@@ -42,6 +42,14 @@ const mockApproveResponse = {
   approvedAt: '2026-06-15T13:00:00.000Z',
 };
 
+const mockRejectResponse = {
+  bookingId: BOOKING_ID,
+  status: 'REJECTED',
+  rejectedAt: '2026-06-15T13:00:00.000Z',
+};
+
+const validRejectBody = { reason: 'Service unavailable for that date' };
+
 describe('BookingsController', () => {
   afterEach(() => jest.resetAllMocks());
 
@@ -143,6 +151,49 @@ describe('BookingsController', () => {
       const controller = new BookingsController(backendHttp);
 
       const err = await controller.approve('unknown-id').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(404);
+    });
+  });
+
+  describe('reject()', () => {
+    it('calls patch /bookings/:id/reject with body and returns the result', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest.fn().mockResolvedValue(mockRejectResponse),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const result = await controller.reject(BOOKING_ID, validRejectBody);
+
+      expect(backendHttp.patch).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID}/reject`,
+        validRejectBody,
+      );
+      expect(result).toBe(mockRejectResponse);
+    });
+
+    it('propagates 422 from backend when transition is invalid', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller.reject(BOOKING_ID, validRejectBody).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(422);
+    });
+
+    it('propagates 404 from backend when booking is not found', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller.reject('unknown-id', validRejectBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(404);
     });

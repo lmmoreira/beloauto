@@ -48,8 +48,13 @@ export const AuthenticatedBookingBodySchema = z.object({
   beforeServicePhotoUrls: z.array(z.url()).optional(),
 });
 
+export const RejectBookingBodySchema = z.object({
+  reason: z.string().trim().min(10),
+});
+
 type RequestBookingBody = z.infer<typeof RequestBookingBodySchema>;
 type AuthenticatedBookingBody = z.infer<typeof AuthenticatedBookingBodySchema>;
+type RejectBookingBody = z.infer<typeof RejectBookingBodySchema>;
 
 @Controller('bookings')
 export class BookingsController {
@@ -97,5 +102,15 @@ export class BookingsController {
     @Param('id') id: string,
   ): Promise<{ bookingId: string; status: string; approvedAt: string }> {
     return this.backendHttp.patch(`/bookings/${id}/approve`, {});
+  }
+
+  @Patch(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles('MANAGER', 'STAFF')
+  reject(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(RejectBookingBodySchema)) body: RejectBookingBody,
+  ): Promise<{ bookingId: string; status: string; rejectedAt: string }> {
+    return this.backendHttp.patch(`/bookings/${id}/reject`, body);
   }
 }

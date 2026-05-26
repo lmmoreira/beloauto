@@ -7,6 +7,7 @@ import { PhoneNumber } from '../../../shared/value-objects/phone-number.vo';
 import { BookingLine, BookingLineInput } from './booking-line.entity';
 import {
   BookingLineRequiredError,
+  BookingRejectionReasonTooShortError,
   InvalidBookingTransitionError,
   PickupAddressRequiredError,
 } from './errors/booking-domain.error';
@@ -345,6 +346,10 @@ export class Booking extends AggregateRoot {
   }
 
   reject(staffId: string, reason: string, correlationId: string): void {
+    const normalizedReason = reason.trim();
+    if (normalizedReason.length < 10) {
+      throw new BookingRejectionReasonTooShortError();
+    }
     if (
       this.props.status !== BookingStatus.PENDING &&
       this.props.status !== BookingStatus.INFO_REQUESTED
@@ -355,7 +360,7 @@ export class Booking extends AggregateRoot {
     this.props.status = BookingStatus.REJECTED;
     this.props.rejectedAt = new Date();
     this.props.rejectedBy = staffId;
-    this.props.rejectionReason = reason;
+    this.props.rejectionReason = normalizedReason;
 
     this.addDomainEvent(
       new BookingRejected(this.props.tenantId, correlationId, {
@@ -363,7 +368,7 @@ export class Booking extends AggregateRoot {
         customerId: this.props.customerId,
         guestEmail: this.props.guestEmail.address,
         guestName: this.props.guestName,
-        reason,
+        reason: normalizedReason,
         rejectedBy: staffId,
       }),
     );

@@ -6,6 +6,7 @@ import { BookingLineInputBuilder } from '../../../test/builders/booking/booking-
 import { Booking, BookingStatus, RequestBookingInput } from './booking.aggregate';
 import {
   BookingLineRequiredError,
+  BookingRejectionReasonTooShortError,
   InvalidBookingTransitionError,
   PickupAddressRequiredError,
 } from './errors/booking-domain.error';
@@ -165,25 +166,34 @@ describe('Booking.approve()', () => {
 });
 
 describe('Booking.reject()', () => {
+  const VALID_REASON = 'Service unavailable for the requested date';
+
   it('transitions PENDING → REJECTED and emits BookingRejected', () => {
     const booking = new BookingBuilder().withStatus(BookingStatus.PENDING).build();
-    booking.reject(STAFF_ID, 'No slots', CORRELATION_ID);
+    booking.reject(STAFF_ID, VALID_REASON, CORRELATION_ID);
 
     expect(booking.status).toBe(BookingStatus.REJECTED);
-    expect(booking.rejectionReason).toBe('No slots');
+    expect(booking.rejectionReason).toBe(VALID_REASON);
     const events = booking.domainEvents;
     expect(events[0]).toBeInstanceOf(BookingRejected);
   });
 
   it('transitions INFO_REQUESTED → REJECTED', () => {
     const booking = new BookingBuilder().withStatus(BookingStatus.INFO_REQUESTED).build();
-    booking.reject(STAFF_ID, 'reason', CORRELATION_ID);
+    booking.reject(STAFF_ID, VALID_REASON, CORRELATION_ID);
     expect(booking.status).toBe(BookingStatus.REJECTED);
+  });
+
+  it('throws BookingRejectionReasonTooShortError when reason is too short', () => {
+    const booking = new BookingBuilder().withStatus(BookingStatus.PENDING).build();
+    expect(() => booking.reject(STAFF_ID, 'short', CORRELATION_ID)).toThrow(
+      BookingRejectionReasonTooShortError,
+    );
   });
 
   it('throws when COMPLETED', () => {
     const booking = new BookingBuilder().withStatus(BookingStatus.COMPLETED).build();
-    expect(() => booking.reject(STAFF_ID, 'r', CORRELATION_ID)).toThrow(
+    expect(() => booking.reject(STAFF_ID, VALID_REASON, CORRELATION_ID)).toThrow(
       InvalidBookingTransitionError,
     );
   });

@@ -17,7 +17,10 @@ import {
   RequestAuthenticatedBookingDto,
   RequestAuthenticatedBookingSchema,
 } from '../../application/dtos/request-authenticated-booking.dto';
-import { ApproveBookingUseCaseResult } from '../../application/dtos/approve-booking.dto';
+import {
+  RejectBookingBody,
+  RejectBookingBodySchema,
+} from '../../application/dtos/reject-booking.dto';
 import {
   RequestBookingUseCase,
   RequestBookingUseCaseResult,
@@ -26,7 +29,14 @@ import {
   RequestAuthenticatedBookingUseCase,
   RequestAuthenticatedBookingUseCaseResult,
 } from '../../application/use-cases/request-authenticated-booking.use-case';
-import { ApproveBookingUseCase } from '../../application/use-cases/approve-booking.use-case';
+import {
+  ApproveBookingUseCase,
+  ApproveBookingUseCaseResult,
+} from '../../application/use-cases/approve-booking.use-case';
+import {
+  RejectBookingUseCase,
+  RejectBookingUseCaseResult,
+} from '../../application/use-cases/reject-booking.use-case';
 import { StaffOrManagerRoleGuard } from '../guards/staff-or-manager-role.guard';
 import { mapBookingError } from '../http/booking-error.mapper';
 
@@ -36,6 +46,7 @@ export class BookingController {
     private readonly requestBooking: RequestBookingUseCase,
     private readonly requestAuthenticatedBooking: RequestAuthenticatedBookingUseCase,
     private readonly approveBooking: ApproveBookingUseCase,
+    private readonly rejectBooking: RejectBookingUseCase,
   ) {}
 
   @Post()
@@ -60,5 +71,17 @@ export class BookingController {
   @UseGuards(StaffOrManagerRoleGuard)
   approve(@Param('id') id: string): Promise<ApproveBookingUseCaseResult> {
     return this.approveBooking.execute({ bookingId: id }).catch(mapBookingError);
+  }
+
+  @Patch(':id/reject')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(StaffOrManagerRoleGuard)
+  reject(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(RejectBookingBodySchema)) body: RejectBookingBody,
+  ): Promise<RejectBookingUseCaseResult> {
+    return this.rejectBooking
+      .execute({ bookingId: id, reason: body.reason })
+      .catch(mapBookingError);
   }
 }

@@ -152,3 +152,10 @@ export class CustomerPhoneNotSetError extends BookingDomainError {
     this.name = 'CustomerPhoneNotSetError';
   }
 }
+
+export class BookingRejectionReasonTooShortError extends BookingDomainError {
+  constructor() {
+    super('Rejection reason must be at least 10 characters');
+    this.name = 'BookingRejectionReasonTooShortError';
+  }
+}

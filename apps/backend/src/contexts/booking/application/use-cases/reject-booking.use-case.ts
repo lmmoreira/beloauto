@@ -11,26 +11,24 @@ import {
 } from '../../domain/errors/booking-domain.error';
 import { BookingStatus } from '../../domain/booking.aggregate';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
-import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
-import { ApproveBookingDto } from '../dtos/approve-booking.dto';
+import { RejectBookingDto } from '../dtos/reject-booking.dto';
 
-export interface ApproveBookingUseCaseResult {
+export interface RejectBookingUseCaseResult {
   bookingId: string;
   status: string;
-  approvedAt: string;
+  rejectedAt: string;
 }
 
 @Injectable()
-export class ApproveBookingUseCase {
+export class RejectBookingUseCase {
   constructor(
     private readonly tenantContext: TenantContext,
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
-    private readonly slotConflictService: BookingSlotConflictService,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
   ) {}
 
-  async execute(dto: ApproveBookingDto): Promise<ApproveBookingUseCaseResult> {
+  async execute(dto: RejectBookingDto): Promise<RejectBookingUseCaseResult> {
     const tenantId = this.tenantContext.tenantId;
     const staffId = this.tenantContext.actorId!;
     const correlationId = this.tenantContext.correlationId;
@@ -42,16 +40,10 @@ export class ApproveBookingUseCase {
       booking.status !== BookingStatus.PENDING &&
       booking.status !== BookingStatus.INFO_REQUESTED
     ) {
-      throw new InvalidBookingTransitionError(booking.status, BookingStatus.APPROVED);
+      throw new InvalidBookingTransitionError(booking.status, BookingStatus.REJECTED);
     }
 
-    await this.slotConflictService.assertSlotFree(
-      tenantId,
-      booking.scheduledAt,
-      booking.totalDurationMins,
-    );
-
-    booking.approve(staffId, correlationId);
+    booking.reject(staffId, dto.reason, correlationId);
 
     await this.txManager.run(async () => {
       await this.bookingRepo.save(booking);
@@ -64,7 +56,7 @@ export class ApproveBookingUseCase {
     return {
       bookingId: booking.id,
       status: booking.status,
-      approvedAt: booking.approvedAt!.toISOString(),
+      rejectedAt: booking.rejectedAt!.toISOString(),
     };
   }
 }

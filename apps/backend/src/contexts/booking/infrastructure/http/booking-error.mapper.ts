@@ -6,6 +6,7 @@ import {
   BookingCustomerNotFoundError,
   BookingDomainError,
   BookingNotFoundError,
+  BookingRejectionReasonTooShortError,
   BookingSlotUnavailableError,
   ClosureDateInPastError,
   CustomerPhoneNotSetError,
@@ -21,6 +22,15 @@ import {
 } from '../../domain/errors/booking-domain.error';
 
 export function mapBookingError(err: unknown): never {
+  if (err instanceof BookingRejectionReasonTooShortError) {
+    const body: ProblemDetail = {
+      type: 'about:blank',
+      title: 'Bad Request',
+      status: HttpStatus.BAD_REQUEST,
+      detail: err.message,
+    };
+    throw new HttpException(body, HttpStatus.BAD_REQUEST);
+  }
   if (err instanceof CustomerPhoneNotSetError) {
     const body: ProblemDetail = {
       type: 'about:blank',
