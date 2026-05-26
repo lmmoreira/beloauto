@@ -24,13 +24,6 @@ const CUSTOMER_ID = '20000000-0000-4000-8000-000000000110';
 const STAFF_ID = '20000000-0000-4000-8000-000000000112';
 const CORRELATION_ID = 'corr-booking-ctrl-test';
 
-function makeSlotService(port?: InMemoryBookingAvailabilityPort): BookingSlotConflictService {
-  return new BookingSlotConflictService(
-    port ?? new InMemoryBookingAvailabilityPort(),
-    new InMemoryScheduleTenantSettingsPort(),
-  );
-}
-
 describe('BookingController', () => {
   let controller: BookingController;
   let serviceRepo: InMemoryServiceRepository;
@@ -67,7 +60,10 @@ describe('BookingController', () => {
     controller = new BookingController(
       new RequestBookingUseCase(
         serviceRepo,
-        makeSlotService(),
+        new BookingSlotConflictService(
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+        ),
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -76,7 +72,10 @@ describe('BookingController', () => {
       new RequestAuthenticatedBookingUseCase(
         customerProfilePort,
         serviceRepo,
-        makeSlotService(),
+        new BookingSlotConflictService(
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+        ),
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -85,7 +84,10 @@ describe('BookingController', () => {
       new ApproveBookingUseCase(
         staffCtx,
         bookingRepo,
-        makeSlotService(),
+        new BookingSlotConflictService(
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+        ),
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
@@ -140,7 +142,7 @@ describe('BookingController', () => {
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          makeSlotService(conflictPort),
+          new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -149,7 +151,10 @@ describe('BookingController', () => {
         new RequestAuthenticatedBookingUseCase(
           new InMemoryCustomerProfilePort(),
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -158,7 +163,10 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtxB,
           repoB,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -238,7 +246,10 @@ describe('BookingController', () => {
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -247,7 +258,10 @@ describe('BookingController', () => {
         new RequestAuthenticatedBookingUseCase(
           new InMemoryCustomerProfilePort(),
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -256,7 +270,7 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtx,
           bookingRepoB,
-          makeSlotService(conflictPort),
+          new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -479,7 +493,10 @@ describe('BookingController', () => {
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -488,7 +505,10 @@ describe('BookingController', () => {
         new RequestAuthenticatedBookingUseCase(
           noPhonePort,
           serviceRepo,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -497,7 +517,10 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtxC,
           repoC,
-          makeSlotService(),
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
