@@ -308,10 +308,12 @@ describe('BookingController (integration)', () => {
         .send({ ...validBody(), scheduledAt: `${futureDate(13)}T09:00:00.000Z` })
         .expect(201);
 
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/approve`)
         .set(guestHeaders(tenantAId))
         .expect(403);
+
+      expect(body.status).toBe(403);
     });
 
     it('tenant isolation: cannot approve booking from tenantB', async () => {
