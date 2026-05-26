@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as jwt from 'jsonwebtoken';
 import {
@@ -10,7 +11,6 @@ import {
   setupActiveGuardMock,
   request,
   TENANT_ID,
-  TEST_JWT_SECRET,
 } from '../test/component-test.helpers';
 import { BookingResponse } from './bookings.types';
 
@@ -623,9 +623,10 @@ describe('BookingsController (component)', () => {
     const validGuestSubmitBody = { response: 'Here are the vehicle photos as requested' };
 
     function makeGuestToken(overrides?: Record<string, unknown>): string {
+      const secret = app.get(ConfigService).getOrThrow<string>('JWT_SECRET');
       return jwt.sign(
         { bookingId: BOOKING_ID_GUEST, tenantId: TENANT_ID, guestEmail: GUEST_EMAIL, ...overrides },
-        TEST_JWT_SECRET,
+        secret,
         { expiresIn: 604800 },
       );
     }
