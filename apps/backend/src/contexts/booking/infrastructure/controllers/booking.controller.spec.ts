@@ -118,7 +118,10 @@ describe('BookingController', () => {
         .withTenantId(TENANT_A)
         .withCorrelationId(CORRELATION_ID)
         .build();
-      const staffCtxB = new TenantContextBuilder().withTenantId(TENANT_A).withActorId(STAFF_ID).build();
+      const staffCtxB = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withActorId(STAFF_ID)
+        .build();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
@@ -283,7 +286,10 @@ describe('BookingController', () => {
         .withActorId(CUSTOMER_ID)
         .withActorType('CUSTOMER')
         .build();
-      const staffCtxC = new TenantContextBuilder().withTenantId(TENANT_A).withActorId(STAFF_ID).build();
+      const staffCtxC = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withActorId(STAFF_ID)
+        .build();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,

@@ -10,7 +10,6 @@ import { CustomerController } from './customer.controller';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000140';
 
-
 describe('CustomerController', () => {
   let controller: CustomerController;
   let repo: InMemoryCustomerRepository;
