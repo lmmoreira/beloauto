@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import {
   BookingDomainError,
+  BookingForbiddenError,
   BookingNotFoundError,
   BookingRejectionReasonTooShortError,
   BookingSlotUnavailableError,
@@ -39,6 +40,12 @@ describe('mapBookingError', () => {
     const err = call(new BookingNotFoundError('bk-id'));
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getStatus()).toBe(HttpStatus.NOT_FOUND);
+  });
+
+  it('maps BookingForbiddenError to 403', () => {
+    const err = call(new BookingForbiddenError());
+    expect(err).toBeInstanceOf(HttpException);
+    expect(err.getStatus()).toBe(HttpStatus.FORBIDDEN);
   });
 
   it('maps ServiceDeactivatedError to 409', () => {

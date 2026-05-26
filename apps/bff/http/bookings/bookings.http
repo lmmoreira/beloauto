@@ -116,3 +116,45 @@ X-Tenant-Slug: {{tenantSlug}}
   "scheduledAt": "2026-06-15T10:00:00.000Z",
   "serviceIds": ["{{serviceId}}"]
 }
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — customer submits requested info (UC-005b)
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "response": "Here are the photos of the vehicle exterior you requested",
+  "photoUrls": ["https://s3.example.com/car-front.jpg"]
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — missing JWT → 401
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info
+Content-Type: application/json
+
+{
+  "response": "No auth — should return 401"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — MANAGER JWT (wrong role) → 403
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "response": "Manager trying to submit info — should return 403"
+}

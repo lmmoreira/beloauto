@@ -472,3 +472,58 @@ X-Correlation-ID: test-corr-012
   "scheduledAt": "2026-06-15T10:00:00.000Z",
   "serviceIds": ["{{serviceId}}"]
 }
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — customer submits requested info (UC-005b)
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/submit-info
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: test-corr-submitinfo-001
+
+{
+  "response": "Here are the photos of the vehicle exterior you requested",
+  "photoUrls": ["https://s3.example.com/car-front.jpg"]
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — booking not in INFO_REQUESTED state → 422
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/submit-info
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: test-corr-submitinfo-002
+
+{
+  "response": "Submitting for a PENDING booking — should return 422"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — caller is not the booking owner → 403
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/submit-info
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: 00000000-0000-4000-8000-000000000999
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: test-corr-submitinfo-003
+
+{
+  "response": "Trying to submit info for another customer's booking"
+}
