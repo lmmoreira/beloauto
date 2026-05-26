@@ -11,7 +11,7 @@
 
 ---
 
-### M08-S01 — UC-003: Admin approves booking
+### M08-S01 — UC-003: Admin approves booking ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
