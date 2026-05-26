@@ -7,7 +7,11 @@ interface BookingApprovedData extends Record<string, unknown> {
   guestName: string;
   approvedSlot: { startTime: string; endTime: string };
   totalPrice: { amount: string; currency: string };
-  lineSummary: { serviceId: string; priceAtBooking: { amount: string; currency: string } }[];
+  lineSummary: {
+    serviceId: string;
+    serviceNameAtBooking: string;
+    priceAtBooking: { amount: string; currency: string };
+  }[];
   approvedBy: string;
 }
 

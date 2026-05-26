@@ -5,6 +5,8 @@ import {
   HttpCode,
   HttpException,
   HttpStatus,
+  Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { z } from 'zod';
@@ -86,5 +88,14 @@ export class BookingsController {
     @Body(new ZodValidationPipe(AuthenticatedBookingBodySchema)) body: AuthenticatedBookingBody,
   ): Promise<BookingResponse> {
     return this.backendHttp.post<BookingResponse>('/bookings/authenticated', body);
+  }
+
+  @Patch(':id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Roles('MANAGER', 'STAFF')
+  approve(
+    @Param('id') id: string,
+  ): Promise<{ bookingId: string; status: string; approvedAt: string }> {
+    return this.backendHttp.patch(`/bookings/${id}/approve`, {});
   }
 }

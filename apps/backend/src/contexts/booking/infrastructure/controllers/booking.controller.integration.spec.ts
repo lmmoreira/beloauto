@@ -15,11 +15,16 @@ import { BookingLineEntity } from '../entities/booking-line.entity';
 
 const TEST_KEY = 'booking-integ-test-key-booking-xxxx'; // 36 chars
 const ACTOR_ID = '20000000-0000-4000-8000-000000000001';
+const STAFF_ID = '20000000-0000-4000-8000-000000000002';
 
 const scheduledAt = `${futureDate(2)}T13:00:00.000Z`;
 
 function guestHeaders(tenantId: string) {
   return { 'x-tenant-id': tenantId, 'x-correlation-id': 'test-corr-id' };
+}
+
+function staffHeaders(tenantId: string) {
+  return actorHeaders(tenantId, STAFF_ID, 'MANAGER');
 }
 
 describe('BookingController (integration)', () => {
@@ -213,6 +218,132 @@ describe('BookingController (integration)', () => {
 
       expect(body.lines).toHaveLength(2);
       expect(body.totalDurationMins).toBe(60);
+    });
+  });
+
+  describe('PATCH /bookings/:id/approve', () => {
+    it('approves a PENDING booking → status APPROVED', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), scheduledAt: `${futureDate(10)}T09:00:00.000Z` })
+        .expect(201);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/approve`)
+        .set(staffHeaders(tenantAId))
+        .expect(200);
+
+      expect(body.status).toBe('APPROVED');
+      expect(body.bookingId).toBe(created.bookingId);
+      expect(body.approvedAt).toBeDefined();
+
+      const row = await ds
+        .getRepository(BookingEntity)
+        .findOne({ where: { id: created.bookingId, tenantId: tenantAId } });
+      expect(row!.status).toBe('APPROVED');
+      expect(row!.approvedBy).toBe(STAFF_ID);
+    });
+
+    it('returns 409 when slot is already taken by another APPROVED booking', async () => {
+      const conflictScheduledAt = `${futureDate(11)}T10:00:00.000Z`;
+
+      // Create both bookings while slot is still free (both PENDING)
+      const { body: first } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), scheduledAt: conflictScheduledAt })
+        .expect(201);
+
+      const { body: second } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), scheduledAt: conflictScheduledAt })
+        .expect(201);
+
+      // Approve first — slot is now taken
+      await request(app.getHttpServer())
+        .patch(`/bookings/${first.bookingId}/approve`)
+        .set(staffHeaders(tenantAId))
+        .expect(200);
+
+      // Second approval should conflict
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${second.bookingId}/approve`)
+        .set(staffHeaders(tenantAId))
+        .expect(409);
+
+      expect(body.status).toBe(409);
+    });
+
+    it('returns 422 when trying to approve an already-APPROVED booking', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), scheduledAt: `${futureDate(12)}T09:00:00.000Z` })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/approve`)
+        .set(staffHeaders(tenantAId))
+        .expect(200);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/approve`)
+        .set(staffHeaders(tenantAId))
+        .expect(422);
+
+      expect(body.status).toBe(422);
+    });
+
+    it('returns 404 when booking does not exist', async () => {
+      const { body } = await request(app.getHttpServer())
+        .patch('/bookings/00000000-0000-4000-8000-000000009999/approve')
+        .set(staffHeaders(tenantAId))
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+
+    it('returns 403 when no role headers are provided', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), scheduledAt: `${futureDate(13)}T09:00:00.000Z` })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/approve`)
+        .set(guestHeaders(tenantAId))
+        .expect(403);
+    });
+
+    it('tenant isolation: cannot approve booking from tenantB', async () => {
+      const svcB = new ServiceEntityBuilder()
+        .withTenantId(tenantBId)
+        .withName('Serviço B')
+        .withPriceAmount('80.00')
+        .withDurationMinutes(30)
+        .withIsActive(true)
+        .build();
+      await ds.getRepository(ServiceEntity).save(svcB);
+
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantBId))
+        .send({
+          ...validBody(),
+          serviceIds: [svcB.id],
+          scheduledAt: `${futureDate(14)}T09:00:00.000Z`,
+        })
+        .expect(201);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/approve`)
+        .set(staffHeaders(tenantAId))
+        .expect(404);
+
+      expect(body.status).toBe(404);
     });
   });
 

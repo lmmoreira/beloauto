@@ -165,6 +165,78 @@ describe('BookingsController (component)', () => {
     });
   });
 
+  describe('PATCH /v1/bookings/:id/approve', () => {
+    const BOOKING_ID_APPROVE = '40000000-0000-4000-8000-000000000002';
+    const mockApproveResponse = {
+      bookingId: BOOKING_ID_APPROVE,
+      status: 'APPROVED',
+      approvedAt: '2026-06-15T13:00:00.000Z',
+    };
+
+    it('returns 401 when no JWT is provided', async () => {
+      const res = await request(app.getHttpServer()).patch(
+        `/v1/bookings/${BOOKING_ID_APPROVE}/approve`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when JWT role is CUSTOMER', async () => {
+      const token = makeCustomerJwt(jwtService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_APPROVE}/approve`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('approves a booking with MANAGER JWT', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockResolvedValueOnce(mockApproveResponse);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_APPROVE}/approve`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('APPROVED');
+      expect(backendHttpService.patch).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID_APPROVE}/approve`,
+        {},
+      );
+    });
+
+    it('propagates 409 from backend when slot is taken', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 409, detail: 'slot unavailable' }, 409),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_APPROVE}/approve`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(409);
+    });
+
+    it('propagates 422 from backend when transition is invalid', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 422, detail: 'invalid transition' }, 422),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_APPROVE}/approve`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(422);
+    });
+  });
+
   describe('POST /v1/bookings/authenticated', () => {
     it('returns 401 when no JWT is provided', async () => {
       const res = await request(app.getHttpServer())

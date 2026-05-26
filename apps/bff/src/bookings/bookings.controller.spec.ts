@@ -6,6 +6,7 @@ import { BookingResponse } from './bookings.types';
 const TENANT_SLUG = 'lavacar-bh';
 const TENANT_ID = '10000000-0000-4000-8000-000000000001';
 const SERVICE_ID = '30000000-0000-4000-8000-000000000001';
+const BOOKING_ID = '40000000-0000-4000-8000-000000000001';
 
 const mockBookingResponse: BookingResponse = {
   bookingId: '40000000-0000-4000-8000-000000000001',
@@ -33,6 +34,12 @@ const validBody = {
   guestPhone: '31999999999',
   scheduledAt: '2026-06-15T10:00:00.000Z',
   serviceIds: [SERVICE_ID],
+};
+
+const mockApproveResponse = {
+  bookingId: BOOKING_ID,
+  status: 'APPROVED',
+  approvedAt: '2026-06-15T13:00:00.000Z',
 };
 
 describe('BookingsController', () => {
@@ -83,6 +90,59 @@ describe('BookingsController', () => {
       const controller = new BookingsController(backendHttp);
 
       const err = await controller.create('unknown-slug', validBody).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(404);
+    });
+  });
+
+  describe('approve()', () => {
+    it('calls patch /bookings/:id/approve and returns the result', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest.fn().mockResolvedValue(mockApproveResponse),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const result = await controller.approve(BOOKING_ID);
+
+      expect(backendHttp.patch).toHaveBeenCalledWith(`/bookings/${BOOKING_ID}/approve`, {});
+      expect(result).toBe(mockApproveResponse);
+    });
+
+    it('propagates 409 from backend when slot is unavailable', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 409, detail: 'slot unavailable' }, 409)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller.approve(BOOKING_ID).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(409);
+    });
+
+    it('propagates 422 from backend when transition is invalid', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller.approve(BOOKING_ID).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(422);
+    });
+
+    it('propagates 404 from backend when booking is not found', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller.approve('unknown-id').catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(404);
     });

@@ -6,24 +6,30 @@ import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastruct
 import { InMemoryCustomerProfilePort } from '../../../../test/infrastructure/in-memory-customer-profile.port';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
-import { ServiceBuilder } from '../../../../test/builders/booking/index';
+import { BookingBuilder, ServiceBuilder } from '../../../../test/builders/booking/index';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { futureDate } from '../../../../test/utils/date-helpers';
 import { BookingController } from './booking.controller';
 import { RequestBookingUseCase } from '../../application/use-cases/request-booking.use-case';
 import { RequestAuthenticatedBookingUseCase } from '../../application/use-cases/request-authenticated-booking.use-case';
+import { ApproveBookingUseCase } from '../../application/use-cases/approve-booking.use-case';
+import { BookingStatus } from '../../domain/booking.aggregate';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000110';
+const TENANT_B = '10000000-0000-4000-8000-000000000111';
 const CUSTOMER_ID = '20000000-0000-4000-8000-000000000110';
+const STAFF_ID = '20000000-0000-4000-8000-000000000112';
 const CORRELATION_ID = 'corr-booking-ctrl-test';
 
 describe('BookingController', () => {
   let controller: BookingController;
   let serviceRepo: InMemoryServiceRepository;
+  let bookingRepo: InMemoryBookingRepository;
   let serviceId: string;
 
   beforeEach(async () => {
     serviceRepo = new InMemoryServiceRepository();
+    bookingRepo = new InMemoryBookingRepository();
     const guestCtx = new TenantContextBuilder()
       .withTenantId(TENANT_A)
       .withCorrelationId(CORRELATION_ID)
@@ -34,6 +40,12 @@ describe('BookingController', () => {
       .withActorId(CUSTOMER_ID)
       .withActorType('CUSTOMER')
       .withActorRole('CUSTOMER')
+      .build();
+    const staffCtx = new TenantContextBuilder()
+      .withTenantId(TENANT_A)
+      .withCorrelationId(CORRELATION_ID)
+      .withActorId(STAFF_ID)
+      .withActorRole('MANAGER')
       .build();
     const customerProfilePort = new InMemoryCustomerProfilePort();
     customerProfilePort.setProfile(CUSTOMER_ID, {
@@ -47,7 +59,7 @@ describe('BookingController', () => {
         serviceRepo,
         new InMemoryBookingAvailabilityPort(),
         new InMemoryScheduleTenantSettingsPort(),
-        new InMemoryBookingRepository(),
+        bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
         guestCtx,
@@ -57,10 +69,17 @@ describe('BookingController', () => {
         serviceRepo,
         new InMemoryBookingAvailabilityPort(),
         new InMemoryScheduleTenantSettingsPort(),
-        new InMemoryBookingRepository(),
+        bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
         customerCtx,
+      ),
+      new ApproveBookingUseCase(
+        staffCtx,
+        bookingRepo,
+        new InMemoryBookingAvailabilityPort(),
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
       ),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
@@ -94,6 +113,10 @@ describe('BookingController', () => {
         .withCorrelationId(CORRELATION_ID)
         .build();
       const customerProfilePort = new InMemoryCustomerProfilePort();
+      const staffCtxB = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withActorId(STAFF_ID)
+        .build();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
@@ -114,6 +137,13 @@ describe('BookingController', () => {
           new InMemoryEventBus(),
           ctx,
         ),
+        new ApproveBookingUseCase(
+          staffCtxB,
+          new InMemoryBookingRepository(),
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
       );
       const err = await ctrl.create(validBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -126,6 +156,104 @@ describe('BookingController', () => {
         .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    });
+  });
+
+  describe('approve()', () => {
+    it('approves a PENDING booking and returns 200 shape', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const result = await controller.approve(booking.id);
+      expect(result.status).toBe(BookingStatus.APPROVED);
+      expect(result.bookingId).toBe(booking.id);
+      expect(result.approvedAt).toBeDefined();
+    });
+
+    it('maps BookingNotFoundError to 404', async () => {
+      const err = await controller
+        .approve('00000000-0000-4000-8000-000000009999')
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+
+    it('maps InvalidBookingTransitionError to 422', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withStatus(BookingStatus.REJECTED)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller.approve(booking.id).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+    });
+
+    it('maps BookingSlotUnavailableError to 409 when slot is taken', async () => {
+      const scheduledAt = new Date(`${futureDate(3)}T11:00:00.000Z`);
+      const availabilityPort = new InMemoryBookingAvailabilityPort();
+      availabilityPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
+      const staffCtx = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withCorrelationId(CORRELATION_ID)
+        .withActorId(STAFF_ID)
+        .withActorRole('MANAGER')
+        .build();
+      const bookingRepoB = new InMemoryBookingRepository();
+      const ctrl = new BookingController(
+        new RequestBookingUseCase(
+          serviceRepo,
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+          bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+          new TenantContextBuilder().withTenantId(TENANT_A).build(),
+        ),
+        new RequestAuthenticatedBookingUseCase(
+          new InMemoryCustomerProfilePort(),
+          serviceRepo,
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+          bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+          new TenantContextBuilder().withTenantId(TENANT_A).build(),
+        ),
+        new ApproveBookingUseCase(
+          staffCtx,
+          bookingRepoB,
+          availabilityPort,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+      );
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withScheduledAt(scheduledAt)
+        .build();
+      await bookingRepoB.save(booking);
+
+      const err = await ctrl.approve(booking.id).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.CONFLICT);
+    });
+
+    it('tenant isolation: cannot approve booking from tenantB (returns 404)', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_B)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller.approve(booking.id).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
     });
   });
 
@@ -157,6 +285,10 @@ describe('BookingController', () => {
         .withActorId(CUSTOMER_ID)
         .withActorType('CUSTOMER')
         .build();
+      const staffCtxC = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withActorId(STAFF_ID)
+        .build();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
@@ -176,6 +308,13 @@ describe('BookingController', () => {
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
           ctx,
+        ),
+        new ApproveBookingUseCase(
+          staffCtxC,
+          new InMemoryBookingRepository(),
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
         ),
       );
       const err = await ctrl.createAuthenticated(authBody()).catch((e: unknown) => e);
