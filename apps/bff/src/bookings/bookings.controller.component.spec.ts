@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import * as jwt from 'jsonwebtoken';
 import {
   MockHttpService,
   MockBackendHttpService,
@@ -9,6 +10,7 @@ import {
   setupActiveGuardMock,
   request,
   TENANT_ID,
+  TEST_JWT_SECRET,
 } from '../test/component-test.helpers';
 import { BookingResponse } from './bookings.types';
 
@@ -605,6 +607,88 @@ describe('BookingsController (component)', () => {
         .patch(`/v1/bookings/${BOOKING_ID_SUBMIT}/submit-info`)
         .set('Authorization', `Bearer ${token}`)
         .send(validSubmitBody);
+
+      expect(res.status).toBe(422);
+    });
+  });
+
+  describe('PATCH /v1/bookings/:id/submit-info/guest (public — guest token)', () => {
+    const BOOKING_ID_GUEST = '40000000-0000-4000-8000-000000000006';
+    const GUEST_EMAIL = 'guest@example.com';
+    const mockGuestSubmitResponse = {
+      bookingId: BOOKING_ID_GUEST,
+      status: 'PENDING',
+      infoSubmittedAt: '2026-06-15T14:00:00.000Z',
+    };
+    const validGuestSubmitBody = { response: 'Here are the vehicle photos as requested' };
+
+    function makeGuestToken(overrides?: Record<string, unknown>): string {
+      return jwt.sign(
+        { bookingId: BOOKING_ID_GUEST, tenantId: TENANT_ID, guestEmail: GUEST_EMAIL, ...overrides },
+        TEST_JWT_SECRET,
+        { expiresIn: 604800 },
+      );
+    }
+
+    it('returns 400 when token query param is missing', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_GUEST}/submit-info/guest`)
+        .send(validGuestSubmitBody);
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 401 when token is invalid', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_GUEST}/submit-info/guest?token=invalid.token.here`)
+        .send(validGuestSubmitBody);
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 400 when token bookingId does not match route param', async () => {
+      const token = makeGuestToken({ bookingId: 'other-booking-id' });
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_GUEST}/submit-info/guest?token=${token}`)
+        .send(validGuestSubmitBody);
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when response body is missing', async () => {
+      const token = makeGuestToken();
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_GUEST}/submit-info/guest?token=${token}`)
+        .send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('submits info without JWT using guest token and returns result', async () => {
+      const token = makeGuestToken();
+      backendHttpService.patchForPublic.mockResolvedValueOnce(mockGuestSubmitResponse);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_GUEST}/submit-info/guest?token=${token}`)
+        .send(validGuestSubmitBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('PENDING');
+      expect(backendHttpService.patchForPublic).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID_GUEST}/submit-info/guest`,
+        { guestEmail: GUEST_EMAIL, ...validGuestSubmitBody },
+        TENANT_ID,
+      );
+    });
+
+    it('propagates 422 from backend when booking is not INFO_REQUESTED', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeGuestToken();
+      backendHttpService.patchForPublic.mockRejectedValueOnce(
+        new HE({ status: 422, detail: 'invalid transition' }, 422),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_GUEST}/submit-info/guest?token=${token}`)
+        .send(validGuestSubmitBody);
 
       expect(res.status).toBe(422);
     });

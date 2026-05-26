@@ -47,6 +47,9 @@ importers:
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
+      jsonwebtoken:
+        specifier: ^9.0.3
+        version: 9.0.3
       luxon:
         specifier: ^3.7.2
         version: 3.7.2
@@ -99,6 +102,9 @@ importers:
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
+      '@types/jsonwebtoken':
+        specifier: ^9.0.10
+        version: 9.0.10
       '@types/luxon':
         specifier: ^3.7.1
         version: 3.7.1

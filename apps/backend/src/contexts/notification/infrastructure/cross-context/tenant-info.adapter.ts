@@ -12,7 +12,12 @@ export class TenantInfoAdapter implements INotificationTenantPort {
   async getTenantInfo(tenantId: string): Promise<NotificationTenantInfo | null> {
     try {
       const result = await this.getTenantById.execute(tenantId);
-      return { id: result.id, name: result.name, slug: result.slug };
+      return {
+        id: result.id,
+        name: result.name,
+        slug: result.slug,
+        timezone: result.settings.business_hours.timezone,
+      };
     } catch {
       return null;
     }

@@ -1,0 +1,92 @@
+import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
+import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
+import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
+import { SendBookingInfoRequestedNotificationDto } from '../../dtos/send-booking-info-requested-notification.dto';
+import { SendBookingInfoRequestedNotificationUseCase } from './send-booking-info-requested-notification.use-case';
+
+const TENANT_ID = 'aaaaaaaa-0003-4000-8000-000000000001';
+const EVENT_ID = 'cccccccc-0003-4000-8000-000000000001';
+const BOOKING_ID = 'bbbbbbbb-0003-4000-8000-000000000001';
+
+const guestDto: SendBookingInfoRequestedNotificationDto = {
+  tenantId: TENANT_ID,
+  eventId: EVENT_ID,
+  correlationId: 'corr-info-req-1',
+  bookingId: BOOKING_ID,
+  customerId: null,
+  guestEmail: 'joao@example.com',
+  guestName: 'João Silva',
+  informationNeeded: 'Por favor envie fotos melhores do veículo',
+};
+
+const customerDto: SendBookingInfoRequestedNotificationDto = {
+  ...guestDto,
+  customerId: 'dddddddd-0003-4000-8000-000000000001',
+};
+
+describe('SendBookingInfoRequestedNotificationUseCase', () => {
+  let logRepo: InMemoryNotificationLogRepository;
+  let dispatcher: InMemoryNotificationDispatcher;
+  let useCase: SendBookingInfoRequestedNotificationUseCase;
+
+  beforeEach(() => {
+    process.env['JWT_SECRET'] = 'test-secret-at-least-32-chars-long!!';
+    process.env['FRONTEND_URL'] = 'http://localhost:3000';
+    logRepo = new InMemoryNotificationLogRepository();
+    dispatcher = new InMemoryNotificationDispatcher();
+    useCase = new SendBookingInfoRequestedNotificationUseCase(
+      logRepo,
+      dispatcher,
+      new InMemoryTransactionManager(),
+    );
+  });
+
+  afterEach(() => {
+    delete process.env['JWT_SECRET'];
+    delete process.env['FRONTEND_URL'];
+  });
+
+  it('dispatches info-request email to guest with signed token link', async () => {
+    const result = await useCase.execute(guestDto);
+
+    expect(result.emailSent).toBe(true);
+    expect(dispatcher.dispatched).toHaveLength(1);
+
+    const msg = dispatcher.dispatched[0];
+    expect(msg.to).toBe('joao@example.com');
+    expect(msg.subject).toBe('Precisamos de mais informações sobre seu agendamento');
+    expect(msg.templateKey).toBe('booking-info-requested-customer');
+    expect(msg.data['informationNeeded']).toBe(guestDto.informationNeeded);
+
+    const link = msg.data['respondLink'] as string;
+    expect(link).toContain(`/bookings/${BOOKING_ID}/responder?token=`);
+    expect(link).not.toContain('/dashboard/');
+
+    expect(logRepo.all).toHaveLength(1);
+    expect(logRepo.all[0].notificationType).toBe('BOOKING_INFO_REQUESTED_CUSTOMER');
+  });
+
+  it('dispatches info-request email to authenticated customer with dashboard link', async () => {
+    await useCase.execute(customerDto);
+
+    const msg = dispatcher.dispatched[0];
+    const link = msg.data['respondLink'] as string;
+    expect(link).toBe(`http://localhost:3000/dashboard/bookings/${BOOKING_ID}`);
+    expect(link).not.toContain('token=');
+  });
+
+  it('is idempotent: second call with same eventId sends no email', async () => {
+    await useCase.execute(guestDto);
+    dispatcher.clear();
+    const result = await useCase.execute(guestDto);
+
+    expect(result.emailSent).toBe(false);
+    expect(dispatcher.dispatched).toHaveLength(0);
+    expect(logRepo.all).toHaveLength(1);
+  });
+
+  it('tenant isolation: log is scoped to correct tenantId', async () => {
+    await useCase.execute(guestDto);
+    expect(logRepo.all.every((l) => l.tenantId === TENANT_ID)).toBe(true);
+  });
+});

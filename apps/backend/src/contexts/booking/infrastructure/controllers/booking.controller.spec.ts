@@ -16,6 +16,7 @@ import { ApproveBookingUseCase } from '../../application/use-cases/approve-booki
 import { RejectBookingUseCase } from '../../application/use-cases/reject-booking.use-case';
 import { RequestMoreInfoUseCase } from '../../application/use-cases/request-more-info.use-case';
 import { SubmitBookingInfoUseCase } from '../../application/use-cases/submit-booking-info.use-case';
+import { SubmitGuestBookingInfoUseCase } from '../../application/use-cases/submit-guest-booking-info.use-case';
 import { BookingSlotConflictService } from '../../application/services/booking-slot-conflict.service';
 import { BookingStatus } from '../../domain/booking.aggregate';
 
@@ -110,6 +111,12 @@ describe('BookingController', () => {
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
+      new SubmitGuestBookingInfoUseCase(
+        guestCtx,
+        bookingRepo,
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      ),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
     await serviceRepo.save(service);
@@ -197,6 +204,12 @@ describe('BookingController', () => {
         ),
         new SubmitBookingInfoUseCase(
           customerCtxB,
+          repoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new SubmitGuestBookingInfoUseCase(
+          ctx,
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -313,6 +326,12 @@ describe('BookingController', () => {
         ),
         new SubmitBookingInfoUseCase(
           customerCtxC,
+          bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new SubmitGuestBookingInfoUseCase(
+          new TenantContextBuilder().withTenantId(TENANT_A).build(),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -643,6 +662,12 @@ describe('BookingController', () => {
           new InMemoryEventBus(),
         ),
         new SubmitBookingInfoUseCase(
+          ctx,
+          repoC,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new SubmitGuestBookingInfoUseCase(
           ctx,
           repoC,
           new InMemoryTransactionManager(),

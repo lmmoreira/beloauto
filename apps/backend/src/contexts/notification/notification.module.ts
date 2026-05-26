@@ -9,6 +9,10 @@ import { NOTIFICATION_STAFF_PORT } from './application/ports/notification-staff.
 import { NOTIFICATION_TENANT_PORT } from './application/ports/notification-tenant.port';
 import { SendStaffInvitationUseCase } from './application/use-cases/send-staff-invitation/send-staff-invitation.use-case';
 import { SendBookingRequestedNotificationUseCase } from './application/use-cases/send-booking-requested-notification/send-booking-requested-notification.use-case';
+import { SendBookingApprovedNotificationUseCase } from './application/use-cases/send-booking-approved-notification/send-booking-approved-notification.use-case';
+import { SendBookingRejectedNotificationUseCase } from './application/use-cases/send-booking-rejected-notification/send-booking-rejected-notification.use-case';
+import { SendBookingInfoRequestedNotificationUseCase } from './application/use-cases/send-booking-info-requested-notification/send-booking-info-requested-notification.use-case';
+import { SendBookingInfoSubmittedNotificationUseCase } from './application/use-cases/send-booking-info-submitted-notification/send-booking-info-submitted-notification.use-case';
 import { StaffInfoAdapter } from './infrastructure/cross-context/staff-info.adapter';
 import { TenantInfoAdapter } from './infrastructure/cross-context/tenant-info.adapter';
 import { DELIVERY_CHANNEL } from './application/ports/delivery-channel.port';
@@ -17,6 +21,10 @@ import { NotificationDispatcherAdapter } from './infrastructure/delivery/notific
 import { NotificationLogEntity } from './infrastructure/entities/notification-log.entity';
 import { StaffInvitedHandler } from './infrastructure/events/staff-invited.handler';
 import { BookingRequestedHandler } from './infrastructure/events/booking-requested.handler';
+import { BookingApprovedHandler } from './infrastructure/events/booking-approved.handler';
+import { BookingRejectedHandler } from './infrastructure/events/booking-rejected.handler';
+import { BookingInfoRequestedHandler } from './infrastructure/events/booking-info-requested.handler';
+import { BookingInfoSubmittedHandler } from './infrastructure/events/booking-info-submitted.handler';
 import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/typeorm-notification-log.repository';
 
 @Module({
@@ -39,8 +47,16 @@ import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/
     { provide: NOTIFICATION_TENANT_PORT, useClass: TenantInfoAdapter },
     SendStaffInvitationUseCase,
     SendBookingRequestedNotificationUseCase,
+    SendBookingApprovedNotificationUseCase,
+    SendBookingRejectedNotificationUseCase,
+    SendBookingInfoRequestedNotificationUseCase,
+    SendBookingInfoSubmittedNotificationUseCase,
     StaffInvitedHandler,
     BookingRequestedHandler,
+    BookingApprovedHandler,
+    BookingRejectedHandler,
+    BookingInfoRequestedHandler,
+    BookingInfoSubmittedHandler,
   ],
 })
 export class NotificationModule {}

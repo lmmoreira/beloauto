@@ -135,6 +135,28 @@ describe('BackendHttpService', () => {
     });
   });
 
+  describe('patchForPublic()', () => {
+    it('calls HttpService.patch with only X-Tenant-ID header (no actor headers)', async () => {
+      const { service, http } = makeService({ tenantId: 'tid-actor' });
+      http.patch.mockReturnValue(axiosOf({ updated: true }));
+
+      await service.patchForPublic(
+        '/bookings/b1/submit-info/guest',
+        { response: 'ok' },
+        'tid-guest',
+      );
+
+      expect(http.patch).toHaveBeenCalledWith(
+        'http://backend:3001/bookings/b1/submit-info/guest',
+        { response: 'ok' },
+        expect.objectContaining({
+          headers: { 'X-Tenant-ID': 'tid-guest' },
+          timeout: 10_000,
+        }),
+      );
+    });
+  });
+
   describe('error handling', () => {
     it('re-throws backend 4xx as HttpException with the original status and body', async () => {
       const { service, http } = makeService({ tenantId: 'tenant-1' });

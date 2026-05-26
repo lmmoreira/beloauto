@@ -1,4 +1,5 @@
 import { HttpException } from '@nestjs/common';
+import * as jwt from 'jsonwebtoken';
 import { makeBackendHttp } from '../test/backend-http.mock';
 import { BookingsController } from './bookings.controller';
 import { BookingResponse } from './bookings.types';
@@ -317,6 +318,104 @@ describe('BookingsController', () => {
         .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(404);
+    });
+  });
+
+  describe('submitInfoGuest()', () => {
+    const JWT_SECRET = 'test-secret-32-chars-for-bff-spec';
+    const validSubmitBody = { response: 'Here are the vehicle photos as requested' };
+    const mockSubmitGuestResponse = {
+      bookingId: BOOKING_ID,
+      status: 'PENDING',
+      infoSubmittedAt: '2026-06-15T14:00:00.000Z',
+    };
+
+    beforeEach(() => {
+      process.env['JWT_SECRET'] = JWT_SECRET;
+    });
+
+    afterEach(() => {
+      delete process.env['JWT_SECRET'];
+    });
+
+    it('returns 400 when token query param is missing', async () => {
+      const backendHttp = makeBackendHttp();
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller
+        .submitInfoGuest(BOOKING_ID, undefined, validSubmitBody)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(400);
+    });
+
+    it('returns 401 when token is invalid', async () => {
+      const backendHttp = makeBackendHttp();
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller
+        .submitInfoGuest(BOOKING_ID, 'invalid.token.here', validSubmitBody)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(401);
+    });
+
+    it('returns 400 when token bookingId does not match route param', async () => {
+      const token = jwt.sign(
+        { bookingId: 'other-booking-id', tenantId: TENANT_ID, guestEmail: 'guest@example.com' },
+        JWT_SECRET,
+        { expiresIn: 604800 },
+      );
+      const backendHttp = makeBackendHttp();
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller
+        .submitInfoGuest(BOOKING_ID, token, validSubmitBody)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(400);
+    });
+
+    it('calls patchForPublic with guestEmail from token and returns result', async () => {
+      const guestEmail = 'guest@example.com';
+      const token = jwt.sign(
+        { bookingId: BOOKING_ID, tenantId: TENANT_ID, guestEmail },
+        JWT_SECRET,
+        { expiresIn: 604800 },
+      );
+      const backendHttp = makeBackendHttp({
+        patchForPublic: jest.fn().mockResolvedValue(mockSubmitGuestResponse),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const result = await controller.submitInfoGuest(BOOKING_ID, token, validSubmitBody);
+
+      expect(backendHttp.patchForPublic).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID}/submit-info/guest`,
+        { guestEmail, ...validSubmitBody },
+        TENANT_ID,
+      );
+      expect(result).toBe(mockSubmitGuestResponse);
+    });
+
+    it('propagates 422 from backend when booking is not INFO_REQUESTED', async () => {
+      const token = jwt.sign(
+        { bookingId: BOOKING_ID, tenantId: TENANT_ID, guestEmail: 'guest@example.com' },
+        JWT_SECRET,
+        { expiresIn: 604800 },
+      );
+      const backendHttp = makeBackendHttp({
+        patchForPublic: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller
+        .submitInfoGuest(BOOKING_ID, token, validSubmitBody)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(422);
     });
   });
 

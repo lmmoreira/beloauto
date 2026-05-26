@@ -25,7 +25,12 @@ describe('StaffInvitedHandler', () => {
     staffPort = new InMemoryNotificationStaffPort();
     staffPort.setStaff(TENANT_ID, { id: STAFF_ID, email: 'maria@lavacar.com.br', name: 'Maria' });
     tenantPort = new InMemoryNotificationTenantPort();
-    tenantPort.setTenantInfo(TENANT_ID, { id: TENANT_ID, name: 'Lava Car', slug: 'lavacar' });
+    tenantPort.setTenantInfo(TENANT_ID, {
+      id: TENANT_ID,
+      name: 'Lava Car',
+      slug: 'lavacar',
+      timezone: 'America/Sao_Paulo',
+    });
     const useCase = new SendStaffInvitationUseCase(
       logRepo,
       dispatcher,

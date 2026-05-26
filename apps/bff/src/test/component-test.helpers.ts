@@ -84,6 +84,7 @@ export async function createTestApp(): Promise<{
     delete: jest.fn(),
     getForPublic: jest.fn(),
     postForPublic: jest.fn(),
+    patchForPublic: jest.fn(),
   };
 
   const module: TestingModule = await Test.createTestingModule({
