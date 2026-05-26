@@ -44,7 +44,7 @@ Implement the approval use case. Before approving, the system re-checks that the
 
 ---
 
-### M08-S02 — UC-004: Admin rejects booking
+### M08-S02 — UC-004: Admin rejects booking ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** S  
