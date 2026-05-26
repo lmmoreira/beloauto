@@ -15,6 +15,7 @@ import { RequestAuthenticatedBookingUseCase } from '../../application/use-cases/
 import { ApproveBookingUseCase } from '../../application/use-cases/approve-booking.use-case';
 import { RejectBookingUseCase } from '../../application/use-cases/reject-booking.use-case';
 import { RequestMoreInfoUseCase } from '../../application/use-cases/request-more-info.use-case';
+import { SubmitBookingInfoUseCase } from '../../application/use-cases/submit-booking-info.use-case';
 import { BookingSlotConflictService } from '../../application/services/booking-slot-conflict.service';
 import { BookingStatus } from '../../domain/booking.aggregate';
 
@@ -103,6 +104,12 @@ describe('BookingController', () => {
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
+      new SubmitBookingInfoUseCase(
+        customerCtx,
+        bookingRepo,
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      ),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
     await serviceRepo.save(service);
@@ -139,6 +146,12 @@ describe('BookingController', () => {
         .withActorId(STAFF_ID)
         .build();
       const repoB = new InMemoryBookingRepository();
+      const customerCtxB = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withActorId(CUSTOMER_ID)
+        .withActorType('CUSTOMER')
+        .withActorRole('CUSTOMER')
+        .build();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
@@ -178,6 +191,12 @@ describe('BookingController', () => {
         ),
         new RequestMoreInfoUseCase(
           staffCtxB,
+          repoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new SubmitBookingInfoUseCase(
+          customerCtxB,
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -243,6 +262,12 @@ describe('BookingController', () => {
         .withActorRole('MANAGER')
         .build();
       const bookingRepoB = new InMemoryBookingRepository();
+      const customerCtxC = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withActorId(CUSTOMER_ID)
+        .withActorType('CUSTOMER')
+        .withActorRole('CUSTOMER')
+        .build();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
@@ -282,6 +307,12 @@ describe('BookingController', () => {
         ),
         new RequestMoreInfoUseCase(
           staffCtx,
+          bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new SubmitBookingInfoUseCase(
+          customerCtxC,
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -457,6 +488,81 @@ describe('BookingController', () => {
     });
   });
 
+  describe('submitInfo()', () => {
+    const validResponse = 'Here are the photos you requested';
+
+    it('transitions INFO_REQUESTED → PENDING and returns 200 shape', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withCustomerId(CUSTOMER_ID)
+        .withStatus(BookingStatus.INFO_REQUESTED)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const result = await controller.submitInfo(booking.id, { response: validResponse });
+      expect(result.status).toBe(BookingStatus.PENDING);
+      expect(result.bookingId).toBe(booking.id);
+      expect(result.infoSubmittedAt).toBeDefined();
+    });
+
+    it('maps BookingForbiddenError to 403 when caller is not the booking owner', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withCustomerId('99999999-0000-4000-8000-000000000001')
+        .withStatus(BookingStatus.INFO_REQUESTED)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .submitInfo(booking.id, { response: validResponse })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.FORBIDDEN);
+    });
+
+    it('maps BookingNotFoundError to 404', async () => {
+      const err = await controller
+        .submitInfo('00000000-0000-4000-8000-000000009999', { response: validResponse })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+
+    it('maps InvalidBookingTransitionError to 422 when booking is not INFO_REQUESTED', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withCustomerId(CUSTOMER_ID)
+        .withStatus(BookingStatus.PENDING)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .submitInfo(booking.id, { response: validResponse })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+    });
+
+    it('tenant isolation: cannot submit info for a booking from tenantB (returns 404)', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_B)
+        .withCustomerId(CUSTOMER_ID)
+        .withStatus(BookingStatus.INFO_REQUESTED)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .submitInfo(booking.id, { response: validResponse })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+  });
+
   describe('createAuthenticated()', () => {
     const authBody = () => ({
       scheduledAt: `${futureDate(1)}T10:00:00.000Z`,
@@ -532,6 +638,12 @@ describe('BookingController', () => {
         ),
         new RequestMoreInfoUseCase(
           staffCtxC,
+          repoC,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new SubmitBookingInfoUseCase(
+          ctx,
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),

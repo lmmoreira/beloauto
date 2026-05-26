@@ -166,3 +166,10 @@ export class BookingInfoMessageTooShortError extends BookingDomainError {
     this.name = 'BookingInfoMessageTooShortError';
   }
 }
+
+export class BookingForbiddenError extends BookingDomainError {
+  constructor() {
+    super('You are not allowed to perform this action on the booking');
+    this.name = 'BookingForbiddenError';
+  }
+}

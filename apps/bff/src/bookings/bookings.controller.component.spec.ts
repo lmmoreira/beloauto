@@ -523,4 +523,90 @@ describe('BookingsController (component)', () => {
       expect(res.status).toBe(409);
     });
   });
+
+  describe('PATCH /v1/bookings/:id/submit-info', () => {
+    const BOOKING_ID_SUBMIT = '40000000-0000-4000-8000-000000000005';
+    const mockSubmitResponse = {
+      bookingId: BOOKING_ID_SUBMIT,
+      status: 'PENDING',
+      infoSubmittedAt: '2026-06-15T14:00:00.000Z',
+    };
+    const validSubmitBody = { response: 'Here are the photos you requested' };
+
+    it('returns 401 when no JWT is provided', async () => {
+      const res = await request(app.getHttpServer()).patch(
+        `/v1/bookings/${BOOKING_ID_SUBMIT}/submit-info`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when JWT role is MANAGER (not CUSTOMER)', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_SUBMIT}/submit-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validSubmitBody);
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 400 when response is missing', async () => {
+      const token = makeCustomerJwt(jwtService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_SUBMIT}/submit-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('submits info with CUSTOMER JWT and returns PENDING status', async () => {
+      const token = makeCustomerJwt(jwtService);
+      backendHttpService.patch.mockResolvedValueOnce(mockSubmitResponse);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_SUBMIT}/submit-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validSubmitBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('PENDING');
+      expect(res.body.infoSubmittedAt).toBeDefined();
+      expect(backendHttpService.patch).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID_SUBMIT}/submit-info`,
+        validSubmitBody,
+      );
+    });
+
+    it('propagates 403 from backend when customer is not the booking owner', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeCustomerJwt(jwtService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 403, detail: 'forbidden' }, 403),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_SUBMIT}/submit-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validSubmitBody);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('propagates 422 from backend when booking is not INFO_REQUESTED', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeCustomerJwt(jwtService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 422, detail: 'invalid transition' }, 422),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_SUBMIT}/submit-info`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validSubmitBody);
+
+      expect(res.status).toBe(422);
+    });
+  });
 });

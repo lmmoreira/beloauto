@@ -5,6 +5,7 @@ import {
   AvailabilityRangeInvalidError,
   BookingCustomerNotFoundError,
   BookingDomainError,
+  BookingForbiddenError,
   BookingInfoMessageTooShortError,
   BookingNotFoundError,
   BookingRejectionReasonTooShortError,
@@ -23,6 +24,15 @@ import {
 } from '../../domain/errors/booking-domain.error';
 
 export function mapBookingError(err: unknown): never {
+  if (err instanceof BookingForbiddenError) {
+    const body: ProblemDetail = {
+      type: 'about:blank',
+      title: 'Forbidden',
+      status: HttpStatus.FORBIDDEN,
+      detail: err.message,
+    };
+    throw new HttpException(body, HttpStatus.FORBIDDEN);
+  }
   if (
     err instanceof BookingInfoMessageTooShortError ||
     err instanceof BookingRejectionReasonTooShortError

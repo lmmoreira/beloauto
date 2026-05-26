@@ -45,6 +45,14 @@ import {
   RequestMoreInfoBodySchema,
   RequestMoreInfoDto,
 } from '../../application/dtos/request-more-info.dto';
+import {
+  SubmitBookingInfoBodySchema,
+  SubmitBookingInfoDto,
+} from '../../application/dtos/submit-booking-info.dto';
+import {
+  SubmitBookingInfoUseCase,
+  SubmitBookingInfoUseCaseResult,
+} from '../../application/use-cases/submit-booking-info.use-case';
 import { StaffOrManagerRoleGuard } from '../guards/staff-or-manager-role.guard';
 import { mapBookingError } from '../http/booking-error.mapper';
 
@@ -56,6 +64,7 @@ export class BookingController {
     private readonly approveBooking: ApproveBookingUseCase,
     private readonly rejectBooking: RejectBookingUseCase,
     private readonly requestMoreInfo: RequestMoreInfoUseCase,
+    private readonly submitBookingInfo: SubmitBookingInfoUseCase,
   ) {}
 
   @Post()
@@ -104,6 +113,18 @@ export class BookingController {
   ): Promise<RequestMoreInfoUseCaseResult> {
     return this.requestMoreInfo
       .execute({ bookingId: id, message: body.message })
+      .catch(mapBookingError);
+  }
+
+  @Patch(':id/submit-info')
+  @HttpCode(HttpStatus.OK)
+  submitInfo(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(SubmitBookingInfoBodySchema.omit({ bookingId: true })))
+    body: Omit<SubmitBookingInfoDto, 'bookingId'>,
+  ): Promise<SubmitBookingInfoUseCaseResult> {
+    return this.submitBookingInfo
+      .execute({ bookingId: id, response: body.response, photoUrls: body.photoUrls })
       .catch(mapBookingError);
   }
 }

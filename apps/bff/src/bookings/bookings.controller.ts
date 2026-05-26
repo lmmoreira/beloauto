@@ -56,10 +56,16 @@ export const RequestMoreInfoBodySchema = z.object({
   message: z.string().trim().min(20),
 });
 
+export const SubmitBookingInfoBodySchema = z.object({
+  response: z.string().trim().min(1),
+  photoUrls: z.array(z.url()).optional(),
+});
+
 type RequestBookingBody = z.infer<typeof RequestBookingBodySchema>;
 type AuthenticatedBookingBody = z.infer<typeof AuthenticatedBookingBodySchema>;
 type RejectBookingBody = z.infer<typeof RejectBookingBodySchema>;
 type RequestMoreInfoBody = z.infer<typeof RequestMoreInfoBodySchema>;
+type SubmitBookingInfoBody = z.infer<typeof SubmitBookingInfoBodySchema>;
 
 @Controller('bookings')
 export class BookingsController {
@@ -127,5 +133,15 @@ export class BookingsController {
     @Body(new ZodValidationPipe(RequestMoreInfoBodySchema)) body: RequestMoreInfoBody,
   ): Promise<{ bookingId: string; status: string; infoRequestedAt: string }> {
     return this.backendHttp.patch(`/bookings/${id}/request-info`, body);
+  }
+
+  @Patch(':id/submit-info')
+  @HttpCode(HttpStatus.OK)
+  @Roles('CUSTOMER')
+  submitInfo(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(SubmitBookingInfoBodySchema)) body: SubmitBookingInfoBody,
+  ): Promise<{ bookingId: string; status: string; infoSubmittedAt: string }> {
+    return this.backendHttp.patch(`/bookings/${id}/submit-info`, body);
   }
 }

@@ -153,6 +153,8 @@ Implement the customer-side response to an info request. The booking transitions
 **Description:**  
 Implement the 4 Notification context event consumers for the approval workflow. Each handler sends one email in pt-BR, verified in MailHog. All handlers must be idempotent on `eventId`.
 
+> **Guest submit-info endpoint (carry-over from M08-S04):** `BookingInfoRequestedHandler` must generate a short-lived signed token (JWT, no DB storage) encoding `{ bookingId, tenantId, guestEmail, exp }` and embed it in the email link. This story must also implement a `@Public()` BFF endpoint `PATCH /v1/bookings/:id/submit-info/guest?token=...` that validates the token and proxies to the backend. The backend receives this identically to the authenticated path: no `customerId`, `submittedByEmail` = guest email extracted from the token.
+
 **Handlers to create:**
 
 `BookingApprovedHandler` → email to customer:

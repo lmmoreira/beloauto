@@ -54,6 +54,12 @@ const mockRequestInfoResponse = {
   infoRequestedAt: '2026-06-15T13:00:00.000Z',
 };
 
+const mockSubmitInfoResponse = {
+  bookingId: BOOKING_ID,
+  status: 'PENDING',
+  infoSubmittedAt: '2026-06-15T14:00:00.000Z',
+};
+
 const validRequestInfoBody = { message: 'Please provide clearer photos of the vehicle' };
 
 const validRejectBody = { reason: 'Service unavailable for that date' };
@@ -248,6 +254,66 @@ describe('BookingsController', () => {
 
       const err = await controller
         .requestInfo('unknown-id', validRequestInfoBody)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(404);
+    });
+  });
+
+  describe('submitInfo()', () => {
+    const validSubmitBody = { response: 'Here are the photos you requested' };
+
+    it('calls patch /bookings/:id/submit-info with body and returns the result', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest.fn().mockResolvedValue(mockSubmitInfoResponse),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const result = await controller.submitInfo(BOOKING_ID, validSubmitBody);
+
+      expect(backendHttp.patch).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID}/submit-info`,
+        validSubmitBody,
+      );
+      expect(result).toBe(mockSubmitInfoResponse);
+    });
+
+    it('propagates 403 from backend when caller is not the booking owner', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 403, detail: 'forbidden' }, 403)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller.submitInfo(BOOKING_ID, validSubmitBody).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(403);
+    });
+
+    it('propagates 422 from backend when booking is not INFO_REQUESTED', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller.submitInfo(BOOKING_ID, validSubmitBody).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(422);
+    });
+
+    it('propagates 404 from backend when booking is not found', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
+      });
+      const controller = new BookingsController(backendHttp);
+
+      const err = await controller
+        .submitInfo('unknown-id', validSubmitBody)
         .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(404);
