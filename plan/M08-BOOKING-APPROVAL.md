@@ -104,7 +104,7 @@ Implement the info-request use case: admin sends a message to the customer askin
 
 ---
 
-### M08-S04 — UC-005b: Customer submits information
+### M08-S04 — UC-005b: Customer submits information ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** S  
