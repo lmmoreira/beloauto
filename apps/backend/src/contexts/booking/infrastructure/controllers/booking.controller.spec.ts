@@ -515,7 +515,9 @@ describe('BookingController', () => {
         .build();
       await bookingRepo.save(booking);
 
-      const err = await controller.submitInfo(booking.id, { response: validResponse }).catch((e: unknown) => e);
+      const err = await controller
+        .submitInfo(booking.id, { response: validResponse })
+        .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.FORBIDDEN);
     });
@@ -537,7 +539,9 @@ describe('BookingController', () => {
         .build();
       await bookingRepo.save(booking);
 
-      const err = await controller.submitInfo(booking.id, { response: validResponse }).catch((e: unknown) => e);
+      const err = await controller
+        .submitInfo(booking.id, { response: validResponse })
+        .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
     });
@@ -551,7 +555,9 @@ describe('BookingController', () => {
         .build();
       await bookingRepo.save(booking);
 
-      const err = await controller.submitInfo(booking.id, { response: validResponse }).catch((e: unknown) => e);
+      const err = await controller
+        .submitInfo(booking.id, { response: validResponse })
+        .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
     });
