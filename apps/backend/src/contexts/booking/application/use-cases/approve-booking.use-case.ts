@@ -12,7 +12,13 @@ import {
 import { BookingStatus } from '../../domain/booking.aggregate';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
 import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
-import { ApproveBookingDto, ApproveBookingUseCaseResult } from '../dtos/approve-booking.dto';
+import { ApproveBookingDto } from '../dtos/approve-booking.dto';
+
+export interface ApproveBookingUseCaseResult {
+  bookingId: string;
+  status: string;
+  approvedAt: string;
+}
 
 @Injectable()
 export class ApproveBookingUseCase {

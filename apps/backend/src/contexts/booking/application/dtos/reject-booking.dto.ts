@@ -10,9 +10,3 @@ export interface RejectBookingDto {
   bookingId: string;
   reason: string;
 }
-
-export interface RejectBookingUseCaseResult {
-  bookingId: string;
-  status: string;
-  rejectedAt: string;
-}

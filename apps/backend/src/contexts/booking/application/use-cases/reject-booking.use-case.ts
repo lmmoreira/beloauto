@@ -11,7 +11,13 @@ import {
 } from '../../domain/errors/booking-domain.error';
 import { BookingStatus } from '../../domain/booking.aggregate';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
-import { RejectBookingDto, RejectBookingUseCaseResult } from '../dtos/reject-booking.dto';
+import { RejectBookingDto } from '../dtos/reject-booking.dto';
+
+export interface RejectBookingUseCaseResult {
+  bookingId: string;
+  status: string;
+  rejectedAt: string;
+}
 
 @Injectable()
 export class RejectBookingUseCase {

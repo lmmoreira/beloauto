@@ -17,11 +17,9 @@ import {
   RequestAuthenticatedBookingDto,
   RequestAuthenticatedBookingSchema,
 } from '../../application/dtos/request-authenticated-booking.dto';
-import { ApproveBookingUseCaseResult } from '../../application/dtos/approve-booking.dto';
 import {
   RejectBookingBody,
   RejectBookingBodySchema,
-  RejectBookingUseCaseResult,
 } from '../../application/dtos/reject-booking.dto';
 import {
   RequestBookingUseCase,
@@ -31,8 +29,14 @@ import {
   RequestAuthenticatedBookingUseCase,
   RequestAuthenticatedBookingUseCaseResult,
 } from '../../application/use-cases/request-authenticated-booking.use-case';
-import { ApproveBookingUseCase } from '../../application/use-cases/approve-booking.use-case';
-import { RejectBookingUseCase } from '../../application/use-cases/reject-booking.use-case';
+import {
+  ApproveBookingUseCase,
+  ApproveBookingUseCaseResult,
+} from '../../application/use-cases/approve-booking.use-case';
+import {
+  RejectBookingUseCase,
+  RejectBookingUseCaseResult,
+} from '../../application/use-cases/reject-booking.use-case';
 import { StaffOrManagerRoleGuard } from '../guards/staff-or-manager-role.guard';
 import { mapBookingError } from '../http/booking-error.mapper';
 
