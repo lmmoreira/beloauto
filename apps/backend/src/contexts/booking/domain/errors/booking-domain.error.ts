@@ -159,3 +159,10 @@ export class BookingRejectionReasonTooShortError extends BookingDomainError {
     this.name = 'BookingRejectionReasonTooShortError';
   }
 }
+
+export class BookingInfoMessageTooShortError extends BookingDomainError {
+  constructor() {
+    super('Info request message must be at least 20 characters');
+    this.name = 'BookingInfoMessageTooShortError';
+  }
+}

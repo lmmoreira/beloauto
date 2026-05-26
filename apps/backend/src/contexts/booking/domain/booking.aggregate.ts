@@ -6,6 +6,7 @@ import { Money } from '../../../shared/value-objects/money';
 import { PhoneNumber } from '../../../shared/value-objects/phone-number.vo';
 import { BookingLine, BookingLineInput } from './booking-line.entity';
 import {
+  BookingInfoMessageTooShortError,
   BookingLineRequiredError,
   BookingRejectionReasonTooShortError,
   InvalidBookingTransitionError,
@@ -375,12 +376,16 @@ export class Booking extends AggregateRoot {
   }
 
   requestMoreInfo(staffId: string, message: string, correlationId: string): void {
+    const normalizedMessage = message.trim();
+    if (normalizedMessage.length < 20) {
+      throw new BookingInfoMessageTooShortError();
+    }
     if (this.props.status !== BookingStatus.PENDING) {
       throw new InvalidBookingTransitionError(this.props.status, BookingStatus.INFO_REQUESTED);
     }
 
     this.props.status = BookingStatus.INFO_REQUESTED;
-    this.props.infoRequestMessage = message;
+    this.props.infoRequestMessage = normalizedMessage;
     this.props.infoRequestedAt = new Date();
     this.props.infoRequestedBy = staffId;
 
@@ -390,7 +395,7 @@ export class Booking extends AggregateRoot {
         customerId: this.props.customerId,
         guestEmail: this.props.guestEmail.address,
         guestName: this.props.guestName,
-        informationNeeded: message,
+        informationNeeded: normalizedMessage,
         requestedBy: staffId,
       }),
     );

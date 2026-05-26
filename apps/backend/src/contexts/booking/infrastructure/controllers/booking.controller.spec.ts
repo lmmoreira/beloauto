@@ -14,6 +14,7 @@ import { RequestBookingUseCase } from '../../application/use-cases/request-booki
 import { RequestAuthenticatedBookingUseCase } from '../../application/use-cases/request-authenticated-booking.use-case';
 import { ApproveBookingUseCase } from '../../application/use-cases/approve-booking.use-case';
 import { RejectBookingUseCase } from '../../application/use-cases/reject-booking.use-case';
+import { RequestMoreInfoUseCase } from '../../application/use-cases/request-more-info.use-case';
 import { BookingSlotConflictService } from '../../application/services/booking-slot-conflict.service';
 import { BookingStatus } from '../../domain/booking.aggregate';
 
@@ -35,6 +36,18 @@ function makeRejectUseCase(
   repo: InMemoryBookingRepository,
 ): RejectBookingUseCase {
   return new RejectBookingUseCase(
+    ctx,
+    repo,
+    new InMemoryTransactionManager(),
+    new InMemoryEventBus(),
+  );
+}
+
+function makeRequestMoreInfoUseCase(
+  ctx: ReturnType<TenantContextBuilder['build']>,
+  repo: InMemoryBookingRepository,
+): RequestMoreInfoUseCase {
+  return new RequestMoreInfoUseCase(
     ctx,
     repo,
     new InMemoryTransactionManager(),
@@ -101,6 +114,7 @@ describe('BookingController', () => {
         new InMemoryEventBus(),
       ),
       makeRejectUseCase(staffCtx, bookingRepo),
+      makeRequestMoreInfoUseCase(staffCtx, bookingRepo),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
     await serviceRepo.save(service);
@@ -163,6 +177,7 @@ describe('BookingController', () => {
           new InMemoryEventBus(),
         ),
         makeRejectUseCase(staffCtxB, repoB),
+        makeRequestMoreInfoUseCase(staffCtxB, repoB),
       );
       const err = await ctrl.create(validBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -250,6 +265,7 @@ describe('BookingController', () => {
           new InMemoryEventBus(),
         ),
         makeRejectUseCase(staffCtx, bookingRepoB),
+        makeRequestMoreInfoUseCase(staffCtx, bookingRepoB),
       );
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
@@ -353,6 +369,74 @@ describe('BookingController', () => {
     });
   });
 
+  describe('requestInfo()', () => {
+    const validMessage = 'Please provide clearer photos of the vehicle';
+
+    it('transitions PENDING → INFO_REQUESTED and returns 200 shape', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const result = await controller.requestInfo(booking.id, { message: validMessage });
+      expect(result.status).toBe(BookingStatus.INFO_REQUESTED);
+      expect(result.bookingId).toBe(booking.id);
+      expect(result.infoRequestedAt).toBeDefined();
+    });
+
+    it('maps BookingNotFoundError to 404', async () => {
+      const err = await controller
+        .requestInfo('00000000-0000-4000-8000-000000009999', { message: validMessage })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+
+    it('maps InvalidBookingTransitionError to 422 when booking is already INFO_REQUESTED', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withStatus(BookingStatus.INFO_REQUESTED)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .requestInfo(booking.id, { message: validMessage })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+    });
+
+    it('maps BookingInfoMessageTooShortError to 400', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .requestInfo(booking.id, { message: 'short' })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    });
+
+    it('tenant isolation: cannot request info on a booking from tenantB (returns 404)', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_B)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .requestInfo(booking.id, { message: validMessage })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+  });
+
   describe('createAuthenticated()', () => {
     const authBody = () => ({
       scheduledAt: `${futureDate(1)}T10:00:00.000Z`,
@@ -412,6 +496,7 @@ describe('BookingController', () => {
           new InMemoryEventBus(),
         ),
         makeRejectUseCase(staffCtxC, repoC),
+        makeRequestMoreInfoUseCase(staffCtxC, repoC),
       );
       const err = await ctrl.createAuthenticated(authBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);

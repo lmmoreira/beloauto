@@ -160,7 +160,6 @@ Booking {
   infoRequestedBy:      StaffId  | null
   infoResponseMessage:  String   | null  (UC-005 customer reply notes)
   infoSubmittedAt:      DateTime | null
-  infoSubmittedBy:      CustomerId | null  (UC-005 customer who submitted, null for guests)
   adminNotes:           String   | null  (UC-003, UC-009)
 }
 ```
