@@ -427,4 +427,262 @@ describe('BookingController (integration)', () => {
       expect(wrongTenant).toBeNull();
     });
   });
+
+  describe('PATCH /bookings/:id/submit-info', () => {
+    let submitCustomerId: string;
+
+    beforeAll(async () => {
+      const customer = new CustomerEntityBuilder()
+        .withTenantId(tenantAId)
+        .withGoogleOAuthId('google-sub-submit-info')
+        .withEmail('submit-info-customer@booking.test')
+        .withName('Submit Info Customer')
+        .withPhone('31977777777')
+        .build();
+      await ds.getRepository(CustomerEntity).save(customer);
+      submitCustomerId = customer.id;
+    });
+
+    const infoMessage = 'Por favor envie mais fotos do veículo antes do serviço';
+
+    it('transitions INFO_REQUESTED → PENDING and returns 200 shape', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings/authenticated')
+        .set(actorHeaders(tenantAId, submitCustomerId, 'CUSTOMER'))
+        .send({ scheduledAt: `${futureDate(5)}T10:00:00.000Z`, serviceIds: [serviceId] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/request-info`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ message: infoMessage })
+        .expect(200);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/submit-info`)
+        .set(actorHeaders(tenantAId, submitCustomerId, 'CUSTOMER'))
+        .send({ response: 'Aqui estão as informações solicitadas' })
+        .expect(200);
+
+      expect(body.status).toBe('PENDING');
+      expect(body.bookingId).toBe(created.bookingId);
+      expect(body.infoSubmittedAt).toBeDefined();
+
+      const row = await ds
+        .getRepository(BookingEntity)
+        .findOne({ where: { id: created.bookingId, tenantId: tenantAId } });
+      expect(row!.status).toBe('PENDING');
+    });
+
+    it('returns 403 when caller is not the booking owner', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings/authenticated')
+        .set(actorHeaders(tenantAId, submitCustomerId, 'CUSTOMER'))
+        .send({ scheduledAt: `${futureDate(5)}T11:00:00.000Z`, serviceIds: [serviceId] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/request-info`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ message: infoMessage })
+        .expect(200);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/submit-info`)
+        .set(actorHeaders(tenantAId, ACTOR_ID, 'CUSTOMER'))
+        .send({ response: 'Informações enviadas' })
+        .expect(403);
+
+      expect(body.status).toBe(403);
+    });
+
+    it('returns 422 when booking is not INFO_REQUESTED', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings/authenticated')
+        .set(actorHeaders(tenantAId, submitCustomerId, 'CUSTOMER'))
+        .send({ scheduledAt: `${futureDate(5)}T12:00:00.000Z`, serviceIds: [serviceId] })
+        .expect(201);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/submit-info`)
+        .set(actorHeaders(tenantAId, submitCustomerId, 'CUSTOMER'))
+        .send({ response: 'Informações enviadas' })
+        .expect(422);
+
+      expect(body.status).toBe(422);
+    });
+
+    it('returns 404 when booking does not exist', async () => {
+      const { body } = await request(app.getHttpServer())
+        .patch('/bookings/00000000-0000-4000-8000-000000009999/submit-info')
+        .set(actorHeaders(tenantAId, submitCustomerId, 'CUSTOMER'))
+        .send({ response: 'Informações enviadas' })
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+
+    it('tenant isolation: cannot submit info for a booking from tenantB (returns 404)', async () => {
+      const svcB = new ServiceEntityBuilder()
+        .withTenantId(tenantBId)
+        .withName('Serviço B Submit')
+        .withPriceAmount('80.00')
+        .withDurationMinutes(30)
+        .withIsActive(true)
+        .build();
+      await ds.getRepository(ServiceEntity).save(svcB);
+
+      const customerB = new CustomerEntityBuilder()
+        .withTenantId(tenantBId)
+        .withGoogleOAuthId('google-sub-submit-b')
+        .withEmail('submit-customer-b@booking.test')
+        .withName('Customer B')
+        .withPhone('31966666666')
+        .build();
+      await ds.getRepository(CustomerEntity).save(customerB);
+
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings/authenticated')
+        .set(actorHeaders(tenantBId, customerB.id, 'CUSTOMER'))
+        .send({ scheduledAt: `${futureDate(6)}T10:00:00.000Z`, serviceIds: [svcB.id] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/request-info`)
+        .set(actorHeaders(tenantBId, STAFF_ID, 'MANAGER'))
+        .send({ message: infoMessage })
+        .expect(200);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/submit-info`)
+        .set(actorHeaders(tenantAId, submitCustomerId, 'CUSTOMER'))
+        .send({ response: 'Informações enviadas' })
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+  });
+
+  describe('PATCH /bookings/:id/submit-info/guest', () => {
+    const guestEmail = 'joao@example.com';
+    const validResponse = 'Aqui estão as informações solicitadas';
+    const infoMessage = 'Por favor envie mais fotos do veículo antes do serviço';
+
+    it('transitions INFO_REQUESTED → PENDING for a GUEST booking and returns 200 shape', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), guestEmail, scheduledAt: `${futureDate(7)}T10:00:00.000Z` })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/request-info`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ message: infoMessage })
+        .expect(200);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/submit-info/guest`)
+        .set(guestHeaders(tenantAId))
+        .send({ guestEmail, response: validResponse })
+        .expect(200);
+
+      expect(body.status).toBe('PENDING');
+      expect(body.bookingId).toBe(created.bookingId);
+      expect(body.infoSubmittedAt).toBeDefined();
+
+      const row = await ds
+        .getRepository(BookingEntity)
+        .findOne({ where: { id: created.bookingId, tenantId: tenantAId } });
+      expect(row!.status).toBe('PENDING');
+    });
+
+    it('returns 403 when booking has a customerId (is a CUSTOMER booking)', async () => {
+      const customer = new CustomerEntityBuilder()
+        .withTenantId(tenantAId)
+        .withGoogleOAuthId('google-sub-guest-submit')
+        .withEmail('guest-submit-customer@booking.test')
+        .withName('Guest Submit Customer')
+        .withPhone('31955555555')
+        .build();
+      await ds.getRepository(CustomerEntity).save(customer);
+
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings/authenticated')
+        .set(actorHeaders(tenantAId, customer.id, 'CUSTOMER'))
+        .send({ scheduledAt: `${futureDate(7)}T11:00:00.000Z`, serviceIds: [serviceId] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/request-info`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ message: infoMessage })
+        .expect(200);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/submit-info/guest`)
+        .set(guestHeaders(tenantAId))
+        .send({ guestEmail: customer.email, response: validResponse })
+        .expect(403);
+
+      expect(body.status).toBe(403);
+    });
+
+    it('returns 422 when booking is not INFO_REQUESTED', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), guestEmail, scheduledAt: `${futureDate(7)}T12:00:00.000Z` })
+        .expect(201);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/submit-info/guest`)
+        .set(guestHeaders(tenantAId))
+        .send({ guestEmail, response: validResponse })
+        .expect(422);
+
+      expect(body.status).toBe(422);
+    });
+
+    it('returns 404 when booking does not exist', async () => {
+      const { body } = await request(app.getHttpServer())
+        .patch('/bookings/00000000-0000-4000-8000-000000009999/submit-info/guest')
+        .set(guestHeaders(tenantAId))
+        .send({ guestEmail, response: validResponse })
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+
+    it('tenant isolation: cannot submit guest info for a booking from tenantB (returns 404)', async () => {
+      const svcB2 = new ServiceEntityBuilder()
+        .withTenantId(tenantBId)
+        .withName('Serviço B Guest Submit')
+        .withPriceAmount('80.00')
+        .withDurationMinutes(30)
+        .withIsActive(true)
+        .build();
+      await ds.getRepository(ServiceEntity).save(svcB2);
+
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantBId))
+        .send({ ...validBody(), guestEmail, serviceIds: [svcB2.id], scheduledAt: `${futureDate(8)}T10:00:00.000Z` })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/request-info`)
+        .set(actorHeaders(tenantBId, STAFF_ID, 'MANAGER'))
+        .send({ message: infoMessage })
+        .expect(200);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/submit-info/guest`)
+        .set(guestHeaders(tenantAId))
+        .send({ guestEmail, response: validResponse })
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+  });
 });

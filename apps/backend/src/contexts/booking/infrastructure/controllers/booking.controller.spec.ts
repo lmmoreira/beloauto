@@ -582,6 +582,85 @@ describe('BookingController', () => {
     });
   });
 
+  describe('submitInfoGuest()', () => {
+    const guestEmail = 'guest@example.com';
+    const validResponse = 'Here are the photos as requested';
+
+    it('transitions INFO_REQUESTED → PENDING for a GUEST booking and returns 200 shape', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withStatus(BookingStatus.INFO_REQUESTED)
+        .withScheduledAt(new Date(`${futureDate(3)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const result = await controller.submitInfoGuest(booking.id, {
+        guestEmail,
+        response: validResponse,
+      });
+      expect(result.status).toBe(BookingStatus.PENDING);
+      expect(result.bookingId).toBe(booking.id);
+      expect(result.infoSubmittedAt).toBeDefined();
+    });
+
+    it('maps BookingForbiddenError to 403 when booking has a customerId (CUSTOMER booking)', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withCustomerId(CUSTOMER_ID)
+        .withStatus(BookingStatus.INFO_REQUESTED)
+        .withScheduledAt(new Date(`${futureDate(3)}T11:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .submitInfoGuest(booking.id, { guestEmail, response: validResponse })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.FORBIDDEN);
+    });
+
+    it('maps BookingNotFoundError to 404', async () => {
+      const err = await controller
+        .submitInfoGuest('00000000-0000-4000-8000-000000009999', {
+          guestEmail,
+          response: validResponse,
+        })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+
+    it('maps InvalidBookingTransitionError to 422 when booking is not INFO_REQUESTED', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withStatus(BookingStatus.PENDING)
+        .withScheduledAt(new Date(`${futureDate(3)}T12:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .submitInfoGuest(booking.id, { guestEmail, response: validResponse })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+    });
+
+    it('tenant isolation: cannot submit guest info for a booking from tenantB (returns 404)', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_B)
+        .withStatus(BookingStatus.INFO_REQUESTED)
+        .withScheduledAt(new Date(`${futureDate(3)}T13:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .submitInfoGuest(booking.id, { guestEmail, response: validResponse })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+  });
+
   describe('createAuthenticated()', () => {
     const authBody = () => ({
       scheduledAt: `${futureDate(1)}T10:00:00.000Z`,
