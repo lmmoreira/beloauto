@@ -20,43 +20,30 @@ const CORRELATION_ID = 'corr-approve-test';
 
 const scheduledAt = new Date(`${futureDate(2)}T13:00:00.000Z`);
 
-function makeUseCase(opts: {
-  bookingRepo?: InMemoryBookingRepository;
-  availabilityPort?: InMemoryBookingAvailabilityPort;
-  tenantId?: string;
-}): {
-  useCase: ApproveBookingUseCase;
-  bookingRepo: InMemoryBookingRepository;
-  eventBus: InMemoryEventBus;
-  availabilityPort: InMemoryBookingAvailabilityPort;
-} {
-  const bookingRepo = opts.bookingRepo ?? new InMemoryBookingRepository();
-  const availabilityPort = opts.availabilityPort ?? new InMemoryBookingAvailabilityPort();
-  const eventBus = new InMemoryEventBus();
-  const ctx = new TenantContextBuilder()
-    .withTenantId(opts.tenantId ?? TENANT_A)
-    .withCorrelationId(CORRELATION_ID)
-    .withActorId(STAFF_ID)
-    .withActorRole('MANAGER')
-    .build();
-  const useCase = new ApproveBookingUseCase(
-    ctx,
-    bookingRepo,
-    availabilityPort,
-    new InMemoryTransactionManager(),
-    eventBus,
-  );
-  return { useCase, bookingRepo, eventBus, availabilityPort };
-}
-
 describe('ApproveBookingUseCase', () => {
   describe('approve()', () => {
     let bookingRepo: InMemoryBookingRepository;
     let eventBus: InMemoryEventBus;
+    let availabilityPort: InMemoryBookingAvailabilityPort;
     let useCase: ApproveBookingUseCase;
 
-    beforeEach(async () => {
-      ({ useCase, bookingRepo, eventBus } = makeUseCase({}));
+    beforeEach(() => {
+      bookingRepo = new InMemoryBookingRepository();
+      eventBus = new InMemoryEventBus();
+      availabilityPort = new InMemoryBookingAvailabilityPort();
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withCorrelationId(CORRELATION_ID)
+        .withActorId(STAFF_ID)
+        .withActorRole('MANAGER')
+        .build();
+      useCase = new ApproveBookingUseCase(
+        ctx,
+        bookingRepo,
+        availabilityPort,
+        new InMemoryTransactionManager(),
+        eventBus,
+      );
     });
 
     it('transitions PENDING → APPROVED and returns result', async () => {
@@ -163,15 +150,28 @@ describe('ApproveBookingUseCase', () => {
     });
 
     it('throws BookingSlotUnavailableError when slot overlaps an approved booking', async () => {
-      const availabilityPort = new InMemoryBookingAvailabilityPort();
-      availabilityPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
-      const { useCase: uc, bookingRepo: repo } = makeUseCase({ availabilityPort });
+      const conflictPort = new InMemoryBookingAvailabilityPort();
+      conflictPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
+      const conflictRepo = new InMemoryBookingRepository();
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withCorrelationId(CORRELATION_ID)
+        .withActorId(STAFF_ID)
+        .withActorRole('MANAGER')
+        .build();
+      const uc = new ApproveBookingUseCase(
+        ctx,
+        conflictRepo,
+        conflictPort,
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      );
 
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
         .withScheduledAt(scheduledAt)
         .build();
-      await repo.save(booking);
+      await conflictRepo.save(booking);
 
       await expect(uc.execute({ bookingId: booking.id })).rejects.toThrow(
         BookingSlotUnavailableError,
@@ -180,15 +180,28 @@ describe('ApproveBookingUseCase', () => {
 
     it('allows approval when existing slot is non-overlapping (adjacent)', async () => {
       const otherSlotAt = new Date(scheduledAt.getTime() + 30 * 60_000);
-      const availabilityPort = new InMemoryBookingAvailabilityPort();
-      availabilityPort.setSlots([{ scheduledAt: otherSlotAt, totalDurationMins: 30 }]);
-      const { useCase: uc, bookingRepo: repo } = makeUseCase({ availabilityPort });
+      const adjacentPort = new InMemoryBookingAvailabilityPort();
+      adjacentPort.setSlots([{ scheduledAt: otherSlotAt, totalDurationMins: 30 }]);
+      const adjacentRepo = new InMemoryBookingRepository();
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_A)
+        .withCorrelationId(CORRELATION_ID)
+        .withActorId(STAFF_ID)
+        .withActorRole('MANAGER')
+        .build();
+      const uc = new ApproveBookingUseCase(
+        ctx,
+        adjacentRepo,
+        adjacentPort,
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      );
 
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
         .withScheduledAt(scheduledAt)
         .build();
-      await repo.save(booking);
+      await adjacentRepo.save(booking);
 
       const result = await uc.execute({ bookingId: booking.id });
       expect(result.status).toBe(BookingStatus.APPROVED);

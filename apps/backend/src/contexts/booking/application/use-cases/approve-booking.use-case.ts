@@ -43,22 +43,7 @@ export class ApproveBookingUseCase {
       throw new InvalidBookingTransitionError(booking.status, BookingStatus.APPROVED);
     }
 
-    const dateStr = booking.scheduledAt.toISOString().slice(0, 10);
-    const existingSlots = await this.availabilityPort.findApprovedByTenantAndDate(
-      tenantId,
-      dateStr,
-    );
-
-    const bookingStart = booking.scheduledAt.getTime();
-    const bookingEnd = bookingStart + booking.totalDurationMins * 60_000;
-
-    const hasConflict = existingSlots.some((slot) => {
-      const slotStart = slot.scheduledAt.getTime();
-      const slotEnd = slotStart + slot.totalDurationMins * 60_000;
-      return slotStart < bookingEnd && bookingStart < slotEnd;
-    });
-
-    if (hasConflict) throw new BookingSlotUnavailableError();
+    await this.assertSlotFree(tenantId, booking.scheduledAt, booking.totalDurationMins);
 
     booking.approve(staffId, correlationId);
 
@@ -75,5 +60,28 @@ export class ApproveBookingUseCase {
       status: booking.status,
       approvedAt: booking.approvedAt!.toISOString(),
     };
+  }
+
+  private async assertSlotFree(
+    tenantId: string,
+    scheduledAt: Date,
+    totalDurationMins: number,
+  ): Promise<void> {
+    const dateStr = scheduledAt.toISOString().slice(0, 10);
+    const existingSlots = await this.availabilityPort.findApprovedByTenantAndDate(
+      tenantId,
+      dateStr,
+    );
+
+    const bookingStart = scheduledAt.getTime();
+    const bookingEnd = bookingStart + totalDurationMins * 60_000;
+
+    const hasConflict = existingSlots.some((slot) => {
+      const slotStart = slot.scheduledAt.getTime();
+      const slotEnd = slotStart + slot.totalDurationMins * 60_000;
+      return slotStart < bookingEnd && bookingStart < slotEnd;
+    });
+
+    if (hasConflict) throw new BookingSlotUnavailableError();
   }
 }

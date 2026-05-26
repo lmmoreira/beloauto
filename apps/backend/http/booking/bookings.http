@@ -11,6 +11,70 @@
 @tenantId = 10000000-0000-4000-8000-000000000001
 @serviceId = 30000000-0000-4000-8000-000000000001
 @customerId = 20000000-0000-4000-8000-000000000001
+@staffId = 20000000-0000-4000-8000-000000000002
+@bookingId = {{bookingId}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — approve a PENDING booking (UC-003)
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/approve
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-approve-001
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — booking not found → 404
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/00000000-0000-4000-8000-000000009999/approve
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-approve-002
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — slot taken by another APPROVED booking → 409
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/approve
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-approve-003
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — invalid state transition (e.g. APPROVED → APPROVED) → 422
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/approve
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-approve-004
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — no role headers → 403
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/approve
+X-Tenant-ID: {{tenantId}}
+X-Correlation-ID: test-corr-approve-005
+
+###
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — guest booking (no pickup service)
