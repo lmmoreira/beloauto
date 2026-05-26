@@ -7,17 +7,7 @@ jest.mock('nodemailer');
 const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'test-id' });
 (nodemailer.createTransport as jest.Mock).mockReturnValue({ sendMail: mockSendMail });
 
-const message: OutboundMessage = {
-  tenantId: 'aaaaaaaa-0000-4000-8000-000000000001',
-  to: 'maria@lavacar.com.br',
-  subject: 'Você foi convidado para a equipe Lava Car',
-  templateKey: 'staff-invitation',
-  data: {
-    staffName: 'Maria',
-    tenantName: 'Lava Car',
-    activationLink: 'http://localhost:3000/lavacar/auth/staff',
-  },
-};
+const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 
 describe('SmtpEmailAdapter', () => {
   let adapter: SmtpEmailAdapter;
@@ -31,21 +21,227 @@ describe('SmtpEmailAdapter', () => {
     expect(adapter.channelType).toBe('EMAIL');
   });
 
-  it('calls sendMail with correct to, subject, and html body', async () => {
-    await adapter.send(message);
+  describe('staff-invitation template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'maria@lavacar.com.br',
+      subject: 'Você foi convidado para a equipe Lava Car',
+      templateKey: 'staff-invitation',
+      data: {
+        staffName: 'Maria',
+        tenantName: 'Lava Car',
+        activationLink: 'http://localhost:3000/lavacar/auth/staff',
+      },
+    };
 
-    expect(mockSendMail).toHaveBeenCalledTimes(1);
-    const call = mockSendMail.mock.calls[0][0] as { to: string; subject: string; html: string };
-    expect(call.to).toBe('maria@lavacar.com.br');
-    expect(call.subject).toBe('Você foi convidado para a equipe Lava Car');
-    expect(call.html).toContain('Lava Car');
-    expect(call.html).toContain('http://localhost:3000/lavacar/auth/staff');
+    it('sends email to correct recipient with correct subject', async () => {
+      await adapter.send(message);
+
+      const call = mockSendMail.mock.calls[0][0] as { to: string; subject: string };
+      expect(call.to).toBe('maria@lavacar.com.br');
+      expect(call.subject).toBe('Você foi convidado para a equipe Lava Car');
+    });
+
+    it('renders tenant name, staff name, and activation link', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('Lava Car');
+      expect(html).toContain('Maria');
+      expect(html).toContain('http://localhost:3000/lavacar/auth/staff');
+    });
   });
 
-  it('includes staff name in the rendered email body', async () => {
-    await adapter.send(message);
+  describe('booking-requested-admin template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'admin@lavacar.com.br',
+      subject: 'Nova solicitação de agendamento — Lavagem Completa',
+      templateKey: 'booking-requested-admin',
+      data: {
+        guestName: 'João Silva',
+        scheduledAt: '2026-06-15T13:00:00.000Z',
+        serviceNames: 'Lavagem Completa',
+        totalPrice: 'R$ 100,00',
+        pickupAddress: null,
+      },
+    };
 
-    const call = mockSendMail.mock.calls[0][0] as { html: string };
-    expect(call.html).toContain('Maria');
+    it('renders guest name, scheduled time, service and total', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('2026-06-15T13:00:00.000Z');
+      expect(html).toContain('Lavagem Completa');
+      expect(html).toContain('R$ 100,00');
+    });
+
+    it('omits pickup section when pickupAddress is null', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).not.toContain('coleta');
+    });
+
+    it('renders pickup address when provided', async () => {
+      const withPickup: OutboundMessage = {
+        ...message,
+        data: {
+          ...message.data,
+          pickupAddress: { street: 'Rua das Flores', number: '10', city: 'Belo Horizonte', state: 'MG' },
+        },
+      };
+      await adapter.send(withPickup);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('Rua das Flores');
+      expect(html).toContain('Belo Horizonte');
+    });
+  });
+
+  describe('booking-requested-customer template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'joao@example.com',
+      subject: 'Seu agendamento foi recebido',
+      templateKey: 'booking-requested-customer',
+      data: {
+        guestName: 'João Silva',
+        scheduledAt: '2026-06-15T13:00:00.000Z',
+        serviceNames: 'Lavagem Completa',
+        totalPrice: 'R$ 100,00',
+        tenantName: 'Lava Car',
+      },
+    };
+
+    it('renders guest name, tenant name, service, date and total', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('Lava Car');
+      expect(html).toContain('Lavagem Completa');
+      expect(html).toContain('2026-06-15T13:00:00.000Z');
+      expect(html).toContain('R$ 100,00');
+    });
+  });
+
+  describe('booking-approved-customer template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'joao@example.com',
+      subject: 'Seu agendamento foi confirmado! ✓',
+      templateKey: 'booking-approved-customer',
+      data: {
+        guestName: 'João Silva',
+        localDate: '15/06/2026',
+        localTime: '10:00',
+        serviceNames: 'Lavagem Completa',
+        lineItems: ['Lavagem Completa: R$ 100,00'],
+        totalPrice: 'R$ 100,00',
+      },
+    };
+
+    it('renders guest name, local date, local time, service and total', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('15/06/2026');
+      expect(html).toContain('10:00');
+      expect(html).toContain('Lavagem Completa');
+      expect(html).toContain('R$ 100,00');
+    });
+
+    it('renders each line item', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('<li>Lavagem Completa: R$ 100,00</li>');
+    });
+  });
+
+  describe('booking-rejected-customer template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'joao@example.com',
+      subject: 'Sobre seu pedido de agendamento',
+      templateKey: 'booking-rejected-customer',
+      data: {
+        guestName: 'João Silva',
+        reason: 'Horário indisponível para os serviços selecionados',
+      },
+    };
+
+    it('renders guest name and rejection reason', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('Horário indisponível para os serviços selecionados');
+    });
+  });
+
+  describe('booking-info-requested-customer template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'joao@example.com',
+      subject: 'Precisamos de mais informações sobre seu agendamento',
+      templateKey: 'booking-info-requested-customer',
+      data: {
+        guestName: 'João Silva',
+        informationNeeded: 'Por favor envie fotos do veículo',
+        respondLink: 'http://localhost:3000/bookings/abc/responder?token=xyz',
+      },
+    };
+
+    it('renders guest name, information needed and respond link', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('Por favor envie fotos do veículo');
+      expect(html).toContain('http://localhost:3000/bookings/abc/responder?token=xyz');
+    });
+  });
+
+  describe('booking-info-submitted-admin template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'admin@lavacar.com.br',
+      subject: 'Cliente respondeu à solicitação de informações',
+      templateKey: 'booking-info-submitted-admin',
+      data: {
+        submittedByEmail: 'joao@example.com',
+        customerResponse: 'Aqui estão as fotos do veículo',
+        bookingLink: 'http://localhost:3000/dashboard/bookings/abc',
+      },
+    };
+
+    it('renders submitter email, customer response and booking link', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('joao@example.com');
+      expect(html).toContain('Aqui estão as fotos do veículo');
+      expect(html).toContain('http://localhost:3000/dashboard/bookings/abc');
+    });
+  });
+
+  describe('unknown template key', () => {
+    it('falls back to subject-only paragraph', async () => {
+      const message: OutboundMessage = {
+        tenantId: TENANT_ID,
+        to: 'test@example.com',
+        subject: 'Some notification',
+        templateKey: 'unknown-template',
+        data: {},
+      };
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('Some notification');
+    });
   });
 });
