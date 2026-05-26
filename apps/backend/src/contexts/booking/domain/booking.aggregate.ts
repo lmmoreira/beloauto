@@ -7,6 +7,7 @@ import { PhoneNumber } from '../../../shared/value-objects/phone-number.vo';
 import { BookingLine, BookingLineInput } from './booking-line.entity';
 import {
   BookingLineRequiredError,
+  BookingRejectionReasonTooShortError,
   InvalidBookingTransitionError,
   PickupAddressRequiredError,
 } from './errors/booking-domain.error';
@@ -345,6 +346,9 @@ export class Booking extends AggregateRoot {
   }
 
   reject(staffId: string, reason: string, correlationId: string): void {
+    if (reason.trim().length < 10) {
+      throw new BookingRejectionReasonTooShortError();
+    }
     if (
       this.props.status !== BookingStatus.PENDING &&
       this.props.status !== BookingStatus.INFO_REQUESTED

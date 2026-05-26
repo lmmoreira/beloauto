@@ -237,6 +237,106 @@ describe('BookingsController (component)', () => {
     });
   });
 
+  describe('PATCH /v1/bookings/:id/reject', () => {
+    const BOOKING_ID_REJECT = '40000000-0000-4000-8000-000000000003';
+    const mockRejectResponse = {
+      bookingId: BOOKING_ID_REJECT,
+      status: 'REJECTED',
+      rejectedAt: '2026-06-15T13:00:00.000Z',
+    };
+    const validRejectBody = { reason: 'Service unavailable for that date' };
+
+    it('returns 401 when no JWT is provided', async () => {
+      const res = await request(app.getHttpServer()).patch(
+        `/v1/bookings/${BOOKING_ID_REJECT}/reject`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when JWT role is CUSTOMER', async () => {
+      const token = makeCustomerJwt(jwtService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_REJECT}/reject`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validRejectBody);
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 400 when reason is too short (under 10 chars)', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_REJECT}/reject`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ reason: 'short' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when reason is missing', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_REJECT}/reject`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a PENDING booking with MANAGER JWT', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockResolvedValueOnce(mockRejectResponse);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_REJECT}/reject`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validRejectBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('REJECTED');
+      expect(res.body.rejectedAt).toBeDefined();
+      expect(backendHttpService.patch).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID_REJECT}/reject`,
+        validRejectBody,
+      );
+    });
+
+    it('propagates 422 from backend when transition is invalid', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 422, detail: 'invalid transition' }, 422),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_REJECT}/reject`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validRejectBody);
+
+      expect(res.status).toBe(422);
+    });
+
+    it('propagates 404 from backend when booking is not found', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 404, detail: 'not found' }, 404),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_REJECT}/reject`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validRejectBody);
+
+      expect(res.status).toBe(404);
+    });
+  });
+
   describe('POST /v1/bookings/authenticated', () => {
     it('returns 401 when no JWT is provided', async () => {
       const res = await request(app.getHttpServer())

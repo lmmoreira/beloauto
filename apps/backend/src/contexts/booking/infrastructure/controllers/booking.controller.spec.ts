@@ -13,6 +13,7 @@ import { BookingController } from './booking.controller';
 import { RequestBookingUseCase } from '../../application/use-cases/request-booking.use-case';
 import { RequestAuthenticatedBookingUseCase } from '../../application/use-cases/request-authenticated-booking.use-case';
 import { ApproveBookingUseCase } from '../../application/use-cases/approve-booking.use-case';
+import { RejectBookingUseCase } from '../../application/use-cases/reject-booking.use-case';
 import { BookingSlotConflictService } from '../../application/services/booking-slot-conflict.service';
 import { BookingStatus } from '../../domain/booking.aggregate';
 
@@ -26,6 +27,18 @@ function makeSlotService(port?: InMemoryBookingAvailabilityPort): BookingSlotCon
   return new BookingSlotConflictService(
     port ?? new InMemoryBookingAvailabilityPort(),
     new InMemoryScheduleTenantSettingsPort(),
+  );
+}
+
+function makeRejectUseCase(
+  ctx: ReturnType<TenantContextBuilder['build']>,
+  repo: InMemoryBookingRepository,
+): RejectBookingUseCase {
+  return new RejectBookingUseCase(
+    ctx,
+    repo,
+    new InMemoryTransactionManager(),
+    new InMemoryEventBus(),
   );
 }
 
@@ -87,6 +100,7 @@ describe('BookingController', () => {
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
+      makeRejectUseCase(staffCtx, bookingRepo),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
     await serviceRepo.save(service);
@@ -122,11 +136,12 @@ describe('BookingController', () => {
         .withTenantId(TENANT_A)
         .withActorId(STAFF_ID)
         .build();
+      const repoB = new InMemoryBookingRepository();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
           makeSlotService(conflictPort),
-          new InMemoryBookingRepository(),
+          repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
           ctx,
@@ -135,18 +150,19 @@ describe('BookingController', () => {
           new InMemoryCustomerProfilePort(),
           serviceRepo,
           makeSlotService(),
-          new InMemoryBookingRepository(),
+          repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
           ctx,
         ),
         new ApproveBookingUseCase(
           staffCtxB,
-          new InMemoryBookingRepository(),
+          repoB,
           makeSlotService(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
+        makeRejectUseCase(staffCtxB, repoB),
       );
       const err = await ctrl.create(validBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -233,6 +249,7 @@ describe('BookingController', () => {
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
+        makeRejectUseCase(staffCtx, bookingRepoB),
       );
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
@@ -253,6 +270,84 @@ describe('BookingController', () => {
       await bookingRepo.save(booking);
 
       const err = await controller.approve(booking.id).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+  });
+
+  describe('reject()', () => {
+    const validReason = 'Service unavailable for that date';
+
+    it('rejects a PENDING booking and returns 200 shape with rejectedAt', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const result = await controller.reject(booking.id, { reason: validReason });
+      expect(result.status).toBe(BookingStatus.REJECTED);
+      expect(result.bookingId).toBe(booking.id);
+      expect(result.rejectedAt).toBeDefined();
+    });
+
+    it('rejects an INFO_REQUESTED booking', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .withStatus(BookingStatus.INFO_REQUESTED)
+        .build();
+      await bookingRepo.save(booking);
+
+      const result = await controller.reject(booking.id, { reason: validReason });
+      expect(result.status).toBe(BookingStatus.REJECTED);
+    });
+
+    it('maps BookingNotFoundError to 404', async () => {
+      const err = await controller
+        .reject('00000000-0000-4000-8000-000000009999', { reason: validReason })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+
+    it('maps InvalidBookingTransitionError to 422 when booking is APPROVED', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withStatus(BookingStatus.APPROVED)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .reject(booking.id, { reason: validReason })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+    });
+
+    it('maps BookingRejectionReasonTooShortError to 400', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_A)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller.reject(booking.id, { reason: 'short' }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    });
+
+    it('tenant isolation: cannot reject booking from tenantB (returns 404)', async () => {
+      const booking = new BookingBuilder()
+        .withTenantId(TENANT_B)
+        .withScheduledAt(new Date(`${futureDate(2)}T10:00:00.000Z`))
+        .build();
+      await bookingRepo.save(booking);
+
+      const err = await controller
+        .reject(booking.id, { reason: validReason })
+        .catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
     });
@@ -290,11 +385,12 @@ describe('BookingController', () => {
         .withTenantId(TENANT_A)
         .withActorId(STAFF_ID)
         .build();
+      const repoC = new InMemoryBookingRepository();
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
           makeSlotService(),
-          new InMemoryBookingRepository(),
+          repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
           ctx,
@@ -303,18 +399,19 @@ describe('BookingController', () => {
           noPhonePort,
           serviceRepo,
           makeSlotService(),
-          new InMemoryBookingRepository(),
+          repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
           ctx,
         ),
         new ApproveBookingUseCase(
           staffCtxC,
-          new InMemoryBookingRepository(),
+          repoC,
           makeSlotService(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
+        makeRejectUseCase(staffCtxC, repoC),
       );
       const err = await ctrl.createAuthenticated(authBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);

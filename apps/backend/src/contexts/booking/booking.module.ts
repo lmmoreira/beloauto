@@ -27,6 +27,7 @@ import { RemoveClosureUseCase } from './application/use-cases/remove-closure.use
 import { RemoveScheduleOpeningUseCase } from './application/use-cases/remove-schedule-opening.use-case';
 import { UpdateServiceUseCase } from './application/use-cases/update-service.use-case';
 import { ApproveBookingUseCase } from './application/use-cases/approve-booking.use-case';
+import { RejectBookingUseCase } from './application/use-cases/reject-booking.use-case';
 import { BookingSlotConflictService } from './application/services/booking-slot-conflict.service';
 import { BookingEntity } from './infrastructure/entities/booking.entity';
 import { BookingLineEntity } from './infrastructure/entities/booking-line.entity';
@@ -96,6 +97,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     GetAvailabilityUseCase,
     GetAvailabilitySummaryUseCase,
     ApproveBookingUseCase,
+    RejectBookingUseCase,
   ],
 })
 export class BookingModule {}

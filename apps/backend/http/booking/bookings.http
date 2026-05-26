@@ -77,6 +77,78 @@ X-Correlation-ID: test-corr-approve-005
 ###
 
 # ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — reject a PENDING booking (UC-004)
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/reject
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reject-001
+
+{
+  "reason": "Service unavailable for the requested date"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — reason too short → 400
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/reject
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reject-002
+
+{
+  "reason": "short"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — booking not found → 404
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/00000000-0000-4000-8000-000000009999/reject
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reject-003
+
+{
+  "reason": "Service unavailable for the requested date"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR — invalid state transition (e.g. APPROVED → REJECTED) → 422
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/reject
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reject-004
+
+{
+  "reason": "Service unavailable for the requested date"
+}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — guest booking (no pickup service)
 # ─────────────────────────────────────────────────────────────────────────────
 
