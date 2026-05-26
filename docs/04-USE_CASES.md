@@ -101,7 +101,7 @@ UC-XXX: [Use Case Name]
 ### **UC-003: Admin Approves Booking**
 
 - **Actor:** Staff/Admin
-- **Preconditions:** Booking in PENDING state. Admin is authenticated. Admin has access to dashboard.
+- **Preconditions:** Booking in PENDING or INFO_REQUESTED state. Admin is authenticated. Admin has access to dashboard.
 - **Trigger:** Admin clicks "Approve" on a pending booking
 - **Main Flow:**
   1. Admin opens the booking request. The dashboard shows:
@@ -132,20 +132,20 @@ UC-XXX: [Use Case Name]
 ### **UC-004: Admin Rejects Booking**
 
 - **Actor:** Staff/Admin
-- **Preconditions:** Booking in PENDING state
+- **Preconditions:** Booking in PENDING or INFO_REQUESTED state
 - **Trigger:** Admin clicks "Reject"
 - **Main Flow:**
-  1. Admin selects pending booking
+  1. Admin selects booking
   2. Admin clicks "Reject"
-  3. Admin enters reason (e.g., "Service unavailable", "Schedule full")
+  3. Admin enters reason (e.g., "Service unavailable", "Schedule full") — required, minimum 10 characters
   4. Admin clicks "Submit"
-  5. System transitions booking: PENDING → REJECTED
+  5. System transitions booking: `PENDING | INFO_REQUESTED` → REJECTED
   6. System records rejectionReason and rejectedBy
   7. System publishes `BookingRejected` event
   8. Admin sees confirmation
 
 - **Alternative Flows:**
-  - **A1: No reason provided** → System allows (reason optional)
+  - **A1: Reason too short** → System rejects with `400` — reason is required and must be at least 10 characters.
 
 - **Postconditions:** Booking is REJECTED. Guest/customer receives email explaining reason.
 - **Events Triggered:** `BookingRejected`
@@ -212,26 +212,28 @@ UC-XXX: [Use Case Name]
 
 ---
 
-### **UC-007: Customer Cancels Approved Booking**
+### **UC-007: Customer Cancels Booking**
 
 - **Actor:** Authenticated Customer
-- **Preconditions:** Booking is APPROVED. Time to booking ≥ `tenants.settings.cancellation_window_hours`.
-- **Trigger:** Customer clicks "Cancel Booking"
+- **Preconditions:** Booking belongs to the customer and is in APPROVED, PENDING, or INFO_REQUESTED state.
+  - For APPROVED bookings: time to booking ≥ `tenants.settings.cancellation_window_hours`.
+  - For PENDING / INFO_REQUESTED bookings: no time restriction — customer may cancel a pending request at any time.
+- **Trigger:** Customer clicks "Cancel Booking" (APPROVED) or "Cancel Request" (PENDING / INFO_REQUESTED)
 - **Main Flow:**
-  1. System validates: current time + `tenants.settings.cancellation_window_hours` ≤ booking time
-  2. If validation passes:
-     - Customer sees confirmation: "Cancel this booking?"
-  3. Customer clicks "Confirm Cancel"
-  4. System transitions booking: APPROVED → CANCELLED
-  5. System records cancelledBy (customer email), cancelDate, reason (optional)
-  6. System publishes `BookingCancelled` event
-  7. System shows success: "Booking cancelled"
+  1. If booking is APPROVED: System validates that `scheduledAt − now() ≥ tenants.settings.cancellation_window_hours`. If not, returns error (A1).
+  2. If booking is PENDING or INFO_REQUESTED: no time validation needed — proceed directly.
+  3. Customer sees confirmation: "Cancelar este agendamento?"
+  4. Customer clicks "Confirmar"
+  5. System transitions booking: `APPROVED | PENDING | INFO_REQUESTED → CANCELLED`
+  6. System records `cancelledBy` (customer id), `cancelledAt`, `cancellationReason` (optional)
+  7. System publishes `BookingCancelled` event
+  8. System shows success: "Agendamento cancelado."
 
 - **Alternative Flows:**
-  - **A1: Inside cancellation window** → System shows error: "Too late to cancel — cancellations must be made at least `tenants.settings.cancellation_window_hours` hours before the appointment"
-  - **A2: Booking already completed/cancelled** → System shows error: "Cannot cancel this booking"
+  - **A1: Inside cancellation window (APPROVED bookings only)** → System shows error: "Cancelamentos devem ser feitos com pelo menos `tenants.settings.cancellation_window_hours` horas de antecedência."
+  - **A2: Booking is COMPLETED, REJECTED, or CANCELLED** → System shows error: "Este agendamento não pode ser cancelado."
 
-- **Postconditions:** Booking is CANCELLED. Customer receives cancellation confirmation email. Admin notified. Loyalty system records cancellation.
+- **Postconditions:** Booking is CANCELLED. Customer receives cancellation confirmation email. Admin notified.
 - **Events Triggered:** `BookingCancelled`
 
 ---
@@ -239,7 +241,7 @@ UC-XXX: [Use Case Name]
 ### **UC-008: Admin Cancels or Reschedules Booking**
 
 - **Actor:** Staff/Admin
-- **Preconditions:** Booking is APPROVED or PENDING
+- **Preconditions:** Booking is APPROVED, PENDING, or INFO_REQUESTED
 - **Trigger:** Admin clicks "Cancel" or "Reschedule" in dashboard
 - **Main Flow:**
   1. Admin selects booking
@@ -1025,11 +1027,11 @@ Returns:
 | UC-001 | Guest requests booking | Guest | Creates PENDING booking with 1..N lines + photos |
 | UC-002 | Customer requests booking | Customer | Creates PENDING booking (auth'd) with 1..N lines |
 | UC-003 | Admin approves booking | Admin | PENDING|INFO_REQUESTED → APPROVED; line list frozen |
-| UC-004 | Admin rejects booking | Admin | PENDING → REJECTED |
+| UC-004 | Admin rejects booking | Admin | PENDING \| INFO_REQUESTED → REJECTED |
 | UC-005 | Admin requests info | Admin | PENDING (awaiting info) |
 | UC-006 | Customer views bookings | Customer | Read operation |
-| UC-007 | Customer cancels booking | Customer | APPROVED → CANCELLED |
-| UC-008 | Admin cancels / reschedules booking | Admin | APPROVED/PENDING → CANCELLED (`BookingCancelled`) or scheduledAt updated (`BookingRescheduled`) |
+| UC-007 | Customer cancels booking | Customer | APPROVED (with time window) \| PENDING \| INFO_REQUESTED → CANCELLED |
+| UC-008 | Admin cancels / reschedules booking | Admin | APPROVED/PENDING/INFO_REQUESTED → CANCELLED (`BookingCancelled`) or scheduledAt updated (`BookingRescheduled`) |
 | UC-009 | Mark booking complete | Staff | APPROVED → COMPLETED + photos + N LoyaltyEntry rows (one per line) |
 | UC-010 | Close schedule | Admin | ScheduleClosure created |
 | UC-011 | View calendar | Any | Read available slots filtered by basket's total duration |

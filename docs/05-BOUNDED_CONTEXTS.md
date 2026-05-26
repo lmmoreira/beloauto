@@ -66,7 +66,8 @@ Notification Context subscribes:
 │                                                                          │
 │  ┌───────────────────────────────────────────────────────────────────┐ │
 │  │                      BOOKING CONTEXT  (Core)                      │ │
-│  │  Aggregates: Booking (root + BookingLine), Service, ScheduleClosure│ │
+│  │  Aggregates: Booking (root + BookingLine), Service,               │ │
+│  │             ScheduleClosure, ScheduleOpening                      │ │
 │  │  Published: BookingRequested, BookingApproved, BookingRejected,   │ │
 │  │             BookingInfoRequested, BookingInfoSubmitted,            │ │
 │  │             BookingCompleted, BookingCancelled, BookingRescheduled,│ │
@@ -101,11 +102,10 @@ Notification Context subscribes:
 │  │  - Customer (root)   │  │  - Staff (root)    │  │  - Tenant     │  │
 │  │    (multi-tenant)    │  │    (single-tenant) │  │  - Hotsite-   │  │
 │  │                      │  │                    │  │    Config     │  │
-│  │  No published events │  │  No published      │  │               │  │
-│  │  (passive context)   │  │  events (passive)  │  │  Published:   │  │
-│  └──────────────────────┘  └────────────────────┘  │  - StaffInvited│ │
-│                                                      │  - StaffDeact.│ │
-│                                                      └───────────────┘ │
+│  │  No published events │  │  Published:        │  │               │  │
+│  │  (passive context)   │  │  - StaffInvited    │  │  Published:   │  │
+│  └──────────────────────┘  │  - StaffDeactivated│  │  - TenantProv.│ │
+│                             └────────────────────┘  └───────────────┘ │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 

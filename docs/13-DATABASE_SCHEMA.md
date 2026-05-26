@@ -96,9 +96,8 @@ Owned by: **Customer Context** (`src/contexts/customer/`)
 | tenant_id | UUID | NOT NULL, FK → `platform.tenants(id)` |
 | google_oauth_id | VARCHAR(255) | NOT NULL |
 | email | VARCHAR(255) | NOT NULL |
-| phone | VARCHAR(20) | |
-| first_name | VARCHAR(100) | |
-| last_name | VARCHAR(100) | |
+| name | VARCHAR(255) | NOT NULL |
+| phone | VARCHAR(20) | NULLABLE |
 | default_address | JSONB | NULLABLE — `{ street, number, complement, neighborhood, city, state, zipCode }`. Used only to pre-fill booking form. The booking stores its own copy. |
 | created_at | TIMESTAMP WITH TIME ZONE | DEFAULT now() |
 | updated_at | TIMESTAMP WITH TIME ZONE | DEFAULT now() |
@@ -177,6 +176,7 @@ A booking is the parent of one or more `booking_lines`. All service-level detail
 | info_requested_by | UUID | NULLABLE — no FK (cross-context ref to `staff.staff`) |
 | info_response_message | TEXT | NULLABLE — customer's reply notes (UC-005) |
 | info_submitted_at | TIMESTAMPTZ | NULLABLE |
+| info_submitted_by | UUID | NULLABLE — customerId who submitted the response; null for guests (cross-context ref) |
 | approved_at | TIMESTAMPTZ | NULLABLE |
 | approved_by | UUID | NULLABLE — no FK (cross-context ref to `staff.staff`) |
 | completed_at | TIMESTAMPTZ | NULLABLE |

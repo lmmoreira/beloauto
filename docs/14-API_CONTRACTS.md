@@ -357,10 +357,17 @@ Requires JWT with `role: CUSTOMER`. Tenant resolved from JWT `tenantId` — no `
 (`pickupAddress` omitted when null. `serviceNameAtBooking` stored on the line but not returned.)
 
 ### **Booking Management (UC-003 - UC-008)**
-- `GET /bookings` → List bookings. Filters: `status`, `dateRange`, `customerId`. Each list item includes `totalPrice`, `totalDurationMins`, and a compact `lineSummary: [{ serviceId, priceAtBooking }, …]`.
+- `GET /bookings` → List bookings. Filters: `status`, `dateRange`, `customerId`. Each list item includes `totalPrice`, `totalDurationMins`, and a compact `lineSummary: [{ serviceId, serviceNameAtBooking, priceAtBooking }, …]`.
 - `GET /bookings/:id` → Detailed view: every line in full, audit log, photos, customer / guest info.
-- `PATCH /bookings/:id/status` → (UC-003, UC-004, UC-005, UC-007, UC-008)
-  - **Status enum:** `APPROVED | REJECTED | CANCELLED | INFO_REQUESTED | PENDING` (`PENDING` only when transitioning back from `INFO_REQUESTED` via UC-005 alt-flow A2).
+
+**Admin approval workflow** (JWT + `MANAGER|STAFF` role required):
+- `PATCH /bookings/:id/approve` → (UC-003) Approve a PENDING or INFO_REQUESTED booking. Re-checks slot availability. Returns `200 { bookingId, status: 'APPROVED', approvedAt }`. Returns `409 slot-unavailable` if slot is taken.
+- `PATCH /bookings/:id/reject` → (UC-004) Reject a PENDING or INFO_REQUESTED booking. Body: `{ reason: string }` (required, min 10 chars). Returns `200 { bookingId, status: 'REJECTED' }`.
+- `PATCH /bookings/:id/request-info` → (UC-005a) Transition PENDING → INFO_REQUESTED. Body: `{ message: string }` (required, min 20 chars). Returns `200 { bookingId, status: 'INFO_REQUESTED' }`.
+
+**Customer info submission** (JWT + `CUSTOMER` role required; tokenised-link flow for guests TBD in M08-S04):
+- `PATCH /bookings/:id/submit-info` → (UC-005b) Transition INFO_REQUESTED → PENDING. Body: `{ response: string, photoUrls?: string[] }`. Returns `200 { bookingId, status: 'PENDING' }`. Any provided `photoUrls` are appended to `booking.beforeServicePhotoUrls`.
+
 - `PATCH /bookings/:id` → (UC-008) General update (e.g., **Reschedule** date/time). Lines cannot be edited after `APPROVED` (returns `409 booking-lines-frozen`).
 
 ### **Reschedule (UC-008)**
@@ -370,7 +377,7 @@ Requires JWT with `role: CUSTOMER`. Tenant resolved from JWT `tenantId` — no `
 - **Event:** Publishes `BookingRescheduled` → Notification sends customer email.
 
 ### **Information Workflow (UC-005)**
-- `POST /bookings/:id/info` -> Customer submits requested photos/notes.
+See `PATCH /bookings/:id/submit-info` in the Booking Management section above.
 
 ### **Completion (UC-009)**
 - `PATCH /bookings/:id/complete`
@@ -521,7 +528,7 @@ Auth: JWT + `MANAGER|STAFF` on all write endpoints.
 
 ## 5. Customer & Loyalty
 
-### **Customer Management (UC-016)**
+### **Customer Management (UC-002, UC-006, UC-007)**
 - `GET /customers` -> (Admin) List all customers in tenant.
 - `GET /customers/:id` -> (Admin/Self) Detailed profile. Response includes `defaultAddress` (nullable).
 - `GET /customers/me` -> (Self) Current authenticated customer profile.

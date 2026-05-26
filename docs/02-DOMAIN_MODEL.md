@@ -23,6 +23,7 @@ A bounded context is an autonomous domain with clear boundaries and its own mode
 - `Booking` (root) — owns one or more `BookingLine` child entities, tenant-scoped
 - `Service` (root) — tenant-scoped
 - `ScheduleClosure` (root) — tenant-scoped
+- `ScheduleOpening` (root) — tenant-scoped; opens a normally-closed day as a specific-date exception
 
 ---
 
@@ -86,6 +87,10 @@ A bounded context is an autonomous domain with clear boundaries and its own mode
 
 **Key Aggregates:**
 - Staff (root) - scoped to tenant
+
+**Published Events:**
+- `StaffInvited` — consumed by Notification Context (invitation email). Published on staff invite (UC-028) and during tenant provisioning (M04-S06 handles `TenantProvisioned` → creates first MANAGER → publishes `StaffInvited`).
+- `StaffDeactivated` — no consumers in MVP (sessions expire via JWT TTL).
 
 > `ScheduleClosure` is owned by the **Booking Context** (it directly controls calendar availability). Staff Context reads closures for display but never writes them directly.
 
@@ -155,6 +160,7 @@ Booking {
   infoRequestedBy:      StaffId  | null
   infoResponseMessage:  String   | null  (UC-005 customer reply notes)
   infoSubmittedAt:      DateTime | null
+  infoSubmittedBy:      CustomerId | null  (UC-005 customer who submitted, null for guests)
   adminNotes:           String   | null  (UC-003, UC-009)
 }
 ```
@@ -209,7 +215,7 @@ BookingLine {
   - Creates booking in `PENDING`.
   - Publishes `BookingRequested`.
 - `approveBooking()` → transitions `PENDING | INFO_REQUESTED → APPROVED`, publishes `BookingApproved` (event carries the line summary).
-- `rejectBooking(reason)` → transitions `PENDING | INFO_REQUESTED → REJECTED`, publishes `BookingRejected`.
+- `rejectBooking(staffId, reason)` → transitions `PENDING | INFO_REQUESTED → REJECTED`, publishes `BookingRejected`.
 - `requestMoreInfo(informationNeeded)` → `PENDING → INFO_REQUESTED`, publishes `BookingInfoRequested`.
 - `submitInformation(payload)` → `INFO_REQUESTED → PENDING`, publishes `BookingInfoSubmitted`.
 - `completeBooking(afterServicePhotoUrls, adminNotes?, actualPrices?: Map<BookingLineId, Money>)`
@@ -572,6 +578,13 @@ Domain events represent significant business occurrences that other contexts may
 | `ServicePointsEarned` | `BookingCompleted` consumed → one `LoyaltyEntry` inserted per `BookingLine` (one event per line) | Notification Context |
 | `PointsExpiringSoon` | Weekly cron (Mondays) finds entries whose `expires_at` falls in the **next 7 days** — forward-looking warning | Notification Context |
 
+### **Staff Context Events**
+
+| Event | Trigger | Consumers |
+|-------|---------|-----------|
+| `StaffInvited` | New staff member invited (UC-028) or first MANAGER created during tenant provisioning (M04-S06) | Notification Context (invitation email) |
+| `StaffDeactivated` | MANAGER deactivates a staff member (UC-029) | None in MVP |
+
 ### **Notification Context Events**
 
 | Event | Trigger | Consumers |
@@ -659,23 +672,29 @@ When a `LoyaltyEntry`'s `expiresAt` passes:
 ## Context Map & Communication
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   Booking Context                        │
-│  (Request, Approve, Complete, Cancel bookings)          │
-│  Events: BookingRequested, BookingApproved,             │
-│          BookingCompleted, BookingCancelled             │
-└──────────────┬──────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      Booking Context                         │
+│  (Request, Approve, Reject, Complete, Cancel bookings)      │
+│  Events: BookingRequested, BookingApproved, BookingRejected,│
+│          BookingInfoRequested, BookingInfoSubmitted,         │
+│          BookingCompleted, BookingCancelled,                 │
+│          BookingRescheduled, BookingReminderDue,             │
+│          BookingReminderDueToday, AdminDailyScheduleReminder │
+└──────────────┬──────────────────────────────────────────────┘
                │
-         ┌─────┴─────┬──────────────┬──────────────┐
-         │            │              │              │
-    ┌────▼────┐  ┌───▼───┐  ┌──────▼──┐  ┌──────▼──┐
-    │Customer │  │Loyalty│  │ Notify  │  │ Staff  │
-    │Context  │  │Context│  │ Context │  │Context │
-    └─────────┘  └───────┘  └─────────┘  └────────┘
+         ┌─────┴──────┬──────────────┬─────────────┐
+         │             │              │             │
+    ┌────▼────┐  ┌────▼───┐  ┌──────▼──┐  ┌──────▼──┐
+    │Customer │  │Loyalty │  │ Notify  │  │ Staff   │
+    │Context  │  │Context │  │ Context │  │Context  │
+    └─────────┘  └────────┘  └─────────┘  └─────────┘
+                                               │
+                              StaffInvited, StaffDeactivated
+                              (published by Staff Context)
 
-Booking → Loyalty: "Hey, booking completed, increment wash count"
-Booking → Notification: "Hey, new booking request, send email"
-Booking → Staff: "Booking awaiting approval in dashboard"
+Booking → Loyalty: BookingCompleted only (inserts LoyaltyEntry per line)
+Booking → Notification: all lifecycle events → emails
+Staff  → Notification: StaffInvited → invitation email
 ```
 
 ---
@@ -701,8 +720,7 @@ Booking → Staff: "Booking awaiting approval in dashboard"
 - All Platform use cases (except super-admin provisioning) are performed by a staff member with `MANAGER` role within their own tenant scope.
 
 **Published Events:**
-- `StaffInvited` — consumed by Notification (invitation email)
-- `StaffDeactivated` — no consumers in MVP
+- `TenantProvisioned` — consumed by Staff Context (creates first MANAGER staff row + publishes `StaffInvited`)
 
 ---
 

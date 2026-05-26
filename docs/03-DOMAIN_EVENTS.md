@@ -99,7 +99,11 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     approvedSlot:        { startTime: ISO8601, endTime: ISO8601 }   // = [scheduledAt, scheduledAt + totalDurationMins)
     totalPrice:          { amount: number, currency: string }
     lineSummary: [                                                   // ≥ 1
-      { serviceId: string, priceAtBooking: { amount, currency } }
+      {
+        serviceId:            string
+        serviceNameAtBooking: string               // point-in-time name for email display
+        priceAtBooking:       { amount: number, currency: string }
+      }
     ]
     approvedBy:          string    // staff id
   }
@@ -308,8 +312,9 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
         bookingId:         string
         customerName:      string
         customerPhone:     string
-        serviceId:         string
-        serviceName:       string
+        lines: [                                   // ≥ 1 — all services in this booking
+          { serviceId: string, serviceName: string }
+        ]
         appointmentSlot:   { startTime: ISO8601, endTime: ISO8601 }
         adminNotes:        string | null
       }
@@ -481,24 +486,7 @@ Customer clicks "Cancel"
 
 ---
 
-### **Platform Context Events**
-
-#### **TenantProvisioned**
-- **Trigger:** Platform operator calls `POST /internal/tenants` to onboard a new car-wash company (UC-024)
-- **State change:** `Tenant` row + default `HotsiteConfig` row created. First MANAGER staff does NOT exist yet — that is handled by M04-S06 which subscribes to this event.
-- **Data:**
-  ```json
-  {
-    "tenantId":    "uuid-v7",
-    "name":        "string",
-    "slug":        "string",
-    "adminEmail":  "string",
-    "timezone":    "America/Sao_Paulo"
-  }
-  ```
-- **Consumers:**
-  - Staff context (M04-S06) → creates first MANAGER `Staff` row (`isActive=false`) + publishes `StaffInvited`
-- **Design note:** `invitedBy` in the downstream `StaffInvited` event is set to `SYSTEM_ACTOR_ID = '00000000-0000-0000-0000-000000000000'` because no human actor exists yet at provisioning time.
+### **Staff Context Events** (Staff Context)
 
 #### **StaffInvited**
 - **Trigger:** Two sources:
@@ -535,12 +523,33 @@ Customer clicks "Cancel"
 
 ---
 
+### **Platform Context Events**
+
+#### **TenantProvisioned**
+- **Trigger:** Platform operator calls `POST /internal/tenants` to onboard a new car-wash company (UC-024)
+- **State change:** `Tenant` row + default `HotsiteConfig` row created. First MANAGER staff does NOT exist yet — that is handled by M04-S06 which subscribes to this event.
+- **Data:**
+  ```json
+  {
+    "tenantId":    "uuid-v7",
+    "name":        "string",
+    "slug":        "string",
+    "adminEmail":  "string",
+    "timezone":    "America/Sao_Paulo"
+  }
+  ```
+- **Consumers:**
+  - Staff context (M04-S06) → creates first MANAGER `Staff` row (`isActive=false`) + publishes `StaffInvited`
+- **Design note:** `invitedBy` in the downstream `StaffInvited` event is set to `SYSTEM_ACTOR_ID = '00000000-0000-0000-0000-000000000000'` because no human actor exists yet at provisioning time.
+
+---
+
 ## Event Publishing & Consumption
 
 - **Transport:** technology-agnostic `IEventBus` port. Local dev: GCP Pub/Sub Emulator (Docker). Production: GCP Pub/Sub (managed). Swappable to SQS/Kafka via a new adapter — domain code never changes.
 - **Delivery semantics:** at-least-once. **All consumers MUST be idempotent** (deduplicate by `eventId`).
 - **Ordering:** not guaranteed across events. Consumers MUST tolerate out-of-order delivery (e.g. `BookingCompleted` arriving before `BookingApproved` should be rejected with a retry, not crash).
-- **Transactional outbox:** event publication MUST be transactional with the state change that produced it (e.g. via an outbox pattern). No event without a corresponding committed row; no committed row without its event eventually published.
+- **Transactional outbox (target pattern):** ideally, event publication is transactional with the state change that produced it via an outbox pattern — no event without a committed row, no committed row without its event eventually published. **MVP uses synchronous publish after commit** (see `docs/13-DATABASE_SCHEMA.md §Event Publishing — MVP Approach` for the trade-off and upgrade path).
 
 ---
 

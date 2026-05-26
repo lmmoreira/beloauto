@@ -113,24 +113,32 @@ Implement the info-request use case: admin sends a message to the customer askin
 **Description:**  
 Implement the customer-side response to an info request. The booking transitions INFO_REQUESTED → PENDING (back to pending, ready for admin to review again and approve/reject).
 
+> **⚠️ Planning note — guest info-submission:** UC-005 A2 requires that guests (unauthenticated) can also respond to info requests via a link in the notification email. This means a second, unauthenticated endpoint is needed in addition to the JWT-protected one below. The technical design (token generation, expiry, token storage, unauthenticated BFF route) must be agreed before implementation begins. Treat this as a mandatory part of this story, not a follow-up.
+
 **Backend use case `SubmitBookingInfoUseCase`:**
 1. Load `Booking` — must be INFO_REQUESTED
-2. Validate `booking.customerId === caller.sub` (customer can only update their own bookings)
-3. Call `booking.submitInformation(response)`
-4. Persist (emits `BookingInfoSubmitted`)
+2. For authenticated path: validate `booking.customerId === caller.sub` (customer can only update their own bookings)
+3. Call `booking.submitInformation(submittedBy, response, photoUrls?)`
+4. Appends any `photoUrls` to `booking.beforeServicePhotoUrls`
+5. Sets `infoSubmittedBy` (customerId for authenticated, null for guest)
+6. Persist (emits `BookingInfoSubmitted`)
 
-**BFF endpoint:** `PATCH /v1/bookings/:id/submit-info`
-- Requires: JWT + `CUSTOMER` role
-- Body: `{ response: string }` — required
-- Returns: `200 { bookingId, status: 'PENDING' }`
+**BFF endpoints:**
+- **Authenticated path:** `PATCH /v1/bookings/:id/submit-info`
+  - Requires: JWT + `CUSTOMER` role
+  - Body: `{ response: string, photoUrls?: string[] }` — `response` required
+  - Returns: `200 { bookingId, status: 'PENDING' }`
+- **Guest path:** endpoint design TBD in planning (tokenised link from notification email)
 
 **Acceptance criteria:**
-- [ ] INFO_REQUESTED → PENDING on valid submission
+- [ ] INFO_REQUESTED → PENDING on valid submission (both authenticated and guest paths)
 - [ ] Customer can only submit info for their own bookings — attempting to submit for another customer's booking returns `403`
-- [ ] Guest bookings (no `customerId`) cannot have info submitted via this endpoint (guest has no JWT)
+- [ ] `photoUrls` (if provided) are appended to `booking.beforeServicePhotoUrls`
 - [ ] `infoResponseMessage` is stored on the booking
-- [ ] `BookingInfoSubmitted` event emitted with `response`
+- [ ] `infoSubmittedBy` is set to the customer's UUID (authenticated path) or `null` (guest path)
+- [ ] `BookingInfoSubmitted` event emitted with `{ response, photoUrls, customerId, submittedByEmail }`
 - [ ] Submitting info on a PENDING booking (not INFO_REQUESTED) returns `422`
+- [ ] Guest tokenised-link path: design and implementation included in this story
 
 **Dependencies:** M08-S03
 
