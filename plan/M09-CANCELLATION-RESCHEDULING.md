@@ -45,7 +45,7 @@ Implement customer-initiated booking cancellation. The cancellation window is re
 
 ---
 
-### M09-S02 — UC-008a: Admin cancels booking
+### M09-S02 — UC-008a: Admin cancels booking ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** S  
