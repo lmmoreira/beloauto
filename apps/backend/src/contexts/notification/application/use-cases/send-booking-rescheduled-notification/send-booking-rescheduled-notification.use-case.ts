@@ -66,6 +66,10 @@ export class SendBookingRescheduledNotificationUseCase {
       ),
     ]);
 
+    if (existingCustomer && existingAdmin) {
+      return { customerEmailSent: false, adminEmailSent: false };
+    }
+
     const tenantInfo = await this.tenantPort.getTenantInfo(dto.tenantId);
     const timezone = tenantInfo?.timezone ?? 'America/Sao_Paulo';
 

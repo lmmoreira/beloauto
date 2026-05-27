@@ -286,6 +286,9 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
       (m) => m.templateKey === 'booking-approved-customer',
     );
     expect(approvedMsgs).toHaveLength(2);
+    const approvedRecipients = approvedMsgs.map((m) => m.to);
+    expect(approvedRecipients).toContain(customerEmail);
+    expect(approvedRecipients).toContain(booking3GuestEmail);
 
     const rejectedMsg = dispatcher.dispatched.find(
       (m) => m.templateKey === 'booking-rejected-customer',
