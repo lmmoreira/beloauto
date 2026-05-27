@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -21,6 +22,7 @@ export async function createCustomerIntegrationApp(): Promise<{
 }> {
   const moduleRef = await Test.createTestingModule({
     imports: [
+      ConfigModule.forRoot({ isGlobal: true }),
       TypeOrmModule.forRoot({
         type: 'postgres',
         url: process.env['TEST_DATABASE_URL'],

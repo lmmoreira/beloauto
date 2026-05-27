@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
@@ -36,6 +37,7 @@ export class SendBookingInfoSubmittedNotificationUseCase {
     private readonly staffPort: INotificationStaffPort,
     @Inject(TRANSACTION_MANAGER)
     private readonly txManager: ITransactionManager,
+    private readonly config: ConfigService,
   ) {}
 
   async execute(
@@ -52,7 +54,7 @@ export class SendBookingInfoSubmittedNotificationUseCase {
     const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
     if (managerEmails.length === 0) return { emailSent: false };
 
-    const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
+    const frontendUrl = this.config.getOrThrow<string>('FRONTEND_URL');
     const bookingLink = `${frontendUrl}/dashboard/bookings/${dto.bookingId}`;
     const customerResponse =
       typeof dto.infoPayload['notes'] === 'string' ? dto.infoPayload['notes'] : '';

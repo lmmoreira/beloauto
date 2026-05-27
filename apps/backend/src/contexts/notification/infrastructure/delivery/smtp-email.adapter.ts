@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { AppLogger } from '../../../../shared/observability/app-logger';
 import {
@@ -12,19 +13,22 @@ export class SmtpEmailAdapter implements IDeliveryChannel {
   readonly channelType: DeliveryChannelType = 'EMAIL';
 
   private readonly logger = new AppLogger(SmtpEmailAdapter.name);
+  private readonly transporter: nodemailer.Transporter;
 
-  private readonly transporter = nodemailer.createTransport({
-    host: process.env['SMTP_HOST'] ?? 'localhost',
-    port: Number(process.env['SMTP_PORT'] ?? 1025),
-    secure: false,
-    ignoreTLS: true,
-  });
+  constructor(private readonly config: ConfigService) {
+    this.transporter = nodemailer.createTransport({
+      host: config.get<string>('SMTP_HOST', 'localhost'),
+      port: config.get<number>('SMTP_PORT', 1025),
+      secure: false,
+      ignoreTLS: true,
+    });
+  }
 
   async send(message: OutboundMessage): Promise<void> {
     const html = this.render(message);
 
     await this.transporter.sendMail({
-      from: process.env['SMTP_FROM'] ?? 'noreply@beloauto.com.br',
+      from: this.config.get<string>('SMTP_FROM', 'noreply@beloauto.com.br'),
       to: message.to,
       subject: message.subject,
       html,

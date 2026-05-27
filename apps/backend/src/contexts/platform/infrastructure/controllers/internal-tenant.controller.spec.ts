@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
@@ -28,6 +29,7 @@ describe('InternalTenantController', () => {
         { provide: HOTSITE_CONFIG_REPOSITORY, useValue: new InMemoryHotsiteConfigRepository() },
         { provide: EVENT_BUS, useValue: eventBus },
         { provide: TRANSACTION_MANAGER, useValue: new InMemoryTransactionManager() },
+        { provide: ConfigService, useValue: { getOrThrow: () => 'test-platform-admin-key' } },
       ],
     }).compile();
 

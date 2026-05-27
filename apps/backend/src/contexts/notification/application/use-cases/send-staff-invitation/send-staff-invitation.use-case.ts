@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
@@ -42,6 +43,7 @@ export class SendStaffInvitationUseCase {
     private readonly tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER)
     private readonly txManager: ITransactionManager,
+    private readonly config: ConfigService,
   ) {}
 
   async execute(dto: SendStaffInvitationDto): Promise<SendStaffInvitationUseCaseResult> {
@@ -68,7 +70,7 @@ export class SendStaffInvitationUseCase {
       data: {
         staffName: staff.name ?? staff.email,
         tenantName: tenant.name,
-        activationLink: `${process.env['FRONTEND_URL'] ?? 'http://localhost:3000'}/${tenant.slug}/auth/staff`,
+        activationLink: `${this.config.getOrThrow<string>('FRONTEND_URL')}/${tenant.slug}/auth/staff`,
       },
     });
 

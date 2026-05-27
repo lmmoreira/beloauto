@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import {
   ITransactionManager,
@@ -32,6 +33,7 @@ export class SendBookingInfoRequestedNotificationUseCase {
     private readonly dispatcher: INotificationDispatcher,
     @Inject(TRANSACTION_MANAGER)
     private readonly txManager: ITransactionManager,
+    private readonly config: ConfigService,
   ) {}
 
   async execute(
@@ -73,14 +75,13 @@ export class SendBookingInfoRequestedNotificationUseCase {
   }
 
   private buildRespondLink(dto: SendBookingInfoRequestedNotificationDto): string {
-    const frontendUrl = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
+    const frontendUrl = this.config.getOrThrow<string>('FRONTEND_URL');
 
     if (dto.customerId !== null) {
       return `${frontendUrl}/dashboard/bookings/${dto.bookingId}`;
     }
 
-    const secret = process.env['JWT_SECRET'];
-    if (!secret) throw new Error('JWT_SECRET is not configured');
+    const secret = this.config.getOrThrow<string>('JWT_SECRET');
 
     const token = jwt.sign(
       { bookingId: dto.bookingId, tenantId: dto.tenantId, guestEmail: dto.guestEmail },

@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
@@ -18,6 +19,13 @@ const baseDto: SendBookingInfoSubmittedNotificationDto = {
   infoPayload: { notes: 'Aqui estão as fotos do veículo conforme solicitado' },
 };
 
+const configService = {
+  getOrThrow: (key: string): string => {
+    if (key === 'FRONTEND_URL') return 'http://localhost:3000';
+    throw new Error(`Unknown config key: ${key}`);
+  },
+} as unknown as ConfigService;
+
 describe('SendBookingInfoSubmittedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
   let dispatcher: InMemoryNotificationDispatcher;
@@ -25,7 +33,6 @@ describe('SendBookingInfoSubmittedNotificationUseCase', () => {
   let useCase: SendBookingInfoSubmittedNotificationUseCase;
 
   beforeEach(() => {
-    process.env['FRONTEND_URL'] = 'http://localhost:3000';
     logRepo = new InMemoryNotificationLogRepository();
     dispatcher = new InMemoryNotificationDispatcher();
     staffPort = new InMemoryNotificationStaffPort();
@@ -35,11 +42,8 @@ describe('SendBookingInfoSubmittedNotificationUseCase', () => {
       dispatcher,
       staffPort,
       new InMemoryTransactionManager(),
+      configService,
     );
-  });
-
-  afterEach(() => {
-    delete process.env['FRONTEND_URL'];
   });
 
   it('dispatches admin email with customer response and booking link', async () => {

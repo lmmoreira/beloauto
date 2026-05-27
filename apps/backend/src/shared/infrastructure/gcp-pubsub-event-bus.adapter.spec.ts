@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { DomainEvent } from '../domain/domain-event';
 
 const mockAck = jest.fn();
@@ -45,12 +46,23 @@ const noopHandler = async (_e: DomainEvent): Promise<void> => {
   /* test stub */
 };
 
+const configService = {
+  getOrThrow: (key: string): string => {
+    if (key === 'PUBSUB_PROJECT_ID') return 'beloauto-local';
+    throw new Error(`Unknown config key: ${key}`);
+  },
+  get: (key: string, defaultValue = ''): string => {
+    if (key === 'PUBSUB_SUBSCRIPTION_SUFFIX') return defaultValue;
+    throw new Error(`Unknown config key: ${key}`);
+  },
+} as unknown as ConfigService;
+
 describe('GcpPubSubEventBusAdapter', () => {
   let adapter: GcpPubSubEventBusAdapter;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    adapter = new GcpPubSubEventBusAdapter();
+    adapter = new GcpPubSubEventBusAdapter(configService);
   });
 
   describe('publish()', () => {

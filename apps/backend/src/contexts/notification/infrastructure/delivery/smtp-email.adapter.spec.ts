@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { SmtpEmailAdapter } from './smtp-email.adapter';
 import { OutboundMessage } from '../../application/ports/notification-dispatcher.port';
@@ -7,6 +8,10 @@ jest.mock('nodemailer');
 const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'test-id' });
 (nodemailer.createTransport as jest.Mock).mockReturnValue({ sendMail: mockSendMail });
 
+const configService = {
+  get: jest.fn().mockReturnValue(undefined),
+} as unknown as ConfigService;
+
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 
 describe('SmtpEmailAdapter', () => {
@@ -14,7 +19,7 @@ describe('SmtpEmailAdapter', () => {
 
   beforeEach(() => {
     mockSendMail.mockClear();
-    adapter = new SmtpEmailAdapter();
+    adapter = new SmtpEmailAdapter(configService);
   });
 
   it('has channelType EMAIL', () => {

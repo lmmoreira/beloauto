@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
@@ -24,26 +25,31 @@ const customerDto: SendBookingInfoRequestedNotificationDto = {
   customerId: 'dddddddd-0003-4000-8000-000000000001',
 };
 
+const configService = {
+  getOrThrow: (key: string): string => {
+    const values: Record<string, string> = {
+      FRONTEND_URL: 'http://localhost:3000',
+      JWT_SECRET: 'test-secret-at-least-32-chars-long!!',
+    };
+    if (!(key in values)) throw new Error(`Unknown config key: ${key}`);
+    return values[key];
+  },
+} as unknown as ConfigService;
+
 describe('SendBookingInfoRequestedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
   let dispatcher: InMemoryNotificationDispatcher;
   let useCase: SendBookingInfoRequestedNotificationUseCase;
 
   beforeEach(() => {
-    process.env['JWT_SECRET'] = 'test-secret-at-least-32-chars-long!!';
-    process.env['FRONTEND_URL'] = 'http://localhost:3000';
     logRepo = new InMemoryNotificationLogRepository();
     dispatcher = new InMemoryNotificationDispatcher();
     useCase = new SendBookingInfoRequestedNotificationUseCase(
       logRepo,
       dispatcher,
       new InMemoryTransactionManager(),
+      configService,
     );
-  });
-
-  afterEach(() => {
-    delete process.env['JWT_SECRET'];
-    delete process.env['FRONTEND_URL'];
   });
 
   it('dispatches info-request email to guest with signed token link', async () => {
