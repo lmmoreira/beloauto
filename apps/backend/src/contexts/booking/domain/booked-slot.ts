@@ -1,5 +1,5 @@
 export interface BookedSlot {
-  id?: string;
+  id: string;
   scheduledAt: Date; // UTC
   totalDurationMins: number;
 }

@@ -72,7 +72,7 @@ export const CancelAsAdminBodySchema = z
 
 export const RescheduleBookingBodySchema = z.object({
   scheduledAt: z.iso.datetime(),
-  adminNotes: z.string().min(1).max(500).optional(),
+  adminNotes: z.string().trim().min(1).max(500).optional(),
 });
 
 type CancelAsAdminBody = z.infer<typeof CancelAsAdminBodySchema>;

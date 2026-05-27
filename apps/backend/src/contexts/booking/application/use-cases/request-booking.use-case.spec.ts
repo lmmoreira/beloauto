@@ -133,6 +133,7 @@ describe('RequestBookingUseCase', () => {
     const svcDuration = 30;
     availabilityPort.setSlots([
       {
+        id: 'slot-test-id',
         scheduledAt: new Date(`${futureDate(1)}T10:00:00.000Z`),
         totalDurationMins: svcDuration,
       },

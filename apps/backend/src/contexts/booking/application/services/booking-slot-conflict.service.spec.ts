@@ -24,7 +24,7 @@ describe('BookingSlotConflictService', () => {
   });
 
   it('throws BookingSlotUnavailableError when slot exactly overlaps', async () => {
-    availabilityPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
+    availabilityPort.setSlots([{ id: 'slot-test-id', scheduledAt, totalDurationMins: 60 }]);
     await expect(service.assertSlotFree(TENANT_ID, scheduledAt, 30)).rejects.toThrow(
       BookingSlotUnavailableError,
     );
@@ -32,7 +32,7 @@ describe('BookingSlotConflictService', () => {
 
   it('throws when new booking starts inside an existing slot', async () => {
     const before = new Date(scheduledAt.getTime() - 15 * 60_000);
-    availabilityPort.setSlots([{ scheduledAt: before, totalDurationMins: 60 }]);
+    availabilityPort.setSlots([{ id: 'slot-test-id', scheduledAt: before, totalDurationMins: 60 }]);
     await expect(service.assertSlotFree(TENANT_ID, scheduledAt, 30)).rejects.toThrow(
       BookingSlotUnavailableError,
     );
@@ -40,13 +40,13 @@ describe('BookingSlotConflictService', () => {
 
   it('allows booking when adjacent slot comes after (non-overlapping)', async () => {
     const after = new Date(scheduledAt.getTime() + 30 * 60_000);
-    availabilityPort.setSlots([{ scheduledAt: after, totalDurationMins: 30 }]);
+    availabilityPort.setSlots([{ id: 'slot-test-id', scheduledAt: after, totalDurationMins: 30 }]);
     await expect(service.assertSlotFree(TENANT_ID, scheduledAt, 30)).resolves.toBeUndefined();
   });
 
   it('allows booking when adjacent slot comes before (non-overlapping)', async () => {
     const before = new Date(scheduledAt.getTime() - 30 * 60_000);
-    availabilityPort.setSlots([{ scheduledAt: before, totalDurationMins: 30 }]);
+    availabilityPort.setSlots([{ id: 'slot-test-id', scheduledAt: before, totalDurationMins: 30 }]);
     await expect(service.assertSlotFree(TENANT_ID, scheduledAt, 30)).resolves.toBeUndefined();
   });
 

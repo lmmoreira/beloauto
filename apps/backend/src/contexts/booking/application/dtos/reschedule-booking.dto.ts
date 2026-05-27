@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const RescheduleBookingBodySchema = z.object({
   scheduledAt: z.iso.datetime(),
-  adminNotes: z.string().min(1).max(500).optional(),
+  adminNotes: z.string().trim().min(1).max(500).optional(),
 });
 
 export type RescheduleBookingBody = z.infer<typeof RescheduleBookingBodySchema>;
