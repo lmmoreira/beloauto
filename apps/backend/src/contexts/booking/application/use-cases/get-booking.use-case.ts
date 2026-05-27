@@ -58,7 +58,8 @@ export class GetBookingUseCase {
     const booking = await this.bookingRepo.findById(dto.bookingId, tenantId);
     if (!booking) throw new BookingNotFoundError(dto.bookingId);
 
-    if (actorRole === 'CUSTOMER' && booking.customerId !== actorId) {
+    const isStaffOrManager = actorRole === 'MANAGER' || actorRole === 'STAFF';
+    if (!isStaffOrManager && booking.customerId !== actorId) {
       throw new BookingNotFoundError(dto.bookingId);
     }
 

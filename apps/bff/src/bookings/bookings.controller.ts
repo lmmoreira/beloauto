@@ -7,6 +7,7 @@ import {
   HttpException,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -119,7 +120,7 @@ export class BookingsController {
 
   @Get(':id')
   @Roles('CUSTOMER', 'MANAGER', 'STAFF')
-  getOne(@Param('id') id: string): Promise<BookingDetailResponse> {
+  getOne(@Param('id', ParseUUIDPipe) id: string): Promise<BookingDetailResponse> {
     return this.backendHttp.get<BookingDetailResponse>(`/bookings/${id}`);
   }
 

@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -97,7 +98,9 @@ export class BookingController {
   }
 
   @Get(':id')
-  getOne(@Param('id') id: string): Promise<GetBookingUseCaseResult> {
+  getOne(
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST })) id: string,
+  ): Promise<GetBookingUseCaseResult> {
     return this.getBooking.execute({ bookingId: id }).catch(mapBookingError);
   }
 

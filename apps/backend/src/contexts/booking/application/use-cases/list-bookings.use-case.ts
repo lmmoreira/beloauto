@@ -39,7 +39,8 @@ export class ListBookingsUseCase {
   async execute(dto: ListBookingsDto): Promise<ListBookingsUseCaseResult> {
     const { tenantId, actorId, actorRole } = this.tenantContext;
 
-    const customerId = actorRole === 'CUSTOMER' ? (actorId ?? undefined) : undefined;
+    const isStaffOrManager = actorRole === 'MANAGER' || actorRole === 'STAFF';
+    const customerId = isStaffOrManager ? undefined : (actorId ?? undefined);
 
     const { items, total } = await this.bookingRepo.findAllByTenantPaginated(tenantId, {
       status: dto.status,
