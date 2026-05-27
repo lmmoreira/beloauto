@@ -133,7 +133,11 @@ export class SendBookingRescheduledNotificationUseCase {
     return { customerEmailSent, adminEmailSent };
   }
 
-  private async saveLog(tenantId: string, eventId: string, notificationType: string): Promise<void> {
+  private async saveLog(
+    tenantId: string,
+    eventId: string,
+    notificationType: string,
+  ): Promise<void> {
     const log = NotificationLog.create({ tenantId, eventId, notificationType, channel: CHANNEL });
     await this.txManager.run(async () => {
       await this.logRepo.save(log);
