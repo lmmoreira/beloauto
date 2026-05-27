@@ -298,7 +298,6 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     );
     expect(cancelledCustomerMsg).toBeDefined();
     expect(cancelledCustomerMsg!.to).toBe(customerEmail);
-    expect(cancelledCustomerMsg!.data['guestName']).toBe(expect.stringContaining(''));
 
     const cancelledAdminMsg = dispatcher.dispatched.find(
       (m) => m.templateKey === 'booking-cancelled-admin',

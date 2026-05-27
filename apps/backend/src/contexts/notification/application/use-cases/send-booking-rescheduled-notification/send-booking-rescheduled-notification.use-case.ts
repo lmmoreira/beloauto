@@ -99,15 +99,7 @@ export class SendBookingRescheduledNotificationUseCase {
           totalPrice: formattedTotal,
         },
       });
-      const log = NotificationLog.create({
-        tenantId: dto.tenantId,
-        eventId: dto.eventId,
-        notificationType: CUSTOMER_NOTIFICATION_TYPE,
-        channel: CHANNEL,
-      });
-      await this.txManager.run(async () => {
-        await this.logRepo.save(log);
-      });
+      await this.saveLog(dto.tenantId, dto.eventId, CUSTOMER_NOTIFICATION_TYPE);
       customerEmailSent = true;
     }
 
@@ -133,19 +125,18 @@ export class SendBookingRescheduledNotificationUseCase {
             }),
           ),
         );
-        const log = NotificationLog.create({
-          tenantId: dto.tenantId,
-          eventId: dto.eventId,
-          notificationType: ADMIN_NOTIFICATION_TYPE,
-          channel: CHANNEL,
-        });
-        await this.txManager.run(async () => {
-          await this.logRepo.save(log);
-        });
+        await this.saveLog(dto.tenantId, dto.eventId, ADMIN_NOTIFICATION_TYPE);
         adminEmailSent = true;
       }
     }
 
     return { customerEmailSent, adminEmailSent };
+  }
+
+  private async saveLog(tenantId: string, eventId: string, notificationType: string): Promise<void> {
+    const log = NotificationLog.create({ tenantId, eventId, notificationType, channel: CHANNEL });
+    await this.txManager.run(async () => {
+      await this.logRepo.save(log);
+    });
   }
 }
