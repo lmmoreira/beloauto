@@ -31,7 +31,11 @@ function utcIso(date: string, localHour: number, localMin = 0): string {
 }
 
 function bookedSlot(date: string, localHour: number, durationMins: number): BookedSlot {
-  return { id: 'slot-test-id', scheduledAt: new Date(utcIso(date, localHour)), totalDurationMins: durationMins };
+  return {
+    id: 'slot-test-id',
+    scheduledAt: new Date(utcIso(date, localHour)),
+    totalDurationMins: durationMins,
+  };
 }
 
 describe('AvailabilityService', () => {

@@ -192,7 +192,9 @@ describe('RequestAuthenticatedBookingUseCase', () => {
   });
 
   it('throws BookingSlotUnavailableError when slot is taken', async () => {
-    availabilityPort.setSlots([{ id: 'slot-test-id', scheduledAt: new Date(scheduledAt), totalDurationMins: 60 }]);
+    availabilityPort.setSlots([
+      { id: 'slot-test-id', scheduledAt: new Date(scheduledAt), totalDurationMins: 60 },
+    ]);
 
     await expect(useCase.execute(baseDto())).rejects.toBeInstanceOf(BookingSlotUnavailableError);
   });

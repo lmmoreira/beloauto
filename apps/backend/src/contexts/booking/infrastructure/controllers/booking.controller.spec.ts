@@ -172,7 +172,11 @@ describe('BookingController', () => {
     it('maps BookingSlotUnavailableError to 409', async () => {
       const conflictPort = new InMemoryBookingAvailabilityPort();
       conflictPort.setSlots([
-        { id: 'slot-test-id', scheduledAt: new Date(`${futureDate(1)}T10:00:00.000Z`), totalDurationMins: 30 },
+        {
+          id: 'slot-test-id',
+          scheduledAt: new Date(`${futureDate(1)}T10:00:00.000Z`),
+          totalDurationMins: 30,
+        },
       ]);
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_A)
