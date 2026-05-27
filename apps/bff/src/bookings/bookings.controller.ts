@@ -103,6 +103,11 @@ type RequestMoreInfoBody = z.infer<typeof RequestMoreInfoBodySchema>;
 type SubmitBookingInfoBody = z.infer<typeof SubmitBookingInfoBodySchema>;
 type SubmitGuestBookingInfoBody = z.infer<typeof SubmitGuestBookingInfoBodySchema>;
 
+export interface CancelBookingResponse {
+  bookingId: string;
+  status: string;
+}
+
 @Controller('bookings')
 export class BookingsController {
   constructor(
@@ -157,6 +162,13 @@ export class BookingsController {
     @Body(new ZodValidationPipe(AuthenticatedBookingBodySchema)) body: AuthenticatedBookingBody,
   ): Promise<BookingResponse> {
     return this.backendHttp.post<BookingResponse>('/bookings/authenticated', body);
+  }
+
+  @Patch(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @Roles('CUSTOMER')
+  cancelAsCustomer(@Param('id') id: string): Promise<CancelBookingResponse> {
+    return this.backendHttp.patch(`/bookings/${id}/cancel-customer`, {});
   }
 
   @Patch(':id/approve')
