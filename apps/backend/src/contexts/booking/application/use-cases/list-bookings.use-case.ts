@@ -42,7 +42,7 @@ export class ListBookingsUseCase {
     const customerId = actorRole === 'CUSTOMER' ? (actorId ?? undefined) : undefined;
 
     const { items, total } = await this.bookingRepo.findAllByTenantPaginated(tenantId, {
-      status: dto.status as import('../../domain/booking.aggregate').BookingStatus | undefined,
+      status: dto.status,
       customerId,
       scheduledAfter: dto.from ? new Date(dto.from) : undefined,
       scheduledBefore: dto.to ? new Date(dto.to) : undefined,
