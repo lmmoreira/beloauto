@@ -329,18 +329,8 @@ export class Booking extends AggregateRoot {
           startTime: this.props.scheduledAt.toISOString(),
           endTime: endTime.toISOString(),
         },
-        totalPrice: {
-          amount: this.props.totalPrice.amount.toFixed(2),
-          currency: this.props.totalPrice.currency,
-        },
-        lineSummary: this.props.lines.map((l) => ({
-          serviceId: l.serviceId,
-          serviceNameAtBooking: l.serviceNameAtBooking,
-          priceAtBooking: {
-            amount: l.priceAtBooking.amount.toFixed(2),
-            currency: l.priceAtBooking.currency,
-          },
-        })),
+        totalPrice: this.totalPricePayload(),
+        lineSummary: this.lineSummaryPayload(),
         approvedBy: staffId,
       }),
     );
@@ -529,18 +519,8 @@ export class Booking extends AggregateRoot {
         isBusiness,
         reason: reason ?? null,
         scheduledAt: this.props.scheduledAt.toISOString(),
-        lineSummary: this.props.lines.map((l) => ({
-          serviceId: l.serviceId,
-          serviceNameAtBooking: l.serviceNameAtBooking,
-          priceAtBooking: {
-            amount: l.priceAtBooking.amount.toFixed(2),
-            currency: l.priceAtBooking.currency,
-          },
-        })),
-        totalPrice: {
-          amount: this.props.totalPrice.amount.toFixed(2),
-          currency: this.props.totalPrice.currency,
-        },
+        lineSummary: this.lineSummaryPayload(),
+        totalPrice: this.totalPricePayload(),
       }),
     );
   }
@@ -581,20 +561,28 @@ export class Booking extends AggregateRoot {
         previousSlot,
         rescheduledBy: staffId,
         adminNotes: this.props.adminNotes,
-        lineSummary: this.props.lines.map((l) => ({
-          serviceId: l.serviceId,
-          serviceNameAtBooking: l.serviceNameAtBooking,
-          priceAtBooking: {
-            amount: l.priceAtBooking.amount.toFixed(2),
-            currency: l.priceAtBooking.currency,
-          },
-        })),
-        totalPrice: {
-          amount: this.props.totalPrice.amount.toFixed(2),
-          currency: this.props.totalPrice.currency,
-        },
+        lineSummary: this.lineSummaryPayload(),
+        totalPrice: this.totalPricePayload(),
       }),
     );
+  }
+
+  private lineSummaryPayload() {
+    return this.props.lines.map((l) => ({
+      serviceId: l.serviceId,
+      serviceNameAtBooking: l.serviceNameAtBooking,
+      priceAtBooking: {
+        amount: l.priceAtBooking.amount.toFixed(2),
+        currency: l.priceAtBooking.currency,
+      },
+    }));
+  }
+
+  private totalPricePayload() {
+    return {
+      amount: this.props.totalPrice.amount.toFixed(2),
+      currency: this.props.totalPrice.currency,
+    };
   }
 
   private static toAddressPayload(addr: Address | null) {
