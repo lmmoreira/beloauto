@@ -105,18 +105,16 @@ export class SendBookingCancelledNotificationUseCase {
     }
 
     if (!existingAdmin) {
-      adminEmailSent = await this.sendAdminEmail(
-        dto.tenantId,
-        dto.eventId,
-        dto.guestName,
+      adminEmailSent = await this.sendAdminEmail(dto.tenantId, dto.eventId, {
+        guestName: dto.guestName,
         localDate,
         localTime,
         serviceNames,
-        formattedTotal,
-        dto.cancelledBy,
-        dto.isBusiness,
-        dto.reason,
-      );
+        totalPrice: formattedTotal,
+        cancelledBy: dto.cancelledBy,
+        isBusiness: dto.isBusiness,
+        reason: dto.reason,
+      });
     }
 
     return { customerEmailSent, adminEmailSent };
@@ -125,14 +123,16 @@ export class SendBookingCancelledNotificationUseCase {
   private async sendAdminEmail(
     tenantId: string,
     eventId: string,
-    guestName: string,
-    localDate: string,
-    localTime: string,
-    serviceNames: string,
-    totalPrice: string,
-    cancelledBy: string,
-    isBusiness: boolean,
-    reason: string | null,
+    ctx: {
+      guestName: string;
+      localDate: string;
+      localTime: string;
+      serviceNames: string;
+      totalPrice: string;
+      cancelledBy: string;
+      isBusiness: boolean;
+      reason: string | null;
+    },
   ): Promise<boolean> {
     const managerEmails = await this.staffPort.getManagerEmails(tenantId);
     if (managerEmails.length === 0) return false;
@@ -143,16 +143,7 @@ export class SendBookingCancelledNotificationUseCase {
           to: email,
           subject: 'Agendamento cancelado',
           templateKey: 'booking-cancelled-admin',
-          data: {
-            guestName,
-            localDate,
-            localTime,
-            serviceNames,
-            totalPrice,
-            cancelledBy,
-            isBusiness,
-            reason,
-          },
+          data: { ...ctx },
         }),
       ),
     );

@@ -111,17 +111,15 @@ export class SendBookingRescheduledNotificationUseCase {
     }
 
     if (!existingAdmin) {
-      adminEmailSent = await this.sendAdminEmail(
-        dto.tenantId,
-        dto.eventId,
-        dto.guestName,
+      adminEmailSent = await this.sendAdminEmail(dto.tenantId, dto.eventId, {
+        guestName: dto.guestName,
         previousLocalDate,
         previousLocalTime,
         newLocalDate,
         newLocalTime,
         serviceNames,
-        formattedTotal,
-      );
+        totalPrice: formattedTotal,
+      });
     }
 
     return { customerEmailSent, adminEmailSent };
@@ -130,13 +128,15 @@ export class SendBookingRescheduledNotificationUseCase {
   private async sendAdminEmail(
     tenantId: string,
     eventId: string,
-    guestName: string,
-    previousLocalDate: string,
-    previousLocalTime: string,
-    newLocalDate: string,
-    newLocalTime: string,
-    serviceNames: string,
-    totalPrice: string,
+    ctx: {
+      guestName: string;
+      previousLocalDate: string;
+      previousLocalTime: string;
+      newLocalDate: string;
+      newLocalTime: string;
+      serviceNames: string;
+      totalPrice: string;
+    },
   ): Promise<boolean> {
     const managerEmails = await this.staffPort.getManagerEmails(tenantId);
     if (managerEmails.length === 0) return false;
@@ -147,15 +147,7 @@ export class SendBookingRescheduledNotificationUseCase {
           to: email,
           subject: 'Agendamento reagendado',
           templateKey: 'booking-rescheduled-admin',
-          data: {
-            guestName,
-            previousLocalDate,
-            previousLocalTime,
-            newLocalDate,
-            newLocalTime,
-            serviceNames,
-            totalPrice,
-          },
+          data: { ...ctx },
         }),
       ),
     );
