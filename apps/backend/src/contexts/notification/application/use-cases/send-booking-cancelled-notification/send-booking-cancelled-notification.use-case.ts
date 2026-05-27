@@ -5,7 +5,7 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
-import { NotificationLog } from '../../../domain/notification-log.entity';
+import { saveNotificationLog } from '../../utils/notification-log.helper';
 import { SendBookingCancelledNotificationDto } from '../../dtos/send-booking-cancelled-notification.dto';
 import {
   INotificationDispatcher,
@@ -86,56 +86,68 @@ export class SendBookingCancelledNotificationUseCase {
         subject: 'Seu agendamento foi cancelado',
         templateKey: 'booking-cancelled-customer',
         data: {
+          serviceNames,
+          totalPrice: formattedTotal,
           guestName: dto.guestName,
           localDate,
           localTime,
-          serviceNames,
-          totalPrice: formattedTotal,
         },
       });
-      await this.saveLog(dto.tenantId, dto.eventId, CUSTOMER_NOTIFICATION_TYPE);
+      await saveNotificationLog(
+        this.logRepo,
+        this.txManager,
+        dto.tenantId,
+        dto.eventId,
+        CUSTOMER_NOTIFICATION_TYPE,
+        CHANNEL,
+      );
       customerEmailSent = true;
     }
 
     if (!existingAdmin) {
-      const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
-      if (managerEmails.length > 0) {
-        await Promise.all(
-          managerEmails.map((email) =>
-            this.dispatcher.dispatch({
-              tenantId: dto.tenantId,
-              to: email,
-              subject: 'Agendamento cancelado',
-              templateKey: 'booking-cancelled-admin',
-              data: {
-                guestName: dto.guestName,
-                localDate,
-                localTime,
-                serviceNames,
-                totalPrice: formattedTotal,
-                cancelledBy: dto.cancelledBy,
-                isBusiness: dto.isBusiness,
-                reason: dto.reason,
-              },
-            }),
-          ),
-        );
-        await this.saveLog(dto.tenantId, dto.eventId, ADMIN_NOTIFICATION_TYPE);
-        adminEmailSent = true;
-      }
+      adminEmailSent = await this.sendAdminEmail(
+        dto.tenantId,
+        dto.eventId,
+        dto.guestName,
+        localDate,
+        localTime,
+        serviceNames,
+        formattedTotal,
+        dto.cancelledBy,
+        dto.isBusiness,
+        dto.reason,
+      );
     }
 
     return { customerEmailSent, adminEmailSent };
   }
 
-  private async saveLog(
+  private async sendAdminEmail(
     tenantId: string,
     eventId: string,
-    notificationType: string,
-  ): Promise<void> {
-    const log = NotificationLog.create({ tenantId, eventId, notificationType, channel: CHANNEL });
-    await this.txManager.run(async () => {
-      await this.logRepo.save(log);
-    });
+    guestName: string,
+    localDate: string,
+    localTime: string,
+    serviceNames: string,
+    totalPrice: string,
+    cancelledBy: string,
+    isBusiness: boolean,
+    reason: string | null,
+  ): Promise<boolean> {
+    const managerEmails = await this.staffPort.getManagerEmails(tenantId);
+    if (managerEmails.length === 0) return false;
+    await Promise.all(
+      managerEmails.map((email) =>
+        this.dispatcher.dispatch({
+          tenantId,
+          to: email,
+          subject: 'Agendamento cancelado',
+          templateKey: 'booking-cancelled-admin',
+          data: { guestName, localDate, localTime, serviceNames, totalPrice, cancelledBy, isBusiness, reason },
+        }),
+      ),
+    );
+    await saveNotificationLog(this.logRepo, this.txManager, tenantId, eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL);
+    return true;
   }
 }

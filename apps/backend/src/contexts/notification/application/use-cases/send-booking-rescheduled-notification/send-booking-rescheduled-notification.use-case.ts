@@ -5,7 +5,7 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
-import { NotificationLog } from '../../../domain/notification-log.entity';
+import { saveNotificationLog } from '../../utils/notification-log.helper';
 import { SendBookingRescheduledNotificationDto } from '../../dtos/send-booking-rescheduled-notification.dto';
 import {
   INotificationDispatcher,
@@ -90,57 +90,68 @@ export class SendBookingRescheduledNotificationUseCase {
         subject: 'Seu agendamento foi reagendado',
         templateKey: 'booking-rescheduled-customer',
         data: {
+          serviceNames,
+          totalPrice: formattedTotal,
           guestName: dto.guestName,
           previousLocalDate,
           previousLocalTime,
           newLocalDate,
           newLocalTime,
-          serviceNames,
-          totalPrice: formattedTotal,
         },
       });
-      await this.saveLog(dto.tenantId, dto.eventId, CUSTOMER_NOTIFICATION_TYPE);
+      await saveNotificationLog(
+        this.logRepo,
+        this.txManager,
+        dto.tenantId,
+        dto.eventId,
+        CUSTOMER_NOTIFICATION_TYPE,
+        CHANNEL,
+      );
       customerEmailSent = true;
     }
 
     if (!existingAdmin) {
-      const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
-      if (managerEmails.length > 0) {
-        await Promise.all(
-          managerEmails.map((email) =>
-            this.dispatcher.dispatch({
-              tenantId: dto.tenantId,
-              to: email,
-              subject: 'Agendamento reagendado',
-              templateKey: 'booking-rescheduled-admin',
-              data: {
-                guestName: dto.guestName,
-                previousLocalDate,
-                previousLocalTime,
-                newLocalDate,
-                newLocalTime,
-                serviceNames,
-                totalPrice: formattedTotal,
-              },
-            }),
-          ),
-        );
-        await this.saveLog(dto.tenantId, dto.eventId, ADMIN_NOTIFICATION_TYPE);
-        adminEmailSent = true;
-      }
+      adminEmailSent = await this.sendAdminEmail(
+        dto.tenantId,
+        dto.eventId,
+        dto.guestName,
+        previousLocalDate,
+        previousLocalTime,
+        newLocalDate,
+        newLocalTime,
+        serviceNames,
+        formattedTotal,
+      );
     }
 
     return { customerEmailSent, adminEmailSent };
   }
 
-  private async saveLog(
+  private async sendAdminEmail(
     tenantId: string,
     eventId: string,
-    notificationType: string,
-  ): Promise<void> {
-    const log = NotificationLog.create({ tenantId, eventId, notificationType, channel: CHANNEL });
-    await this.txManager.run(async () => {
-      await this.logRepo.save(log);
-    });
+    guestName: string,
+    previousLocalDate: string,
+    previousLocalTime: string,
+    newLocalDate: string,
+    newLocalTime: string,
+    serviceNames: string,
+    totalPrice: string,
+  ): Promise<boolean> {
+    const managerEmails = await this.staffPort.getManagerEmails(tenantId);
+    if (managerEmails.length === 0) return false;
+    await Promise.all(
+      managerEmails.map((email) =>
+        this.dispatcher.dispatch({
+          tenantId,
+          to: email,
+          subject: 'Agendamento reagendado',
+          templateKey: 'booking-rescheduled-admin',
+          data: { guestName, previousLocalDate, previousLocalTime, newLocalDate, newLocalTime, serviceNames, totalPrice },
+        }),
+      ),
+    );
+    await saveNotificationLog(this.logRepo, this.txManager, tenantId, eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL);
+    return true;
   }
 }
