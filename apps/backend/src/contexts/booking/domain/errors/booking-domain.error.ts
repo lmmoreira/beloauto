@@ -173,3 +173,10 @@ export class BookingForbiddenError extends BookingDomainError {
     this.name = 'BookingForbiddenError';
   }
 }
+
+export class BookingScheduledInPastError extends BookingDomainError {
+  constructor() {
+    super('New scheduled time must be in the future');
+    this.name = 'BookingScheduledInPastError';
+  }
+}

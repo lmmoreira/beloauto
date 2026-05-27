@@ -21,6 +21,7 @@ import { ListBookingsUseCase } from '../../application/use-cases/list-bookings.u
 import { GetBookingUseCase } from '../../application/use-cases/get-booking.use-case';
 import { CancelBookingAsCustomerUseCase } from '../../application/use-cases/cancel-booking-as-customer.use-case';
 import { CancelBookingAsAdminUseCase } from '../../application/use-cases/cancel-booking-as-admin.use-case';
+import { RescheduleBookingUseCase } from '../../application/use-cases/reschedule-booking.use-case';
 import { BookingSlotConflictService } from '../../application/services/booking-slot-conflict.service';
 import { BookingStatus } from '../../domain/booking.aggregate';
 
@@ -136,6 +137,16 @@ describe('BookingController', () => {
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
+      new RescheduleBookingUseCase(
+        staffCtx,
+        bookingRepo,
+        new BookingSlotConflictService(
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+        ),
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      ),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
     await serviceRepo.save(service);
@@ -161,7 +172,11 @@ describe('BookingController', () => {
     it('maps BookingSlotUnavailableError to 409', async () => {
       const conflictPort = new InMemoryBookingAvailabilityPort();
       conflictPort.setSlots([
-        { scheduledAt: new Date(`${futureDate(1)}T10:00:00.000Z`), totalDurationMins: 30 },
+        {
+          id: 'slot-test-id',
+          scheduledAt: new Date(`${futureDate(1)}T10:00:00.000Z`),
+          totalDurationMins: 30,
+        },
       ]);
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_A)
@@ -248,6 +263,16 @@ describe('BookingController', () => {
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
+        new RescheduleBookingUseCase(
+          staffCtxB,
+          repoB,
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
       );
       const err = await ctrl.create(validBody()).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
@@ -301,7 +326,7 @@ describe('BookingController', () => {
     it('maps BookingSlotUnavailableError to 409 when slot is taken', async () => {
       const scheduledAt = new Date(`${futureDate(3)}T11:00:00.000Z`);
       const conflictPort = new InMemoryBookingAvailabilityPort();
-      conflictPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
+      conflictPort.setSlots([{ id: 'slot-test-id', scheduledAt, totalDurationMins: 60 }]);
       const staffCtx = new TenantContextBuilder()
         .withTenantId(TENANT_A)
         .withCorrelationId(CORRELATION_ID)
@@ -382,6 +407,13 @@ describe('BookingController', () => {
         new CancelBookingAsAdminUseCase(
           staffCtx,
           bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RescheduleBookingUseCase(
+          staffCtx,
+          bookingRepoB,
+          new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -813,6 +845,16 @@ describe('BookingController', () => {
         new CancelBookingAsAdminUseCase(
           staffCtxC,
           repoC,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RescheduleBookingUseCase(
+          staffCtxC,
+          repoC,
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),

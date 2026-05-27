@@ -9,6 +9,7 @@ import {
   BookingInfoMessageTooShortError,
   BookingNotFoundError,
   BookingRejectionReasonTooShortError,
+  BookingScheduledInPastError,
   BookingSlotUnavailableError,
   CancellationWindowExpiredError,
   ClosureDateInPastError,
@@ -84,7 +85,7 @@ export function mapBookingError(err: unknown): never {
     };
     throw new HttpException(body, HttpStatus.CONFLICT);
   }
-  if (err instanceof CancellationWindowExpiredError) {
+  if (err instanceof CancellationWindowExpiredError || err instanceof BookingScheduledInPastError) {
     const body: ProblemDetail = {
       type: 'about:blank',
       title: 'Unprocessable Entity',

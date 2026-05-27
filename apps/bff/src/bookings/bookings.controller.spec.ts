@@ -649,6 +649,110 @@ describe('BookingsController', () => {
     });
   });
 
+  describe('reschedule()', () => {
+    const mockRescheduleResponse = {
+      bookingId: BOOKING_ID,
+      status: 'APPROVED',
+      scheduledAt: '2026-07-20T14:00:00.000Z',
+    };
+    const validRescheduleBody = { scheduledAt: '2026-07-20T14:00:00.000Z' };
+
+    it('calls patch /bookings/:id/reschedule with body and returns result', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest.fn().mockResolvedValue(mockRescheduleResponse),
+      });
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const result = await controller.reschedule(BOOKING_ID, validRescheduleBody);
+
+      expect(backendHttp.patch).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID}/reschedule`,
+        validRescheduleBody,
+      );
+      expect(result).toBe(mockRescheduleResponse);
+    });
+
+    it('forwards optional adminNotes to backend', async () => {
+      const bodyWithNotes = {
+        scheduledAt: '2026-07-20T14:00:00.000Z',
+        adminNotes: 'Customer request',
+      };
+      const backendHttp = makeBackendHttp({
+        patch: jest.fn().mockResolvedValue(mockRescheduleResponse),
+      });
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      await controller.reschedule(BOOKING_ID, bodyWithNotes);
+
+      expect(backendHttp.patch).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID}/reschedule`,
+        bodyWithNotes,
+      );
+    });
+
+    it('propagates 422 from backend when booking is not APPROVED', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 422, detail: 'invalid transition' }, 422)),
+      });
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const err = await controller
+        .reschedule(BOOKING_ID, validRescheduleBody)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(422);
+    });
+
+    it('propagates 422 from backend when new slot is in the past', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(
+            new HttpException({ status: 422, detail: 'must be in the future' }, 422),
+          ),
+      });
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const err = await controller
+        .reschedule(BOOKING_ID, validRescheduleBody)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(422);
+    });
+
+    it('propagates 409 from backend when slot is unavailable', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 409, detail: 'slot unavailable' }, 409)),
+      });
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const err = await controller
+        .reschedule(BOOKING_ID, validRescheduleBody)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(409);
+    });
+
+    it('propagates 404 from backend when booking is not found', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest
+          .fn()
+          .mockRejectedValue(new HttpException({ status: 404, detail: 'not found' }, 404)),
+      });
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const err = await controller
+        .reschedule('unknown-id', validRescheduleBody)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(404);
+    });
+  });
+
   describe('createAuthenticated()', () => {
     const authBody = {
       scheduledAt: '2026-06-15T10:00:00.000Z',

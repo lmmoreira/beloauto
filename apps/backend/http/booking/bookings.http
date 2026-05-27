@@ -754,3 +754,109 @@ X-Tenant-ID: {{tenantId}}
 X-Correlation-ID: test-corr-cancel-admin-005
 
 {}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH — admin reschedules an APPROVED booking (UC-008b)
+# ─────────────────────────────────────────────────────────────────────────────
+
+PATCH {{baseUrl}}/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reschedule-001
+
+{
+  "scheduledAt": "2026-07-20T14:00:00.000Z"
+}
+
+###
+
+# HAPPY PATH — reschedule with optional adminNotes
+PATCH {{baseUrl}}/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reschedule-002
+
+{
+  "scheduledAt": "2026-07-21T10:00:00.000Z",
+  "adminNotes": "Customer requested earlier slot"
+}
+
+###
+
+# ERROR — booking not found → 404
+PATCH {{baseUrl}}/bookings/00000000-0000-4000-8000-000000009999/reschedule
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reschedule-003
+
+{
+  "scheduledAt": "2026-07-22T10:00:00.000Z"
+}
+
+###
+
+# ERROR — booking is PENDING (only APPROVED) → 422
+PATCH {{baseUrl}}/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reschedule-004
+
+{
+  "scheduledAt": "2026-07-22T10:00:00.000Z"
+}
+
+###
+
+# ERROR — new slot in the past → 422
+PATCH {{baseUrl}}/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reschedule-005
+
+{
+  "scheduledAt": "2020-01-01T10:00:00.000Z"
+}
+
+###
+
+# ERROR — slot taken by another APPROVED booking → 409
+PATCH {{baseUrl}}/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reschedule-006
+
+{
+  "scheduledAt": "2026-07-20T14:00:00.000Z"
+}
+
+###
+
+# ERROR — no staff role headers → 403
+PATCH {{baseUrl}}/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Correlation-ID: test-corr-reschedule-007
+
+{
+  "scheduledAt": "2026-07-20T14:00:00.000Z"
+}

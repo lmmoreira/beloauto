@@ -152,7 +152,7 @@ describe('ApproveBookingUseCase', () => {
     });
 
     it('throws BookingSlotUnavailableError when slot overlaps an approved booking', async () => {
-      availabilityPort.setSlots([{ scheduledAt, totalDurationMins: 60 }]);
+      availabilityPort.setSlots([{ id: 'slot-test-id', scheduledAt, totalDurationMins: 60 }]);
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
         .withScheduledAt(scheduledAt)
@@ -166,7 +166,9 @@ describe('ApproveBookingUseCase', () => {
 
     it('allows approval when existing slot is non-overlapping (adjacent)', async () => {
       const otherSlotAt = new Date(scheduledAt.getTime() + 30 * 60_000);
-      availabilityPort.setSlots([{ scheduledAt: otherSlotAt, totalDurationMins: 30 }]);
+      availabilityPort.setSlots([
+        { id: 'slot-test-id', scheduledAt: otherSlotAt, totalDurationMins: 30 },
+      ]);
       const booking = new BookingBuilder()
         .withTenantId(TENANT_A)
         .withScheduledAt(scheduledAt)

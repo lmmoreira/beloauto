@@ -37,9 +37,10 @@ export class TypeOrmBookingAvailabilityAdapter implements IBookingAvailabilityPo
         status: BookingStatus.APPROVED,
         scheduledAt: Between(new Date(isoStart), new Date(isoEnd)),
       },
-      select: ['scheduledAt', 'totalDurationMins'],
+      select: ['id', 'scheduledAt', 'totalDurationMins'],
     });
     return entities.map((e) => ({
+      id: e.id,
       scheduledAt: e.scheduledAt,
       totalDurationMins: e.totalDurationMins,
     }));

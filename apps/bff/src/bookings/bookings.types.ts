@@ -69,6 +69,12 @@ export interface CancelBookingResponse {
   status: string;
 }
 
+export interface RescheduleBookingResponse {
+  bookingId: string;
+  status: string;
+  scheduledAt: string;
+}
+
 export interface BookingDetailResponse {
   id: string;
   status: string;

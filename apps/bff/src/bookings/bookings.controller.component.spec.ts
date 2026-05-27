@@ -953,4 +953,109 @@ describe('BookingsController (component)', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe('PATCH /v1/bookings/:id/reschedule', () => {
+    const BOOKING_ID_RESCHEDULE = '40000000-0000-4000-8000-000000000020';
+    const mockRescheduleResponse = {
+      bookingId: BOOKING_ID_RESCHEDULE,
+      status: 'APPROVED',
+      scheduledAt: '2026-07-20T14:00:00.000Z',
+    };
+    const validRescheduleBody = { scheduledAt: '2026-07-20T14:00:00.000Z' };
+
+    it('returns 401 when no JWT is provided', async () => {
+      const res = await request(app.getHttpServer()).patch(
+        `/v1/bookings/${BOOKING_ID_RESCHEDULE}/reschedule`,
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 403 when JWT role is CUSTOMER', async () => {
+      const token = makeCustomerJwt(jwtService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_RESCHEDULE}/reschedule`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validRescheduleBody);
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 400 when scheduledAt is missing', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_RESCHEDULE}/reschedule`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('reschedules booking with MANAGER JWT and returns 200', async () => {
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockResolvedValueOnce(mockRescheduleResponse);
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_RESCHEDULE}/reschedule`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validRescheduleBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body.bookingId).toBe(BOOKING_ID_RESCHEDULE);
+      expect(res.body.status).toBe('APPROVED');
+      expect(backendHttpService.patch).toHaveBeenCalledWith(
+        `/bookings/${BOOKING_ID_RESCHEDULE}/reschedule`,
+        validRescheduleBody,
+      );
+    });
+
+    it('propagates 409 from backend when slot is unavailable', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 409, detail: 'slot unavailable' }, 409),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_RESCHEDULE}/reschedule`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validRescheduleBody);
+
+      expect(res.status).toBe(409);
+    });
+
+    it('propagates 422 from backend when booking is not APPROVED', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 422, detail: 'invalid transition' }, 422),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_RESCHEDULE}/reschedule`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validRescheduleBody);
+
+      expect(res.status).toBe(422);
+    });
+
+    it('propagates 404 from backend when booking is not found', async () => {
+      const { HttpException: HE } = await import('@nestjs/common');
+      const token = makeManagerJwt(jwtService);
+      setupActiveGuardMock(httpService);
+      backendHttpService.patch.mockRejectedValueOnce(
+        new HE({ status: 404, detail: 'not found' }, 404),
+      );
+
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/bookings/${BOOKING_ID_RESCHEDULE}/reschedule`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(validRescheduleBody);
+
+      expect(res.status).toBe(404);
+    });
+  });
 });

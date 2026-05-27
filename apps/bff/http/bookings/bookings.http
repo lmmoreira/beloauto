@@ -265,3 +265,73 @@ Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
 {}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/reschedule — Admin reschedules booking (UC-008b)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# HAPPY PATH — reschedule an APPROVED booking
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "scheduledAt": "2026-07-20T14:00:00.000Z"
+}
+
+###
+
+# HAPPY PATH — reschedule with optional adminNotes
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "scheduledAt": "2026-07-21T10:00:00.000Z",
+  "adminNotes": "Customer requested earlier slot"
+}
+
+###
+
+# ERROR — no JWT → 401
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+
+{
+  "scheduledAt": "2026-07-20T14:00:00.000Z"
+}
+
+###
+
+# ERROR — slot unavailable → 409 (propagated from backend)
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "scheduledAt": "2026-07-20T14:00:00.000Z"
+}
+
+###
+
+# ERROR — booking not APPROVED → 422 (propagated from backend)
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "scheduledAt": "2026-07-20T14:00:00.000Z"
+}
+
+###
+
+# ERROR — past scheduledAt → 422 (propagated from backend)
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "scheduledAt": "2020-01-01T10:00:00.000Z"
+}

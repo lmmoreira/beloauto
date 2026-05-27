@@ -23,15 +23,14 @@ export class BookingSlotConflictService {
     tenantId: string,
     scheduledAt: Date,
     totalDurationMins: number,
+    excludeBookingId?: string,
   ): Promise<void> {
     const { businessHours } = await this.settingsPort.getSchedulingSettings(tenantId);
     const localDate = utcDateToLocalDate(scheduledAt, businessHours.timezone);
-    const existingSlots = await this.availabilityPort.findApprovedByTenantAndDate(
-      tenantId,
-      localDate,
-    );
+    const existing = await this.availabilityPort.findApprovedByTenantAndDate(tenantId, localDate);
+    const slots = excludeBookingId ? existing.filter((s) => s.id !== excludeBookingId) : existing;
     const bookingEnd = scheduledAt.getTime() + totalDurationMins * 60_000;
-    const hasConflict = existingSlots.some((slot) => {
+    const hasConflict = slots.some((slot) => {
       const slotEnd = slot.scheduledAt.getTime() + slot.totalDurationMins * 60_000;
       return slot.scheduledAt.getTime() < bookingEnd && scheduledAt.getTime() < slotEnd;
     });
