@@ -3,6 +3,7 @@ import { InMemoryNotificationLogRepository } from '../../../../../test/repositor
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
+import { NotificationLog } from '../../../domain/notification-log.entity';
 import { SendBookingRescheduledNotificationDto } from '../../dtos/send-booking-rescheduled-notification.dto';
 import { SendBookingRescheduledNotificationUseCase } from './send-booking-rescheduled-notification.use-case';
 
@@ -99,6 +100,42 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
 
   it('skips admin email gracefully when no managers exist', async () => {
     staffPort.setManagerEmails(TENANT_ID, []);
+
+    const result = await useCase.execute(baseDto);
+
+    expect(result.customerEmailSent).toBe(true);
+    expect(result.adminEmailSent).toBe(false);
+    expect(dispatcher.dispatched).toHaveLength(1);
+    expect(dispatcher.dispatched[0].templateKey).toBe('booking-rescheduled-customer');
+  });
+
+  it('sends only admin email when customer log already exists (partial retry)', async () => {
+    await logRepo.save(
+      NotificationLog.create({
+        tenantId: TENANT_ID,
+        eventId: EVENT_ID,
+        notificationType: 'BOOKING_RESCHEDULED_CUSTOMER',
+        channel: 'EMAIL',
+      }),
+    );
+
+    const result = await useCase.execute(baseDto);
+
+    expect(result.customerEmailSent).toBe(false);
+    expect(result.adminEmailSent).toBe(true);
+    expect(dispatcher.dispatched).toHaveLength(1);
+    expect(dispatcher.dispatched[0].templateKey).toBe('booking-rescheduled-admin');
+  });
+
+  it('sends only customer email when admin log already exists (partial retry)', async () => {
+    await logRepo.save(
+      NotificationLog.create({
+        tenantId: TENANT_ID,
+        eventId: EVENT_ID,
+        notificationType: 'BOOKING_RESCHEDULED_ADMIN',
+        channel: 'EMAIL',
+      }),
+    );
 
     const result = await useCase.execute(baseDto);
 
