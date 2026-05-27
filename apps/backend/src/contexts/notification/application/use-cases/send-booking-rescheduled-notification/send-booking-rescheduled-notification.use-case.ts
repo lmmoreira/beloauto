@@ -147,11 +147,26 @@ export class SendBookingRescheduledNotificationUseCase {
           to: email,
           subject: 'Agendamento reagendado',
           templateKey: 'booking-rescheduled-admin',
-          data: { guestName, previousLocalDate, previousLocalTime, newLocalDate, newLocalTime, serviceNames, totalPrice },
+          data: {
+            guestName,
+            previousLocalDate,
+            previousLocalTime,
+            newLocalDate,
+            newLocalTime,
+            serviceNames,
+            totalPrice,
+          },
         }),
       ),
     );
-    await saveNotificationLog(this.logRepo, this.txManager, tenantId, eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL);
+    await saveNotificationLog(
+      this.logRepo,
+      this.txManager,
+      tenantId,
+      eventId,
+      ADMIN_NOTIFICATION_TYPE,
+      CHANNEL,
+    );
     return true;
   }
 }

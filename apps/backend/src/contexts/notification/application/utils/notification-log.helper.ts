@@ -1,6 +1,4 @@
-import {
-  ITransactionManager,
-} from '../../../../shared/ports/transaction-manager.port';
+import { ITransactionManager } from '../../../../shared/ports/transaction-manager.port';
 import { NotificationLog } from '../../domain/notification-log.entity';
 import { INotificationLogRepository } from '../ports/notification-log-repository.port';
 

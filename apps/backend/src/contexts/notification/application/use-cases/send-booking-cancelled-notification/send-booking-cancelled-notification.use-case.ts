@@ -143,11 +143,27 @@ export class SendBookingCancelledNotificationUseCase {
           to: email,
           subject: 'Agendamento cancelado',
           templateKey: 'booking-cancelled-admin',
-          data: { guestName, localDate, localTime, serviceNames, totalPrice, cancelledBy, isBusiness, reason },
+          data: {
+            guestName,
+            localDate,
+            localTime,
+            serviceNames,
+            totalPrice,
+            cancelledBy,
+            isBusiness,
+            reason,
+          },
         }),
       ),
     );
-    await saveNotificationLog(this.logRepo, this.txManager, tenantId, eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL);
+    await saveNotificationLog(
+      this.logRepo,
+      this.txManager,
+      tenantId,
+      eventId,
+      ADMIN_NOTIFICATION_TYPE,
+      CHANNEL,
+    );
     return true;
   }
 }
