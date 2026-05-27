@@ -2,6 +2,7 @@ export interface NotificationTenantInfo {
   id: string;
   name: string;
   slug: string;
+  timezone: string;
 }
 
 export const NOTIFICATION_TENANT_PORT = Symbol('INotificationTenantPort');

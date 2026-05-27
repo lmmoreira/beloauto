@@ -158,3 +158,47 @@ Authorization: Bearer {{managerToken}}
 {
   "response": "Manager trying to submit info — should return 403"
 }
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/submit-info/guest — Guest submits info via tokenised link (public)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# SUCCESS — valid guest token with matching bookingId
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info/guest?token={{guestToken}}
+Content-Type: application/json
+
+{
+  "response": "Here are the additional photos of the vehicle you requested"
+}
+
+###
+
+# ERROR — missing token → 400
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info/guest
+Content-Type: application/json
+
+{
+  "response": "No token — should return 400"
+}
+
+###
+
+# ERROR — invalid token → 401
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info/guest?token=invalid.token.string
+Content-Type: application/json
+
+{
+  "response": "Invalid token — should return 401"
+}
+
+###
+
+# ERROR — token bookingId mismatch → 400
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info/guest?token={{otherBookingGuestToken}}
+Content-Type: application/json
+
+{
+  "response": "Token for different booking — should return 400"
+}

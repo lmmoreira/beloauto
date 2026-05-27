@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryNotificationDispatcher } from '../../../../test/infrastructure/in-memory-notification-dispatcher';
@@ -8,6 +9,13 @@ import { StaffInvitedEventBuilder } from '../../../../test/builders/staff/staff-
 import { INotificationDispatcher } from '../../application/ports/notification-dispatcher.port';
 import { SendStaffInvitationUseCase } from '../../application/use-cases/send-staff-invitation/send-staff-invitation.use-case';
 import { StaffInvitedHandler } from './staff-invited.handler';
+
+const configService = {
+  getOrThrow: (key: string): string => {
+    if (key === 'FRONTEND_URL') return 'http://localhost:3000';
+    throw new Error(`Unknown config key: ${key}`);
+  },
+} as unknown as ConfigService;
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 const STAFF_ID = 'bbbbbbbb-0000-4000-8000-000000000001';
@@ -25,13 +33,19 @@ describe('StaffInvitedHandler', () => {
     staffPort = new InMemoryNotificationStaffPort();
     staffPort.setStaff(TENANT_ID, { id: STAFF_ID, email: 'maria@lavacar.com.br', name: 'Maria' });
     tenantPort = new InMemoryNotificationTenantPort();
-    tenantPort.setTenantInfo(TENANT_ID, { id: TENANT_ID, name: 'Lava Car', slug: 'lavacar' });
+    tenantPort.setTenantInfo(TENANT_ID, {
+      id: TENANT_ID,
+      name: 'Lava Car',
+      slug: 'lavacar',
+      timezone: 'America/Sao_Paulo',
+    });
     const useCase = new SendStaffInvitationUseCase(
       logRepo,
       dispatcher,
       staffPort,
       tenantPort,
       new InMemoryTransactionManager(),
+      configService,
     );
     handler = new StaffInvitedHandler(useCase, new InMemoryEventBus());
     handler.onModuleInit();
@@ -73,6 +87,7 @@ describe('StaffInvitedHandler', () => {
       staffPort,
       tenantPort,
       new InMemoryTransactionManager(),
+      configService,
     );
     const failHandler = new StaffInvitedHandler(failUseCase, new InMemoryEventBus());
 

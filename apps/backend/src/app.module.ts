@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BookingModule } from './contexts/booking/booking.module';
 import { CustomerModule } from './contexts/customer/customer.module';
@@ -14,18 +15,20 @@ import { TenantModule } from './shared/tenant/tenant.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
-      useFactory: () => ({
+      useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        host: process.env['DB_HOST'],
-        port: Number(process.env['DB_PORT'] ?? 5432),
-        username: process.env['DB_USER'],
-        password: process.env['DB_PASSWORD'],
-        database: process.env['DB_NAME'],
+        host: config.get<string>('DB_HOST'),
+        port: config.get<number>('DB_PORT', 5432),
+        username: config.get<string>('DB_USER'),
+        password: config.get<string>('DB_PASSWORD'),
+        database: config.get<string>('DB_NAME'),
         synchronize: false,
         migrationsRun: false,
         entities: [__dirname + '/contexts/**/infrastructure/entities/*.entity{.ts,.js}'],
       }),
+      inject: [ConfigService],
     }),
     EventBusModule,
     TransactionManagerModule,

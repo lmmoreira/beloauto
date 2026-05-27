@@ -8,8 +8,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
+import * as jwt from 'jsonwebtoken';
 import { z } from 'zod';
+import { ConfigService } from '@nestjs/config';
 import { Public } from '../shared/decorators/public.decorator';
 import { Roles } from '../shared/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
@@ -61,15 +64,30 @@ export const SubmitBookingInfoBodySchema = z.object({
   photoUrls: z.array(z.url()).optional(),
 });
 
+export const SubmitGuestBookingInfoBodySchema = z.object({
+  response: z.string().trim().min(1),
+  photoUrls: z.array(z.url()).optional(),
+});
+
+const GuestTokenPayloadSchema = z.object({
+  bookingId: z.string(),
+  tenantId: z.string(),
+  guestEmail: z.email(),
+});
+
 type RequestBookingBody = z.infer<typeof RequestBookingBodySchema>;
 type AuthenticatedBookingBody = z.infer<typeof AuthenticatedBookingBodySchema>;
 type RejectBookingBody = z.infer<typeof RejectBookingBodySchema>;
 type RequestMoreInfoBody = z.infer<typeof RequestMoreInfoBodySchema>;
 type SubmitBookingInfoBody = z.infer<typeof SubmitBookingInfoBodySchema>;
+type SubmitGuestBookingInfoBody = z.infer<typeof SubmitGuestBookingInfoBodySchema>;
 
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly backendHttp: BackendHttpService) {}
+  constructor(
+    private readonly backendHttp: BackendHttpService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -143,5 +161,76 @@ export class BookingsController {
     @Body(new ZodValidationPipe(SubmitBookingInfoBodySchema)) body: SubmitBookingInfoBody,
   ): Promise<{ bookingId: string; status: string; infoSubmittedAt: string }> {
     return this.backendHttp.patch(`/bookings/${id}/submit-info`, body);
+  }
+
+  @Patch(':id/submit-info/guest')
+  @HttpCode(HttpStatus.OK)
+  @Public()
+  async submitInfoGuest(
+    @Param('id') id: string,
+    @Query('token') token: string | undefined,
+    @Body(new ZodValidationPipe(SubmitGuestBookingInfoBodySchema)) body: SubmitGuestBookingInfoBody,
+  ): Promise<{ bookingId: string; status: string; infoSubmittedAt: string }> {
+    if (!token) {
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Bad Request',
+          status: HttpStatus.BAD_REQUEST,
+          detail: 'token query parameter is required',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const secret = this.config.getOrThrow<string>('JWT_SECRET');
+
+    let rawPayload: unknown;
+    try {
+      rawPayload = jwt.verify(token, secret, { algorithms: ['HS256'] });
+    } catch {
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Unauthorized',
+          status: HttpStatus.UNAUTHORIZED,
+          detail: 'Invalid or expired guest token',
+        },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const payloadResult = GuestTokenPayloadSchema.safeParse(rawPayload);
+    if (!payloadResult.success) {
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Bad Request',
+          status: HttpStatus.BAD_REQUEST,
+          detail: 'Guest token payload is malformed',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const payload = payloadResult.data;
+
+    if (payload.bookingId !== id) {
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Bad Request',
+          status: HttpStatus.BAD_REQUEST,
+          detail: 'Token bookingId does not match route',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return this.backendHttp.patchForPublic(
+      `/bookings/${id}/submit-info/guest`,
+      { guestEmail: payload.guestEmail, ...body },
+      payload.tenantId,
+    );
   }
 }

@@ -1,4 +1,5 @@
 import { Injectable, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Message, PubSub, Subscription } from '@google-cloud/pubsub';
 import { DomainEvent } from '../domain/domain-event';
 import { AppLogger } from '../observability/app-logger';
@@ -20,8 +21,8 @@ export class GcpPubSubEventBusAdapter
   private readonly active: Subscription[] = [];
   private readonly ensuredTopics = new Set<string>();
 
-  constructor() {
-    this.pubsub = new PubSub({ projectId: process.env['PUBSUB_PROJECT_ID'] });
+  constructor(private readonly config: ConfigService) {
+    this.pubsub = new PubSub({ projectId: config.getOrThrow<string>('PUBSUB_PROJECT_ID') });
   }
 
   async publish(event: DomainEvent): Promise<void> {
@@ -44,7 +45,7 @@ export class GcpPubSubEventBusAdapter
     consumerName: string,
   ): void {
     // PUBSUB_SUBSCRIPTION_SUFFIX lets integration tests isolate subscriptions per test run
-    const suffix = process.env['PUBSUB_SUBSCRIPTION_SUFFIX'] ?? '';
+    const suffix = this.config.get<string>('PUBSUB_SUBSCRIPTION_SUFFIX', '');
     this.pending.set(eventName, {
       topicName: `beloauto-${eventName}`,
       subscriptionName: `beloauto-${eventName}-${consumerName}${suffix}`,

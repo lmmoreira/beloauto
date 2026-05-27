@@ -1,7 +1,15 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PlatformAdminGuard } from './platform-admin.guard';
 
 const TEST_KEY = 'a'.repeat(32);
+
+const configService = {
+  getOrThrow: (key: string): string => {
+    if (key === 'PLATFORM_ADMIN_KEY') return TEST_KEY;
+    throw new Error(`Unknown config key: ${key}`);
+  },
+} as unknown as ConfigService;
 
 const makeContext = (authHeader?: string): ExecutionContext =>
   ({
@@ -14,12 +22,7 @@ describe('PlatformAdminGuard', () => {
   let guard: PlatformAdminGuard;
 
   beforeEach(() => {
-    process.env['PLATFORM_ADMIN_KEY'] = TEST_KEY;
-    guard = new PlatformAdminGuard();
-  });
-
-  afterEach(() => {
-    delete process.env['PLATFORM_ADMIN_KEY'];
+    guard = new PlatformAdminGuard(configService);
   });
 
   it('returns true for a valid Bearer token', () => {

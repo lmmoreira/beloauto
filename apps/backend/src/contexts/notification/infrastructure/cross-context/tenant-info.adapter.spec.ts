@@ -49,7 +49,12 @@ describe('TenantInfoAdapter', () => {
 
     const result = await adapter.getTenantInfo(TENANT_ID);
 
-    expect(result).toEqual({ id: TENANT_ID, name: 'Lava Car', slug: 'lavacar' });
+    expect(result).toEqual({
+      id: TENANT_ID,
+      name: 'Lava Car',
+      slug: 'lavacar',
+      timezone: 'America/Sao_Paulo',
+    });
     expect(getTenantById.execute).toHaveBeenCalledWith(TENANT_ID);
   });
 

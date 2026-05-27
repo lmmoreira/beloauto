@@ -527,3 +527,42 @@ X-Correlation-ID: test-corr-submitinfo-003
 {
   "response": "Trying to submit info for another customer's booking"
 }
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /bookings/:id/submit-info/guest — Guest submits info via tokenised link
+# ─────────────────────────────────────────────────────────────────────────────
+
+# SUCCESS — guest submits info with valid JWT token
+PATCH {{baseUrl}}/bookings/{{bookingId}}/submit-info/guest
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+
+{
+  "guestEmail": "guest@example.com",
+  "response": "Here are the additional photos you requested"
+}
+
+###
+
+# ERROR — missing guestEmail → 400
+PATCH {{baseUrl}}/bookings/{{bookingId}}/submit-info/guest
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+
+{
+  "response": "Missing guestEmail — should return 400"
+}
+
+###
+
+# ERROR — booking not in INFO_REQUESTED state → 422
+PATCH {{baseUrl}}/bookings/00000000-0000-4000-8000-000000009999/submit-info/guest
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+
+{
+  "guestEmail": "guest@example.com",
+  "response": "Booking is PENDING — should return 422"
+}

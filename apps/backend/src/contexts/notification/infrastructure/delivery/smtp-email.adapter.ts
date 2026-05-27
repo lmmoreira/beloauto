@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { AppLogger } from '../../../../shared/observability/app-logger';
 import {
@@ -12,19 +13,22 @@ export class SmtpEmailAdapter implements IDeliveryChannel {
   readonly channelType: DeliveryChannelType = 'EMAIL';
 
   private readonly logger = new AppLogger(SmtpEmailAdapter.name);
+  private readonly transporter: nodemailer.Transporter;
 
-  private readonly transporter = nodemailer.createTransport({
-    host: process.env['SMTP_HOST'] ?? 'localhost',
-    port: Number(process.env['SMTP_PORT'] ?? 1025),
-    secure: false,
-    ignoreTLS: true,
-  });
+  constructor(private readonly config: ConfigService) {
+    this.transporter = nodemailer.createTransport({
+      host: config.get<string>('SMTP_HOST', 'localhost'),
+      port: config.get<number>('SMTP_PORT', 1025),
+      secure: false,
+      ignoreTLS: true,
+    });
+  }
 
   async send(message: OutboundMessage): Promise<void> {
     const html = this.render(message);
 
     await this.transporter.sendMail({
-      from: process.env['SMTP_FROM'] ?? 'noreply@beloauto.com.br',
+      from: this.config.get<string>('SMTP_FROM', 'noreply@beloauto.com.br'),
       to: message.to,
       subject: message.subject,
       html,
@@ -51,6 +55,109 @@ export class SmtpEmailAdapter implements IDeliveryChannel {
         <p>Se você não esperava este convite, por favor ignore este e-mail.</p>
       `;
     }
+
+    if (message.templateKey === 'booking-requested-admin') {
+      const { guestName, scheduledAt, serviceNames, totalPrice, pickupAddress } = message.data as {
+        guestName: string;
+        scheduledAt: string;
+        serviceNames: string;
+        totalPrice: string;
+        pickupAddress: { street: string; number: string; city: string; state: string } | null;
+      };
+      const pickupLine = pickupAddress
+        ? `<p><strong>Endereço de coleta:</strong> ${pickupAddress.street}, ${pickupAddress.number} — ${pickupAddress.city}/${pickupAddress.state}</p>`
+        : '';
+      return `
+        <p>Nova solicitação de agendamento recebida.</p>
+        <p><strong>Cliente:</strong> ${guestName}</p>
+        <p><strong>Data/Hora:</strong> ${scheduledAt}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+        ${pickupLine}
+      `;
+    }
+
+    if (message.templateKey === 'booking-requested-customer') {
+      const { guestName, scheduledAt, serviceNames, totalPrice, tenantName } = message.data as {
+        guestName: string;
+        scheduledAt: string;
+        serviceNames: string;
+        totalPrice: string;
+        tenantName: string;
+      };
+      return `
+        <p>Olá, ${guestName}!</p>
+        <p>Recebemos sua solicitação de agendamento em <strong>${tenantName}</strong>.</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Data/Hora:</strong> ${scheduledAt}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+        <p>Entraremos em contato para confirmar seu agendamento.</p>
+      `;
+    }
+
+    if (message.templateKey === 'booking-approved-customer') {
+      const { guestName, localDate, localTime, serviceNames, lineItems, totalPrice } =
+        message.data as {
+          guestName: string;
+          localDate: string;
+          localTime: string;
+          serviceNames: string;
+          lineItems: string[];
+          totalPrice: string;
+        };
+      const linesList = lineItems.map((l) => `<li>${l}</li>`).join('');
+      return `
+        <p>Olá, ${guestName}!</p>
+        <p>Seu agendamento foi confirmado.</p>
+        <p><strong>Data:</strong> ${localDate}</p>
+        <p><strong>Horário:</strong> ${localTime}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <ul>${linesList}</ul>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+        <p>Aguardamos sua visita!</p>
+      `;
+    }
+
+    if (message.templateKey === 'booking-rejected-customer') {
+      const { guestName, reason } = message.data as {
+        guestName: string;
+        reason: string;
+      };
+      return `
+        <p>Olá, ${guestName}!</p>
+        <p>Infelizmente não foi possível confirmar seu agendamento.</p>
+        <p><strong>Motivo:</strong> ${reason}</p>
+        <p>Se desejar, realize um novo agendamento em nosso site.</p>
+      `;
+    }
+
+    if (message.templateKey === 'booking-info-requested-customer') {
+      const { guestName, informationNeeded, respondLink } = message.data as {
+        guestName: string;
+        informationNeeded: string;
+        respondLink: string;
+      };
+      return `
+        <p>Olá, ${guestName}!</p>
+        <p>Nossa equipe precisa de mais informações antes de confirmar seu agendamento.</p>
+        <p><strong>Informações necessárias:</strong> ${informationNeeded}</p>
+        <p><a href="${respondLink}">Clique aqui para responder</a></p>
+      `;
+    }
+
+    if (message.templateKey === 'booking-info-submitted-admin') {
+      const { submittedByEmail, customerResponse, bookingLink } = message.data as {
+        submittedByEmail: string;
+        customerResponse: string;
+        bookingLink: string;
+      };
+      return `
+        <p>O cliente <strong>${submittedByEmail}</strong> respondeu à solicitação de informações.</p>
+        <p><strong>Resposta:</strong> ${customerResponse}</p>
+        <p><a href="${bookingLink}">Ver agendamento no dashboard</a></p>
+      `;
+    }
+
     return `<p>${message.subject}</p>`;
   }
 }
