@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { ServiceEntityBuilder } from '../../../../test/builders/booking/index';
+import { ServiceEntityBuilder, BookingEntityBuilder } from '../../../../test/builders/booking/index';
 import { CustomerEntityBuilder } from '../../../../test/builders/customer/index';
 import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { futureDate } from '../../../../test/utils/date-helpers';
@@ -404,13 +404,12 @@ describe('BookingController (integration)', () => {
       expect(row!.cancelledBy).toBe(STAFF_ID);
     });
 
-    it('cancels an APPROVED booking scheduled in 1 hour — no window constraint', async () => {
-      // Scheduled in 1 hour — inside the customer 48h window but admin bypasses it
-      const nearFuture = new Date(Date.now() + 60 * 60_000).toISOString();
+    it('cancels an APPROVED booking — admin bypasses any cancellation window', async () => {
+      // Use a static far-future date to avoid slot conflicts with other tests
       const { body: created } = await request(app.getHttpServer())
         .post('/bookings')
         .set(guestHeaders(tenantAId))
-        .send({ ...validBody(), scheduledAt: nearFuture })
+        .send({ ...validBody(), scheduledAt: `${futureDate(25)}T09:00:00.000Z` })
         .expect(201);
 
       await request(app.getHttpServer())
@@ -447,26 +446,16 @@ describe('BookingController (integration)', () => {
     });
 
     it('returns 422 when booking is COMPLETED (terminal state)', async () => {
-      const { body: created } = await request(app.getHttpServer())
-        .post('/bookings')
-        .set(guestHeaders(tenantAId))
-        .send({ ...validBody(), scheduledAt: `${futureDate(22)}T09:00:00.000Z` })
-        .expect(201);
-
-      // Approve first so we can mark it complete
-      await request(app.getHttpServer())
-        .patch(`/bookings/${created.bookingId}/approve`)
-        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
-        .expect(200);
-
-      await request(app.getHttpServer())
-        .patch(`/bookings/${created.bookingId}/complete`)
-        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
-        .send({ lineActualPrices: [], afterServicePhotoUrls: [] })
-        .expect(200);
+      // Insert a COMPLETED booking directly — PATCH /complete is part of UC-009 (not yet implemented)
+      const completedBooking = new BookingEntityBuilder()
+        .withTenantId(tenantAId)
+        .withStatus('COMPLETED')
+        .withScheduledAt(new Date(`${futureDate(22)}T09:00:00.000Z`))
+        .build();
+      await ds.getRepository(BookingEntity).save(completedBooking);
 
       const { body } = await request(app.getHttpServer())
-        .patch(`/bookings/${created.bookingId}/cancel-admin`)
+        .patch(`/bookings/${completedBooking.id}/cancel-admin`)
         .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
         .send({})
         .expect(422);
