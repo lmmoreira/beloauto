@@ -21,6 +21,7 @@ import { ListBookingsUseCase } from '../../application/use-cases/list-bookings.u
 import { GetBookingUseCase } from '../../application/use-cases/get-booking.use-case';
 import { CancelBookingAsCustomerUseCase } from '../../application/use-cases/cancel-booking-as-customer.use-case';
 import { CancelBookingAsAdminUseCase } from '../../application/use-cases/cancel-booking-as-admin.use-case';
+import { RescheduleBookingUseCase } from '../../application/use-cases/reschedule-booking.use-case';
 import { BookingSlotConflictService } from '../../application/services/booking-slot-conflict.service';
 import { BookingStatus } from '../../domain/booking.aggregate';
 
@@ -136,6 +137,16 @@ describe('BookingController', () => {
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
+      new RescheduleBookingUseCase(
+        staffCtx,
+        bookingRepo,
+        new BookingSlotConflictService(
+          new InMemoryBookingAvailabilityPort(),
+          new InMemoryScheduleTenantSettingsPort(),
+        ),
+        new InMemoryTransactionManager(),
+        new InMemoryEventBus(),
+      ),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
     await serviceRepo.save(service);
@@ -245,6 +256,16 @@ describe('BookingController', () => {
         new CancelBookingAsAdminUseCase(
           staffCtxB,
           repoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RescheduleBookingUseCase(
+          staffCtxB,
+          repoB,
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -382,6 +403,13 @@ describe('BookingController', () => {
         new CancelBookingAsAdminUseCase(
           staffCtx,
           bookingRepoB,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RescheduleBookingUseCase(
+          staffCtx,
+          bookingRepoB,
+          new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -813,6 +841,16 @@ describe('BookingController', () => {
         new CancelBookingAsAdminUseCase(
           staffCtxC,
           repoC,
+          new InMemoryTransactionManager(),
+          new InMemoryEventBus(),
+        ),
+        new RescheduleBookingUseCase(
+          staffCtxC,
+          repoC,
+          new BookingSlotConflictService(
+            new InMemoryBookingAvailabilityPort(),
+            new InMemoryScheduleTenantSettingsPort(),
+          ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),

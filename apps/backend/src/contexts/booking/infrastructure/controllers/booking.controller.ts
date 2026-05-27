@@ -85,6 +85,14 @@ import {
   CancelBookingAsAdminBody,
   CancelBookingAsAdminBodySchema,
 } from '../../application/dtos/cancel-booking-as-admin.dto';
+import {
+  RescheduleBookingUseCase,
+  RescheduleBookingUseCaseResult,
+} from '../../application/use-cases/reschedule-booking.use-case';
+import {
+  RescheduleBookingBody,
+  RescheduleBookingBodySchema,
+} from '../../application/dtos/reschedule-booking.dto';
 import { StaffOrManagerRoleGuard } from '../guards/staff-or-manager-role.guard';
 import { mapBookingError } from '../http/booking-error.mapper';
 
@@ -102,6 +110,7 @@ export class BookingController {
     private readonly getBooking: GetBookingUseCase,
     private readonly cancelBookingAsCustomer: CancelBookingAsCustomerUseCase,
     private readonly cancelBookingAsAdmin: CancelBookingAsAdminUseCase,
+    private readonly rescheduleBooking: RescheduleBookingUseCase,
   ) {}
 
   @Get()
@@ -196,6 +205,18 @@ export class BookingController {
   ): Promise<CancelBookingAsAdminUseCaseResult> {
     return this.cancelBookingAsAdmin
       .execute({ bookingId: id, reason: body.reason })
+      .catch(mapBookingError);
+  }
+
+  @Patch(':id/reschedule')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(StaffOrManagerRoleGuard)
+  reschedule(
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: HttpStatus.BAD_REQUEST })) id: string,
+    @Body(new ZodValidationPipe(RescheduleBookingBodySchema)) body: RescheduleBookingBody,
+  ): Promise<RescheduleBookingUseCaseResult> {
+    return this.rescheduleBooking
+      .execute({ bookingId: id, scheduledAt: body.scheduledAt, adminNotes: body.adminNotes })
       .catch(mapBookingError);
   }
 

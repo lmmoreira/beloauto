@@ -1218,4 +1218,177 @@ describe('BookingController (integration)', () => {
       expect(body.status).toBe(404);
     });
   });
+
+  describe('PATCH /bookings/:id/reschedule', () => {
+    const rescheduleSlot = `${futureDate(40)}T09:00:00.000Z`;
+    const newSlot = `${futureDate(41)}T10:00:00.000Z`;
+
+    async function createApprovedBooking(scheduledAt: string) {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), scheduledAt })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/approve`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .expect(200);
+
+      return created.bookingId as string;
+    }
+
+    it('reschedules an APPROVED booking → returns 200 with updated scheduledAt', async () => {
+      const bookingId = await createApprovedBooking(rescheduleSlot);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${bookingId}/reschedule`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ scheduledAt: newSlot })
+        .expect(200);
+
+      expect(body.bookingId).toBe(bookingId);
+      expect(body.status).toBe('APPROVED');
+      expect(body.scheduledAt).toBe(new Date(newSlot).toISOString());
+    });
+
+    it('persists new scheduledAt and optional adminNotes in DB', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), scheduledAt: `${futureDate(42)}T09:00:00.000Z` })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/approve`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/reschedule`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({
+          scheduledAt: `${futureDate(43)}T14:00:00.000Z`,
+          adminNotes: 'Customer requested change',
+        })
+        .expect(200);
+
+      const row = await ds
+        .getRepository(BookingEntity)
+        .findOne({ where: { id: created.bookingId, tenantId: tenantAId } });
+      expect(row!.scheduledAt.toISOString()).toBe(
+        new Date(`${futureDate(43)}T14:00:00.000Z`).toISOString(),
+      );
+      expect(row!.adminNotes).toBe('Customer requested change');
+    });
+
+    it('returns 422 when booking is PENDING (only APPROVED can be rescheduled)', async () => {
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(tenantAId))
+        .send({ ...validBody(), scheduledAt: `${futureDate(44)}T09:00:00.000Z` })
+        .expect(201);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/reschedule`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ scheduledAt: `${futureDate(45)}T10:00:00.000Z` })
+        .expect(422);
+
+      expect(body.status).toBe(422);
+    });
+
+    it('returns 422 when newScheduledAt is in the past', async () => {
+      const bookingId = await createApprovedBooking(`${futureDate(46)}T09:00:00.000Z`);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${bookingId}/reschedule`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ scheduledAt: '2020-01-01T10:00:00.000Z' })
+        .expect(422);
+
+      expect(body.status).toBe(422);
+    });
+
+    it('returns 409 when new slot conflicts with another APPROVED booking', async () => {
+      const conflictSlot = `${futureDate(47)}T09:00:00.000Z`;
+      await createApprovedBooking(conflictSlot);
+      const bookingId = await createApprovedBooking(`${futureDate(48)}T12:00:00.000Z`);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${bookingId}/reschedule`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ scheduledAt: conflictSlot })
+        .expect(409);
+
+      expect(body.status).toBe(409);
+    });
+
+    it('returns 404 when booking does not exist', async () => {
+      const { body } = await request(app.getHttpServer())
+        .patch('/bookings/00000000-0000-4000-8000-000000009997/reschedule')
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ scheduledAt: newSlot })
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+
+    it('returns 403 when no role headers are provided', async () => {
+      const bookingId = await createApprovedBooking(`${futureDate(49)}T09:00:00.000Z`);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${bookingId}/reschedule`)
+        .set(guestHeaders(tenantAId))
+        .send({ scheduledAt: newSlot })
+        .expect(403);
+
+      expect(body.status).toBe(403);
+    });
+
+    it('tenant isolation: cannot reschedule a booking from another tenant', async () => {
+      const { body: tenantBody } = await request(app.getHttpServer())
+        .post('/internal/tenants')
+        .set('Authorization', `Bearer ${TEST_KEY}`)
+        .send({
+          name: 'Reschedule Isolation Tenant',
+          slug: 'reschedule-isolation',
+          adminEmail: 'reschedule@isolation.test',
+        })
+        .expect(201);
+      const isolationTenantId = tenantBody.tenantId as string;
+
+      const svcIsolation = new ServiceEntityBuilder()
+        .withTenantId(isolationTenantId)
+        .withName('Serviço Isolation Reschedule')
+        .withPriceAmount('80.00')
+        .withDurationMinutes(30)
+        .withIsActive(true)
+        .build();
+      await ds.getRepository(ServiceEntity).save(svcIsolation);
+
+      const { body: created } = await request(app.getHttpServer())
+        .post('/bookings')
+        .set(guestHeaders(isolationTenantId))
+        .send({
+          ...validBody(),
+          serviceIds: [svcIsolation.id],
+          scheduledAt: `${futureDate(50)}T09:00:00.000Z`,
+        })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/approve`)
+        .set(actorHeaders(isolationTenantId, STAFF_ID, 'MANAGER'))
+        .expect(200);
+
+      const { body } = await request(app.getHttpServer())
+        .patch(`/bookings/${created.bookingId}/reschedule`)
+        .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
+        .send({ scheduledAt: newSlot })
+        .expect(404);
+
+      expect(body.status).toBe(404);
+    });
+  });
 });

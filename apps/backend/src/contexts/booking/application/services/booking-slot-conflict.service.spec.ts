@@ -49,4 +49,20 @@ describe('BookingSlotConflictService', () => {
     availabilityPort.setSlots([{ scheduledAt: before, totalDurationMins: 30 }]);
     await expect(service.assertSlotFree(TENANT_ID, scheduledAt, 30)).resolves.toBeUndefined();
   });
+
+  it('excludes the specified bookingId from conflict check (rescheduling self-overlap)', async () => {
+    const BOOKING_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
+    availabilityPort.setSlots([{ id: BOOKING_ID, scheduledAt, totalDurationMins: 60 }]);
+    await expect(
+      service.assertSlotFree(TENANT_ID, scheduledAt, 30, BOOKING_ID),
+    ).resolves.toBeUndefined();
+  });
+
+  it('still detects conflict from a different booking when excludeBookingId is set', async () => {
+    const OTHER_ID = 'bbbbbbbb-0000-4000-8000-000000000002';
+    availabilityPort.setSlots([{ id: OTHER_ID, scheduledAt, totalDurationMins: 60 }]);
+    await expect(
+      service.assertSlotFree(TENANT_ID, scheduledAt, 30, 'aaaaaaaa-0000-4000-8000-000000000001'),
+    ).rejects.toThrow(BookingSlotUnavailableError);
+  });
 });

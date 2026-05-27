@@ -26,6 +26,7 @@ import {
   BookingListResponse,
   BookingDetailResponse,
   CancelBookingResponse,
+  RescheduleBookingResponse,
 } from './bookings.types';
 
 const AddressSchema = z.object({
@@ -69,7 +70,13 @@ export const CancelAsAdminBodySchema = z
   })
   .default({});
 
+export const RescheduleBookingBodySchema = z.object({
+  scheduledAt: z.iso.datetime(),
+  adminNotes: z.string().min(1).max(500).optional(),
+});
+
 type CancelAsAdminBody = z.infer<typeof CancelAsAdminBodySchema>;
+type RescheduleBookingBody = z.infer<typeof RescheduleBookingBodySchema>;
 
 export const RequestMoreInfoBodySchema = z.object({
   message: z.string().trim().min(20),
@@ -194,6 +201,16 @@ export class BookingsController {
     @Param('id') id: string,
   ): Promise<{ bookingId: string; status: string; approvedAt: string }> {
     return this.backendHttp.patch(`/bookings/${id}/approve`, {});
+  }
+
+  @Patch(':id/reschedule')
+  @HttpCode(HttpStatus.OK)
+  @Roles('MANAGER', 'STAFF')
+  reschedule(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(RescheduleBookingBodySchema)) body: RescheduleBookingBody,
+  ): Promise<RescheduleBookingResponse> {
+    return this.backendHttp.patch(`/bookings/${id}/reschedule`, body);
   }
 
   @Patch(':id/reject')
