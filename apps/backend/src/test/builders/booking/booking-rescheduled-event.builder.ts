@@ -7,6 +7,14 @@ export class BookingRescheduledEventBuilder {
   private customerId: string | null = null;
   private guestEmail = 'joao@example.com';
   private readonly guestName = 'João Silva';
+  private readonly lineSummary = [
+    {
+      serviceId: 'ffffffff-0001-4000-8000-000000000001',
+      serviceNameAtBooking: 'Lavagem Completa',
+      priceAtBooking: { amount: '150.00', currency: 'BRL' },
+    },
+  ];
+  private readonly totalPrice = { amount: '150.00', currency: 'BRL' };
   private readonly previousSlot = {
     startTime: '2026-07-01T10:00:00.000Z',
     endTime: '2026-07-01T11:00:00.000Z',
@@ -17,17 +25,14 @@ export class BookingRescheduledEventBuilder {
   };
   private readonly rescheduledBy = 'staffid-0000-4000-8000-000000000001';
   private adminNotes: string | null = null;
-  private readonly lineSummary = [
-    {
-      serviceId: 'ffffffff-0001-4000-8000-000000000001',
-      serviceNameAtBooking: 'Lavagem Completa',
-      priceAtBooking: { amount: '150.00', currency: 'BRL' },
-    },
-  ];
-  private readonly totalPrice = { amount: '150.00', currency: 'BRL' };
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;
+    return this;
+  }
+
+  withAdminNotes(adminNotes: string | null): this {
+    this.adminNotes = adminNotes;
     return this;
   }
 
@@ -43,11 +48,6 @@ export class BookingRescheduledEventBuilder {
 
   withCustomerId(customerId: string | null): this {
     this.customerId = customerId;
-    return this;
-  }
-
-  withAdminNotes(adminNotes: string | null): this {
-    this.adminNotes = adminNotes;
     return this;
   }
 
