@@ -483,11 +483,13 @@ describe('BookingController (integration)', () => {
         .send({ ...validBody(), scheduledAt: `${futureDate(23)}T09:00:00.000Z` })
         .expect(201);
 
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/cancel-admin`)
         .set(guestHeaders(tenantAId))
         .send({})
         .expect(403);
+
+      expect(body.status).toBe(403);
     });
 
     it('tenant isolation: cannot cancel a booking from tenantB', async () => {
