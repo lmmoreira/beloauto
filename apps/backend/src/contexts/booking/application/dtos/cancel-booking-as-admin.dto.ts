@@ -8,7 +8,7 @@ export const CancelBookingAsAdminBodySchema = z
 
 export type CancelBookingAsAdminBody = z.infer<typeof CancelBookingAsAdminBodySchema>;
 
-// Full DTO used by the use case (bookingId comes from @Param in the controller)
+// Full DTO used by the use case (bookingId is extracted from the route param in the controller)
 export interface CancelBookingAsAdminDto {
   bookingId: string;
   reason?: string;
