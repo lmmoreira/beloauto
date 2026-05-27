@@ -20,7 +20,12 @@ import { Roles } from '../shared/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
 import { BackendHttpService } from '../shared/http/backend-http.service';
 import { TenantInfoResponse } from '../shared/types/backend-responses';
-import { BookingResponse, BookingListResponse, BookingDetailResponse } from './bookings.types';
+import {
+  BookingResponse,
+  BookingListResponse,
+  BookingDetailResponse,
+  CancelBookingResponse,
+} from './bookings.types';
 
 const AddressSchema = z.object({
   street: z.string().min(1),
@@ -102,11 +107,6 @@ type RejectBookingBody = z.infer<typeof RejectBookingBodySchema>;
 type RequestMoreInfoBody = z.infer<typeof RequestMoreInfoBodySchema>;
 type SubmitBookingInfoBody = z.infer<typeof SubmitBookingInfoBodySchema>;
 type SubmitGuestBookingInfoBody = z.infer<typeof SubmitGuestBookingInfoBodySchema>;
-
-export interface CancelBookingResponse {
-  bookingId: string;
-  status: string;
-}
 
 @Controller('bookings')
 export class BookingsController {
