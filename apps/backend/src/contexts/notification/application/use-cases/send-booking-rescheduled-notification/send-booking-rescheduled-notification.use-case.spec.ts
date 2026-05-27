@@ -125,4 +125,14 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
 
     expect(logRepo.all.every((l) => l.tenantId === TENANT_ID)).toBe(true);
   });
+
+  it('falls back to America/Sao_Paulo timezone when tenant info is not found', async () => {
+    const unknownTenantDto: SendBookingRescheduledNotificationDto = {
+      ...baseDto,
+      tenantId: 'ffffffff-0000-4000-8000-000000000099',
+      eventId: 'cccccccc-0099-4000-8000-000000000002',
+    };
+
+    await expect(useCase.execute(unknownTenantDto)).resolves.not.toThrow();
+  });
 });
