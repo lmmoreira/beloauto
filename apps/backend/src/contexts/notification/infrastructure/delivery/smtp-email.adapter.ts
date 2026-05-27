@@ -158,6 +158,118 @@ export class SmtpEmailAdapter implements IDeliveryChannel {
       `;
     }
 
+    if (message.templateKey === 'booking-cancelled-customer') {
+      const { guestName, localDate, localTime, serviceNames, totalPrice } = message.data as {
+        guestName: string;
+        localDate: string;
+        localTime: string;
+        serviceNames: string;
+        totalPrice: string;
+      };
+      return `
+        <p>Olá, ${guestName}!</p>
+        <p>Seu agendamento foi cancelado.</p>
+        <p><strong>Data:</strong> ${localDate}</p>
+        <p><strong>Horário:</strong> ${localTime}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+        <p>Se desejar, realize um novo agendamento em nosso site.</p>
+      `;
+    }
+
+    if (message.templateKey === 'booking-cancelled-admin') {
+      const {
+        guestName,
+        localDate,
+        localTime,
+        serviceNames,
+        totalPrice,
+        cancelledBy,
+        isBusiness,
+        reason,
+      } = message.data as {
+        guestName: string;
+        localDate: string;
+        localTime: string;
+        serviceNames: string;
+        totalPrice: string;
+        cancelledBy: string;
+        isBusiness: boolean;
+        reason: string | null;
+      };
+      const cancelledByLine = isBusiness
+        ? `<p>O agendamento foi <strong>cancelado pela equipe</strong>.</p>`
+        : `<p>O agendamento foi cancelado pelo cliente (<strong>${cancelledBy}</strong>).</p>`;
+      const reasonLine = reason ? `<p><strong>Motivo:</strong> ${reason}</p>` : '';
+      return `
+        <p>Agendamento cancelado.</p>
+        <p><strong>Cliente:</strong> ${guestName}</p>
+        <p><strong>Data:</strong> ${localDate}</p>
+        <p><strong>Horário:</strong> ${localTime}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+        ${cancelledByLine}
+        ${reasonLine}
+      `;
+    }
+
+    if (message.templateKey === 'booking-rescheduled-customer') {
+      const {
+        guestName,
+        previousLocalDate,
+        previousLocalTime,
+        newLocalDate,
+        newLocalTime,
+        serviceNames,
+        totalPrice,
+      } = message.data as {
+        guestName: string;
+        previousLocalDate: string;
+        previousLocalTime: string;
+        newLocalDate: string;
+        newLocalTime: string;
+        serviceNames: string;
+        totalPrice: string;
+      };
+      return `
+        <p>Olá, ${guestName}!</p>
+        <p>Seu agendamento foi reagendado.</p>
+        <p><strong>Data anterior:</strong> ${previousLocalDate} às ${previousLocalTime}</p>
+        <p><strong>Nova data:</strong> ${newLocalDate} às ${newLocalTime}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+        <p>Aguardamos sua visita!</p>
+      `;
+    }
+
+    if (message.templateKey === 'booking-rescheduled-admin') {
+      const {
+        guestName,
+        previousLocalDate,
+        previousLocalTime,
+        newLocalDate,
+        newLocalTime,
+        serviceNames,
+        totalPrice,
+      } = message.data as {
+        guestName: string;
+        previousLocalDate: string;
+        previousLocalTime: string;
+        newLocalDate: string;
+        newLocalTime: string;
+        serviceNames: string;
+        totalPrice: string;
+      };
+      return `
+        <p>Agendamento reagendado.</p>
+        <p><strong>Cliente:</strong> ${guestName}</p>
+        <p><strong>Data anterior:</strong> ${previousLocalDate} às ${previousLocalTime}</p>
+        <p><strong>Nova data:</strong> ${newLocalDate} às ${newLocalTime}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+      `;
+    }
+
     return `<p>${message.subject}</p>`;
   }
 }
