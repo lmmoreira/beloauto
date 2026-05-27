@@ -1,7 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { ServiceEntityBuilder, BookingEntityBuilder } from '../../../../test/builders/booking/index';
+import {
+  ServiceEntityBuilder,
+  BookingEntityBuilder,
+} from '../../../../test/builders/booking/index';
 import { CustomerEntityBuilder } from '../../../../test/builders/customer/index';
 import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { futureDate } from '../../../../test/utils/date-helpers';
