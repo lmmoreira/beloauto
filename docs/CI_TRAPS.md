@@ -103,6 +103,47 @@ Runs automatically on `git push`. Fix these before re-pushing.
 
 ---
 
+## SonarCloud CPD (Duplicated Lines %) > 3% on new code
+
+SonarCloud gates on ≤ 3% duplicated lines on **new code**. A private method duplicated across two use cases easily pushes past this threshold.
+
+| Situation | Wrong ❌ | Correct ✅ |
+|-----------|---------|-----------|
+| Admin-email logic duplicated in two notification use cases | `private sendAdminEmail(...)` method in each use case (~18+ lines each) | Extract to `dispatchAdminEmailToManagers()` in `notification-log.helper.ts`; both use cases call the utility |
+| Payload serialisation repeated in multiple aggregate methods | Inline `this.props.lines.map(...)` block copy-pasted into `approve()`, `cancel()`, `reschedule()` | Extract `private lineSummaryPayload()` / `private totalPricePayload()` helpers in the aggregate |
+
+**Rule:** Any block of ~10 identical lines that appears in ≥ 2 new files will breach the CPD gate. Extract before it ships — retrofitting after CI fails requires an extra commit cycle.
+
+---
+
+## Early return + downstream branch coverage gap
+
+Adding an early-return guard (e.g., `if (existingCustomer && existingAdmin) return`) closes a happy path quickly but creates new uncovered branches: the false-arms of the downstream `if (!existingCustomer)` / `if (!existingAdmin)` blocks that are now only reachable when **one** log exists.
+
+SonarCloud gates on **branch** coverage (not just line coverage) for new code. Missing false-arms show as uncovered even when line coverage looks fine.
+
+**Fix pattern:** add two partial-retry tests per use case — one that pre-seeds only the customer log, one that pre-seeds only the admin log:
+
+```typescript
+it('sends only admin email when customer log already exists (partial retry)', async () => {
+  await logRepo.save(NotificationLog.create({ ..., notificationType: 'XXX_CUSTOMER', channel: 'EMAIL' }));
+  const result = await useCase.execute(baseDto);
+  expect(result.customerEmailSent).toBe(false);
+  expect(result.adminEmailSent).toBe(true);
+});
+
+it('sends only customer email when admin log already exists (partial retry)', async () => {
+  await logRepo.save(NotificationLog.create({ ..., notificationType: 'XXX_ADMIN', channel: 'EMAIL' }));
+  const result = await useCase.execute(baseDto);
+  expect(result.customerEmailSent).toBe(true);
+  expect(result.adminEmailSent).toBe(false);
+});
+```
+
+These two tests together cover the four branch combinations introduced by the early return + two independent guards.
+
+---
+
 ## Quick pre-commit checklist
 
 Before every `git commit`, verify:
@@ -118,3 +159,5 @@ Before every `git commit`, verify:
 - [ ] Domain events listed in the **publishing** context, not duplicated
 - [ ] Every `@Patch` body schema with all-optional fields ends with `.default({})`
 - [ ] Every endpoint called as a setup step in `*.integration.spec.ts` exists in the controller (`grep -n "@Patch\|@Post" controller.ts`)
+- [ ] No private `sendAdminEmail`-style methods duplicated across notification use cases — use `dispatchAdminEmailToManagers()` utility
+- [ ] Early-return guard added? → add two partial-retry tests (one log pre-seeded each way) to cover the new branch arms

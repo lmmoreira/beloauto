@@ -37,7 +37,9 @@ Empty output = clean. Any `error TS` line = failure; report it and stop.
 
 ---
 
-## Step 3 — Agent checks (semantic — cannot be automated)
+## Step 3 — Agent checks (require reading changed files)
+
+Numbers reference the 20-item master checklist; items covered by the script in Step 1 are not repeated here.
 
 Read the changed files once, then check all of the following.
 
@@ -79,7 +81,7 @@ Look for `Props` interfaces inside changed `*/domain/*.aggregate.ts` files. Repo
 
 ### DA-6. No utility functions duplicated outside src/shared/utils/
 
-Check for:
+Grep for duplicated implementations — do not rely on reading alone. Check for:
 - `deepMerge` implemented inline (not imported from `src/shared/utils/deep-merge`)
 - Function bodies that re-implement string trimming, digit-stripping, or format conversion already in a shared VO or util
 
@@ -130,9 +132,7 @@ If all Step 1–3 checks pass, output:
 
 ## Step 4 — Integration test gate (MANDATORY — blocks PR open)
 
-Check whether the branch has any new or modified test blocks inside `*.integration.spec.ts` files.
-
-**If yes — STOP. Do not open the PR yet.** Ask the user exactly this:
+> **HARD RULE: STOP. Do not open the PR yet.** Ask the user exactly this:
 
 > ⚠️ **Integration test gate — required before PR**
 >
@@ -140,7 +140,7 @@ Check whether the branch has any new or modified test blocks inside `*.integrati
 >
 > Please run:
 > ```bash
-> pnpm --filter @beloauto/backend test:integration 2>&1 | tail -30
+> { pnpm --filter @beloauto/backend test:integration && pnpm --filter @beloauto/bff test:component; } 2>&1 | tail -50
 > ```
 > Paste the output here. I will open the PR only after you confirm it passes.
 
@@ -148,18 +148,10 @@ Wait for the user's response. Open the PR **only** if:
 1. The pasted output shows `Test Suites: X passed, X total` with 0 failed suites and 0 failed tests.
 2. The user explicitly says to proceed.
 
-**If no `*.integration.spec.ts` files were touched**, skip this step and proceed directly to opening the PR.
-
-Output when gate triggers:
+Output when waiting:
 ```
 ### Step 4 — Integration test gate
-⏸ WAITING — paste `pnpm --filter @beloauto/backend test:integration` output to proceed
-```
-
-Output when gate is skipped:
-```
-### Step 4 — Integration test gate
-⏭ SKIP — no integration test files changed
+⏸ WAITING — paste `{ pnpm --filter @beloauto/backend test:integration && pnpm --filter @beloauto/bff test:component; } 2>&1 | tail -50` output to proceed
 ```
 
 Output when gate clears:
@@ -167,3 +159,5 @@ Output when gate clears:
 ### Step 4 — Integration test gate
 ✅ PASS — integration tests confirmed by user
 ```
+
+Once Step 4 clears, open the PR following the template in CLAUDE.md §9 Step 8.

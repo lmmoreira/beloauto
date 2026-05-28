@@ -42,32 +42,33 @@ export class SmtpEmailAdapter implements IDeliveryChannel {
   }
 
   private render(message: OutboundMessage): string {
-    if (message.templateKey === 'staff-invitation') {
-      const { tenantName, activationLink, staffName } = message.data as {
-        tenantName: string;
-        activationLink: string;
-        staffName: string;
-      };
-      return `
+    switch (message.templateKey) {
+      case 'staff-invitation': {
+        const { tenantName, activationLink, staffName } = message.data as {
+          tenantName: string;
+          activationLink: string;
+          staffName: string;
+        };
+        return `
         <p>Olá, ${staffName}!</p>
         <p>Você foi convidado para integrar a equipe de <strong>${tenantName}</strong> na plataforma BeloAuto.</p>
         <p><a href="${activationLink}">Clique aqui para aceitar o convite e acessar sua conta.</a></p>
         <p>Se você não esperava este convite, por favor ignore este e-mail.</p>
       `;
-    }
-
-    if (message.templateKey === 'booking-requested-admin') {
-      const { guestName, scheduledAt, serviceNames, totalPrice, pickupAddress } = message.data as {
-        guestName: string;
-        scheduledAt: string;
-        serviceNames: string;
-        totalPrice: string;
-        pickupAddress: { street: string; number: string; city: string; state: string } | null;
-      };
-      const pickupLine = pickupAddress
-        ? `<p><strong>Endereço de coleta:</strong> ${pickupAddress.street}, ${pickupAddress.number} — ${pickupAddress.city}/${pickupAddress.state}</p>`
-        : '';
-      return `
+      }
+      case 'booking-requested-admin': {
+        const { guestName, scheduledAt, serviceNames, totalPrice, pickupAddress } =
+          message.data as {
+            guestName: string;
+            scheduledAt: string;
+            serviceNames: string;
+            totalPrice: string;
+            pickupAddress: { street: string; number: string; city: string; state: string } | null;
+          };
+        const pickupLine = pickupAddress
+          ? `<p><strong>Endereço de coleta:</strong> ${pickupAddress.street}, ${pickupAddress.number} — ${pickupAddress.city}/${pickupAddress.state}</p>`
+          : '';
+        return `
         <p>Nova solicitação de agendamento recebida.</p>
         <p><strong>Cliente:</strong> ${guestName}</p>
         <p><strong>Data/Hora:</strong> ${scheduledAt}</p>
@@ -75,17 +76,16 @@ export class SmtpEmailAdapter implements IDeliveryChannel {
         <p><strong>Total:</strong> ${totalPrice}</p>
         ${pickupLine}
       `;
-    }
-
-    if (message.templateKey === 'booking-requested-customer') {
-      const { guestName, scheduledAt, serviceNames, totalPrice, tenantName } = message.data as {
-        guestName: string;
-        scheduledAt: string;
-        serviceNames: string;
-        totalPrice: string;
-        tenantName: string;
-      };
-      return `
+      }
+      case 'booking-requested-customer': {
+        const { guestName, scheduledAt, serviceNames, totalPrice, tenantName } = message.data as {
+          guestName: string;
+          scheduledAt: string;
+          serviceNames: string;
+          totalPrice: string;
+          tenantName: string;
+        };
+        return `
         <p>Olá, ${guestName}!</p>
         <p>Recebemos sua solicitação de agendamento em <strong>${tenantName}</strong>.</p>
         <p><strong>Serviços:</strong> ${serviceNames}</p>
@@ -93,20 +93,19 @@ export class SmtpEmailAdapter implements IDeliveryChannel {
         <p><strong>Total:</strong> ${totalPrice}</p>
         <p>Entraremos em contato para confirmar seu agendamento.</p>
       `;
-    }
-
-    if (message.templateKey === 'booking-approved-customer') {
-      const { guestName, localDate, localTime, serviceNames, lineItems, totalPrice } =
-        message.data as {
-          guestName: string;
-          localDate: string;
-          localTime: string;
-          serviceNames: string;
-          lineItems: string[];
-          totalPrice: string;
-        };
-      const linesList = lineItems.map((l) => `<li>${l}</li>`).join('');
-      return `
+      }
+      case 'booking-approved-customer': {
+        const { guestName, localDate, localTime, serviceNames, lineItems, totalPrice } =
+          message.data as {
+            guestName: string;
+            localDate: string;
+            localTime: string;
+            serviceNames: string;
+            lineItems: string[];
+            totalPrice: string;
+          };
+        const linesList = lineItems.map((l) => `<li>${l}</li>`).join('');
+        return `
         <p>Olá, ${guestName}!</p>
         <p>Seu agendamento foi confirmado.</p>
         <p><strong>Data:</strong> ${localDate}</p>
@@ -116,48 +115,154 @@ export class SmtpEmailAdapter implements IDeliveryChannel {
         <p><strong>Total:</strong> ${totalPrice}</p>
         <p>Aguardamos sua visita!</p>
       `;
-    }
-
-    if (message.templateKey === 'booking-rejected-customer') {
-      const { guestName, reason } = message.data as {
-        guestName: string;
-        reason: string;
-      };
-      return `
+      }
+      case 'booking-rejected-customer': {
+        const { guestName, reason } = message.data as {
+          guestName: string;
+          reason: string;
+        };
+        return `
         <p>Olá, ${guestName}!</p>
         <p>Infelizmente não foi possível confirmar seu agendamento.</p>
         <p><strong>Motivo:</strong> ${reason}</p>
         <p>Se desejar, realize um novo agendamento em nosso site.</p>
       `;
-    }
-
-    if (message.templateKey === 'booking-info-requested-customer') {
-      const { guestName, informationNeeded, respondLink } = message.data as {
-        guestName: string;
-        informationNeeded: string;
-        respondLink: string;
-      };
-      return `
+      }
+      case 'booking-info-requested-customer': {
+        const { guestName, informationNeeded, respondLink } = message.data as {
+          guestName: string;
+          informationNeeded: string;
+          respondLink: string;
+        };
+        return `
         <p>Olá, ${guestName}!</p>
         <p>Nossa equipe precisa de mais informações antes de confirmar seu agendamento.</p>
         <p><strong>Informações necessárias:</strong> ${informationNeeded}</p>
         <p><a href="${respondLink}">Clique aqui para responder</a></p>
       `;
-    }
-
-    if (message.templateKey === 'booking-info-submitted-admin') {
-      const { submittedByEmail, customerResponse, bookingLink } = message.data as {
-        submittedByEmail: string;
-        customerResponse: string;
-        bookingLink: string;
-      };
-      return `
+      }
+      case 'booking-info-submitted-admin': {
+        const { submittedByEmail, customerResponse, bookingLink } = message.data as {
+          submittedByEmail: string;
+          customerResponse: string;
+          bookingLink: string;
+        };
+        return `
         <p>O cliente <strong>${submittedByEmail}</strong> respondeu à solicitação de informações.</p>
         <p><strong>Resposta:</strong> ${customerResponse}</p>
         <p><a href="${bookingLink}">Ver agendamento no dashboard</a></p>
       `;
+      }
+      case 'booking-cancelled-customer': {
+        const { guestName, localDate, localTime, serviceNames, totalPrice } = message.data as {
+          guestName: string;
+          localDate: string;
+          localTime: string;
+          serviceNames: string;
+          totalPrice: string;
+        };
+        return `
+        <p>Olá, ${guestName}!</p>
+        <p>Seu agendamento foi cancelado.</p>
+        <p><strong>Data:</strong> ${localDate}</p>
+        <p><strong>Horário:</strong> ${localTime}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+        <p>Se desejar, realize um novo agendamento em nosso site.</p>
+      `;
+      }
+      case 'booking-cancelled-admin': {
+        const {
+          guestName,
+          localDate,
+          localTime,
+          serviceNames,
+          totalPrice,
+          cancelledBy,
+          isBusiness,
+          reason,
+        } = message.data as {
+          guestName: string;
+          localDate: string;
+          localTime: string;
+          serviceNames: string;
+          totalPrice: string;
+          cancelledBy: string;
+          isBusiness: boolean;
+          reason: string | null;
+        };
+        const cancelledByLine = isBusiness
+          ? `<p>O agendamento foi <strong>cancelado pela equipe</strong>.</p>`
+          : `<p>O agendamento foi cancelado pelo cliente (<strong>${cancelledBy}</strong>).</p>`;
+        const reasonLine = reason ? `<p><strong>Motivo:</strong> ${reason}</p>` : '';
+        return `
+        <p>Agendamento cancelado.</p>
+        <p><strong>Cliente:</strong> ${guestName}</p>
+        <p><strong>Data:</strong> ${localDate}</p>
+        <p><strong>Horário:</strong> ${localTime}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+        ${cancelledByLine}
+        ${reasonLine}
+      `;
+      }
+      case 'booking-rescheduled-customer': {
+        const {
+          guestName,
+          previousLocalDate,
+          previousLocalTime,
+          newLocalDate,
+          newLocalTime,
+          serviceNames,
+          totalPrice,
+        } = message.data as {
+          guestName: string;
+          previousLocalDate: string;
+          previousLocalTime: string;
+          newLocalDate: string;
+          newLocalTime: string;
+          serviceNames: string;
+          totalPrice: string;
+        };
+        return `
+        <p>Olá, ${guestName}!</p>
+        <p>Seu agendamento foi reagendado.</p>
+        <p><strong>Data anterior:</strong> ${previousLocalDate} às ${previousLocalTime}</p>
+        <p><strong>Nova data:</strong> ${newLocalDate} às ${newLocalTime}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+        <p>Aguardamos sua visita!</p>
+      `;
+      }
+      case 'booking-rescheduled-admin': {
+        const {
+          guestName,
+          previousLocalDate,
+          previousLocalTime,
+          newLocalDate,
+          newLocalTime,
+          serviceNames,
+          totalPrice,
+        } = message.data as {
+          guestName: string;
+          previousLocalDate: string;
+          previousLocalTime: string;
+          newLocalDate: string;
+          newLocalTime: string;
+          serviceNames: string;
+          totalPrice: string;
+        };
+        return `
+        <p>Agendamento reagendado.</p>
+        <p><strong>Cliente:</strong> ${guestName}</p>
+        <p><strong>Data anterior:</strong> ${previousLocalDate} às ${previousLocalTime}</p>
+        <p><strong>Nova data:</strong> ${newLocalDate} às ${newLocalTime}</p>
+        <p><strong>Serviços:</strong> ${serviceNames}</p>
+        <p><strong>Total:</strong> ${totalPrice}</p>
+      `;
+      }
+      default:
+        return `<p>${message.subject}</p>`;
     }
-
-    return `<p>${message.subject}</p>`;
   }
 }

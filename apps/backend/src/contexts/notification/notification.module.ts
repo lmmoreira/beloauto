@@ -13,6 +13,8 @@ import { SendBookingApprovedNotificationUseCase } from './application/use-cases/
 import { SendBookingRejectedNotificationUseCase } from './application/use-cases/send-booking-rejected-notification/send-booking-rejected-notification.use-case';
 import { SendBookingInfoRequestedNotificationUseCase } from './application/use-cases/send-booking-info-requested-notification/send-booking-info-requested-notification.use-case';
 import { SendBookingInfoSubmittedNotificationUseCase } from './application/use-cases/send-booking-info-submitted-notification/send-booking-info-submitted-notification.use-case';
+import { SendBookingCancelledNotificationUseCase } from './application/use-cases/send-booking-cancelled-notification/send-booking-cancelled-notification.use-case';
+import { SendBookingRescheduledNotificationUseCase } from './application/use-cases/send-booking-rescheduled-notification/send-booking-rescheduled-notification.use-case';
 import { StaffInfoAdapter } from './infrastructure/cross-context/staff-info.adapter';
 import { TenantInfoAdapter } from './infrastructure/cross-context/tenant-info.adapter';
 import { DELIVERY_CHANNEL } from './application/ports/delivery-channel.port';
@@ -25,6 +27,8 @@ import { BookingApprovedHandler } from './infrastructure/events/booking-approved
 import { BookingRejectedHandler } from './infrastructure/events/booking-rejected.handler';
 import { BookingInfoRequestedHandler } from './infrastructure/events/booking-info-requested.handler';
 import { BookingInfoSubmittedHandler } from './infrastructure/events/booking-info-submitted.handler';
+import { BookingCancelledHandler } from './infrastructure/events/booking-cancelled.handler';
+import { BookingRescheduledHandler } from './infrastructure/events/booking-rescheduled.handler';
 import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/typeorm-notification-log.repository';
 
 @Module({
@@ -51,12 +55,16 @@ import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/
     SendBookingRejectedNotificationUseCase,
     SendBookingInfoRequestedNotificationUseCase,
     SendBookingInfoSubmittedNotificationUseCase,
+    SendBookingCancelledNotificationUseCase,
+    SendBookingRescheduledNotificationUseCase,
     StaffInvitedHandler,
     BookingRequestedHandler,
     BookingApprovedHandler,
     BookingRejectedHandler,
     BookingInfoRequestedHandler,
     BookingInfoSubmittedHandler,
+    BookingCancelledHandler,
+    BookingRescheduledHandler,
   ],
 })
 export class NotificationModule {}

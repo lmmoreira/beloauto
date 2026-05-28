@@ -1,10 +1,7 @@
-export interface SendBookingInfoRequestedNotificationDto {
-  tenantId: string;
-  eventId: string;
-  correlationId: string;
+import { BaseGuestNotificationDto } from './base-guest-notification.dto';
+
+export interface SendBookingInfoRequestedNotificationDto extends BaseGuestNotificationDto {
   bookingId: string;
   customerId: string | null;
-  guestEmail: string;
-  guestName: string;
   informationNeeded: string;
 }

@@ -4,7 +4,6 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
-import { NotificationLog } from '../../../domain/notification-log.entity';
 import { SendStaffInvitationDto } from '../../dtos/send-staff-invitation.dto';
 import {
   INotificationDispatcher,
@@ -22,6 +21,7 @@ import {
   INotificationTenantPort,
   NOTIFICATION_TENANT_PORT,
 } from '../../ports/notification-tenant.port';
+import { BaseNotificationUseCase } from '../base-notification.use-case';
 
 const NOTIFICATION_TYPE = 'STAFF_INVITED';
 const CHANNEL = 'EMAIL';
@@ -31,29 +31,22 @@ export interface SendStaffInvitationUseCaseResult {
 }
 
 @Injectable()
-export class SendStaffInvitationUseCase {
+export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
   constructor(
-    @Inject(NOTIFICATION_LOG_REPOSITORY)
-    private readonly logRepo: INotificationLogRepository,
-    @Inject(NOTIFICATION_DISPATCHER)
-    private readonly dispatcher: INotificationDispatcher,
-    @Inject(NOTIFICATION_STAFF_PORT)
-    private readonly staffPort: INotificationStaffPort,
-    @Inject(NOTIFICATION_TENANT_PORT)
-    private readonly tenantPort: INotificationTenantPort,
-    @Inject(TRANSACTION_MANAGER)
-    private readonly txManager: ITransactionManager,
+    @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
+    @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
+    @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
+    @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
+    @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    super(logRepo, dispatcher, txManager);
+  }
 
   async execute(dto: SendStaffInvitationDto): Promise<SendStaffInvitationUseCaseResult> {
-    const existing = await this.logRepo.findByEventAndChannel(
-      dto.tenantId,
-      dto.eventId,
-      NOTIFICATION_TYPE,
-      CHANNEL,
-    );
-    if (existing) return { sent: false };
+    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL)) {
+      return { sent: false };
+    }
 
     const [staff, tenant] = await Promise.all([
       this.staffPort.getStaffInfo(dto.staffId, dto.tenantId),
@@ -74,17 +67,7 @@ export class SendStaffInvitationUseCase {
       },
     });
 
-    const log = NotificationLog.create({
-      tenantId: dto.tenantId,
-      eventId: dto.eventId,
-      notificationType: NOTIFICATION_TYPE,
-      channel: CHANNEL,
-    });
-
-    await this.txManager.run(async () => {
-      await this.logRepo.save(log);
-    });
-
+    await this.saveLog(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL);
     return { sent: true };
   }
 }

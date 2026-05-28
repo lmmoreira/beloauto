@@ -3,7 +3,6 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
-import { NotificationLog } from '../../../domain/notification-log.entity';
 import { SendBookingRejectedNotificationDto } from '../../dtos/send-booking-rejected-notification.dto';
 import {
   INotificationDispatcher,
@@ -13,6 +12,7 @@ import {
   INotificationLogRepository,
   NOTIFICATION_LOG_REPOSITORY,
 } from '../../ports/notification-log-repository.port';
+import { BaseNotificationUseCase } from '../base-notification.use-case';
 
 const NOTIFICATION_TYPE = 'BOOKING_REJECTED_CUSTOMER';
 const CHANNEL = 'EMAIL';
@@ -22,26 +22,21 @@ export interface SendBookingRejectedNotificationUseCaseResult {
 }
 
 @Injectable()
-export class SendBookingRejectedNotificationUseCase {
+export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseCase {
   constructor(
-    @Inject(NOTIFICATION_LOG_REPOSITORY)
-    private readonly logRepo: INotificationLogRepository,
-    @Inject(NOTIFICATION_DISPATCHER)
-    private readonly dispatcher: INotificationDispatcher,
-    @Inject(TRANSACTION_MANAGER)
-    private readonly txManager: ITransactionManager,
-  ) {}
+    @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
+    @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
+    @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+  ) {
+    super(logRepo, dispatcher, txManager);
+  }
 
   async execute(
     dto: SendBookingRejectedNotificationDto,
   ): Promise<SendBookingRejectedNotificationUseCaseResult> {
-    const existing = await this.logRepo.findByEventAndChannel(
-      dto.tenantId,
-      dto.eventId,
-      NOTIFICATION_TYPE,
-      CHANNEL,
-    );
-    if (existing) return { emailSent: false };
+    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL)) {
+      return { emailSent: false };
+    }
 
     await this.dispatcher.dispatch({
       tenantId: dto.tenantId,
@@ -54,16 +49,7 @@ export class SendBookingRejectedNotificationUseCase {
       },
     });
 
-    const log = NotificationLog.create({
-      tenantId: dto.tenantId,
-      eventId: dto.eventId,
-      notificationType: NOTIFICATION_TYPE,
-      channel: CHANNEL,
-    });
-    await this.txManager.run(async () => {
-      await this.logRepo.save(log);
-    });
-
+    await this.saveLog(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL);
     return { emailSent: true };
   }
 }
