@@ -39,7 +39,7 @@ export class TypeOrmLoyaltyEntryRepository implements ILoyaltyEntryRepository {
       .andWhere('le.customerId = :customerId', { customerId })
       .andWhere('le.expiresAt > :now', { now: new Date() })
       .getRawOne<{ total: string }>();
-    return parseInt(result?.total ?? '0', 10);
+    return Number.parseInt(result?.total ?? '0', 10);
   }
 
   async findExpiringBefore(date: Date): Promise<LoyaltyEntry[]> {

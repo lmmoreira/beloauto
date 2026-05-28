@@ -5,11 +5,11 @@ export class LoyaltyEntryEntityBuilder {
   private id = uuidv7();
   private tenantId = '00000000-0000-7000-8000-000000000001';
   private customerId = uuidv7();
-  private bookingId = uuidv7();
+  private readonly bookingId = uuidv7();
   private bookingLineId = uuidv7();
-  private serviceId = uuidv7();
+  private readonly serviceId = uuidv7();
   private points = 10;
-  private earnedAt = new Date();
+  private readonly earnedAt = new Date();
   private expiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000);
 
   withId(id: string): this {

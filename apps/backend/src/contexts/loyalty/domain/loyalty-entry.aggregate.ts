@@ -15,6 +15,17 @@ export interface LoyaltyEntryProps {
   expiresAt: Date;
 }
 
+export interface RecordLoyaltyEntryParams {
+  tenantId: string;
+  customerId: string;
+  bookingId: string;
+  bookingLineId: string;
+  serviceId: string;
+  points: number;
+  expiryDays: number;
+  correlationId: string;
+}
+
 export class LoyaltyEntry extends AggregateRoot {
   private readonly props: LoyaltyEntryProps;
 
@@ -51,16 +62,17 @@ export class LoyaltyEntry extends AggregateRoot {
     return this.props.expiresAt;
   }
 
-  static record(
-    tenantId: string,
-    customerId: string,
-    bookingId: string,
-    bookingLineId: string,
-    serviceId: string,
-    points: number,
-    expiryDays: number,
-    correlationId: string,
-  ): LoyaltyEntry {
+  static record(params: RecordLoyaltyEntryParams): LoyaltyEntry {
+    const {
+      tenantId,
+      customerId,
+      bookingId,
+      bookingLineId,
+      serviceId,
+      points,
+      expiryDays,
+      correlationId,
+    } = params;
     if (points <= 0) throw new LoyaltyInvalidPointsError();
 
     const earnedAt = new Date();
