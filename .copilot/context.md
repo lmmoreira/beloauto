@@ -5,7 +5,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-05-28 (M09 complete — cancellation/rescheduling wrap-up docs added to §10)
+**Last updated:** 2026-05-28 (M10-S03 — loyalty balance+redemption design; LoyaltyBalance + LoyaltyRedemption aggregates added; M10 milestone updated with S03.1, S07, S08)
 
 ---
 
@@ -85,11 +85,11 @@ Raise a doc bug if a UC appears to violate these — do not "make it work."
 | **Booking** | Core | `Booking`, `Service`, `ScheduleClosure` | `BookingRequested/Approved/Rejected/InfoRequested/InfoSubmitted/Completed/Cancelled/Rescheduled` + `BookingReminderDue`, `BookingReminderDueToday`, `AdminDailyScheduleReminder` |
 | **Customer** | Supporting | `Customer` (multi-tenant rows) | — |
 | **Staff** | Supporting | `Staff` (single-tenant) | `StaffInvited`, `StaffDeactivated` |
-| **Loyalty** | Supporting | `LoyaltyEntry` (append-only, earn-only) | `ServicePointsEarned`, `PointsExpiringSoon` |
+| **Loyalty** | Supporting | `LoyaltyEntry` (append-only), `LoyaltyBalance` (running total), `LoyaltyRedemption` (append-only) | `ServicePointsEarned`, `PointsExpiringSoon` |
 | **Notification** | Supporting | `NotificationTemplate`, `NotificationLog` | `EmailSent`, `EmailFailed` |
 | **Platform** | Foundational | `Tenant`, `HotsiteConfig` | `TenantProvisioned` |
 
-**Loyalty MVP rules (strict):** One immutable `LoyaltyEntry` per `BookingLine` completed. Idempotent via `UNIQUE(tenant_id, booking_line_id)`. Active balance = `SUM(points) WHERE expires_at > now()`. No redemption, no tiers, no manual adjustments.
+**Loyalty MVP rules:** One immutable `LoyaltyEntry` per `BookingLine` completed. Idempotent via `UNIQUE(tenant_id, booking_line_id)`. Active balance stored in `loyalty_balances.current_points` (O(1) — not a SUM). Incremented on earn, decremented on redemption or daily expiry cron (idempotent via `balance_expiry_log`). Admins record redemptions via `POST /v1/loyalty/redeem`. No tiers, no manual bonus adjustments.
 
 ---
 
