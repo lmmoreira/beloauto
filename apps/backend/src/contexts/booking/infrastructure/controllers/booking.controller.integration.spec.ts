@@ -1502,7 +1502,10 @@ describe('BookingController (integration)', () => {
       const { body } = await request(app.getHttpServer())
         .patch('/bookings/00000000-0000-4000-8000-000000009994/complete')
         .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
-        .send({ lines: [{ lineId: '00000000-0000-4000-8000-000000000001', actualPriceCharged: 100 }], afterServicePhotoUrls: [] })
+        .send({
+          lines: [{ lineId: '00000000-0000-4000-8000-000000000001', actualPriceCharged: 100 }],
+          afterServicePhotoUrls: [],
+        })
         .expect(404);
 
       expect(body.status).toBe(404);
