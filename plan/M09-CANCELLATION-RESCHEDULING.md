@@ -111,7 +111,7 @@ Implement booking rescheduling. Only an admin can reschedule, and only APPROVED 
 
 ---
 
-### M09-S04 — Notification consumers for BookingCancelled + BookingRescheduled
+### M09-S04 — Notification consumers for BookingCancelled + BookingRescheduled ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
