@@ -11,7 +11,7 @@
 
 ---
 
-### M10-S01 — UC-009: Admin marks booking complete
+### M10-S01 — UC-009: Admin marks booking complete ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
