@@ -461,8 +461,7 @@ Running active point total per `(tenant_id, customer_id)`. Updated atomically wh
 **Properties:**
 ```
 LoyaltyBalance {
-  id:             UUID
-  tenantId:       TenantId
+  tenantId:       TenantId            (composite PK with customerId — no surrogate id)
   customerId:     CustomerId
   currentPoints:  int                 (≥ 0; CHECK constraint at DB level)
   updatedAt:      DateTime

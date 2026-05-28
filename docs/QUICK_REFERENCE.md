@@ -180,13 +180,13 @@ LoyaltyEntry {
 ### LoyaltyBalance Aggregate (O(1) balance)
 ```
 LoyaltyBalance {
-  id, tenantId, customerId
-  currentPoints   (int ≥ 0 — running total; CHECK constraint at DB level)
+  tenantId, customerId  (composite PK — no surrogate id)
+  currentPoints         (int ≥ 0 — running total; CHECK constraint at DB level)
   updatedAt
 }
 ```
 
-UNIQUE(tenant_id, customer_id). Upserted on earn, decremented on redemption or daily expiry cron. Read this for balance — do NOT compute SUM over entries.
+PRIMARY KEY (tenant_id, customer_id). Upserted on earn, decremented on redemption or daily expiry cron. Read this for balance — do NOT compute SUM over entries.
 
 ### LoyaltyRedemption Aggregate (append-only)
 ```

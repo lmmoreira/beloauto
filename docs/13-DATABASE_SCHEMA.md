@@ -302,16 +302,14 @@ One row per `(tenant_id, customer_id)`. Maintained as a running total: increment
 
 | Column | Type | Constraints |
 |--------|------|-------------|
-| id | UUID | PRIMARY KEY |
 | tenant_id | UUID | NOT NULL, FK → `platform.tenants(id)` |
 | customer_id | UUID | NOT NULL |
 | current_points | INT | NOT NULL DEFAULT 0, CHECK >= 0 |
 | updated_at | TIMESTAMP WITH TIME ZONE | NOT NULL DEFAULT now() |
-| **UNIQUE** | (tenant_id, customer_id) | One balance row per customer per tenant |
-| **INDEX** | (tenant_id, customer_id) | Primary lookup |
+| **PRIMARY KEY** | (tenant_id, customer_id) | One balance row per customer per tenant |
 
 **Rules:**
-- Upserted on every `LoyaltyEntry` insert: `INSERT … ON CONFLICT … DO UPDATE SET current_points = current_points + excluded.points`.
+- Upserted on every `LoyaltyEntry` insert: `INSERT … ON CONFLICT (tenant_id, customer_id) DO UPDATE SET current_points = current_points + excluded.current_points`.
 - Decremented atomically in `RedeemPointsUseCase` after inserting the redemption row.
 - Decremented by the daily expiry cron after computing points from entries that just expired.
 - `current_points` can never go below 0 (CHECK constraint + application guard).
@@ -339,24 +337,29 @@ Append-only audit log of every redemption. Never updated or deleted.
 ---
 
 ### `loyalty.balance_expiry_log`
-Idempotency guard for the daily expiry cron. Prevents double-decrement if the cron fires twice on the same UTC day.
+Idempotency guard for the daily expiry cron. One row per `loyalty_entry` whose expiry has been applied to the balance. Prevents double-decrement if the cron runs twice.
 
 | Column | Type | Constraints |
 |--------|------|-------------|
-| tenant_id | UUID | NOT NULL |
-| customer_id | UUID | NOT NULL |
-| expiry_date | DATE | NOT NULL — UTC date the points expired (`expires_at::date`) |
-| points_expired | INT | NOT NULL — points deducted |
+| entry_id | UUID | PRIMARY KEY — FK → `loyalty.loyalty_entries(id)` |
 | processed_at | TIMESTAMP WITH TIME ZONE | NOT NULL DEFAULT now() |
-| **PRIMARY KEY** | (tenant_id, customer_id, expiry_date) | One row per customer per day — prevents double-decrement |
 
-**Usage pattern:**
+**Usage pattern (cron):**
 ```sql
-INSERT INTO loyalty.balance_expiry_log (tenant_id, customer_id, expiry_date, points_expired)
-VALUES ($1, $2, $3, $4)
+-- Find expired entries not yet processed
+SELECT le.* FROM loyalty.loyalty_entries le
+WHERE le.expires_at < now()
+  AND NOT EXISTS (
+    SELECT 1 FROM loyalty.balance_expiry_log bel WHERE bel.entry_id = le.id
+  );
+
+-- After decrementing balance, mark entries as processed
+INSERT INTO loyalty.balance_expiry_log (entry_id)
+VALUES ($1), ($2), ...
 ON CONFLICT DO NOTHING;
--- rowCount === 0 → already processed, skip balance decrement
 ```
+
+Partial-failure safe: if the cron crashes after processing 5 of 10 entries, the next run only reprocesses the remaining 5.
 
 ---
 
