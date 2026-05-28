@@ -8,7 +8,7 @@ export class LoyaltyRedemptionEntityBuilder {
   private pointsRedeemed = 10;
   private readonly redeemedBy = uuidv7();
   private notes: string | null = null;
-  private bookingId: string | null = null;
+  private readonly bookingId: string | null = null;
   private readonly redeemedAt = new Date();
 
   withId(id: string): this {
