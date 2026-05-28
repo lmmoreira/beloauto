@@ -1,6 +1,5 @@
-export interface SendStaffInvitationDto {
+import { BaseNotificationDto } from './base-notification.dto';
+
+export interface SendStaffInvitationDto extends BaseNotificationDto {
   staffId: string;
-  tenantId: string;
-  eventId: string;
-  correlationId: string;
 }

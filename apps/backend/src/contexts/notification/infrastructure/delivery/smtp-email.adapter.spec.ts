@@ -239,6 +239,155 @@ describe('SmtpEmailAdapter', () => {
     });
   });
 
+  describe('booking-cancelled-customer template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'joao@example.com',
+      subject: 'Seu agendamento foi cancelado',
+      templateKey: 'booking-cancelled-customer',
+      data: {
+        guestName: 'João Silva',
+        localDate: '01/07/2026',
+        localTime: '10:00',
+        serviceNames: 'Lavagem Completa',
+        totalPrice: 'R$ 150,00',
+      },
+    };
+
+    it('renders guest name, date, time, service and total', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('01/07/2026');
+      expect(html).toContain('10:00');
+      expect(html).toContain('Lavagem Completa');
+      expect(html).toContain('R$ 150,00');
+    });
+  });
+
+  describe('booking-cancelled-admin template', () => {
+    const baseMessage: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'admin@lavacar.com.br',
+      subject: 'Agendamento cancelado',
+      templateKey: 'booking-cancelled-admin',
+      data: {
+        guestName: 'João Silva',
+        localDate: '01/07/2026',
+        localTime: '10:00',
+        serviceNames: 'Lavagem Completa',
+        totalPrice: 'R$ 150,00',
+        cancelledBy: 'João Silva',
+        isBusiness: false,
+        reason: null,
+      },
+    };
+
+    it('renders guest name, date, time, service, total and canceller when isBusiness=false', async () => {
+      await adapter.send(baseMessage);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('01/07/2026');
+      expect(html).toContain('10:00');
+      expect(html).toContain('Lavagem Completa');
+      expect(html).toContain('R$ 150,00');
+      expect(html).toContain('João Silva');
+    });
+
+    it('renders business-cancelled line when isBusiness=true', async () => {
+      const message: OutboundMessage = {
+        ...baseMessage,
+        data: { ...baseMessage.data, isBusiness: true },
+      };
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('cancelado pela equipe');
+    });
+
+    it('renders reason when provided', async () => {
+      const message: OutboundMessage = {
+        ...baseMessage,
+        data: { ...baseMessage.data, reason: 'Indisponibilidade' },
+      };
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('Indisponibilidade');
+    });
+
+    it('omits reason line when reason is null', async () => {
+      await adapter.send(baseMessage);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).not.toContain('Motivo');
+    });
+  });
+
+  describe('booking-rescheduled-customer template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'joao@example.com',
+      subject: 'Seu agendamento foi reagendado',
+      templateKey: 'booking-rescheduled-customer',
+      data: {
+        guestName: 'João Silva',
+        previousLocalDate: '01/07/2026',
+        previousLocalTime: '10:00',
+        newLocalDate: '07/07/2026',
+        newLocalTime: '11:00',
+        serviceNames: 'Lavagem Completa',
+        totalPrice: 'R$ 150,00',
+      },
+    };
+
+    it('renders guest name, previous and new date/time, service and total', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('01/07/2026');
+      expect(html).toContain('10:00');
+      expect(html).toContain('07/07/2026');
+      expect(html).toContain('11:00');
+      expect(html).toContain('Lavagem Completa');
+      expect(html).toContain('R$ 150,00');
+    });
+  });
+
+  describe('booking-rescheduled-admin template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'admin@lavacar.com.br',
+      subject: 'Agendamento reagendado',
+      templateKey: 'booking-rescheduled-admin',
+      data: {
+        guestName: 'João Silva',
+        previousLocalDate: '01/07/2026',
+        previousLocalTime: '10:00',
+        newLocalDate: '07/07/2026',
+        newLocalTime: '11:00',
+        serviceNames: 'Lavagem Completa',
+        totalPrice: 'R$ 150,00',
+      },
+    };
+
+    it('renders guest name, previous and new date/time, service and total', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('01/07/2026');
+      expect(html).toContain('10:00');
+      expect(html).toContain('07/07/2026');
+      expect(html).toContain('11:00');
+      expect(html).toContain('Lavagem Completa');
+      expect(html).toContain('R$ 150,00');
+    });
+  });
+
   describe('unknown template key', () => {
     it('falls back to subject-only paragraph', async () => {
       const message: OutboundMessage = {

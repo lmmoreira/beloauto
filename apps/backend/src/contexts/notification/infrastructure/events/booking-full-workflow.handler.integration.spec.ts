@@ -179,19 +179,67 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
       .send({ reason: 'Selected slot is no longer available at that date' })
       .expect(200);
 
-    // Wait for all 9 notification logs:
+    // 7. Admin cancels booking1 (APPROVED → CANCELLED) → BookingCancelled
+    await request(app.getHttpServer())
+      .patch(`/bookings/${booking1Id}/cancel-admin`)
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-ID', staffId)
+      .set('X-Actor-Type', 'STAFF')
+      .set('X-Actor-Role', 'MANAGER')
+      .send({ reason: 'Schedule conflict' })
+      .expect(200);
+
+    // 8. Create booking3 (guest) for reschedule test
+    const booking3GuestEmail = `guest3-bfw-${Date.now()}@example.com`;
+    const { body: b3 } = await request(app.getHttpServer())
+      .post('/bookings')
+      .set('X-Tenant-ID', tenantId)
+      .send({
+        guestEmail: booking3GuestEmail,
+        guestName: 'Pedro Santos',
+        guestPhone: '31997654321',
+        scheduledAt: '2026-07-03T10:00:00.000Z',
+        serviceIds: [serviceId],
+      })
+      .expect(201);
+    const booking3Id = b3.bookingId as string;
+
+    // 9. Approve booking3
+    await request(app.getHttpServer())
+      .patch(`/bookings/${booking3Id}/approve`)
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-ID', staffId)
+      .set('X-Actor-Type', 'STAFF')
+      .set('X-Actor-Role', 'MANAGER')
+      .expect(200);
+
+    // 10. Reschedule booking3 (APPROVED, new slot) → BookingRescheduled
+    await request(app.getHttpServer())
+      .patch(`/bookings/${booking3Id}/reschedule`)
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-ID', staffId)
+      .set('X-Actor-Type', 'STAFF')
+      .set('X-Actor-Role', 'MANAGER')
+      .send({ scheduledAt: '2026-07-07T10:00:00.000Z' })
+      .expect(200);
+
+    // Wait for all 16 notification logs:
     //   1x STAFF_INVITED
     //   2x BOOKING_REQUESTED_* (booking1) + 2x BOOKING_REQUESTED_* (booking2)
     //   1x BOOKING_INFO_REQUESTED_CUSTOMER
     //   1x BOOKING_INFO_SUBMITTED_ADMIN
-    //   1x BOOKING_APPROVED_CUSTOMER
+    //   1x BOOKING_APPROVED_CUSTOMER (booking1)
     //   1x BOOKING_REJECTED_CUSTOMER
+    //   2x BOOKING_CANCELLED_* (booking1 cancelled by admin)
+    //   2x BOOKING_REQUESTED_* (booking3)
+    //   1x BOOKING_APPROVED_CUSTOMER (booking3)
+    //   2x BOOKING_RESCHEDULED_* (booking3 rescheduled)
     await waitFor(async () => {
       const logs = await ds.getRepository(NotificationLogEntity).find({ where: { tenantId } });
-      return logs.length >= 9;
+      return logs.length >= 16;
     });
 
-    // Assert all 7 notification types are present in the DB
+    // Assert all 11 notification types are present in the DB
     const logs = await ds.getRepository(NotificationLogEntity).find({ where: { tenantId } });
     const logTypes = logs.map((l) => l.notificationType);
     expect(logTypes).toContain('STAFF_INVITED');
@@ -201,6 +249,10 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     expect(logTypes).toContain('BOOKING_INFO_SUBMITTED_ADMIN');
     expect(logTypes).toContain('BOOKING_APPROVED_CUSTOMER');
     expect(logTypes).toContain('BOOKING_REJECTED_CUSTOMER');
+    expect(logTypes).toContain('BOOKING_CANCELLED_CUSTOMER');
+    expect(logTypes).toContain('BOOKING_CANCELLED_ADMIN');
+    expect(logTypes).toContain('BOOKING_RESCHEDULED_CUSTOMER');
+    expect(logTypes).toContain('BOOKING_RESCHEDULED_ADMIN');
 
     // Assert each templateKey was dispatched to the right recipient
     const staffMsg = dispatcher.dispatched.find((m) => m.templateKey === 'staff-invitation');
@@ -210,13 +262,13 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     const requestedAdminMsgs = dispatcher.dispatched.filter(
       (m) => m.templateKey === 'booking-requested-admin',
     );
-    expect(requestedAdminMsgs).toHaveLength(2);
+    expect(requestedAdminMsgs).toHaveLength(3);
     expect(requestedAdminMsgs.every((m) => m.to === adminEmail)).toBe(true);
 
     const requestedCustomerMsgs = dispatcher.dispatched.filter(
       (m) => m.templateKey === 'booking-requested-customer',
     );
-    expect(requestedCustomerMsgs).toHaveLength(2);
+    expect(requestedCustomerMsgs).toHaveLength(3);
 
     const infoReqMsg = dispatcher.dispatched.find(
       (m) => m.templateKey === 'booking-info-requested-customer',
@@ -230,16 +282,43 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     expect(infoSubmitMsg).toBeDefined();
     expect(infoSubmitMsg!.to).toBe(adminEmail);
 
-    const approvedMsg = dispatcher.dispatched.find(
+    const approvedMsgs = dispatcher.dispatched.filter(
       (m) => m.templateKey === 'booking-approved-customer',
     );
-    expect(approvedMsg).toBeDefined();
-    expect(approvedMsg!.to).toBe(customerEmail);
+    expect(approvedMsgs).toHaveLength(2);
+    const approvedRecipients = approvedMsgs.map((m) => m.to);
+    expect(approvedRecipients).toContain(customerEmail);
+    expect(approvedRecipients).toContain(booking3GuestEmail);
 
     const rejectedMsg = dispatcher.dispatched.find(
       (m) => m.templateKey === 'booking-rejected-customer',
     );
     expect(rejectedMsg).toBeDefined();
     expect(rejectedMsg!.to).toBe(guestEmail);
+
+    const cancelledCustomerMsg = dispatcher.dispatched.find(
+      (m) => m.templateKey === 'booking-cancelled-customer',
+    );
+    expect(cancelledCustomerMsg).toBeDefined();
+    expect(cancelledCustomerMsg!.to).toBe(customerEmail);
+
+    const cancelledAdminMsg = dispatcher.dispatched.find(
+      (m) => m.templateKey === 'booking-cancelled-admin',
+    );
+    expect(cancelledAdminMsg).toBeDefined();
+    expect(cancelledAdminMsg!.to).toBe(adminEmail);
+    expect(cancelledAdminMsg!.data['isBusiness']).toBe(true);
+
+    const rescheduledCustomerMsg = dispatcher.dispatched.find(
+      (m) => m.templateKey === 'booking-rescheduled-customer',
+    );
+    expect(rescheduledCustomerMsg).toBeDefined();
+    expect(rescheduledCustomerMsg!.to).toBe(booking3GuestEmail);
+
+    const rescheduledAdminMsg = dispatcher.dispatched.find(
+      (m) => m.templateKey === 'booking-rescheduled-admin',
+    );
+    expect(rescheduledAdminMsg).toBeDefined();
+    expect(rescheduledAdminMsg!.to).toBe(adminEmail);
   });
 });

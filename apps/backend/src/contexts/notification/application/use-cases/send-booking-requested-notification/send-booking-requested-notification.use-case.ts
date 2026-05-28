@@ -4,7 +4,6 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
-import { NotificationLog } from '../../../domain/notification-log.entity';
 import { SendBookingRequestedNotificationDto } from '../../dtos/send-booking-requested-notification.dto';
 import {
   INotificationDispatcher,
@@ -22,6 +21,7 @@ import {
   INotificationTenantPort,
   NOTIFICATION_TENANT_PORT,
 } from '../../ports/notification-tenant.port';
+import { BaseNotificationUseCase } from '../base-notification.use-case';
 
 const ADMIN_NOTIFICATION_TYPE = 'BOOKING_REQUESTED_ADMIN';
 const CUSTOMER_NOTIFICATION_TYPE = 'BOOKING_REQUESTED_CUSTOMER';
@@ -33,36 +33,23 @@ export interface SendBookingRequestedNotificationUseCaseResult {
 }
 
 @Injectable()
-export class SendBookingRequestedNotificationUseCase {
+export class SendBookingRequestedNotificationUseCase extends BaseNotificationUseCase {
   constructor(
-    @Inject(NOTIFICATION_LOG_REPOSITORY)
-    private readonly logRepo: INotificationLogRepository,
-    @Inject(NOTIFICATION_DISPATCHER)
-    private readonly dispatcher: INotificationDispatcher,
-    @Inject(NOTIFICATION_STAFF_PORT)
-    private readonly staffPort: INotificationStaffPort,
-    @Inject(NOTIFICATION_TENANT_PORT)
-    private readonly tenantPort: INotificationTenantPort,
-    @Inject(TRANSACTION_MANAGER)
-    private readonly txManager: ITransactionManager,
-  ) {}
+    @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
+    @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
+    @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
+    @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
+    @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+  ) {
+    super(logRepo, dispatcher, txManager);
+  }
 
   async execute(
     dto: SendBookingRequestedNotificationDto,
   ): Promise<SendBookingRequestedNotificationUseCaseResult> {
-    const [existingAdmin, existingCustomer] = await Promise.all([
-      this.logRepo.findByEventAndChannel(
-        dto.tenantId,
-        dto.eventId,
-        ADMIN_NOTIFICATION_TYPE,
-        CHANNEL,
-      ),
-      this.logRepo.findByEventAndChannel(
-        dto.tenantId,
-        dto.eventId,
-        CUSTOMER_NOTIFICATION_TYPE,
-        CHANNEL,
-      ),
+    const [adminSent, customerSent] = await Promise.all([
+      this.isAlreadySent(dto.tenantId, dto.eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL),
+      this.isAlreadySent(dto.tenantId, dto.eventId, CUSTOMER_NOTIFICATION_TYPE, CHANNEL),
     ]);
 
     const serviceNames = dto.lines.map((l) => l.serviceNameAtBooking).join(', ');
@@ -71,7 +58,7 @@ export class SendBookingRequestedNotificationUseCase {
     let adminEmailSent = false;
     let customerEmailSent = false;
 
-    if (!existingAdmin) {
+    if (!adminSent) {
       const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
       if (managerEmails.length > 0) {
         await Promise.all(
@@ -91,20 +78,12 @@ export class SendBookingRequestedNotificationUseCase {
             }),
           ),
         );
-        const adminLog = NotificationLog.create({
-          tenantId: dto.tenantId,
-          eventId: dto.eventId,
-          notificationType: ADMIN_NOTIFICATION_TYPE,
-          channel: CHANNEL,
-        });
-        await this.txManager.run(async () => {
-          await this.logRepo.save(adminLog);
-        });
+        await this.saveLog(dto.tenantId, dto.eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL);
         adminEmailSent = true;
       }
     }
 
-    if (!existingCustomer) {
+    if (!customerSent) {
       const tenantInfo = await this.tenantPort.getTenantInfo(dto.tenantId);
       await this.dispatcher.dispatch({
         tenantId: dto.tenantId,
@@ -119,15 +98,7 @@ export class SendBookingRequestedNotificationUseCase {
           tenantName: tenantInfo?.name ?? '',
         },
       });
-      const customerLog = NotificationLog.create({
-        tenantId: dto.tenantId,
-        eventId: dto.eventId,
-        notificationType: CUSTOMER_NOTIFICATION_TYPE,
-        channel: CHANNEL,
-      });
-      await this.txManager.run(async () => {
-        await this.logRepo.save(customerLog);
-      });
+      await this.saveLog(dto.tenantId, dto.eventId, CUSTOMER_NOTIFICATION_TYPE, CHANNEL);
       customerEmailSent = true;
     }
 
