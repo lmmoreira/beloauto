@@ -16,7 +16,12 @@ export abstract class BaseNotificationUseCase {
     notificationType: string,
     channel: string,
   ): Promise<boolean> {
-    return !!(await this.logRepo.findByEventAndChannel(tenantId, eventId, notificationType, channel));
+    return !!(await this.logRepo.findByEventAndChannel(
+      tenantId,
+      eventId,
+      notificationType,
+      channel,
+    ));
   }
 
   protected async saveLog(
