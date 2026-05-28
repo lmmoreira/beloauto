@@ -5,7 +5,7 @@ export class LoyaltyBalanceEntityBuilder {
   private tenantId = '00000000-0000-7000-8000-000000000001';
   private customerId = uuidv7();
   private currentPoints = 0;
-  private updatedAt = new Date();
+  private readonly updatedAt = new Date();
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;

@@ -11,7 +11,7 @@ export interface LoyaltyBalanceProps {
 }
 
 export class LoyaltyBalance extends AggregateRoot {
-  private props: LoyaltyBalanceProps;
+  private readonly props: LoyaltyBalanceProps;
 
   private constructor(props: LoyaltyBalanceProps) {
     super();

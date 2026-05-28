@@ -6,10 +6,10 @@ export class LoyaltyRedemptionEntityBuilder {
   private tenantId = '00000000-0000-7000-8000-000000000001';
   private customerId = uuidv7();
   private pointsRedeemed = 10;
-  private redeemedBy = uuidv7();
+  private readonly redeemedBy = uuidv7();
   private notes: string | null = null;
   private bookingId: string | null = null;
-  private redeemedAt = new Date();
+  private readonly redeemedAt = new Date();
 
   withId(id: string): this {
     this.id = id;
