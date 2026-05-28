@@ -62,7 +62,7 @@ Implement booking completion. The admin sets the `actualPriceCharged` for each l
 
 ---
 
-### M10-S03 — LoyaltyEntry aggregate domain + migration
+### M10-S03 — LoyaltyEntry aggregate domain + migration ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
