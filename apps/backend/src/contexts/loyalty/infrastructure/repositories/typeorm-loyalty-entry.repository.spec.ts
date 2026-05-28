@@ -38,7 +38,9 @@ describe('TypeOrmLoyaltyEntryRepository', () => {
 
   describe('save()', () => {
     it('delegates to ormRepo.save with mapped entity', async () => {
-      ormRepo.save.mockResolvedValue(new LoyaltyEntryEntity());
+      ormRepo.save.mockResolvedValue(
+        new LoyaltyEntryEntityBuilder().withTenantId(TENANT_ID).build(),
+      );
       const entry = new LoyaltyEntryBuilder().withTenantId(TENANT_ID).build();
 
       await repo.save(entry);

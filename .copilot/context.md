@@ -363,6 +363,9 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 ### Step 7 — Self-review the full diff (MANDATORY — before every PR)
 Run `/pre-pr` — must report **zero issues** before the PR is opened.
 
+> **AGENT HARD RULE — NO EXCEPTIONS:**
+> You MUST run `/pre-pr` and wait for it to report zero issues AND receive the user's integration test output (Step 4 of the `/pre-pr` skill) before calling `gh pr create`. Skipping or reordering these steps is a critical workflow violation. The pre-push hook only runs unit tests; integration tests are only caught here. Even if ci:fast passes, even if all unit tests pass — **do not open the PR until `/pre-pr` Step 4 is complete and the user has pasted passing integration test output.**
+
 ### Step 8 — Open the PR
 ```bash
 gh pr create --title "feat(<context>): <description> (M0X-SYY)" \
