@@ -567,11 +567,62 @@ Auth: JWT + `MANAGER|STAFF` on all write endpoints.
   - `zipCode` must be 8 digits; hyphen is accepted and normalised (`"30130-921"` → `"30130921"`).
   - Returns the full updated profile (same shape as `GET /customers/me`).
 
-### **Loyalty Metrics (UC-016)**
-- `GET /loyalty/balance` — current customer's active points.
-  - Response: `{ totalActive, byService: [{ serviceId, serviceName, activePoints, completionsCount }, …], nextExpiresAt }`
-- `GET /loyalty/entries` — flat list of the customer's `LoyaltyEntry` rows (most recent first), with `pointsActive` flag (`expires_at > now`).
-- (No `redeem` endpoint, no `adjust` endpoint — see `docs/02-DOMAIN_MODEL.md` Loyalty Context "What this model intentionally does NOT support".)
+### **Loyalty Metrics — Customer (UC-016)**
+
+All three endpoints require JWT with `CUSTOMER` role. The `customerId` is inferred from the JWT `sub` (`X-Actor-ID`). Staff calling these endpoints → `403`.
+
+- `GET /loyalty/balance`
+  - Response:
+    ```json
+    { "currentPoints": 150, "nextExpiryDate": "2026-11-15", "nextExpiryPoints": 30 }
+    ```
+  - `currentPoints`: read from `loyalty_balances.current_points` (O(1) — no SUM).
+  - `nextExpiryDate`: ISO-8601 date string of the earliest `expires_at` among active entries; `null` if no active entries.
+  - `nextExpiryPoints`: sum of points expiring on `nextExpiryDate`; `null` if no active entries.
+  - Returns `{ currentPoints: 0, nextExpiryDate: null, nextExpiryPoints: null }` when customer has no balance row.
+
+- `GET /loyalty/entries?page=1&limit=20`
+  - Returns paginated earning history, most recent first.
+  - Response:
+    ```json
+    {
+      "entries": [{
+        "entryId": "uuid",
+        "serviceId": "uuid",
+        "serviceName": "Lavagem Completa",
+        "points": 10,
+        "earnedAt": "2026-05-28T14:00:00.000Z",
+        "expiresAt": "2026-11-24T14:00:00.000Z",
+        "isActive": true
+      }],
+      "pagination": { "page": 1, "limit": 20, "total": 45 }
+    }
+    ```
+  - `isActive`: `true` when `expiresAt > now()`.
+  - `serviceName`: resolved via `IServiceCatalogPort` (cross-context adapter queries `booking.services`).
+
+- `GET /loyalty/redemptions?page=1&limit=20`
+  - Returns paginated redemption history, most recent first.
+  - Response:
+    ```json
+    {
+      "redemptions": [{
+        "redemptionId": "uuid",
+        "pointsRedeemed": 50,
+        "redeemedAt": "2026-05-28T10:00:00.000Z",
+        "notes": "Free basic wash"
+      }],
+      "pagination": { "page": 1, "limit": 20, "total": 3 }
+    }
+    ```
+
+### **Loyalty Metrics — Admin (UC-016, Admin variant)**
+
+All endpoints require JWT with `MANAGER|STAFF` role. The `customerId` is taken from the URL path. Returns `404` if `customerId` does not belong to the caller's tenant.
+
+- `GET /customers/:customerId/loyalty/balance` — same response shape as customer balance endpoint.
+- `GET /customers/:customerId/loyalty/entries?page=1&limit=20` — same response shape as customer entries endpoint.
+- `GET /customers/:customerId/loyalty/redemptions?page=1&limit=20` — same response shape as customer redemptions endpoint.
 
 ---
 

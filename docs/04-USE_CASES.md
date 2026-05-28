@@ -606,35 +606,26 @@ Returns:
 
 ### **UC-016: View Customer Loyalty Metrics**
 
-- **Actor:** Authenticated Customer (own metrics) or Admin (viewing any customer in their tenant)
+- **Actor:** Authenticated Customer (own metrics) **or** Admin/Staff (viewing any customer in their tenant via dedicated endpoints)
 - **Preconditions:** Customer exists in the tenant. They may or may not have completed bookings yet.
 - **Trigger:** Customer clicks "My Loyalty" or Admin opens a customer's profile
-- **Main Flow:**
-  1. System queries `loyalty_entries` for the customer (tenant-scoped).
-  2. System computes, all at query time:
-     - **Total active points** = `SUM(points) WHERE expires_at > now()`
-     - **Per-service active points** = same, grouped by `service_id`
-     - **Per-service completions count** = `COUNT(*) GROUP BY service_id` (across all entries — historical activity)
-     - **Next expiration** = the earliest `expires_at` among entries with `expires_at > now()`, so the UI can show "X points expire on [date]"
-  3. UI shows:
-     - Headline: total active points + when the next batch expires.
-     - Per-service breakdown (active points + total completions ever).
-  4. Example display:
-     ```
-     Total active points: 17  ·  next 3 points expire on 2026-08-12
+- **Main Flow (Customer — own data):**
+  1. System reads `loyalty_balances.current_points` for the customer — O(1), no SUM needed (balance is maintained atomically by M10-S04 and M10-S08).
+  2. System queries `loyalty_entries` to find the next expiry: `MIN(expires_at) WHERE expires_at > now()` and the sum of points expiring on that date.
+  3. System returns `{ currentPoints, nextExpiryDate, nextExpiryPoints }`.
+  4. System separately returns paginated `loyalty_entries` (earning history) with `isActive` flag (`expiresAt > now()`). Service names are resolved via `IServiceCatalogPort`.
+  5. System separately returns paginated `loyalty_redemptions` (redemption history).
 
-     Basic Wash    — 5 active pts   · 12 completions ever
-     Premium Wash  — 8 active pts   ·  4 completions ever
-     Wax           — 4 active pts   ·  2 completions ever
-     ```
+- **Main Flow (Admin/Staff — any customer):**
+  Same data shape and queries as the customer flow, but the `customerId` comes from the URL path (`/customers/:customerId/loyalty/*`) instead of the JWT. Admin can view any customer in their tenant.
 
 - **Alternative Flows:**
-  - **A1: No completed bookings yet** → System shows: "No loyalty points yet — book your first wash!"
-  - **A2: Admin variant** → Same data, plus the customer's contact info and a list of their most recent `LoyaltyEntry` rows (for verification). No editing — the admin cannot adjust points in MVP.
+  - **A1: No completed bookings yet** → Balance endpoint returns `{ currentPoints: 0, nextExpiryDate: null, nextExpiryPoints: null }`. Entries and redemptions endpoints return empty paginated lists.
+  - **A2: Customer not found** → `404` (admin variant only — customerId path param does not exist in tenant).
 
 - **Postconditions:** User sees current active-points view. No state changes.
 - **Events Triggered:** None (read operation).
-- **Out of scope (MVP):** No tier labels (BRONZE/SILVER/GOLD), no redemption flow, no manual admin point adjustments. Gifts and rewards are offered by the admin outside the system.
+- **Out of scope (MVP):** No tier labels (BRONZE/SILVER/GOLD), no manual admin point adjustments, no per-service breakdown (deferred to M13 dashboard). Gifts and rewards are offered by the admin outside the system.
 
 ---
 

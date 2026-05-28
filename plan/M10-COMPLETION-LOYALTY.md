@@ -293,69 +293,119 @@ static readonly CONSUMER_NAME = 'RECORD_LOYALTY_ENTRY'; // used as consumerName 
 ### M10-S05 — UC-016: Customer views loyalty metrics
 
 **Agent:** `backend-ts` + `bff-ts`  
-**Complexity:** S  
-**Docs to load:** `docs/04-USE_CASES.md` § UC-016, `docs/14-API_CONTRACTS.md` § loyalty endpoints
+**Complexity:** M  
+**Docs to load:** `docs/04-USE_CASES.md` § UC-016, `docs/14-API_CONTRACTS.md` § Loyalty Metrics
 
 **Description:**  
-Implement the endpoints for customers to view their active balance, earning history, and redemption history. Balance is read directly from `loyalty_balances` (O(1)). History comes from `loyalty_entries` and `loyalty_redemptions`.
+Implement three read-only endpoints for customers to view their active balance, earning history, and redemption history — plus the admin variants that let staff view any customer's loyalty data within the tenant. Balance is read from `loyalty_balances` (O(1)). History comes from `loyalty_entries` and `loyalty_redemptions`. Service names in the entry response are resolved via a new `IServiceCatalogPort` cross-context adapter.
 
-**BFF endpoints:**
-- `GET /v1/loyalty/balance` — requires JWT (`CUSTOMER`)
-  - Returns: `{ currentPoints, nextExpiryDate, nextExpiryPoints }`
-- `GET /v1/loyalty/entries` — requires JWT (`CUSTOMER`)
-  - Returns paginated earning history
-  - Query params: `page`, `limit`
-- `GET /v1/loyalty/redemptions` — requires JWT (`CUSTOMER`)
-  - Returns paginated redemption history
-  - Query params: `page`, `limit`
+---
 
-**Balance response:**
-```json
-{
-  "currentPoints": 150,
-  "nextExpiryDate": "2026-11-15",
-  "nextExpiryPoints": 30
-}
-```
-> `currentPoints` comes from `loyalty_balances.current_points` (O(1) — no SUM needed).  
-> `nextExpiryDate` / `nextExpiryPoints` come from a `MIN(expires_at)` query on `loyalty_entries` where `expires_at > now()`.
+**Required code changes before main implementation (add to feature branch, commit separately):**
 
-**Entry response:**
-```json
-{
-  "entries": [{
-    "entryId": "uuid",
-    "serviceId": "uuid",
-    "serviceName": "Lavagem Completa",
-    "points": 10,
-    "earnedAt": "ISO-8601",
-    "expiresAt": "ISO-8601",
-    "isActive": true
-  }],
-  "pagination": { "page": 1, "limit": 20, "total": 45 }
-}
-```
+1. **`ILoyaltyEntryRepository`** — add two methods:
+   ```ts
+   findByCustomerPaginated(
+     tenantId: string,
+     customerId: string,
+     page: number,
+     limit: number,
+   ): Promise<{ items: LoyaltyEntry[]; total: number }>;
 
-**Redemption response:**
-```json
-{
-  "redemptions": [{
-    "redemptionId": "uuid",
-    "pointsRedeemed": 50,
-    "redeemedAt": "ISO-8601",
-    "notes": "Free basic wash"
-  }],
-  "pagination": { "page": 1, "limit": 20, "total": 3 }
-}
-```
+   findNextExpiry(
+     tenantId: string,
+     customerId: string,
+   ): Promise<{ expiryDate: Date; points: number } | null>;
+   ```
+   Also update `TypeOrmLoyaltyEntryRepository` and `InMemoryLoyaltyEntryRepository` to implement both.
+
+2. **`IServiceCatalogPort`** — new cross-context port:
+   ```ts
+   // loyalty/application/ports/service-catalog.port.ts
+   export const SERVICE_CATALOG_PORT = Symbol('IServiceCatalogPort');
+   export interface ServiceSummary { serviceId: string; serviceName: string; }
+   export interface IServiceCatalogPort {
+     findServicesByIds(tenantId: string, serviceIds: string[]): Promise<ServiceSummary[]>;
+   }
+   ```
+   - Adapter: `loyalty/infrastructure/cross-context/service-catalog.adapter.ts` — queries `booking.services` table via TypeORM `DataSource` (read-only, own DataSource injection, not a repo token).
+   - Test double: `src/test/infrastructure/in-memory-service-catalog.port.ts`
+
+---
+
+**New backend use cases (`loyalty/application/use-cases/`):**
+
+- **`GetLoyaltyBalanceUseCase`** (`get-loyalty-balance/`):
+  1. `balanceRepo.findByCustomer(tenantId, customerId)` — if null, return `{ currentPoints: 0, nextExpiryDate: null, nextExpiryPoints: null }`
+  2. `entryRepo.findNextExpiry(tenantId, customerId)` — one extra query for next-expiry
+  3. Return `{ currentPoints: balance.currentPoints, nextExpiryDate, nextExpiryPoints }`
+
+- **`GetLoyaltyEntriesUseCase`** (`get-loyalty-entries/`):
+  1. `entryRepo.findByCustomerPaginated(tenantId, customerId, page, limit)`
+  2. Collect unique `serviceId`s from returned entries
+  3. `serviceCatalogPort.findServicesByIds(tenantId, serviceIds)` — build a `Map<serviceId, serviceName>`
+  4. Map entries to response DTOs: include `isActive = entry.expiresAt > new Date()`
+
+- **`GetLoyaltyRedemptionsUseCase`** (`get-loyalty-redemptions/`):
+  1. `redemptionRepo.findByCustomer(tenantId, customerId, page, limit)`
+  2. Map to response DTOs
+
+For the **admin variant**, the same three use cases are reused — the controller passes `customerId` from the URL path param instead of from `TenantContext.actorId`. A customer-existence check is NOT required in the use case; if the customer has no rows the balance returns zero/empty (same as A1 flow). The BFF forwards `X-Customer-ID` header for admin calls.
+
+---
+
+**Backend controller (`loyalty/infrastructure/rest/loyalty.controller.ts`):**
+
+Customer-scoped (reads `customerId` from `TenantContext.actorId`):
+- `GET /loyalty/balance` — guard: `CustomerRoleGuard`
+- `GET /loyalty/entries?page&limit` — guard: `CustomerRoleGuard`
+- `GET /loyalty/redemptions?page&limit` — guard: `CustomerRoleGuard`
+
+Admin-scoped (reads `customerId` from URL path `/:customerId`):
+- `GET /customers/:customerId/loyalty/balance` — guard: `StaffOrManagerRoleGuard`
+- `GET /customers/:customerId/loyalty/entries?page&limit` — guard: `StaffOrManagerRoleGuard`
+- `GET /customers/:customerId/loyalty/redemptions?page&limit` — guard: `StaffOrManagerRoleGuard`
+
+---
+
+**BFF endpoints (`bff/src/loyalty/loyalty.controller.ts`):**
+
+Customer-facing (JWT role `CUSTOMER`):
+- `GET /v1/loyalty/balance` → proxies to `GET /loyalty/balance`
+- `GET /v1/loyalty/entries?page&limit` → proxies to `GET /loyalty/entries`
+- `GET /v1/loyalty/redemptions?page&limit` → proxies to `GET /loyalty/redemptions`
+
+Admin-facing (JWT role `MANAGER|STAFF`):
+- `GET /v1/customers/:customerId/loyalty/balance` → proxies to `GET /customers/:customerId/loyalty/balance` (passes `customerId` via path)
+- `GET /v1/customers/:customerId/loyalty/entries?page&limit` → proxies to same backend path
+- `GET /v1/customers/:customerId/loyalty/redemptions?page&limit` → proxies to same backend path
+
+---
+
+**Response shapes** (from `docs/14-API_CONTRACTS.md` § Loyalty Metrics):
+
+Balance: `{ currentPoints: number, nextExpiryDate: string | null, nextExpiryPoints: number | null }`
+
+Entries: `{ entries: [{ entryId, serviceId, serviceName, points, earnedAt, expiresAt, isActive }], pagination: { page, limit, total } }`
+
+Redemptions: `{ redemptions: [{ redemptionId, pointsRedeemed, redeemedAt, notes }], pagination: { page, limit, total } }`
+
+---
 
 **Acceptance criteria:**
 - [ ] `currentPoints` read from `loyalty_balances` — no SUM on entries
-- [ ] `nextExpiryDate` = earliest `expires_at` among active entries
-- [ ] Expired entries appear in earning history (`isActive=false`) but excluded from `currentPoints`
+- [ ] `nextExpiryDate` = earliest `expires_at` among active entries; `null` if none
+- [ ] `nextExpiryPoints` = sum of points expiring on `nextExpiryDate`; `null` if none
+- [ ] Expired entries appear in earning history with `isActive=false`; `currentPoints` not affected (maintained by S04/S08)
+- [ ] `serviceName` resolved for each entry via `IServiceCatalogPort`; unknown `serviceId` falls back to `serviceId` string
 - [ ] Customer can only see their own data (tenant + customerId scoped)
-- [ ] Staff calling loyalty endpoints returns `403`
-- [ ] Tenant isolation: customer in Tenant A cannot see Tenant B data
+- [ ] STAFF/MANAGER calling customer-facing `GET /v1/loyalty/*` endpoints → `403`
+- [ ] CUSTOMER calling admin-facing `GET /v1/customers/:id/loyalty/*` endpoints → `403`
+- [ ] Admin variant: staff can view any customer's loyalty data within their tenant
+- [ ] Tenant isolation: customer in Tenant A cannot see Tenant B data → 404/empty
+- [ ] Tenant isolation: staff from Tenant B calling admin variant with Tenant A customerId → empty (zero balance, no entries)
+- [ ] Integration test: earn points → call balance → assert `currentPoints`; call entries → assert `serviceName` present; call redemptions → assert empty list
+- [ ] Integration test (admin variant): same data accessible via `GET /customers/:customerId/loyalty/*` with STAFF JWT
 
 **Dependencies:** M10-S04, M10-S03.1
 
