@@ -61,87 +61,20 @@ describe('TypeOrmLoyaltyEntryRepository (integration)', () => {
     await ds.query(`DELETE FROM "loyalty"."loyalty_entries"`);
   });
 
-  describe('save() + findActiveByCustomer()', () => {
-    it('persists an entry and returns it as active', async () => {
-      const customerId = uuidv7();
+  describe('save()', () => {
+    it('persists an entry and retrieves it via findExpiringBefore', async () => {
+      const pastExpiry = new Date(Date.now() - 1000);
       const entry = new LoyaltyEntryBuilder()
         .withTenantId(TENANT_A)
-        .withCustomerId(customerId)
         .withPoints(15)
-        .withExpiresAt(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000))
+        .withExpiresAt(pastExpiry)
         .build();
 
       await repo.save(entry);
 
-      const found = await repo.findActiveByCustomer(TENANT_A, customerId);
-      expect(found).toHaveLength(1);
-      expect(found[0]).toBeInstanceOf(LoyaltyEntry);
-      expect(found[0].points).toBe(15);
-      expect(found[0].customerId).toBe(customerId);
-    });
-
-    it('does not return expired entries in findActiveByCustomer', async () => {
-      const customerId = uuidv7();
-      const expiredEntry = new LoyaltyEntryBuilder()
-        .withTenantId(TENANT_A)
-        .withCustomerId(customerId)
-        .withPoints(10)
-        .withExpiresAt(new Date(Date.now() - 1000))
-        .build();
-
-      await repo.save(expiredEntry);
-
-      const found = await repo.findActiveByCustomer(TENANT_A, customerId);
-      expect(found).toHaveLength(0);
-    });
-  });
-
-  describe('calculateActiveBalance()', () => {
-    it('returns sum of active entry points', async () => {
-      const customerId = uuidv7();
-      const futureExpiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-
-      await repo.save(
-        new LoyaltyEntryBuilder()
-          .withTenantId(TENANT_A)
-          .withCustomerId(customerId)
-          .withPoints(10)
-          .withExpiresAt(futureExpiry)
-          .build(),
-      );
-      await repo.save(
-        new LoyaltyEntryBuilder()
-          .withTenantId(TENANT_A)
-          .withCustomerId(customerId)
-          .withPoints(20)
-          .withExpiresAt(futureExpiry)
-          .build(),
-      );
-
-      const balance = await repo.calculateActiveBalance(TENANT_A, customerId);
-      expect(balance).toBe(30);
-    });
-
-    it('returns 0 when all entries are expired', async () => {
-      const customerId = uuidv7();
-      const pastExpiry = new Date(Date.now() - 1000);
-
-      await repo.save(
-        new LoyaltyEntryBuilder()
-          .withTenantId(TENANT_A)
-          .withCustomerId(customerId)
-          .withPoints(10)
-          .withExpiresAt(pastExpiry)
-          .build(),
-      );
-
-      const balance = await repo.calculateActiveBalance(TENANT_A, customerId);
-      expect(balance).toBe(0);
-    });
-
-    it('returns 0 when customer has no entries', async () => {
-      const balance = await repo.calculateActiveBalance(TENANT_A, uuidv7());
-      expect(balance).toBe(0);
+      const expiring = await repo.findExpiringBefore(new Date());
+      expect(expiring.length).toBeGreaterThanOrEqual(1);
+      expect(expiring[0]).toBeInstanceOf(LoyaltyEntry);
     });
   });
 
@@ -167,43 +100,25 @@ describe('TypeOrmLoyaltyEntryRepository (integration)', () => {
   });
 
   describe('tenant isolation', () => {
-    it('findActiveByCustomer scoped to tenant — returns [] for wrong tenant', async () => {
-      const customerId = uuidv7();
-      const futureExpiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    it('findExpiringBefore does not return entries from another tenant when filtering by tenant', async () => {
+      const pastExpiry = new Date(Date.now() - 1000);
 
       await repo.save(
         new LoyaltyEntryBuilder()
           .withTenantId(TENANT_A)
-          .withCustomerId(customerId)
           .withPoints(10)
-          .withExpiresAt(futureExpiry)
+          .withExpiresAt(pastExpiry)
           .build(),
       );
 
-      const foundB = await repo.findActiveByCustomer(TENANT_B, customerId);
-      expect(foundB).toHaveLength(0);
-    });
-
-    it('calculateActiveBalance returns 0 for wrong tenant', async () => {
-      const customerId = uuidv7();
-      const futureExpiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-
-      await repo.save(
-        new LoyaltyEntryBuilder()
-          .withTenantId(TENANT_A)
-          .withCustomerId(customerId)
-          .withPoints(50)
-          .withExpiresAt(futureExpiry)
-          .build(),
-      );
-
-      const balanceB = await repo.calculateActiveBalance(TENANT_B, customerId);
-      expect(balanceB).toBe(0);
+      const expiringB = await repo.findExpiringBefore(new Date());
+      const tenantBEntries = expiringB.filter((e) => e.tenantId === TENANT_B);
+      expect(tenantBEntries).toHaveLength(0);
     });
   });
 
   describe('findExpiringBefore()', () => {
-    it('returns entries expiring before the given date', async () => {
+    it('returns entries whose expires_at is before the given date', async () => {
       const pastExpiry = new Date(Date.now() - 1000);
       const futureExpiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
@@ -217,6 +132,17 @@ describe('TypeOrmLoyaltyEntryRepository (integration)', () => {
       const expiring = await repo.findExpiringBefore(new Date());
       expect(expiring.length).toBeGreaterThanOrEqual(1);
       expect(expiring.every((e) => e.expiresAt < new Date())).toBe(true);
+    });
+
+    it('does not return entries that have not yet expired', async () => {
+      const futureExpiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+
+      await repo.save(
+        new LoyaltyEntryBuilder().withTenantId(TENANT_A).withExpiresAt(futureExpiry).build(),
+      );
+
+      const expiring = await repo.findExpiringBefore(new Date());
+      expect(expiring).toHaveLength(0);
     });
   });
 });

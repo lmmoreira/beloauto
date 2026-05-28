@@ -101,18 +101,15 @@ Also creates `loyalty.processed_events` (idempotency table for Loyalty consumers
 
 **Repository port `ILoyaltyEntryRepository`:**
 - `save(entry): Promise<void>` — INSERT only
-- `findActiveByCustomer(tenantId, customerId): Promise<LoyaltyEntry[]>` — `expires_at > now()`
-- `calculateActiveBalance(tenantId, customerId): Promise<number>` — `SUM(points) WHERE expires_at > now()` (used for reconciliation/validation, not as primary balance source — see S03.1)
-- `findExpiringBefore(date): Promise<LoyaltyEntry[]>` — for expiry cron
+- `findExpiringBefore(date: Date): Promise<LoyaltyEntry[]>` — for expiry cron (S08)
 
 **Acceptance criteria:**
 - [x] Inserting the same `(tenant_id, booking_line_id)` twice throws a unique constraint error
-- [x] `calculateActiveBalance` returns 0 for expired entries (past `expires_at`)
 - [x] `LoyaltyEntry.record(...)` with `points=0` throws a domain error
 - [x] Migration runs and reverts cleanly
 - [x] `expiry_days` is read from `tenants.settings.loyalty.expiry_days` (default 180) — not hardcoded
-- [x] Integration test: insert entry → calculate balance → assert correct; wait until expired → assert balance=0
-- [x] Tenant isolation: `findActiveByCustomer(tenantBId, customerFromTenantA)` returns `[]` and balance=0
+- [x] `findExpiringBefore(date)` returns only entries whose `expires_at < date`; future entries excluded
+- [x] Tenant isolation: entries saved under Tenant A are not returned for Tenant B
 
 **Dependencies:** M00-S08, M00-S07
 

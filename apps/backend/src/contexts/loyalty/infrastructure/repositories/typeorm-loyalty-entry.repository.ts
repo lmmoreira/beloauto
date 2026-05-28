@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, MoreThan, Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import { ILoyaltyEntryRepository } from '../../application/ports/loyalty-entry-repository.port';
 import { LoyaltyEntry } from '../../domain/loyalty-entry.aggregate';
@@ -21,25 +21,6 @@ export class TypeOrmLoyaltyEntryRepository implements ILoyaltyEntryRepository {
     } else {
       await this.repo.save(entity);
     }
-  }
-
-  async findActiveByCustomer(tenantId: string, customerId: string): Promise<LoyaltyEntry[]> {
-    const now = new Date();
-    const entities = await this.repo.find({
-      where: { tenantId, customerId, expiresAt: MoreThan(now) },
-    });
-    return entities.map((e) => this.toDomain(e));
-  }
-
-  async calculateActiveBalance(tenantId: string, customerId: string): Promise<number> {
-    const result = await this.repo
-      .createQueryBuilder('le')
-      .select('COALESCE(SUM(le.points), 0)', 'total')
-      .where('le.tenantId = :tenantId', { tenantId })
-      .andWhere('le.customerId = :customerId', { customerId })
-      .andWhere('le.expiresAt > :now', { now: new Date() })
-      .getRawOne<{ total: string }>();
-    return Number.parseInt(result?.total ?? '0', 10);
   }
 
   async findExpiringBefore(date: Date): Promise<LoyaltyEntry[]> {
