@@ -1,8 +1,8 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
-import { z } from 'zod';
 import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
 import { StaffOrManagerRoleGuard } from '../../../booking/infrastructure/guards/staff-or-manager-role.guard';
+import { PaginationDto, PaginationSchema } from '../../application/dtos/pagination.dto';
 import {
   GetLoyaltyBalanceUseCase,
   GetLoyaltyBalanceResult,
@@ -17,13 +17,6 @@ import {
 } from '../../application/use-cases/get-loyalty-redemptions/get-loyalty-redemptions.use-case';
 import { CustomerRoleGuard } from '../guards/customer-role.guard';
 import { mapLoyaltyError } from '../http/loyalty-error.mapper';
-
-const PaginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-});
-
-type PaginationQuery = z.infer<typeof PaginationSchema>;
 
 @Controller()
 export class LoyaltyController {
@@ -48,7 +41,7 @@ export class LoyaltyController {
   @Get('loyalty/entries')
   @UseGuards(CustomerRoleGuard)
   getEntries(
-    @Query(new ZodValidationPipe(PaginationSchema)) query: PaginationQuery,
+    @Query(new ZodValidationPipe(PaginationSchema)) query: PaginationDto,
   ): Promise<GetLoyaltyEntriesResult> {
     const { tenantId, actorId } = this.tenantContext;
     return this.getLoyaltyEntries
@@ -59,7 +52,7 @@ export class LoyaltyController {
   @Get('loyalty/redemptions')
   @UseGuards(CustomerRoleGuard)
   getRedemptions(
-    @Query(new ZodValidationPipe(PaginationSchema)) query: PaginationQuery,
+    @Query(new ZodValidationPipe(PaginationSchema)) query: PaginationDto,
   ): Promise<GetLoyaltyRedemptionsResult> {
     const { tenantId, actorId } = this.tenantContext;
     return this.getLoyaltyRedemptions
@@ -83,7 +76,7 @@ export class LoyaltyController {
   @UseGuards(StaffOrManagerRoleGuard)
   getEntriesAdmin(
     @Param('customerId', ParseUUIDPipe) customerId: string,
-    @Query(new ZodValidationPipe(PaginationSchema)) query: PaginationQuery,
+    @Query(new ZodValidationPipe(PaginationSchema)) query: PaginationDto,
   ): Promise<GetLoyaltyEntriesResult> {
     return this.getLoyaltyEntries
       .execute({ tenantId: this.tenantContext.tenantId, customerId, ...query })
@@ -94,7 +87,7 @@ export class LoyaltyController {
   @UseGuards(StaffOrManagerRoleGuard)
   getRedemptionsAdmin(
     @Param('customerId', ParseUUIDPipe) customerId: string,
-    @Query(new ZodValidationPipe(PaginationSchema)) query: PaginationQuery,
+    @Query(new ZodValidationPipe(PaginationSchema)) query: PaginationDto,
   ): Promise<GetLoyaltyRedemptionsResult> {
     return this.getLoyaltyRedemptions
       .execute({ tenantId: this.tenantContext.tenantId, customerId, ...query })

@@ -1,4 +1,5 @@
 import { DataSource, Repository } from 'typeorm';
+import { ServiceEntityBuilder } from '../../../../test/builders/booking/index';
 import { ServiceEntity } from '../../../booking/infrastructure/entities/service.entity';
 import { ServiceCatalogAdapter } from './service-catalog.adapter';
 
@@ -7,11 +8,7 @@ const SVC_ID_1 = '11111111-0000-7000-8000-000000000001';
 const SVC_ID_2 = '11111111-0000-7000-8000-000000000002';
 
 function makeEntity(id: string, name: string): ServiceEntity {
-  const e = new ServiceEntity();
-  e.id = id;
-  e.tenantId = TENANT_ID;
-  e.name = name;
-  return e;
+  return new ServiceEntityBuilder().withId(id).withTenantId(TENANT_ID).withName(name).build();
 }
 
 describe('ServiceCatalogAdapter', () => {

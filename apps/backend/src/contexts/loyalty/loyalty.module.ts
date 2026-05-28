@@ -22,6 +22,7 @@ import { ProcessedEventEntity } from './infrastructure/entities/processed-event.
 import { LoyaltyTenantSettingsAdapter } from './infrastructure/cross-context/loyalty-tenant-settings.adapter';
 import { ServiceCatalogAdapter } from './infrastructure/cross-context/service-catalog.adapter';
 import { LoyaltyController } from './infrastructure/controllers/loyalty.controller';
+import { CustomerRoleGuard } from './infrastructure/guards/customer-role.guard';
 import { BookingCompletedHandler } from './infrastructure/events/booking-completed.handler';
 import { TypeOrmBalanceExpiryLogRepository } from './infrastructure/repositories/typeorm-balance-expiry-log.repository';
 import { TypeOrmLoyaltyBalanceRepository } from './infrastructure/repositories/typeorm-loyalty-balance.repository';
@@ -51,6 +52,7 @@ import { TypeOrmProcessedEventRepository } from './infrastructure/repositories/t
     { provide: PROCESSED_EVENT_REPOSITORY, useClass: TypeOrmProcessedEventRepository },
     { provide: LOYALTY_TENANT_SETTINGS_PORT, useClass: LoyaltyTenantSettingsAdapter },
     { provide: SERVICE_CATALOG_PORT, useClass: ServiceCatalogAdapter },
+    CustomerRoleGuard,
     RecordLoyaltyEntriesUseCase,
     GetLoyaltyBalanceUseCase,
     GetLoyaltyEntriesUseCase,
