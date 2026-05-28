@@ -1,0 +1,64 @@
+### Variables
+@baseUrl = http://localhost:3001
+@tenantId = {{$dotenv TENANT_ID}}
+@customerId = {{$dotenv CUSTOMER_ID}}
+@staffId = {{$dotenv STAFF_ID}}
+@correlationId = test-corr-id
+
+### GET /loyalty/balance — customer views own balance
+GET {{baseUrl}}/loyalty/balance
+x-tenant-id: {{tenantId}}
+x-actor-id: {{customerId}}
+x-actor-type: CUSTOMER
+x-actor-role: CUSTOMER
+x-correlation-id: {{correlationId}}
+
+###
+
+### GET /loyalty/entries — customer views earning history
+GET {{baseUrl}}/loyalty/entries?page=1&limit=20
+x-tenant-id: {{tenantId}}
+x-actor-id: {{customerId}}
+x-actor-type: CUSTOMER
+x-actor-role: CUSTOMER
+x-correlation-id: {{correlationId}}
+
+###
+
+### GET /loyalty/redemptions — customer views redemption history
+GET {{baseUrl}}/loyalty/redemptions?page=1&limit=20
+x-tenant-id: {{tenantId}}
+x-actor-id: {{customerId}}
+x-actor-type: CUSTOMER
+x-actor-role: CUSTOMER
+x-correlation-id: {{correlationId}}
+
+###
+
+### GET /customers/:customerId/loyalty/balance — admin views customer balance
+GET {{baseUrl}}/customers/{{customerId}}/loyalty/balance
+x-tenant-id: {{tenantId}}
+x-actor-id: {{staffId}}
+x-actor-type: STAFF
+x-actor-role: MANAGER
+x-correlation-id: {{correlationId}}
+
+###
+
+### GET /customers/:customerId/loyalty/entries — admin views customer earning history
+GET {{baseUrl}}/customers/{{customerId}}/loyalty/entries?page=1&limit=20
+x-tenant-id: {{tenantId}}
+x-actor-id: {{staffId}}
+x-actor-type: STAFF
+x-actor-role: MANAGER
+x-correlation-id: {{correlationId}}
+
+###
+
+### GET /customers/:customerId/loyalty/redemptions — admin views customer redemption history
+GET {{baseUrl}}/customers/{{customerId}}/loyalty/redemptions?page=1&limit=20
+x-tenant-id: {{tenantId}}
+x-actor-id: {{staffId}}
+x-actor-type: STAFF
+x-actor-role: MANAGER
+x-correlation-id: {{correlationId}}

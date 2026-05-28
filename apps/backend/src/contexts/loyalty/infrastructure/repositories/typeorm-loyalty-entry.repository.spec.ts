@@ -24,6 +24,8 @@ describe('TypeOrmLoyaltyEntryRepository', () => {
           useValue: {
             save: jest.fn(),
             find: jest.fn(),
+            findAndCount: jest.fn(),
+            query: jest.fn(),
           },
         },
       ],
@@ -43,6 +45,50 @@ describe('TypeOrmLoyaltyEntryRepository', () => {
       await repo.save(entry);
 
       expect(ormRepo.save).toHaveBeenCalledWith(expect.objectContaining({ tenantId: TENANT_ID }));
+    });
+  });
+
+  describe('findByCustomerPaginated()', () => {
+    it('returns paginated items and total', async () => {
+      const entity = new LoyaltyEntryEntityBuilder().withTenantId(TENANT_ID).build();
+      (ormRepo.findAndCount as jest.Mock).mockResolvedValue([[entity], 1]);
+
+      const result = await repo.findByCustomerPaginated(TENANT_ID, 'customer-id', 1, 20);
+
+      expect(result.total).toBe(1);
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toBeInstanceOf(LoyaltyEntry);
+    });
+
+    it('returns empty list when no entries found', async () => {
+      (ormRepo.findAndCount as jest.Mock).mockResolvedValue([[], 0]);
+
+      const result = await repo.findByCustomerPaginated(TENANT_ID, 'customer-id', 1, 20);
+
+      expect(result.items).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
+  });
+
+  describe('findNextExpiry()', () => {
+    it('returns null when no active entries', async () => {
+      (ormRepo.query as jest.Mock).mockResolvedValue([]);
+
+      const result = await repo.findNextExpiry(TENANT_ID, 'customer-id');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns earliest expiry date and sum of points', async () => {
+      const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      (ormRepo.query as jest.Mock).mockResolvedValue([
+        { expiryDate: futureDate.toISOString(), points: '10' },
+      ]);
+
+      const result = await repo.findNextExpiry(TENANT_ID, 'customer-id');
+
+      expect(result).not.toBeNull();
+      expect(result!.points).toBe(10);
     });
   });
 

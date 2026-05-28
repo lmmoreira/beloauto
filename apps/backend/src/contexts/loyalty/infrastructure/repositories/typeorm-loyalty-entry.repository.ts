@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
-import { ILoyaltyEntryRepository } from '../../application/ports/loyalty-entry-repository.port';
+import {
+  ILoyaltyEntryRepository,
+  NextExpiry,
+  PaginatedLoyaltyEntries,
+} from '../../application/ports/loyalty-entry-repository.port';
 import { LoyaltyEntry } from '../../domain/loyalty-entry.aggregate';
 import { LoyaltyEntryEntity } from '../entities/loyalty-entry.entity';
 
@@ -28,6 +32,36 @@ export class TypeOrmLoyaltyEntryRepository implements ILoyaltyEntryRepository {
       where: { expiresAt: LessThan(date) },
     });
     return entities.map((e) => this.toDomain(e));
+  }
+
+  async findByCustomerPaginated(
+    tenantId: string,
+    customerId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaginatedLoyaltyEntries> {
+    const [entities, total] = await this.repo.findAndCount({
+      where: { tenantId, customerId },
+      order: { earnedAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+    return { items: entities.map((e) => this.toDomain(e)), total };
+  }
+
+  async findNextExpiry(tenantId: string, customerId: string): Promise<NextExpiry | null> {
+    const rows = await this.repo.query<{ expiryDate: string; points: string }[]>(
+      `SELECT expires_at AS "expiryDate", SUM(points)::int AS points
+       FROM loyalty.loyalty_entries
+       WHERE tenant_id = $1 AND customer_id = $2 AND expires_at > NOW()
+       GROUP BY expires_at
+       ORDER BY expires_at ASC
+       LIMIT 1`,
+      [tenantId, customerId],
+    );
+
+    if (!rows.length || !rows[0].expiryDate) return null;
+    return { expiryDate: new Date(rows[0].expiryDate), points: Number(rows[0].points) };
   }
 
   private toDomain(entity: LoyaltyEntryEntity): LoyaltyEntry {
