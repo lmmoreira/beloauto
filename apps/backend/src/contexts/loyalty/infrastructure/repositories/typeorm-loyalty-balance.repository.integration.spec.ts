@@ -1,7 +1,5 @@
-import { Test } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { createTestDataSource } from '../../../../test/test-datasource';
 import { LoyaltyBalance } from '../../domain/loyalty-balance.aggregate';
 import { LoyaltyBalanceEntity } from '../entities/loyalty-balance.entity';
 import { TypeOrmLoyaltyBalanceRepository } from './typeorm-loyalty-balance.repository';
@@ -12,46 +10,20 @@ const CUSTOMER_1 = '00000000-0000-7000-8000-100000000001';
 const CUSTOMER_2 = '00000000-0000-7000-8000-100000000002';
 
 describe('TypeOrmLoyaltyBalanceRepository (integration)', () => {
+  let dataSource: DataSource;
   let repo: TypeOrmLoyaltyBalanceRepository;
-  let ds: DataSource;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
-        TypeOrmModule.forRoot({
-          type: 'postgres',
-          url: process.env['TEST_DATABASE_URL'],
-          entities: [LoyaltyBalanceEntity],
-          synchronize: false,
-        }),
-        TypeOrmModule.forFeature([LoyaltyBalanceEntity]),
-      ],
-      providers: [TypeOrmLoyaltyBalanceRepository],
-    }).compile();
-
-    repo = moduleRef.get(TypeOrmLoyaltyBalanceRepository);
-    ds = moduleRef.get(DataSource);
-
-    await ds.query(`CREATE SCHEMA IF NOT EXISTS "loyalty"`);
-    await ds.query(`
-      CREATE TABLE IF NOT EXISTS "loyalty"."loyalty_balances" (
-        "tenant_id"      UUID        NOT NULL,
-        "customer_id"    UUID        NOT NULL,
-        "current_points" INTEGER     NOT NULL DEFAULT 0 CHECK (current_points >= 0),
-        "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_loyalty_balances_integ" PRIMARY KEY ("tenant_id", "customer_id")
-      )
-    `);
+    dataSource = await createTestDataSource();
+    repo = new TypeOrmLoyaltyBalanceRepository(dataSource.getRepository(LoyaltyBalanceEntity));
   });
 
   afterAll(async () => {
-    await ds.query(`DROP TABLE IF EXISTS "loyalty"."loyalty_balances"`);
-    await ds.destroy();
+    await dataSource.destroy();
   });
 
   afterEach(async () => {
-    await ds.query(`DELETE FROM "loyalty"."loyalty_balances"`);
+    await dataSource.query(`DELETE FROM "loyalty"."loyalty_balances"`);
   });
 
   describe('upsert() + findByCustomer()', () => {

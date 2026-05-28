@@ -1,50 +1,30 @@
-import { Test } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { uuidv7 } from '../../../../shared/domain/uuid-v7';
+import { createTestDataSource } from '../../../../test/test-datasource';
+import { LoyaltyEntryBuilder } from '../../../../test/builders/loyalty/index';
 import { BalanceExpiryLogEntity } from '../entities/balance-expiry-log.entity';
+import { LoyaltyEntryEntity } from '../entities/loyalty-entry.entity';
 import { TypeOrmBalanceExpiryLogRepository } from './typeorm-balance-expiry-log.repository';
+import { TypeOrmLoyaltyEntryRepository } from './typeorm-loyalty-entry.repository';
 
 describe('TypeOrmBalanceExpiryLogRepository (integration)', () => {
+  let dataSource: DataSource;
   let repo: TypeOrmBalanceExpiryLogRepository;
-  let ds: DataSource;
+  let entryRepo: TypeOrmLoyaltyEntryRepository;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
-        TypeOrmModule.forRoot({
-          type: 'postgres',
-          url: process.env['TEST_DATABASE_URL'],
-          entities: [BalanceExpiryLogEntity],
-          synchronize: false,
-        }),
-        TypeOrmModule.forFeature([BalanceExpiryLogEntity]),
-      ],
-      providers: [TypeOrmBalanceExpiryLogRepository],
-    }).compile();
-
-    repo = moduleRef.get(TypeOrmBalanceExpiryLogRepository);
-    ds = moduleRef.get(DataSource);
-
-    await ds.query(`CREATE SCHEMA IF NOT EXISTS "loyalty"`);
-    await ds.query(`
-      CREATE TABLE IF NOT EXISTS "loyalty"."balance_expiry_log" (
-        "entry_id"     UUID        NOT NULL,
-        "processed_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_balance_expiry_log_integ" PRIMARY KEY ("entry_id")
-      )
-    `);
+    dataSource = await createTestDataSource();
+    repo = new TypeOrmBalanceExpiryLogRepository(dataSource.getRepository(BalanceExpiryLogEntity));
+    entryRepo = new TypeOrmLoyaltyEntryRepository(dataSource.getRepository(LoyaltyEntryEntity));
   });
 
   afterAll(async () => {
-    await ds.query(`DROP TABLE IF EXISTS "loyalty"."balance_expiry_log"`);
-    await ds.destroy();
+    await dataSource.destroy();
   });
 
   afterEach(async () => {
-    await ds.query(`DELETE FROM "loyalty"."balance_expiry_log"`);
+    await dataSource.query(`DELETE FROM "loyalty"."balance_expiry_log"`);
+    await dataSource.query(`DELETE FROM "loyalty"."loyalty_entries"`);
   });
 
   it('hasBeenProcessed returns false for unknown entryId', async () => {
@@ -52,14 +32,18 @@ describe('TypeOrmBalanceExpiryLogRepository (integration)', () => {
   });
 
   it('markProcessed then hasBeenProcessed returns true', async () => {
-    const entryId = uuidv7();
-    await repo.markProcessed(entryId);
-    expect(await repo.hasBeenProcessed(entryId)).toBe(true);
+    const entry = new LoyaltyEntryBuilder().build();
+    await entryRepo.save(entry);
+
+    await repo.markProcessed(entry.id);
+    expect(await repo.hasBeenProcessed(entry.id)).toBe(true);
   });
 
   it('marking same entryId twice does not throw (idempotent)', async () => {
-    const entryId = uuidv7();
-    await repo.markProcessed(entryId);
-    await expect(repo.markProcessed(entryId)).resolves.not.toThrow();
+    const entry = new LoyaltyEntryBuilder().build();
+    await entryRepo.save(entry);
+
+    await repo.markProcessed(entry.id);
+    await expect(repo.markProcessed(entry.id)).resolves.not.toThrow();
   });
 });

@@ -1,7 +1,5 @@
-import { Test } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { createTestDataSource } from '../../../../test/test-datasource';
 import { LoyaltyRedemptionBuilder } from '../../../../test/builders/loyalty/index';
 import { LoyaltyRedemption } from '../../domain/loyalty-redemption.aggregate';
 import { LoyaltyRedemptionEntity } from '../entities/loyalty-redemption.entity';
@@ -12,54 +10,22 @@ const TENANT_B = '20000000-0000-7000-8000-000000000002';
 const CUSTOMER_1 = '00000000-0000-7000-8000-100000000001';
 
 describe('TypeOrmLoyaltyRedemptionRepository (integration)', () => {
+  let dataSource: DataSource;
   let repo: TypeOrmLoyaltyRedemptionRepository;
-  let ds: DataSource;
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
-        TypeOrmModule.forRoot({
-          type: 'postgres',
-          url: process.env['TEST_DATABASE_URL'],
-          entities: [LoyaltyRedemptionEntity],
-          synchronize: false,
-        }),
-        TypeOrmModule.forFeature([LoyaltyRedemptionEntity]),
-      ],
-      providers: [TypeOrmLoyaltyRedemptionRepository],
-    }).compile();
-
-    repo = moduleRef.get(TypeOrmLoyaltyRedemptionRepository);
-    ds = moduleRef.get(DataSource);
-
-    await ds.query(`CREATE SCHEMA IF NOT EXISTS "loyalty"`);
-    await ds.query(`
-      CREATE TABLE IF NOT EXISTS "loyalty"."loyalty_redemptions" (
-        "id"              UUID        NOT NULL,
-        "tenant_id"       UUID        NOT NULL,
-        "customer_id"     UUID        NOT NULL,
-        "points_redeemed" INTEGER     NOT NULL CHECK (points_redeemed > 0),
-        "redeemed_by"     UUID        NOT NULL,
-        "notes"           TEXT,
-        "booking_id"      UUID,
-        "redeemed_at"     TIMESTAMPTZ NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_loyalty_redemptions_integ" PRIMARY KEY ("id")
-      )
-    `);
-    await ds.query(`
-      CREATE INDEX IF NOT EXISTS "IDX_loyalty_redemptions_tc_integ"
-        ON "loyalty"."loyalty_redemptions" ("tenant_id", "customer_id")
-    `);
+    dataSource = await createTestDataSource();
+    repo = new TypeOrmLoyaltyRedemptionRepository(
+      dataSource.getRepository(LoyaltyRedemptionEntity),
+    );
   });
 
   afterAll(async () => {
-    await ds.query(`DROP TABLE IF EXISTS "loyalty"."loyalty_redemptions"`);
-    await ds.destroy();
+    await dataSource.destroy();
   });
 
   afterEach(async () => {
-    await ds.query(`DELETE FROM "loyalty"."loyalty_redemptions"`);
+    await dataSource.query(`DELETE FROM "loyalty"."loyalty_redemptions"`);
   });
 
   describe('save()', () => {
