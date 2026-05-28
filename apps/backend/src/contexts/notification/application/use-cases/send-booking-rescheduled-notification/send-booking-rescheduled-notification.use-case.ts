@@ -5,7 +5,10 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
-import { saveNotificationLog } from '../../utils/notification-log.helper';
+import {
+  dispatchAdminEmailToManagers,
+  saveNotificationLog,
+} from '../../utils/notification-log.helper';
 import { SendBookingRescheduledNotificationDto } from '../../dtos/send-booking-rescheduled-notification.dto';
 import {
   INotificationDispatcher,
@@ -115,54 +118,32 @@ export class SendBookingRescheduledNotificationUseCase {
     }
 
     if (!existingAdmin) {
-      adminEmailSent = await this.sendAdminEmail(dto.tenantId, dto.eventId, {
-        guestName: dto.guestName,
-        previousLocalDate,
-        previousLocalTime,
-        newLocalDate,
-        newLocalTime,
-        serviceNames,
-        totalPrice: formattedTotal,
-      });
+      adminEmailSent = await dispatchAdminEmailToManagers(
+        {
+          staffPort: this.staffPort,
+          dispatcher: this.dispatcher,
+          logRepo: this.logRepo,
+          txManager: this.txManager,
+        },
+        {
+          tenantId: dto.tenantId,
+          eventId: dto.eventId,
+          notificationType: ADMIN_NOTIFICATION_TYPE,
+          subject: 'Agendamento reagendado',
+          templateKey: 'booking-rescheduled-admin',
+          data: {
+            guestName: dto.guestName,
+            previousLocalDate,
+            previousLocalTime,
+            newLocalDate,
+            newLocalTime,
+            serviceNames,
+            totalPrice: formattedTotal,
+          },
+        },
+      );
     }
 
     return { customerEmailSent, adminEmailSent };
-  }
-
-  private async sendAdminEmail(
-    tenantId: string,
-    eventId: string,
-    ctx: {
-      guestName: string;
-      previousLocalDate: string;
-      previousLocalTime: string;
-      newLocalDate: string;
-      newLocalTime: string;
-      serviceNames: string;
-      totalPrice: string;
-    },
-  ): Promise<boolean> {
-    const managerEmails = await this.staffPort.getManagerEmails(tenantId);
-    if (managerEmails.length === 0) return false;
-    await Promise.all(
-      managerEmails.map((email) =>
-        this.dispatcher.dispatch({
-          tenantId,
-          to: email,
-          subject: 'Agendamento reagendado',
-          templateKey: 'booking-rescheduled-admin',
-          data: { ...ctx },
-        }),
-      ),
-    );
-    await saveNotificationLog(
-      this.logRepo,
-      this.txManager,
-      tenantId,
-      eventId,
-      ADMIN_NOTIFICATION_TYPE,
-      CHANNEL,
-    );
-    return true;
   }
 }

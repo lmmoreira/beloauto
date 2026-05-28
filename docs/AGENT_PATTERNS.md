@@ -766,6 +766,78 @@ Canonical example: `apps/backend/src/contexts/customer/infrastructure/controller
 
 ---
 
+## Notification Context Patterns
+
+### 21. Notification Use Case — admin email via shared utility
+
+All notification use cases that dispatch to managers must call `dispatchAdminEmailToManagers()` from `notification-log.helper.ts`. Never implement a private `sendAdminEmail` method — duplicating 18+ lines across two use cases breaches the SonarCloud 3% CPD gate.
+
+```typescript
+// src/contexts/notification/application/use-cases/send-booking-xxx-notification/send-booking-xxx-notification.use-case.ts
+import {
+  dispatchAdminEmailToManagers,
+  saveNotificationLog,
+} from '../../utils/notification-log.helper';
+
+// inside execute():
+if (!existingAdmin) {
+  adminEmailSent = await dispatchAdminEmailToManagers(
+    {
+      staffPort: this.staffPort,
+      dispatcher: this.dispatcher,
+      logRepo: this.logRepo,
+      txManager: this.txManager,
+    },
+    {
+      tenantId: dto.tenantId,
+      eventId: dto.eventId,
+      notificationType: ADMIN_NOTIFICATION_TYPE,
+      subject: 'Agendamento xxx',
+      templateKey: 'booking-xxx-admin',
+      data: { /* event-specific fields */ },
+    },
+  );
+}
+```
+
+`dispatchAdminEmailToManagers` fetches manager emails, fans out `dispatcher.dispatch()` in parallel, saves the log, and returns `boolean` (false when no managers).
+
+Canonical example: `apps/backend/src/contexts/notification/application/utils/notification-log.helper.ts`
+
+---
+
+### 22. SMTP Adapter Spec — one describe per template case
+
+Every `case` in the SMTP adapter's `render()` switch must have its own `describe` block in the adapter spec. Missing cases leave the adapter lines uncovered even when use-case specs are complete — SonarCloud flags the adapter file.
+
+For templates with conditional rendering (nullable fields, boolean flags), add one `it()` per branch:
+
+```typescript
+describe('booking-xxx-admin', () => {
+  it('renders subject and body', () => {
+    const result = adapter.render('booking-xxx-admin', { guestName: 'Ana', ... });
+    expect(result.subject).toContain('...');
+    expect(result.html).toContain('Ana');
+  });
+
+  it('renders isBusiness=false variant', () => {
+    const result = adapter.render('booking-xxx-admin', { isBusiness: false, ... });
+    expect(result.html).toContain('...');
+  });
+
+  it('renders without reason when reason is null', () => {
+    const result = adapter.render('booking-xxx-admin', { reason: null, ... });
+    expect(result.html).not.toContain('Motivo:');
+  });
+});
+```
+
+**Rule:** count the `if`/ternary branches inside the template render logic; each branch needs one `it()`.
+
+Canonical example: `apps/backend/src/contexts/notification/infrastructure/delivery/smtp-email.adapter.spec.ts`
+
+---
+
 ## BFF Patterns
 
 ### 17. BFF Module
