@@ -1,9 +1,6 @@
-export interface SendBookingRescheduledNotificationDto {
-  tenantId: string;
-  eventId: string;
-  correlationId: string;
-  guestEmail: string;
-  guestName: string;
+import { BaseGuestNotificationDto } from './base-guest-notification.dto';
+
+export interface SendBookingRescheduledNotificationDto extends BaseGuestNotificationDto {
   newSlot: { startTime: string; endTime: string };
   previousSlot: { startTime: string; endTime: string };
   rescheduledBy: string;

@@ -5,7 +5,6 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
-import { NotificationLog } from '../../../domain/notification-log.entity';
 import { SendBookingInfoRequestedNotificationDto } from '../../dtos/send-booking-info-requested-notification.dto';
 import {
   INotificationDispatcher,
@@ -15,6 +14,7 @@ import {
   INotificationLogRepository,
   NOTIFICATION_LOG_REPOSITORY,
 } from '../../ports/notification-log-repository.port';
+import { BaseNotificationUseCase } from '../base-notification.use-case';
 
 const NOTIFICATION_TYPE = 'BOOKING_INFO_REQUESTED_CUSTOMER';
 const CHANNEL = 'EMAIL';
@@ -25,27 +25,22 @@ export interface SendBookingInfoRequestedNotificationUseCaseResult {
 }
 
 @Injectable()
-export class SendBookingInfoRequestedNotificationUseCase {
+export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificationUseCase {
   constructor(
-    @Inject(NOTIFICATION_LOG_REPOSITORY)
-    private readonly logRepo: INotificationLogRepository,
-    @Inject(NOTIFICATION_DISPATCHER)
-    private readonly dispatcher: INotificationDispatcher,
-    @Inject(TRANSACTION_MANAGER)
-    private readonly txManager: ITransactionManager,
+    @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
+    @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
+    @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    super(logRepo, dispatcher, txManager);
+  }
 
   async execute(
     dto: SendBookingInfoRequestedNotificationDto,
   ): Promise<SendBookingInfoRequestedNotificationUseCaseResult> {
-    const existing = await this.logRepo.findByEventAndChannel(
-      dto.tenantId,
-      dto.eventId,
-      NOTIFICATION_TYPE,
-      CHANNEL,
-    );
-    if (existing) return { emailSent: false };
+    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL)) {
+      return { emailSent: false };
+    }
 
     const respondLink = this.buildRespondLink(dto);
 
@@ -61,16 +56,7 @@ export class SendBookingInfoRequestedNotificationUseCase {
       },
     });
 
-    const log = NotificationLog.create({
-      tenantId: dto.tenantId,
-      eventId: dto.eventId,
-      notificationType: NOTIFICATION_TYPE,
-      channel: CHANNEL,
-    });
-    await this.txManager.run(async () => {
-      await this.logRepo.save(log);
-    });
-
+    await this.saveLog(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL);
     return { emailSent: true };
   }
 

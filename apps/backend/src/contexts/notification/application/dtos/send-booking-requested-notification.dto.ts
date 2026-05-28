@@ -1,3 +1,5 @@
+import { BaseGuestNotificationDto } from './base-guest-notification.dto';
+
 interface AddressDto {
   street: string;
   number: string;
@@ -8,12 +10,7 @@ interface AddressDto {
   zipCode: string;
 }
 
-export interface SendBookingRequestedNotificationDto {
-  tenantId: string;
-  eventId: string;
-  correlationId: string;
-  guestEmail: string;
-  guestName: string;
+export interface SendBookingRequestedNotificationDto extends BaseGuestNotificationDto {
   scheduledAt: string;
   totalPrice: { amount: string; currency: string };
   lines: Array<{ serviceNameAtBooking: string }>;

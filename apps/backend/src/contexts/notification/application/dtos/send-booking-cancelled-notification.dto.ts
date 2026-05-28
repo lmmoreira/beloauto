@@ -1,9 +1,6 @@
-export interface SendBookingCancelledNotificationDto {
-  tenantId: string;
-  eventId: string;
-  correlationId: string;
-  guestEmail: string;
-  guestName: string;
+import { BaseGuestNotificationDto } from './base-guest-notification.dto';
+
+export interface SendBookingCancelledNotificationDto extends BaseGuestNotificationDto {
   cancelledBy: string;
   isBusiness: boolean;
   reason: string | null;
