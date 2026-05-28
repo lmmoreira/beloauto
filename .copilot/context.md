@@ -333,6 +333,16 @@ Full list in `docs/ANTI_PATTERNS.md` (checked by `/pre-pr`). Highest-severity pa
 
 ## 9. Story Implementation Workflow (mandatory — every story, no exceptions)
 
+> ❗ **NON-NEGOTIABLE PR GATE — READ THIS BEFORE TOUCHING `gh pr create`**
+>
+> **`gh pr create` is FORBIDDEN until `/pre-pr` is complete.**
+> The sequence is always:
+> 1. `git push` → ci:fast pre-push hook runs (unit tests only — NOT sufficient alone)
+> 2. `/pre-pr` → all 4 steps in order — Step 4 is a hard stop: ask the user to run integration tests and wait for their pasted output
+> 3. Only after Step 4 clears → `gh pr create`
+>
+> ci:fast passing does NOT mean integration tests passed. SonarCloud issues, missing .http files, VO violations, and cross-tenant leaks are only caught by `/pre-pr`. Skipping it has caused repeated CI failures and user frustration.
+
 ### Step 1 — Create feature branch (BEFORE writing any code)
 `git checkout -b feat/M0X-SYY-<short-description>`
 
@@ -494,7 +504,8 @@ src/shared/
 4. Is the change scoped to one UC cited in the PR? ✓
 5. Does the integration test include a tenant-isolation assertion? ✓
 6. Did I follow §9 workflow? (branch → implement → ci:fast → /pre-pr → PR → CI all-green → user approval → merge → /mark-done) ✓
-7. Are ALL stories in this milestone now `✅ Done`? If yes — create `plan/MXX-<NAME>_IMPLEMENTATION_DETAILS_IA.md` + `_DEVELOPER.md`; add IA file to §10 of this file. ✓
+7. **Did I run `/pre-pr` AND wait for the user to paste passing integration test output BEFORE calling `gh pr create`?** If the answer is no — do not open the PR. Go back and run `/pre-pr` first. ✓
+8. Are ALL stories in this milestone now `✅ Done`? If yes — create `plan/MXX-<NAME>_IMPLEMENTATION_DETAILS_IA.md` + `_DEVELOPER.md`; add IA file to §10 of this file. ✓
 
 ---
 
