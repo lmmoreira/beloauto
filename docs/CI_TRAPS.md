@@ -19,6 +19,8 @@ These are flagged as bugs/code smells and cause the Quality Gate to fail.
 | **S2933** Member never reassigned | `private props: XxxProps` · `private updatedAt = new Date()` | `private readonly props: XxxProps` · `private readonly updatedAt = new Date()` |
 | **Duplicate class** | `StaffInvited` defined in both `staff/` and `platform/` | event lives in the **publishing** context only |
 | **Unused variable** | `const _x = ...` | remove it entirely |
+| **S2699** No assertion in test | Integration test that uses only supertest's `.expect(403)` — SonarCloud does not recognise chained supertest `.expect()` as a Jest assertion | Capture the response (`const res = await request(...).set(...)`) then add `expect(res.status).toBe(403)` |
+| **void operator** | `void tenantId;` to suppress an unused-parameter warning | Use an underscore prefix: `_tenantId` in the method signature |
 
 **S2933 appears in two recurring spots:**
 - **Aggregate `props` field** — `private props: XxxProps` set once in the constructor, then its *contents* mutate via `increment()` / `decrement()`. `readonly` applies to the reference, not the object's internals — this is always safe to add.
@@ -167,3 +169,5 @@ Before every `git commit`, verify:
 - [ ] No private `sendAdminEmail`-style methods duplicated across notification use cases — use `dispatchAdminEmailToManagers()` utility
 - [ ] Early-return guard added? → add two partial-retry tests (one log pre-seeded each way) to cover the new branch arms
 - [ ] Builder/aggregate fields with no `withXxx()` setter → mark `readonly` (S2933)
+- [ ] Integration test 403/404 assertions use `expect(res.status).toBe(403)` — not bare supertest `.expect(403)` (S2699)
+- [ ] Unused method parameters suppressed with `_param` prefix — not `void param;`
