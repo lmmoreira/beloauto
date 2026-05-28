@@ -10,8 +10,7 @@ export class InMemoryServiceCatalogPort implements IServiceCatalogPort {
     this.services.push(...services);
   }
 
-  async findServicesByIds(tenantId: string, serviceIds: string[]): Promise<ServiceSummary[]> {
-    void tenantId;
+  async findServicesByIds(_tenantId: string, serviceIds: string[]): Promise<ServiceSummary[]> {
     return this.services.filter((s) => serviceIds.includes(s.serviceId));
   }
 

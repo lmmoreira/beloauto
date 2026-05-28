@@ -117,10 +117,10 @@ describe('LoyaltyController (integration)', () => {
     });
 
     it('returns 403 when called with STAFF role', async () => {
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .get('/loyalty/balance')
-        .set(actorHeaders(tenantId, STAFF_ID, 'STAFF'))
-        .expect(403);
+        .set(actorHeaders(tenantId, STAFF_ID, 'STAFF'));
+      expect(res.status).toBe(403);
     });
 
     it('tenant isolation: CUSTOMER_ID from Tenant A cannot see Tenant B data', async () => {
@@ -203,10 +203,10 @@ describe('LoyaltyController (integration)', () => {
     });
 
     it('returns 403 when called with MANAGER role', async () => {
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .get('/loyalty/entries')
-        .set(actorHeaders(tenantId, STAFF_ID, 'MANAGER'))
-        .expect(403);
+        .set(actorHeaders(tenantId, STAFF_ID, 'MANAGER'));
+      expect(res.status).toBe(403);
     });
   });
 
@@ -267,10 +267,10 @@ describe('LoyaltyController (integration)', () => {
     });
 
     it('returns 403 when called with CUSTOMER role', async () => {
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .get(`/customers/${CUSTOMER_ID}/loyalty/balance`)
-        .set(actorHeaders(tenantId, CUSTOMER_ID, 'CUSTOMER'))
-        .expect(403);
+        .set(actorHeaders(tenantId, CUSTOMER_ID, 'CUSTOMER'));
+      expect(res.status).toBe(403);
     });
 
     it('tenant isolation: STAFF from Tenant B cannot access Tenant A customer data', async () => {
