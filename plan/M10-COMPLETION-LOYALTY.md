@@ -193,7 +193,7 @@ processed_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 
 ---
 
-### M10-S04 — BookingCompleted event consumer (Loyalty context)
+### M10-S04 — BookingCompleted event consumer (Loyalty context) ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
