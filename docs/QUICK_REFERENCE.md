@@ -171,7 +171,7 @@ LoyaltyEntry {
   bookingId, bookingLineId, serviceId
   points       (positive int — = BookingLine.pointsValueAtBooking, frozen)
   earnedAt
-  expiresAt    (= earnedAt + tenants.settings.loyalty_expiry_days; never null)
+  expiresAt    (= earnedAt + tenants.settings.loyalty.expiry_days; never null)
 }
 ```
 
@@ -217,7 +217,7 @@ AdminDailyScheduleReminder { staffEmail, bookingsToday[] }                      
 
 ### Loyalty Events
 ```
-ServicePointsEarned  { tenantId, customerId, bookingLineId, serviceId, pointsEarned, expiresAt, totalActiveAfter }
+ServicePointsEarned  { tenantId, customerId, bookingLineId, serviceId, pointsEarned, expiresAt }
 PointsExpiringSoon   { tenantId, customerId, serviceId, pointsExpiringSoon, earliestExpiresAt }
 ```
 

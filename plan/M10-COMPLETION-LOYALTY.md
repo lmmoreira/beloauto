@@ -56,7 +56,9 @@ Implement booking completion. The admin sets the `actualPriceCharged` for each l
 
 ---
 
-### M10-S02 — Signed URL endpoint for photo uploads
+### M10-S02 — Signed URL endpoint for photo uploads *(moved to M115-S01)*
+
+> This story was deferred to milestone M115-PRODUCTION-READINESS so the loyalty flow (S03–S06) could be delivered first. The completion endpoint (S01) stores `afterServicePhotoUrls` as plain strings in the interim. Do not implement here.
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** S  
@@ -146,6 +148,7 @@ UNIQUE (tenant_id, booking_line_id)          ← idempotency key
 - [ ] Migration runs and reverts cleanly
 - [ ] `expiry_days` is read from `tenants.settings.loyalty.expiry_days` (default 180) — not hardcoded
 - [ ] Integration test: insert entry → calculate balance → assert correct; wait until expired → assert balance=0
+- [ ] Tenant isolation: `findActiveByCustomer(tenantBId, customerFromTenantA)` returns `[]` and balance=0
 
 **Dependencies:** M00-S08, M00-S07
 
@@ -179,17 +182,17 @@ Implement the Loyalty context's consumer for `BookingCompleted`. For each line i
   "bookingLineId": "uuid",
   "serviceId": "uuid",
   "pointsEarned": 10,
-  "expiresAt": "ISO-8601",
-  "totalActiveAfter": 150
+  "expiresAt": "ISO-8601"
 }
 ```
+
+> `totalActiveAfter` is intentionally omitted. `LoyaltyEntry.record()` emits the event as a domain event at factory time — the post-save balance query needed for a total would require DB access in the domain layer. M10-S05 exposes the balance via a dedicated endpoint instead.
 
 **Acceptance criteria:**
 - [ ] One `LoyaltyEntry` inserted per booking line for authenticated customer bookings
 - [ ] Guest bookings (`customerId=null`) produce zero `LoyaltyEntry` rows
 - [ ] Same `BookingCompleted` event replayed twice → still only 1 entry per line (idempotent)
 - [ ] `ServicePointsEarned` event emitted per line (3 lines = 3 events)
-- [ ] `totalActiveAfter` in the event payload reflects the customer's active balance after insertion
 - [ ] Integration test: complete booking with 2 lines → assert 2 loyalty entries + 2 events published
 
 **Dependencies:** M10-S03, M10-S01
@@ -269,7 +272,7 @@ Implement the Notification consumer for `ServicePointsEarned`. Sends a thank-you
 **Acceptance criteria:**
 - [ ] Customer receives an email after booking completion with points earned
 - [ ] Email subject is in pt-BR and mentions the points earned
-- [ ] `totalActiveAfter` from the event payload is displayed in the email
+- [ ] Email body includes `pointsEarned` per line and the service name
 - [ ] Handler is idempotent on `eventId`
 - [ ] Email appears in MailHog in integration test
 

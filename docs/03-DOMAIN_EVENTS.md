@@ -360,8 +360,7 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     serviceId:        string
     pointsEarned:     number       // positive
     earnedAt:         ISO8601
-    expiresAt:        ISO8601      // earnedAt + tenants.settings.loyalty_expiry_days
-    totalActiveAfter: number       // customer's total active balance after this insert
+    expiresAt:        ISO8601      // earnedAt + tenants.settings.loyalty.expiry_days
   }
   ```
 - **Consumers:**

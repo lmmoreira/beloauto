@@ -447,7 +447,7 @@ LoyaltyEntry {
   serviceId:      ServiceId           (denormalised from BookingLine for fast per-service queries)
   points:         LoyaltyPoints       (positive; = BookingLine.pointsValueAtBooking, frozen)
   earnedAt:       DateTime
-  expiresAt:      DateTime            (= earnedAt + tenants.settings.loyalty_expiry_days; never null)
+  expiresAt:      DateTime            (= earnedAt + tenants.settings.loyalty.expiry_days; never null)
 }
 ```
 
@@ -458,7 +458,7 @@ LoyaltyEntry is immutable — it carries no business methods. All behaviour live
 **Domain Service: `LoyaltyService`**
 - `recordCompletion(booking): LoyaltyEntry[]`
   - Called when `BookingCompleted` is consumed and `booking.customerId` is not null.
-  - For each line in `booking.lines`: inserts one `LoyaltyEntry` with `points = line.pointsValueAtBooking`, `expiresAt = now() + tenants.settings.loyalty_expiry_days`.
+  - For each line in `booking.lines`: inserts one `LoyaltyEntry` with `points = line.pointsValueAtBooking`, `expiresAt = now() + tenants.settings.loyalty.expiry_days`.
   - Inserts are idempotent via `UNIQUE(tenantId, bookingLineId)` — a duplicate event is silently ignored at the DB level.
   - Publishes one `ServicePointsEarned` per inserted row.
 - `balance(customerId, tenantId): { totalActive, byService: Map<ServiceId, int>, completionsByService: Map<ServiceId, int> }`
@@ -657,8 +657,8 @@ CANCELLED       -> (terminal)
 ### **BookingType**
 Enum: `GUEST | CUSTOMER`
 
-### **Expiration window (`loyalty_expiry_days`)**
-Configurable **per tenant** via `tenants.settings.loyalty_expiry_days` (integer, days). Typical values: 180 (6 months) or 365 (1 year). Defaults to 180 if unset.
+### **Expiration window (`loyalty.expiry_days`)**
+Configurable **per tenant** via `tenants.settings.loyalty.expiry_days` (integer, days). Typical values: 180 (6 months) or 365 (1 year). Defaults to 180 if unset.
 
 When a `LoyaltyEntry`'s `expiresAt` passes:
 - The entry stops contributing to active balance (query-time filter — nothing is mutated).

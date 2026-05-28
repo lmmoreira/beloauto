@@ -206,7 +206,7 @@ Notification Context subscribes:
 - ✓ Cannot read another tenant's `loyalty_entries`
 - ✓ Cannot insert across tenants — composite FKs `(tenant_id, customer_id)` and `(tenant_id, service_id)` block it at the DB
 - ✓ Events filtered by `tenantId` on consume
-- ✓ Expiration window is per-tenant via `tenants.settings.loyalty_expiry_days`
+- ✓ Expiration window is per-tenant via `tenants.settings.loyalty.expiry_days`
 
 **Example flow (tenant-scoped, multi-line booking):**
 ```
@@ -214,7 +214,7 @@ TENANT A: customer completes a booking with 3 lines:
   • Basic Wash    (points_value = 1)
   • Wax           (points_value = 3)
   • Interior Vac  (points_value = 1)
-  (tenants.settings.loyalty_expiry_days = 180)
+  (tenants.settings.loyalty.expiry_days = 180)
 
 → BookingCompleted (envelope.tenantId = "tenant_a") published by Booking,
   data.lines = [3 entries]
@@ -228,7 +228,7 @@ TENANT A: customer completes a booking with 3 lines:
 → Loyalty Context publishes 3 ServicePointsEarned events (one per inserted line).
 
 Notification Context may aggregate the 3 events into ONE email:
-  "You earned 5 points across 3 services. Active total: 47 — expires Nov 8."
+  "You earned 5 points across 3 services — expires Nov 8."
 
 ~173 days later, the weekly cron runs Monday morning and notices entry1's
 expires_at falls within the next 7 days:
@@ -298,7 +298,7 @@ BookingReminderDueToday → Email: Customer/guest "Reminder: your appointment is
 
 AdminDailyScheduleReminder → Email: Admin "Today's schedule: [X] appointments, see details below"
 
-ServicePointsEarned → (Notification may batch per booking) Email: Customer "You earned [total] points across [N] services in your last visit. Active total: [Y] points."
+ServicePointsEarned → (Notification may batch per booking) Email: Customer "You earned [total] points across [N] services in your last visit."
 
 PointsExpiringSoon → Email (weekly digest): Customer "Heads up — [X] points on [Service] will expire on [date]. Book again to keep earning."
 ```
