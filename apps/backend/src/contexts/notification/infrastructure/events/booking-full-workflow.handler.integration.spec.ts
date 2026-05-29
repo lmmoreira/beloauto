@@ -268,10 +268,12 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     expect(logTypes).toContain('BOOKING_RESCHEDULED_CUSTOMER');
     expect(logTypes).toContain('BOOKING_RESCHEDULED_ADMIN');
 
-    // Assert each templateKey was dispatched to the right recipient
-    const staffMsg = dispatcher.dispatched.find((m) => m.templateKey === 'staff-invitation');
+    // Assert each templateKey was dispatched to the right recipient.
+    // Filter by adminEmail to guard against StaffInvited events from other parallel test suites.
+    const staffMsg = dispatcher.dispatched.find(
+      (m) => m.templateKey === 'staff-invitation' && m.to === adminEmail,
+    );
     expect(staffMsg).toBeDefined();
-    expect(staffMsg!.to).toBe(adminEmail);
 
     const requestedAdminMsgs = dispatcher.dispatched.filter(
       (m) => m.templateKey === 'booking-requested-admin',
