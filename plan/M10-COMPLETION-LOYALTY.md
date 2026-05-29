@@ -290,7 +290,7 @@ static readonly CONSUMER_NAME = 'RECORD_LOYALTY_ENTRY'; // used as consumerName 
 
 ---
 
-### M10-S05 — UC-016: Customer views loyalty metrics
+### M10-S05 — UC-016: Customer views loyalty metrics ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
