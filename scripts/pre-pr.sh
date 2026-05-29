@@ -3,7 +3,7 @@
 # Mechanical pre-PR checks — all grep and file-existence based.
 # Run from repo root. Exits with issue count (0 = all clear).
 #
-# Covers: pre-pr checks 1,5,6,7,11,12,14,15,16,17,18 and domain-audit DA-2,DA-3,DA-4,DA-5.
+# Covers: pre-pr checks 1,5,6,7,11,12,14,15,16,17,18 and domain-audit DA-2,DA-3,DA-4,DA-5,DA-7.
 # The remaining checks require agent reasoning and are listed at the end.
 
 set -uo pipefail
@@ -162,6 +162,23 @@ while IFS= read -r entity_file; do
 done < <(find apps/backend/src -path "*/infrastructure/entities/*.entity.ts" ! -name "*.spec.ts" 2>/dev/null)
 run_check "DA-4. All TypeORM entities have an XxxEntityBuilder"
 
+# DA-7: Builder fields without a withXxx() setter must be readonly (S2933)
+# For each *.builder.ts in src/test/builders/, find private fields that are NOT
+# prefixed 'readonly' and have no corresponding 'with<FieldName>(' method.
+> "$TMP"
+while IFS= read -r builder_file; do
+  # Extract non-readonly private field names (initialised with =)
+  while IFS= read -r field_name; do
+    [ -z "$field_name" ] && continue
+    # Build the expected withXxx method name (capitalise first letter)
+    setter="with$(echo "${field_name:0:1}" | tr '[:lower:]' '[:upper:]')${field_name:1}("
+    if ! grep -q "$setter" "$builder_file"; then
+      printf "S2933: '%s' in %s has no setter — mark readonly\n" "$field_name" "$builder_file" >> "$TMP"
+    fi
+  done < <(grep -oP '(?<=private )\w+(?= =)' "$builder_file" 2>/dev/null || true)
+done < <(find apps/backend/src/test/builders -name "*.builder.ts" 2>/dev/null)
+run_check "DA-7. Builder fields without setter are readonly (S2933)"
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 printf "\n---\n"
 if [ "$ISSUES" -eq 0 ]; then
@@ -176,6 +193,7 @@ if [ "$ISSUES" -eq 0 ]; then
   printf "   13 static routes declared before dynamic routes\n"
   printf "   DA-1 aggregate props not typed as plain primitives\n"
   printf "   DA-6 no utility functions duplicated outside src/shared/utils/\n"
+  printf "   (DA-7 builder readonly check already automated above)\n"
 else
   printf "❌ Script: %d issue(s) — fix before running agent checks\n" "$ISSUES"
 fi
