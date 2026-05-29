@@ -3,14 +3,14 @@ import { ServicePointsEarned } from '../../../contexts/loyalty/domain/events/ser
 export class ServicePointsEarnedEventBuilder {
   private tenantId = 'aaaaaaaa-0000-4000-8000-000000000001';
   private correlationId = 'corr-points-1';
-  private entryId = 'eeeeeeee-0001-4000-8000-000000000001';
+  private readonly entryId = 'eeeeeeee-0001-4000-8000-000000000001';
   private customerId = 'cccccccc-0001-4000-8000-000000000001';
-  private bookingId = 'bbbbbbbb-0001-4000-8000-000000000001';
-  private bookingLineId = 'bbbbbbbb-0002-4000-8000-000000000001';
+  private readonly bookingId = 'bbbbbbbb-0001-4000-8000-000000000001';
+  private readonly bookingLineId = 'bbbbbbbb-0002-4000-8000-000000000001';
   private serviceId = 'ssssssss-0001-4000-8000-000000000001';
   private pointsEarned = 10;
-  private earnedAt = '2026-06-01T10:00:00.000Z';
-  private expiresAt = '2026-11-28T10:00:00.000Z';
+  private readonly earnedAt = '2026-06-01T10:00:00.000Z';
+  private readonly expiresAt = '2026-11-28T10:00:00.000Z';
   private currentBalance = 10;
 
   withTenantId(tenantId: string): this {
