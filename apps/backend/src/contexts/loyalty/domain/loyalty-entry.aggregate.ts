@@ -1,7 +1,6 @@
 import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
 import { LoyaltyInvalidPointsError } from './errors/loyalty-domain.error';
-import { ServicePointsEarned } from './events/service-points-earned.event';
 
 export interface LoyaltyEntryProps {
   id: string;
@@ -23,7 +22,6 @@ export interface RecordLoyaltyEntryParams {
   serviceId: string;
   points: number;
   expiryDays: number;
-  correlationId: string;
 }
 
 export class LoyaltyEntry extends AggregateRoot {
@@ -63,23 +61,15 @@ export class LoyaltyEntry extends AggregateRoot {
   }
 
   static record(params: RecordLoyaltyEntryParams): LoyaltyEntry {
-    const {
-      tenantId,
-      customerId,
-      bookingId,
-      bookingLineId,
-      serviceId,
-      points,
-      expiryDays,
-      correlationId,
-    } = params;
+    const { tenantId, customerId, bookingId, bookingLineId, serviceId, points, expiryDays } =
+      params;
     if (points <= 0) throw new LoyaltyInvalidPointsError();
 
     const earnedAt = new Date();
     const expiresAt = new Date(earnedAt.getTime() + expiryDays * 24 * 60 * 60 * 1000);
     const id = uuidv7();
 
-    const entry = new LoyaltyEntry({
+    return new LoyaltyEntry({
       id,
       tenantId,
       customerId,
@@ -90,21 +80,6 @@ export class LoyaltyEntry extends AggregateRoot {
       earnedAt,
       expiresAt,
     });
-
-    entry.addDomainEvent(
-      new ServicePointsEarned(tenantId, correlationId, {
-        entryId: id,
-        customerId,
-        bookingId,
-        bookingLineId,
-        serviceId,
-        pointsEarned: points,
-        earnedAt: earnedAt.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-      }),
-    );
-
-    return entry;
   }
 
   static reconstitute(props: LoyaltyEntryProps): LoyaltyEntry {

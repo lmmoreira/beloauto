@@ -4,7 +4,12 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { SendStaffInvitationDtoBuilder } from '../../../../../test/builders/notification/index';
 import { SendStaffInvitationUseCase } from './send-staff-invitation.use-case';
+
+const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
+const STAFF_ID = 'bbbbbbbb-0000-4000-8000-000000000001';
+const EVENT_ID = 'cccccccc-0000-4000-8000-000000000001';
 
 const configService = {
   getOrThrow: (key: string): string => {
@@ -13,16 +18,10 @@ const configService = {
   },
 } as unknown as ConfigService;
 
-const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
-const STAFF_ID = 'bbbbbbbb-0000-4000-8000-000000000001';
-const EVENT_ID = 'cccccccc-0000-4000-8000-000000000001';
-
-const dto = {
-  staffId: STAFF_ID,
-  tenantId: TENANT_ID,
-  eventId: EVENT_ID,
-  correlationId: 'corr-1',
-};
+const dto = new SendStaffInvitationDtoBuilder()
+  .withTenantId(TENANT_ID)
+  .withEventId(EVENT_ID)
+  .build();
 
 describe('SendStaffInvitationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
@@ -83,14 +82,25 @@ describe('SendStaffInvitationUseCase', () => {
   });
 
   it('returns sent=false and does not dispatch when staff is not found', async () => {
-    const result = await useCase.execute({ ...dto, staffId: 'unknown-staff-id' });
+    const result = await useCase.execute(
+      new SendStaffInvitationDtoBuilder()
+        .withTenantId(TENANT_ID)
+        .withEventId(EVENT_ID)
+        .withStaffId('unknown-staff-id')
+        .build(),
+    );
 
     expect(result.sent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(0);
   });
 
   it('returns sent=false and does not dispatch when tenant is not found', async () => {
-    const result = await useCase.execute({ ...dto, tenantId: 'unknown-tenant-id' });
+    const result = await useCase.execute(
+      new SendStaffInvitationDtoBuilder()
+        .withTenantId('unknown-tenant-id')
+        .withEventId(EVENT_ID)
+        .build(),
+    );
 
     expect(result.sent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(0);

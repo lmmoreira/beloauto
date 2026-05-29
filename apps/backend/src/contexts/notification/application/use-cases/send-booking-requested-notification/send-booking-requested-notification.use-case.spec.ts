@@ -3,23 +3,16 @@ import { InMemoryNotificationLogRepository } from '../../../../../test/repositor
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
-import { SendBookingRequestedNotificationDto } from '../../dtos/send-booking-requested-notification.dto';
+import { SendBookingRequestedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
 import { SendBookingRequestedNotificationUseCase } from './send-booking-requested-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 const EVENT_ID = 'cccccccc-0000-4000-8000-000000000001';
 
-const baseDto: SendBookingRequestedNotificationDto = {
-  tenantId: TENANT_ID,
-  eventId: EVENT_ID,
-  correlationId: 'corr-1',
-  guestEmail: 'joao@example.com',
-  guestName: 'João Silva',
-  scheduledAt: '2026-06-15T13:00:00.000Z',
-  totalPrice: { amount: '150.00', currency: 'BRL' },
-  lines: [{ serviceNameAtBooking: 'Lavagem Completa' }, { serviceNameAtBooking: 'Polimento' }],
-  pickupAddress: null,
-};
+const dto = new SendBookingRequestedNotificationDtoBuilder()
+  .withTenantId(TENANT_ID)
+  .withEventId(EVENT_ID)
+  .build();
 
 describe('SendBookingRequestedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
@@ -50,7 +43,7 @@ describe('SendBookingRequestedNotificationUseCase', () => {
   });
 
   it('dispatches admin and customer emails and saves two log rows', async () => {
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.adminEmailSent).toBe(true);
     expect(result.customerEmailSent).toBe(true);
@@ -80,7 +73,7 @@ describe('SendBookingRequestedNotificationUseCase', () => {
   it('sends admin email to each manager when multiple managers exist', async () => {
     staffPort.setManagerEmails(TENANT_ID, ['mgr1@lavacar.com.br', 'mgr2@lavacar.com.br']);
 
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
 
     const adminMsgs = dispatcher.dispatched.filter(
       (m) => m.templateKey === 'booking-requested-admin',
@@ -96,7 +89,7 @@ describe('SendBookingRequestedNotificationUseCase', () => {
   it('skips admin email gracefully when no managers exist', async () => {
     staffPort.setManagerEmails(TENANT_ID, []);
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.adminEmailSent).toBe(false);
     expect(result.customerEmailSent).toBe(true);
@@ -107,9 +100,9 @@ describe('SendBookingRequestedNotificationUseCase', () => {
   });
 
   it('is idempotent: second call with same eventId dispatches no emails and creates no extra logs', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
     dispatcher.clear();
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.adminEmailSent).toBe(false);
     expect(result.customerEmailSent).toBe(false);
@@ -118,12 +111,12 @@ describe('SendBookingRequestedNotificationUseCase', () => {
   });
 
   it('is independently idempotent per notification type', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
     const firstDispatchCount = dispatcher.dispatched.length;
 
     staffPort.setManagerEmails(TENANT_ID, []);
     dispatcher.clear();
-    const secondResult = await useCase.execute(baseDto);
+    const secondResult = await useCase.execute(dto);
 
     expect(secondResult.adminEmailSent).toBe(false);
     expect(secondResult.customerEmailSent).toBe(false);
@@ -132,7 +125,7 @@ describe('SendBookingRequestedNotificationUseCase', () => {
   });
 
   it('tenant isolation: log rows are scoped to the correct tenantId', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
 
     const logs = logRepo.all;
     expect(logs.every((l) => l.tenantId === TENANT_ID)).toBe(true);

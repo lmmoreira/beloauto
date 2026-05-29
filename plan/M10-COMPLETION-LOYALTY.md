@@ -290,7 +290,7 @@ static readonly CONSUMER_NAME = 'RECORD_LOYALTY_ENTRY'; // used as consumerName 
 
 ---
 
-### M10-S05 — UC-016: Customer views loyalty metrics
+### M10-S05 — UC-016: Customer views loyalty metrics ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
@@ -418,19 +418,66 @@ Redemptions: `{ redemptions: [{ redemptionId, pointsRedeemed, redeemedAt, notes 
 **Docs to load:** `docs/03-DOMAIN_EVENTS.md` § ServicePointsEarned
 
 **Description:**  
-Implement the Notification consumer for `ServicePointsEarned`. Sends a thank-you email to the customer after their booking is completed with the points earned.
+Implement the Notification consumer for `ServicePointsEarned`. Sends a thank-you email to the customer after their booking is completed with the points earned. One email per event (one per line — acceptable for MVP).
 
-**`ServicePointsEarnedHandler`:**
-- Sends one email per `ServicePointsEarned` event (one per line — acceptable for MVP)
-- Email subject (pt-BR): `"Lavagem concluída! Você ganhou [X] pontos"`
-- Body: service name + points earned + expiry date + reminder of total balance
+**Preparatory fix (on feature branch, before handler code):**
+Add `currentBalance: number` to `ServicePointsEarnedData` interface (`loyalty/domain/events/service-points-earned.event.ts`) and populate it in `RecordLoyaltyEntriesUseCase` after `balance.increment()` — pass `currentBalance: balance.currentPoints` when constructing each `ServicePointsEarned` event.
+
+---
+
+**New artifacts (all in Notification context):**
+
+**`INotificationCustomerPort`** (`notification/application/ports/notification-customer.port.ts`):
+```ts
+export const NOTIFICATION_CUSTOMER_PORT = Symbol('INotificationCustomerPort');
+export interface NotificationCustomerInfo { email: string; name: string; }
+export interface INotificationCustomerPort {
+  getCustomerInfo(customerId: string, tenantId: string): Promise<NotificationCustomerInfo | null>;
+}
+```
+- Adapter: `notification/infrastructure/cross-context/customer-info.adapter.ts` — injects `CustomerQueryService` (imported from `CustomerModule`); returns null on not-found.
+- Test double: `src/test/infrastructure/in-memory-notification-customer.port.ts`
+
+**`INotificationServicePort`** (`notification/application/ports/notification-service.port.ts`):
+```ts
+export const NOTIFICATION_SERVICE_PORT = Symbol('INotificationServicePort');
+export interface NotificationServiceInfo { serviceId: string; serviceName: string; }
+export interface INotificationServicePort {
+  getServiceInfo(serviceId: string, tenantId: string): Promise<NotificationServiceInfo | null>;
+}
+```
+- Adapter: `notification/infrastructure/cross-context/service-info.adapter.ts` — queries `booking.services` via TypeORM `DataSource` (read-only); falls back to `serviceId` string if not found.
+- Test double: `src/test/infrastructure/in-memory-notification-service.port.ts`
+
+**`ServicePointsEarnedHandler`** (`notification/infrastructure/events/service-points-earned.handler.ts`):
+```
+onModuleInit → eventBus.subscribe('ServicePointsEarned', handler, 'notification')
+handle(event) → sendServicePointsEarnedNotification.execute(dto) → rethrow on error
+```
+
+**`SendServicePointsEarnedNotificationUseCase`** (`notification/application/use-cases/send-service-points-earned-notification/`):
+```
+const NOTIFICATION_TYPE = 'SERVICE_POINTS_EARNED';
+const CHANNEL = 'EMAIL';
+```
+1. `isAlreadySent(tenantId, eventId, NOTIFICATION_TYPE, CHANNEL)` → return early if yes
+2. `customerPort.getCustomerInfo(customerId, tenantId)` → skip silently if null (customer deleted)
+3. `servicePort.getServiceInfo(serviceId, tenantId)` → fall back to `serviceId` string if null
+4. `dispatcher.dispatch({ to: customer.email, subject: 'Lavagem concluída! Você ganhou [X] pontos', templateKey: 'service-points-earned', data: { customerName, serviceName, pointsEarned, expiresAt, currentBalance } })`
+5. `saveLog(tenantId, eventId, NOTIFICATION_TYPE, CHANNEL)`
+
+**Module wiring:** Add `CustomerModule` to `NotificationModule` imports; register both ports and adapters, the use case, and the handler as providers.
+
+---
 
 **Acceptance criteria:**
 - [ ] Customer receives an email after booking completion with points earned
-- [ ] Email subject is in pt-BR and mentions the points earned
-- [ ] Email body includes `pointsEarned` and the service name
-- [ ] Handler is idempotent on `eventId`
-- [ ] Email appears in MailHog in integration test
+- [ ] Email subject is in pt-BR and mentions the points earned (`Lavagem concluída! Você ganhou [X] pontos`)
+- [ ] Email body includes `pointsEarned`, `serviceName`, `expiresAt`, and `currentBalance`
+- [ ] Handler is idempotent on `eventId`: same `ServicePointsEarned` event processed twice → only one `notification_logs` row and one email dispatched
+- [ ] `ServicePointsEarned` with null customer (deleted) → no email, no error (silent skip)
+- [ ] Tenant isolation: `ServicePointsEarned` for Tenant A customer is not dispatched to Tenant B
+- [ ] Integration test: publish `ServicePointsEarned` → `waitFor` notification log → assert `dispatcher.dispatched` contains email to correct customer address with correct template
 
 **Dependencies:** M10-S04, M04-S05
 

@@ -2,31 +2,16 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
-import { SendBookingApprovedNotificationDto } from '../../dtos/send-booking-approved-notification.dto';
+import { SendBookingApprovedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
 import { SendBookingApprovedNotificationUseCase } from './send-booking-approved-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0001-4000-8000-000000000001';
 const EVENT_ID = 'cccccccc-0001-4000-8000-000000000001';
 
-const baseDto: SendBookingApprovedNotificationDto = {
-  tenantId: TENANT_ID,
-  eventId: EVENT_ID,
-  correlationId: 'corr-approved-1',
-  guestEmail: 'joao@example.com',
-  guestName: 'João Silva',
-  approvedSlot: { startTime: '2026-06-15T16:00:00.000Z', endTime: '2026-06-15T17:00:00.000Z' },
-  totalPrice: { amount: '150.00', currency: 'BRL' },
-  lineSummary: [
-    {
-      serviceNameAtBooking: 'Lavagem Completa',
-      priceAtBooking: { amount: '100.00', currency: 'BRL' },
-    },
-    {
-      serviceNameAtBooking: 'Polimento',
-      priceAtBooking: { amount: '50.00', currency: 'BRL' },
-    },
-  ],
-};
+const dto = new SendBookingApprovedNotificationDtoBuilder()
+  .withTenantId(TENANT_ID)
+  .withEventId(EVENT_ID)
+  .build();
 
 describe('SendBookingApprovedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
@@ -53,7 +38,7 @@ describe('SendBookingApprovedNotificationUseCase', () => {
   });
 
   it('dispatches confirmation email to customer with timezone-converted time', async () => {
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.emailSent).toBe(true);
     expect(dispatcher.dispatched).toHaveLength(1);
@@ -82,15 +67,15 @@ describe('SendBookingApprovedNotificationUseCase', () => {
       emptyTenantPort,
       new InMemoryTransactionManager(),
     );
-    const result = await uc.execute(baseDto);
+    const result = await uc.execute(dto);
     expect(result.emailSent).toBe(true);
     expect(dispatcher.dispatched[0].data['localTime']).toBeDefined();
   });
 
   it('is idempotent: second call with same eventId sends no email', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
     dispatcher.clear();
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.emailSent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(0);
@@ -98,7 +83,7 @@ describe('SendBookingApprovedNotificationUseCase', () => {
   });
 
   it('tenant isolation: log is scoped to correct tenantId', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
     expect(logRepo.all.every((l) => l.tenantId === TENANT_ID)).toBe(true);
   });
 });

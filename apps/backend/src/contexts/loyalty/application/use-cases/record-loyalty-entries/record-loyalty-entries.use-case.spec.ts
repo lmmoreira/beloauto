@@ -76,22 +76,31 @@ describe('RecordLoyaltyEntriesUseCase', () => {
     expect(balance?.currentPoints).toBe(15);
   });
 
-  it('emits one ServicePointsEarned event per line', async () => {
+  it('emits ONE ServicePointsEarned event per booking with all lines summarised', async () => {
     await useCase.execute(makeDto());
 
     const events = eventBus.published.filter((e) => e instanceof ServicePointsEarned);
-    expect(events).toHaveLength(2);
-    expect((events[0] as ServicePointsEarned).data.pointsEarned).toBe(10);
-    expect((events[1] as ServicePointsEarned).data.pointsEarned).toBe(5);
+    expect(events).toHaveLength(1);
+
+    const event = events[0] as ServicePointsEarned;
+    expect(event.data.totalPointsEarned).toBe(15);
+    expect(event.data.currentBalance).toBe(15);
+    expect(event.data.lines).toHaveLength(2);
+    expect(event.data.lines[0].pointsEarned).toBe(10);
+    expect(event.data.lines[1].pointsEarned).toBe(5);
+    expect(event.data.bookingId).toBe(BOOKING_ID);
   });
 
-  it('each ServicePointsEarned event carries earnedAt', async () => {
+  it('booking-level event carries earnedAt and per-line expiresAt', async () => {
     await useCase.execute(makeDto());
 
-    const events = eventBus.published.filter((e) => e instanceof ServicePointsEarned);
-    for (const event of events as ServicePointsEarned[]) {
-      expect(event.data.earnedAt).toBeDefined();
-      expect(typeof event.data.earnedAt).toBe('string');
+    const event = eventBus.published.find(
+      (e) => e instanceof ServicePointsEarned,
+    ) as ServicePointsEarned;
+    expect(event.data.earnedAt).toBeDefined();
+    expect(typeof event.data.earnedAt).toBe('string');
+    for (const line of event.data.lines) {
+      expect(line.expiresAt).toBeDefined();
     }
   });
 
@@ -109,6 +118,7 @@ describe('RecordLoyaltyEntriesUseCase', () => {
 
     expect(second.skipped).toBe(true);
     expect(entryRepo.entries).toHaveLength(2);
+    expect(eventBus.published.filter((e) => e instanceof ServicePointsEarned)).toHaveLength(1);
 
     const balance = await balanceRepo.findByCustomer(TENANT_ID, CUSTOMER_ID);
     expect(balance?.currentPoints).toBe(15);

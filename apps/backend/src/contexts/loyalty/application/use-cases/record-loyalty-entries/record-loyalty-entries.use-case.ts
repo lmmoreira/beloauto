@@ -6,6 +6,7 @@ import {
 } from '../../../../../shared/ports/transaction-manager.port';
 import { LoyaltyBalance } from '../../../domain/loyalty-balance.aggregate';
 import { LoyaltyEntry } from '../../../domain/loyalty-entry.aggregate';
+import { ServicePointsEarned } from '../../../domain/events/service-points-earned.event';
 import {
   ILoyaltyBalanceRepository,
   LOYALTY_BALANCE_REPOSITORY,
@@ -75,6 +76,14 @@ export class RecordLoyaltyEntriesUseCase {
 
     const { expiryDays } = await this.tenantSettingsPort.getLoyaltySettings(dto.tenantId);
 
+    const totalPointsEarned = dto.lines.reduce((sum, l) => sum + l.pointsValueAtBooking, 0);
+
+    const balance =
+      (await this.balanceRepo.findByCustomer(dto.tenantId, dto.customerId)) ??
+      LoyaltyBalance.create(dto.tenantId, dto.customerId);
+
+    const finalBalance = balance.currentPoints + totalPointsEarned;
+
     const entries: LoyaltyEntry[] = dto.lines.map((line) =>
       LoyaltyEntry.record({
         tenantId: dto.tenantId,
@@ -84,15 +93,8 @@ export class RecordLoyaltyEntriesUseCase {
         serviceId: line.serviceId,
         points: line.pointsValueAtBooking,
         expiryDays,
-        correlationId: dto.correlationId,
       }),
     );
-
-    const totalPointsEarned = entries.reduce((sum, e) => sum + e.points, 0);
-
-    const balance =
-      (await this.balanceRepo.findByCustomer(dto.tenantId, dto.customerId)) ??
-      LoyaltyBalance.create(dto.tenantId, dto.customerId);
 
     balance.increment(totalPointsEarned);
 
@@ -107,12 +109,21 @@ export class RecordLoyaltyEntriesUseCase {
       );
     });
 
-    for (const entry of entries) {
-      const events = entry.clearDomainEvents();
-      for (const event of events) {
-        await this.eventBus.publish(event);
-      }
-    }
+    await this.eventBus.publish(
+      new ServicePointsEarned(dto.tenantId, dto.correlationId, {
+        customerId: dto.customerId,
+        bookingId: dto.bookingId,
+        totalPointsEarned,
+        earnedAt: entries[0].earnedAt.toISOString(),
+        lines: entries.map((e) => ({
+          entryId: e.id,
+          serviceId: e.serviceId,
+          pointsEarned: e.points,
+          expiresAt: e.expiresAt.toISOString(),
+        })),
+        currentBalance: finalBalance,
+      }),
+    );
 
     return { skipped: false, entriesCreated: entries.length, totalPointsEarned };
   }

@@ -1,6 +1,5 @@
 import { LoyaltyEntryBuilder } from '../../../test/builders/loyalty/index';
 import { LoyaltyDomainError, LoyaltyInvalidPointsError } from './errors/loyalty-domain.error';
-import { ServicePointsEarned } from './events/service-points-earned.event';
 import { LoyaltyEntry, RecordLoyaltyEntryParams } from './loyalty-entry.aggregate';
 
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
@@ -8,7 +7,6 @@ const CUSTOMER_ID = '00000000-0000-7000-8000-000000000002';
 const BOOKING_ID = '00000000-0000-7000-8000-000000000003';
 const BOOKING_LINE_ID = '00000000-0000-7000-8000-000000000004';
 const SERVICE_ID = '00000000-0000-7000-8000-000000000005';
-const CORRELATION_ID = '00000000-0000-7000-8000-000000000006';
 const EXPIRY_DAYS = 180;
 
 function baseParams(overrides: Partial<RecordLoyaltyEntryParams> = {}): RecordLoyaltyEntryParams {
@@ -20,7 +18,6 @@ function baseParams(overrides: Partial<RecordLoyaltyEntryParams> = {}): RecordLo
     serviceId: SERVICE_ID,
     points: 10,
     expiryDays: EXPIRY_DAYS,
-    correlationId: CORRELATION_ID,
     ...overrides,
   };
 }
@@ -50,22 +47,9 @@ describe('LoyaltyEntry', () => {
       expect(diffDays).toBe(180);
     });
 
-    it('emits one ServicePointsEarned domain event', () => {
-      const entry = LoyaltyEntry.record(baseParams({ points: 7 }));
-      const events = entry.clearDomainEvents();
-      expect(events).toHaveLength(1);
-      expect(events[0]).toBeInstanceOf(ServicePointsEarned);
-    });
-
-    it('domain event carries correct payload', () => {
-      const entry = LoyaltyEntry.record(baseParams({ points: 7 }));
-      const event = entry.clearDomainEvents()[0] as ServicePointsEarned;
-      expect(event.tenantId).toBe(TENANT_ID);
-      expect(event.correlationId).toBe(CORRELATION_ID);
-      expect(event.data.entryId).toBe(entry.id);
-      expect(event.data.customerId).toBe(CUSTOMER_ID);
-      expect(event.data.pointsEarned).toBe(7);
-      expect(event.data.earnedAt).toBe(entry.earnedAt.toISOString());
+    it('emits no domain events (event is published by the use case after all entries are saved)', () => {
+      const entry = LoyaltyEntry.record(baseParams());
+      expect(entry.clearDomainEvents()).toHaveLength(0);
     });
 
     it('throws LoyaltyInvalidPointsError when points = 0', () => {

@@ -2,28 +2,12 @@ import { ConfigService } from '@nestjs/config';
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
-import { SendBookingInfoRequestedNotificationDto } from '../../dtos/send-booking-info-requested-notification.dto';
+import { SendBookingInfoRequestedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
 import { SendBookingInfoRequestedNotificationUseCase } from './send-booking-info-requested-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0003-4000-8000-000000000001';
 const EVENT_ID = 'cccccccc-0003-4000-8000-000000000001';
 const BOOKING_ID = 'bbbbbbbb-0003-4000-8000-000000000001';
-
-const guestDto: SendBookingInfoRequestedNotificationDto = {
-  tenantId: TENANT_ID,
-  eventId: EVENT_ID,
-  correlationId: 'corr-info-req-1',
-  bookingId: BOOKING_ID,
-  customerId: null,
-  guestEmail: 'joao@example.com',
-  guestName: 'João Silva',
-  informationNeeded: 'Por favor envie fotos melhores do veículo',
-};
-
-const customerDto: SendBookingInfoRequestedNotificationDto = {
-  ...guestDto,
-  customerId: 'dddddddd-0003-4000-8000-000000000001',
-};
 
 const configService = {
   getOrThrow: (key: string): string => {
@@ -35,6 +19,19 @@ const configService = {
     return values[key];
   },
 } as unknown as ConfigService;
+
+const guestDto = new SendBookingInfoRequestedNotificationDtoBuilder()
+  .withTenantId(TENANT_ID)
+  .withEventId(EVENT_ID)
+  .withBookingId(BOOKING_ID)
+  .build(); // customerId: null by default
+
+const customerDto = new SendBookingInfoRequestedNotificationDtoBuilder()
+  .withTenantId(TENANT_ID)
+  .withEventId('cccccccc-0003-4000-8000-000000000002')
+  .withBookingId(BOOKING_ID)
+  .withCustomerId('dddddddd-0003-4000-8000-000000000001')
+  .build();
 
 describe('SendBookingInfoRequestedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
