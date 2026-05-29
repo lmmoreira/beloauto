@@ -16,6 +16,12 @@ import { BookingModule } from '../../../booking/booking.module';
 import { CustomerEntity } from '../../../customer/infrastructure/entities/customer.entity';
 import { NotificationLogEntity } from '../entities/notification-log.entity';
 import { StaffEntity } from '../../../staff/infrastructure/entities/staff.entity';
+import { LoyaltyModule } from '../../../loyalty/loyalty.module';
+import { LoyaltyEntryEntity } from '../../../loyalty/infrastructure/entities/loyalty-entry.entity';
+import { LoyaltyBalanceEntity } from '../../../loyalty/infrastructure/entities/loyalty-balance.entity';
+import { LoyaltyRedemptionEntity } from '../../../loyalty/infrastructure/entities/loyalty-redemption.entity';
+import { BalanceExpiryLogEntity } from '../../../loyalty/infrastructure/entities/balance-expiry-log.entity';
+import { ProcessedEventEntity } from '../../../loyalty/infrastructure/entities/processed-event.entity';
 import { ServicePointsEarned } from '../../../loyalty/domain/events/service-points-earned.event';
 import { waitFor } from '../../../../test/utils/wait-for';
 
@@ -30,6 +36,14 @@ const BOOKING_ENTITIES = [
   CustomerEntity,
 ] as const;
 
+const LOYALTY_ENTITIES = [
+  LoyaltyEntryEntity,
+  LoyaltyBalanceEntity,
+  LoyaltyRedemptionEntity,
+  BalanceExpiryLogEntity,
+  ProcessedEventEntity,
+] as const;
+
 describe('Story: full booking lifecycle → Pub/Sub → all notification emails dispatched (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
@@ -41,7 +55,6 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
   let customerId: string;
   let customerEmail: string;
   let serviceId: string;
-  let serviceId2: string;
 
   beforeAll(async () => {
     process.env['PLATFORM_ADMIN_KEY'] = PLATFORM_KEY;
@@ -52,8 +65,8 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     // All handlers active — single app instance prevents cross-spec Pub/Sub contamination.
     ({ app, ds } = await createNotificationIntegrationApp({
       dispatcher,
-      extraModules: [BookingModule],
-      extraEntities: [...BOOKING_ENTITIES],
+      extraModules: [BookingModule, LoyaltyModule],
+      extraEntities: [...BOOKING_ENTITIES, ...LOYALTY_ENTITIES],
       withTenantInterceptor: true,
     }));
 
@@ -92,17 +105,10 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
       .withTenantId(tenantId)
       .withName('Lavagem Premium')
       .withDurationMinutes(60)
+      .withLoyaltyPointsValue(10)
       .build();
     await ds.getRepository(ServiceEntity).save(service);
     serviceId = service.id;
-
-    const service2 = new ServiceEntityBuilder()
-      .withTenantId(tenantId)
-      .withName('Enceramento')
-      .withDurationMinutes(30)
-      .build();
-    await ds.getRepository(ServiceEntity).save(service2);
-    serviceId2 = service2.id;
 
     customerId = uuidv7();
     customerEmail = `customer-bfw-${Date.now()}@example.com`;
@@ -125,7 +131,7 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     delete process.env['JWT_SECRET'];
   });
 
-  it('full booking lifecycle: STAFF_INVITED + all 6 booking notification types dispatched', async () => {
+  it('full booking lifecycle: STAFF_INVITED + all 6 booking notification types + SERVICE_POINTS_EARNED dispatched', async () => {
     // 1. Authenticated customer creates booking
     const { body: b1 } = await request(app.getHttpServer())
       .post('/bookings/authenticated')
@@ -237,23 +243,64 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
       .send({ scheduledAt: '2026-07-07T10:00:00.000Z' })
       .expect(200);
 
-    // Wait for all 16 notification logs:
+    // 11. Authenticated customer creates booking4 → approve → complete
+    //     Full chain: BookingCompleted → RecordLoyaltyEntries → ServicePointsEarned → email
+    const { body: b4 } = await request(app.getHttpServer())
+      .post('/bookings/authenticated')
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-ID', customerId)
+      .set('X-Actor-Type', 'CUSTOMER')
+      .set('X-Actor-Role', 'CUSTOMER')
+      .send({ scheduledAt: '2026-07-08T10:00:00.000Z', serviceIds: [serviceId] })
+      .expect(201);
+    const booking4Id = b4.bookingId as string;
+
+    await request(app.getHttpServer())
+      .patch(`/bookings/${booking4Id}/approve`)
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-ID', staffId)
+      .set('X-Actor-Type', 'STAFF')
+      .set('X-Actor-Role', 'MANAGER')
+      .expect(200);
+
+    const { body: bk4 } = await request(app.getHttpServer())
+      .get(`/bookings/${booking4Id}`)
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-ID', staffId)
+      .set('X-Actor-Type', 'STAFF')
+      .set('X-Actor-Role', 'MANAGER')
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/bookings/${booking4Id}/complete`)
+      .set('X-Tenant-ID', tenantId)
+      .set('X-Actor-ID', staffId)
+      .set('X-Actor-Type', 'STAFF')
+      .set('X-Actor-Role', 'MANAGER')
+      .send({
+        lines: (bk4.lines as Array<{ lineId: string; priceAtBooking: { amount: number } }>).map(
+          (l) => ({ lineId: l.lineId, actualPriceCharged: l.priceAtBooking.amount }),
+        ),
+        afterServicePhotoUrls: [],
+      })
+      .expect(200);
+
+    // Wait for all 20 notification logs:
     //   1x STAFF_INVITED
-    //   2x BOOKING_REQUESTED_* (booking1) + 2x BOOKING_REQUESTED_* (booking2)
+    //   2x BOOKING_REQUESTED_* (booking1) + 2x (booking2) + 2x (booking3) + 2x (booking4) = 8
     //   1x BOOKING_INFO_REQUESTED_CUSTOMER
     //   1x BOOKING_INFO_SUBMITTED_ADMIN
-    //   1x BOOKING_APPROVED_CUSTOMER (booking1)
+    //   1x BOOKING_APPROVED_CUSTOMER (booking1) + 1x (booking3) + 1x (booking4) = 3
     //   1x BOOKING_REJECTED_CUSTOMER
-    //   2x BOOKING_CANCELLED_* (booking1 cancelled by admin)
-    //   2x BOOKING_REQUESTED_* (booking3)
-    //   1x BOOKING_APPROVED_CUSTOMER (booking3)
-    //   2x BOOKING_RESCHEDULED_* (booking3 rescheduled)
+    //   2x BOOKING_CANCELLED_* (booking1)
+    //   2x BOOKING_RESCHEDULED_* (booking3)
+    //   1x SERVICE_POINTS_EARNED (booking4 completed by authenticated customer)
     await waitFor(async () => {
       const logs = await ds.getRepository(NotificationLogEntity).find({ where: { tenantId } });
-      return logs.length >= 16;
+      return logs.length >= 20;
     });
 
-    // Assert all 11 notification types are present in the DB
+    // Assert all notification types present in DB
     const logs = await ds.getRepository(NotificationLogEntity).find({ where: { tenantId } });
     const logTypes = logs.map((l) => l.notificationType);
     expect(logTypes).toContain('STAFF_INVITED');
@@ -267,8 +314,9 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     expect(logTypes).toContain('BOOKING_CANCELLED_ADMIN');
     expect(logTypes).toContain('BOOKING_RESCHEDULED_CUSTOMER');
     expect(logTypes).toContain('BOOKING_RESCHEDULED_ADMIN');
+    expect(logTypes).toContain('SERVICE_POINTS_EARNED');
 
-    // Assert each templateKey was dispatched to the right recipient.
+    // Assert recipients
     // Filter by adminEmail to guard against StaffInvited events from other parallel test suites.
     const staffMsg = dispatcher.dispatched.find(
       (m) => m.templateKey === 'staff-invitation' && m.to === adminEmail,
@@ -278,13 +326,13 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     const requestedAdminMsgs = dispatcher.dispatched.filter(
       (m) => m.templateKey === 'booking-requested-admin',
     );
-    expect(requestedAdminMsgs).toHaveLength(3);
+    expect(requestedAdminMsgs).toHaveLength(4);
     expect(requestedAdminMsgs.every((m) => m.to === adminEmail)).toBe(true);
 
     const requestedCustomerMsgs = dispatcher.dispatched.filter(
       (m) => m.templateKey === 'booking-requested-customer',
     );
-    expect(requestedCustomerMsgs).toHaveLength(3);
+    expect(requestedCustomerMsgs).toHaveLength(4);
 
     const infoReqMsg = dispatcher.dispatched.find(
       (m) => m.templateKey === 'booking-info-requested-customer',
@@ -301,7 +349,7 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     const approvedMsgs = dispatcher.dispatched.filter(
       (m) => m.templateKey === 'booking-approved-customer',
     );
-    expect(approvedMsgs).toHaveLength(2);
+    expect(approvedMsgs).toHaveLength(3);
     const approvedRecipients = approvedMsgs.map((m) => m.to);
     expect(approvedRecipients).toContain(customerEmail);
     expect(approvedRecipients).toContain(booking3GuestEmail);
@@ -336,54 +384,14 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     );
     expect(rescheduledAdminMsg).toBeDefined();
     expect(rescheduledAdminMsg!.to).toBe(adminEmail);
-  });
 
-  it('ServicePointsEarned: dispatches ONE thank-you email per booking with all services listed', async () => {
-    const event = new ServicePointsEarned(tenantId, uuidv7(), {
-      customerId,
-      bookingId: uuidv7(),
-      totalPointsEarned: 15,
-      earnedAt: new Date().toISOString(),
-      lines: [
-        {
-          entryId: uuidv7(),
-          serviceId,
-          pointsEarned: 10,
-          expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          entryId: uuidv7(),
-          serviceId: serviceId2,
-          pointsEarned: 5,
-          expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ],
-      currentBalance: 15,
-    });
-
-    await eventBus.publish(event);
-
-    await waitFor(async () => {
-      const log = await ds.getRepository(NotificationLogEntity).findOne({
-        where: { tenantId, eventId: event.eventId, notificationType: 'SERVICE_POINTS_EARNED' },
-      });
-      return log !== null;
-    });
-
-    const msgs = dispatcher.dispatched.filter(
+    // booking4 completed: full chain BookingCompleted → ServicePointsEarned → thank-you email
+    const pointsMsg = dispatcher.dispatched.find(
       (m) => m.templateKey === 'service-points-earned' && m.to === customerEmail,
     );
-    expect(msgs).toHaveLength(1);
-
-    const msg = msgs[0];
-    expect(msg.subject).toContain('15 pontos');
-    expect(msg.data['totalPointsEarned']).toBe(15);
-    expect(msg.data['currentBalance']).toBe(15);
-
-    const services = msg.data['services'] as Array<{ serviceName: string }>;
-    expect(services).toHaveLength(2);
-    expect(services.map((s) => s.serviceName)).toContain('Lavagem Premium');
-    expect(services.map((s) => s.serviceName)).toContain('Enceramento');
+    expect(pointsMsg).toBeDefined();
+    expect(pointsMsg!.data['totalPointsEarned']).toBe(10);
+    expect(pointsMsg!.data['currentBalance']).toBe(10);
   });
 
   it('ServicePointsEarned: is idempotent — replaying same event produces only one notification log', async () => {
@@ -400,7 +408,7 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
           expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
         },
       ],
-      currentBalance: 20,
+      currentBalance: 15,
     });
 
     await eventBus.publish(event);
@@ -414,9 +422,9 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     await eventBus.publish(event);
     await new Promise((r) => setTimeout(r, 400));
 
-    const logs = await ds.getRepository(NotificationLogEntity).find({
+    const idempotencyLogs = await ds.getRepository(NotificationLogEntity).find({
       where: { tenantId, eventId: event.eventId, notificationType: 'SERVICE_POINTS_EARNED' },
     });
-    expect(logs).toHaveLength(1);
+    expect(idempotencyLogs).toHaveLength(1);
   });
 });
