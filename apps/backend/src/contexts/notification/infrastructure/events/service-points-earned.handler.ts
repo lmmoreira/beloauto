@@ -26,7 +26,8 @@ export class ServicePointsEarnedHandler implements OnModuleInit {
       tenantId: event.tenantId,
       correlationId: event.correlationId,
       customerId: event.data.customerId,
-      pointsEarned: event.data.pointsEarned,
+      totalPointsEarned: event.data.totalPointsEarned,
+      lineCount: event.data.lines.length,
     });
     try {
       await this.sendServicePointsEarnedNotification.execute({
@@ -34,10 +35,10 @@ export class ServicePointsEarnedHandler implements OnModuleInit {
         eventId: event.eventId,
         correlationId: event.correlationId,
         customerId: event.data.customerId,
-        serviceId: event.data.serviceId,
-        pointsEarned: event.data.pointsEarned,
+        bookingId: event.data.bookingId,
+        totalPointsEarned: event.data.totalPointsEarned,
         earnedAt: event.data.earnedAt,
-        expiresAt: event.data.expiresAt,
+        lines: event.data.lines,
         currentBalance: event.data.currentBalance,
       });
     } catch (err) {

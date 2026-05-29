@@ -6,11 +6,13 @@ import {
 export class InMemoryNotificationServicePort implements INotificationServicePort {
   private readonly store = new Map<string, NotificationServiceInfo>();
 
-  async getServiceInfo(
-    serviceId: string,
+  async findServicesByIds(
     tenantId: string,
-  ): Promise<NotificationServiceInfo | null> {
-    return this.store.get(`${tenantId}:${serviceId}`) ?? null;
+    serviceIds: string[],
+  ): Promise<NotificationServiceInfo[]> {
+    return serviceIds
+      .map((id) => this.store.get(`${tenantId}:${id}`))
+      .filter((info): info is NotificationServiceInfo => info !== undefined);
   }
 
   setService(tenantId: string, info: NotificationServiceInfo): void {

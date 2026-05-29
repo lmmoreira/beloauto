@@ -8,7 +8,8 @@ import { SendServicePointsEarnedNotificationUseCase } from './send-service-point
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 const CUSTOMER_ID = 'cccccccc-0000-4000-8000-000000000001';
-const SERVICE_ID = 'ssssssss-0000-4000-8000-000000000001';
+const SERVICE_ID_1 = 'ssssssss-0000-4000-8000-000000000001';
+const SERVICE_ID_2 = 'ssssssss-0000-4000-8000-000000000002';
 const EVENT_ID = 'eeeeeeee-0000-4000-8000-000000000001';
 const CORRELATION_ID = 'corr-0000-4000-8000-000000000001';
 
@@ -20,11 +21,24 @@ function makeDto(
     eventId: EVENT_ID,
     correlationId: CORRELATION_ID,
     customerId: CUSTOMER_ID,
-    serviceId: SERVICE_ID,
-    pointsEarned: 10,
+    bookingId: 'bbbbbbbb-0000-4000-8000-000000000001',
+    totalPointsEarned: 15,
     earnedAt: '2026-06-01T10:00:00.000Z',
-    expiresAt: '2026-11-28T10:00:00.000Z',
-    currentBalance: 10,
+    lines: [
+      {
+        entryId: 'e1',
+        serviceId: SERVICE_ID_1,
+        pointsEarned: 10,
+        expiresAt: '2026-11-28T10:00:00.000Z',
+      },
+      {
+        entryId: 'e2',
+        serviceId: SERVICE_ID_2,
+        pointsEarned: 5,
+        expiresAt: '2026-11-28T10:00:00.000Z',
+      },
+    ],
+    currentBalance: 15,
     ...overrides,
   };
 }
@@ -46,10 +60,8 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
       email: 'maria@example.com',
       name: 'Maria Silva',
     });
-    servicePort.setService(TENANT_ID, {
-      serviceId: SERVICE_ID,
-      serviceName: 'Lavagem Premium',
-    });
+    servicePort.setService(TENANT_ID, { serviceId: SERVICE_ID_1, serviceName: 'Lavagem Premium' });
+    servicePort.setService(TENANT_ID, { serviceId: SERVICE_ID_2, serviceName: 'Enceramento' });
 
     useCase = new SendServicePointsEarnedNotificationUseCase(
       logRepo,
@@ -62,19 +74,26 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
 
   afterEach(() => jest.resetAllMocks());
 
-  it('dispatches email to customer with correct subject and template data', async () => {
+  it('dispatches ONE email per booking with total points and all services', async () => {
     const result = await useCase.execute(makeDto());
 
     expect(result.emailSent).toBe(true);
     expect(dispatcher.dispatched).toHaveLength(1);
+
     const msg = dispatcher.dispatched[0];
     expect(msg.to).toBe('maria@example.com');
-    expect(msg.subject).toContain('10 pontos');
+    expect(msg.subject).toContain('15 pontos');
     expect(msg.templateKey).toBe('service-points-earned');
     expect(msg.data['customerName']).toBe('Maria Silva');
-    expect(msg.data['serviceName']).toBe('Lavagem Premium');
-    expect(msg.data['pointsEarned']).toBe(10);
-    expect(msg.data['currentBalance']).toBe(10);
+    expect(msg.data['totalPointsEarned']).toBe(15);
+    expect(msg.data['currentBalance']).toBe(15);
+
+    const services = msg.data['services'] as Array<{ serviceName: string; pointsEarned: number }>;
+    expect(services).toHaveLength(2);
+    expect(services[0].serviceName).toBe('Lavagem Premium');
+    expect(services[0].pointsEarned).toBe(10);
+    expect(services[1].serviceName).toBe('Enceramento');
+    expect(services[1].pointsEarned).toBe(5);
   });
 
   it('saves a notification log entry', async () => {
@@ -106,9 +125,21 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
 
   it('falls back to serviceId string when service is not found', async () => {
     const unknownServiceId = 'unknown-service-id';
-    await useCase.execute(makeDto({ serviceId: unknownServiceId }));
+    await useCase.execute(
+      makeDto({
+        lines: [
+          {
+            entryId: 'e1',
+            serviceId: unknownServiceId,
+            pointsEarned: 10,
+            expiresAt: '2026-11-28T10:00:00.000Z',
+          },
+        ],
+        totalPointsEarned: 10,
+      }),
+    );
 
-    const msg = dispatcher.dispatched[0];
-    expect(msg.data['serviceName']).toBe(unknownServiceId);
+    const services = dispatcher.dispatched[0].data['services'] as Array<{ serviceName: string }>;
+    expect(services[0].serviceName).toBe(unknownServiceId);
   });
 });

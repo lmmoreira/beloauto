@@ -6,5 +6,5 @@ export interface NotificationServiceInfo {
 }
 
 export interface INotificationServicePort {
-  getServiceInfo(serviceId: string, tenantId: string): Promise<NotificationServiceInfo | null>;
+  findServicesByIds(tenantId: string, serviceIds: string[]): Promise<NotificationServiceInfo[]>;
 }

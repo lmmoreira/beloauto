@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { In, DataSource } from 'typeorm';
 import { ServiceEntity } from '../../../booking/infrastructure/entities/service.entity';
 import {
   INotificationServicePort,
@@ -11,15 +11,16 @@ import {
 export class ServiceInfoAdapter implements INotificationServicePort {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  async getServiceInfo(
-    serviceId: string,
+  async findServicesByIds(
     tenantId: string,
-  ): Promise<NotificationServiceInfo | null> {
-    const row = await this.dataSource
-      .getRepository(ServiceEntity)
-      .findOne({ where: { id: serviceId, tenantId }, select: ['id', 'name'] });
+    serviceIds: string[],
+  ): Promise<NotificationServiceInfo[]> {
+    if (serviceIds.length === 0) return [];
 
-    if (!row) return null;
-    return { serviceId: row.id, serviceName: row.name };
+    const rows = await this.dataSource
+      .getRepository(ServiceEntity)
+      .find({ where: { tenantId, id: In(serviceIds) }, select: ['id', 'name'] });
+
+    return rows.map((r) => ({ serviceId: r.id, serviceName: r.name }));
   }
 }

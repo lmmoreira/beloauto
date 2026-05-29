@@ -1,17 +1,24 @@
-import { ServicePointsEarned } from '../../../contexts/loyalty/domain/events/service-points-earned.event';
+import {
+  ServicePointsEarned,
+  ServicePointsEarnedLine,
+} from '../../../contexts/loyalty/domain/events/service-points-earned.event';
 
 export class ServicePointsEarnedEventBuilder {
   private tenantId = 'aaaaaaaa-0000-4000-8000-000000000001';
   private correlationId = 'corr-points-1';
-  private readonly entryId = 'eeeeeeee-0001-4000-8000-000000000001';
   private customerId = 'cccccccc-0001-4000-8000-000000000001';
   private readonly bookingId = 'bbbbbbbb-0001-4000-8000-000000000001';
-  private readonly bookingLineId = 'bbbbbbbb-0002-4000-8000-000000000001';
-  private serviceId = 'ssssssss-0001-4000-8000-000000000001';
-  private pointsEarned = 10;
+  private totalPointsEarned = 10;
   private readonly earnedAt = '2026-06-01T10:00:00.000Z';
-  private readonly expiresAt = '2026-11-28T10:00:00.000Z';
   private currentBalance = 10;
+  private lines: ServicePointsEarnedLine[] = [
+    {
+      entryId: 'eeeeeeee-0001-4000-8000-000000000001',
+      serviceId: 'ssssssss-0001-4000-8000-000000000001',
+      pointsEarned: 10,
+      expiresAt: '2026-11-28T10:00:00.000Z',
+    },
+  ];
 
   withTenantId(tenantId: string): this {
     this.tenantId = tenantId;
@@ -28,13 +35,8 @@ export class ServicePointsEarnedEventBuilder {
     return this;
   }
 
-  withServiceId(serviceId: string): this {
-    this.serviceId = serviceId;
-    return this;
-  }
-
-  withPointsEarned(points: number): this {
-    this.pointsEarned = points;
+  withTotalPointsEarned(points: number): this {
+    this.totalPointsEarned = points;
     return this;
   }
 
@@ -43,16 +45,18 @@ export class ServicePointsEarnedEventBuilder {
     return this;
   }
 
+  withLines(lines: ServicePointsEarnedLine[]): this {
+    this.lines = lines;
+    return this;
+  }
+
   build(): ServicePointsEarned {
     return new ServicePointsEarned(this.tenantId, this.correlationId, {
-      entryId: this.entryId,
       customerId: this.customerId,
       bookingId: this.bookingId,
-      bookingLineId: this.bookingLineId,
-      serviceId: this.serviceId,
-      pointsEarned: this.pointsEarned,
+      totalPointsEarned: this.totalPointsEarned,
       earnedAt: this.earnedAt,
-      expiresAt: this.expiresAt,
+      lines: this.lines,
       currentBalance: this.currentBalance,
     });
   }

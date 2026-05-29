@@ -51,19 +51,25 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
     const customer = await this.customerPort.getCustomerInfo(dto.customerId, dto.tenantId);
     if (!customer) return { emailSent: false };
 
-    const serviceInfo = await this.servicePort.getServiceInfo(dto.serviceId, dto.tenantId);
-    const serviceName = serviceInfo?.serviceName ?? dto.serviceId;
+    const serviceIds = dto.lines.map((l) => l.serviceId);
+    const serviceInfos = await this.servicePort.findServicesByIds(dto.tenantId, serviceIds);
+    const nameById = new Map(serviceInfos.map((s) => [s.serviceId, s.serviceName]));
+
+    const services = dto.lines.map((l) => ({
+      serviceName: nameById.get(l.serviceId) ?? l.serviceId,
+      pointsEarned: l.pointsEarned,
+      expiresAt: l.expiresAt,
+    }));
 
     await this.dispatcher.dispatch({
       tenantId: dto.tenantId,
       to: customer.email,
-      subject: `Lavagem concluída! Você ganhou ${dto.pointsEarned} pontos`,
+      subject: `Lavagem concluída! Você ganhou ${dto.totalPointsEarned} pontos`,
       templateKey: 'service-points-earned',
       data: {
         customerName: customer.name,
-        serviceName,
-        pointsEarned: dto.pointsEarned,
-        expiresAt: dto.expiresAt,
+        totalPointsEarned: dto.totalPointsEarned,
+        services,
         currentBalance: dto.currentBalance,
       },
     });

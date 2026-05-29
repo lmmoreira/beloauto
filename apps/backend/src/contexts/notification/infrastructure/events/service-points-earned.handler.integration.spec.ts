@@ -22,7 +22,8 @@ describe('ServicePointsEarnedHandler (integration)', () => {
   let eventBus: IEventBus;
   let tenantId: string;
   let customerId: string;
-  let serviceId: string;
+  let serviceId1: string;
+  let serviceId2: string;
   let customerEmail: string;
 
   beforeAll(async () => {
@@ -53,7 +54,8 @@ describe('ServicePointsEarnedHandler (integration)', () => {
 
     customerId = uuidv7();
     customerEmail = `spe-customer-${Date.now()}@example.com`;
-    serviceId = uuidv7();
+    serviceId1 = uuidv7();
+    serviceId2 = uuidv7();
 
     await ds
       .getRepository(CustomerEntity)
@@ -68,13 +70,18 @@ describe('ServicePointsEarnedHandler (integration)', () => {
 
     await ds
       .getRepository(ServiceEntity)
-      .save(
+      .save([
         new ServiceEntityBuilder()
-          .withId(serviceId)
+          .withId(serviceId1)
           .withTenantId(tenantId)
           .withName('Lavagem Premium')
           .build(),
-      );
+        new ServiceEntityBuilder()
+          .withId(serviceId2)
+          .withTenantId(tenantId)
+          .withName('Enceramento')
+          .build(),
+      ]);
   });
 
   afterAll(async () => {
@@ -83,17 +90,27 @@ describe('ServicePointsEarnedHandler (integration)', () => {
     delete process.env['PUBSUB_SUBSCRIPTION_SUFFIX'];
   });
 
-  it('dispatches thank-you email to customer after ServicePointsEarned', async () => {
+  it('dispatches ONE thank-you email per booking with all services listed', async () => {
     const event = new ServicePointsEarned(tenantId, uuidv7(), {
-      entryId: uuidv7(),
       customerId,
       bookingId: uuidv7(),
-      bookingLineId: uuidv7(),
-      serviceId,
-      pointsEarned: 10,
+      totalPointsEarned: 15,
       earnedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-      currentBalance: 10,
+      lines: [
+        {
+          entryId: uuidv7(),
+          serviceId: serviceId1,
+          pointsEarned: 10,
+          expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          entryId: uuidv7(),
+          serviceId: serviceId2,
+          pointsEarned: 5,
+          expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ],
+      currentBalance: 15,
     });
 
     await eventBus.publish(event);
@@ -105,26 +122,37 @@ describe('ServicePointsEarnedHandler (integration)', () => {
       return log !== null;
     });
 
-    const msg = dispatcher.dispatched.find(
+    const msgs = dispatcher.dispatched.filter(
       (m) => m.templateKey === 'service-points-earned' && m.to === customerEmail,
     );
-    expect(msg).toBeDefined();
-    expect(msg!.subject).toContain('10 pontos');
-    expect(msg!.data['serviceName']).toBe('Lavagem Premium');
-    expect(msg!.data['currentBalance']).toBe(10);
+    expect(msgs).toHaveLength(1);
+
+    const msg = msgs[0];
+    expect(msg.subject).toContain('15 pontos');
+    expect(msg.data['totalPointsEarned']).toBe(15);
+    expect(msg.data['currentBalance']).toBe(15);
+
+    const services = msg.data['services'] as Array<{ serviceName: string }>;
+    expect(services).toHaveLength(2);
+    expect(services.map((s) => s.serviceName)).toContain('Lavagem Premium');
+    expect(services.map((s) => s.serviceName)).toContain('Enceramento');
   });
 
   it('is idempotent — replaying same event produces only one notification log', async () => {
     const event = new ServicePointsEarned(tenantId, uuidv7(), {
-      entryId: uuidv7(),
       customerId,
       bookingId: uuidv7(),
-      bookingLineId: uuidv7(),
-      serviceId,
-      pointsEarned: 5,
+      totalPointsEarned: 5,
       earnedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-      currentBalance: 15,
+      lines: [
+        {
+          entryId: uuidv7(),
+          serviceId: serviceId1,
+          pointsEarned: 5,
+          expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ],
+      currentBalance: 20,
     });
 
     await eventBus.publish(event);

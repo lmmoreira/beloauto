@@ -22,7 +22,7 @@ describe('ServicePointsEarnedHandler', () => {
 
   afterEach(() => jest.resetAllMocks());
 
-  it('delegates to use case with correct dto fields', async () => {
+  it('delegates to use case with correct booking-level dto', async () => {
     const event = new ServicePointsEarnedEventBuilder().withTenantId(TENANT_ID).build();
 
     await handler.handle(event);
@@ -33,8 +33,9 @@ describe('ServicePointsEarnedHandler', () => {
     expect(dto.eventId).toBe(event.eventId);
     expect(dto.correlationId).toBe('corr-points-1');
     expect(dto.customerId).toBe('cccccccc-0001-4000-8000-000000000001');
-    expect(dto.serviceId).toBe('ssssssss-0001-4000-8000-000000000001');
-    expect(dto.pointsEarned).toBe(10);
+    expect(dto.bookingId).toBe('bbbbbbbb-0001-4000-8000-000000000001');
+    expect(dto.totalPointsEarned).toBe(10);
+    expect(dto.lines).toHaveLength(1);
     expect(dto.currentBalance).toBe(10);
   });
 

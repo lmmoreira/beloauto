@@ -350,22 +350,27 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
 #### **ServicePointsEarned**
 - **Trigger:** Loyalty Context inserted a `LoyaltyEntry` after consuming `BookingCompleted`. One event is published **per inserted entry** — a booking with 3 lines produces 3 `ServicePointsEarned` events.
 - **State change:** new row in `loyalty_entries` + `loyalty_balances.current_points` incremented. Both writes are in one transaction. Idempotent against replay via `processed_events` (early-exit) + `UNIQUE(tenant_id, booking_line_id)` (hard guard on the entry insert).
-- **Data:**
+- **Data (booking-scoped — one event per booking, not per line):**
   ```
   {
-    entryId:          string
-    customerId:       string
-    bookingId:        string
-    bookingLineId:    string       // which line earned these points
-    serviceId:        string
-    pointsEarned:     number       // positive
-    earnedAt:         ISO8601
-    expiresAt:        ISO8601      // earnedAt + tenants.settings.loyalty.expiry_days
-    currentBalance:   number       // customer's total active points after this increment (snapshot)
+    customerId:         string
+    bookingId:          string
+    totalPointsEarned:  number       // sum of all lines
+    earnedAt:           ISO8601      // timestamp of the booking completion
+    lines: [                         // one entry per booking line
+      {
+        entryId:        string
+        serviceId:      string
+        pointsEarned:   number
+        expiresAt:      ISO8601      // earnedAt + tenants.settings.loyalty.expiry_days
+      }
+    ]
+    currentBalance:     number       // customer's total active points after this increment (snapshot)
   }
   ```
+- **Design note:** One `ServicePointsEarned` is published per **booking** (not per line) so the customer receives a single thank-you email summarising all services completed in that booking. The `LoyaltyEntry` rows are still one per line; the event is assembled in `RecordLoyaltyEntriesUseCase` after all entries are saved.
 - **Consumers:**
-  - **Notification Context** → sends one thank-you email per event (one per line for MVP). Uses `INotificationCustomerPort` to resolve `customerId → email/name` and `INotificationServicePort` to resolve `serviceId → serviceName`.
+  - **Notification Context** → sends one thank-you email per booking. Uses `INotificationCustomerPort` to resolve `customerId → email/name` and `INotificationServicePort.findServicesByIds()` to resolve all service names in a single query.
 
 ---
 
