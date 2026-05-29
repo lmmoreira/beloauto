@@ -9,6 +9,7 @@ interface ServicePointsEarnedData extends Record<string, unknown> {
   pointsEarned: number;
   earnedAt: string;
   expiresAt: string;
+  currentBalance: number;
 }
 
 export class ServicePointsEarned extends DomainEvent<ServicePointsEarnedData> {

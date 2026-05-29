@@ -24,6 +24,7 @@ export interface RecordLoyaltyEntryParams {
   points: number;
   expiryDays: number;
   correlationId: string;
+  currentBalance: number;
 }
 
 export class LoyaltyEntry extends AggregateRoot {
@@ -72,6 +73,7 @@ export class LoyaltyEntry extends AggregateRoot {
       points,
       expiryDays,
       correlationId,
+      currentBalance,
     } = params;
     if (points <= 0) throw new LoyaltyInvalidPointsError();
 
@@ -101,6 +103,7 @@ export class LoyaltyEntry extends AggregateRoot {
         pointsEarned: points,
         earnedAt: earnedAt.toISOString(),
         expiresAt: expiresAt.toISOString(),
+        currentBalance,
       }),
     );
 

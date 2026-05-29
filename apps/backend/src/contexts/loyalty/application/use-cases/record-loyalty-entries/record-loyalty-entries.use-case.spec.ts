@@ -76,13 +76,15 @@ describe('RecordLoyaltyEntriesUseCase', () => {
     expect(balance?.currentPoints).toBe(15);
   });
 
-  it('emits one ServicePointsEarned event per line', async () => {
+  it('emits one ServicePointsEarned event per line with correct currentBalance', async () => {
     await useCase.execute(makeDto());
 
     const events = eventBus.published.filter((e) => e instanceof ServicePointsEarned);
     expect(events).toHaveLength(2);
     expect((events[0] as ServicePointsEarned).data.pointsEarned).toBe(10);
     expect((events[1] as ServicePointsEarned).data.pointsEarned).toBe(5);
+    expect((events[0] as ServicePointsEarned).data.currentBalance).toBe(15);
+    expect((events[1] as ServicePointsEarned).data.currentBalance).toBe(15);
   });
 
   it('each ServicePointsEarned event carries earnedAt', async () => {

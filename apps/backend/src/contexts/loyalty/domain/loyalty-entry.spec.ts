@@ -21,6 +21,7 @@ function baseParams(overrides: Partial<RecordLoyaltyEntryParams> = {}): RecordLo
     points: 10,
     expiryDays: EXPIRY_DAYS,
     correlationId: CORRELATION_ID,
+    currentBalance: 10,
     ...overrides,
   };
 }
@@ -58,7 +59,7 @@ describe('LoyaltyEntry', () => {
     });
 
     it('domain event carries correct payload', () => {
-      const entry = LoyaltyEntry.record(baseParams({ points: 7 }));
+      const entry = LoyaltyEntry.record(baseParams({ points: 7, currentBalance: 42 }));
       const event = entry.clearDomainEvents()[0] as ServicePointsEarned;
       expect(event.tenantId).toBe(TENANT_ID);
       expect(event.correlationId).toBe(CORRELATION_ID);
@@ -66,6 +67,7 @@ describe('LoyaltyEntry', () => {
       expect(event.data.customerId).toBe(CUSTOMER_ID);
       expect(event.data.pointsEarned).toBe(7);
       expect(event.data.earnedAt).toBe(entry.earnedAt.toISOString());
+      expect(event.data.currentBalance).toBe(42);
     });
 
     it('throws LoyaltyInvalidPointsError when points = 0', () => {

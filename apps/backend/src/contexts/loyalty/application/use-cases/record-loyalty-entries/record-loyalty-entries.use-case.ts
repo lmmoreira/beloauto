@@ -75,6 +75,14 @@ export class RecordLoyaltyEntriesUseCase {
 
     const { expiryDays } = await this.tenantSettingsPort.getLoyaltySettings(dto.tenantId);
 
+    const totalPointsEarned = dto.lines.reduce((sum, l) => sum + l.pointsValueAtBooking, 0);
+
+    const balance =
+      (await this.balanceRepo.findByCustomer(dto.tenantId, dto.customerId)) ??
+      LoyaltyBalance.create(dto.tenantId, dto.customerId);
+
+    const finalBalance = balance.currentPoints + totalPointsEarned;
+
     const entries: LoyaltyEntry[] = dto.lines.map((line) =>
       LoyaltyEntry.record({
         tenantId: dto.tenantId,
@@ -85,14 +93,9 @@ export class RecordLoyaltyEntriesUseCase {
         points: line.pointsValueAtBooking,
         expiryDays,
         correlationId: dto.correlationId,
+        currentBalance: finalBalance,
       }),
     );
-
-    const totalPointsEarned = entries.reduce((sum, e) => sum + e.points, 0);
-
-    const balance =
-      (await this.balanceRepo.findByCustomer(dto.tenantId, dto.customerId)) ??
-      LoyaltyBalance.create(dto.tenantId, dto.customerId);
 
     balance.increment(totalPointsEarned);
 

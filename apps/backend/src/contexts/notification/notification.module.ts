@@ -3,8 +3,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TransactionManagerModule } from '../../shared/infrastructure/transaction-manager.module';
 import { PlatformModule } from '../platform/platform.module';
 import { StaffModule } from '../staff/staff.module';
+import { CustomerModule } from '../customer/customer.module';
+import { NOTIFICATION_CUSTOMER_PORT } from './application/ports/notification-customer.port';
 import { NOTIFICATION_DISPATCHER } from './application/ports/notification-dispatcher.port';
 import { NOTIFICATION_LOG_REPOSITORY } from './application/ports/notification-log-repository.port';
+import { NOTIFICATION_SERVICE_PORT } from './application/ports/notification-service.port';
 import { NOTIFICATION_STAFF_PORT } from './application/ports/notification-staff.port';
 import { NOTIFICATION_TENANT_PORT } from './application/ports/notification-tenant.port';
 import { SendStaffInvitationUseCase } from './application/use-cases/send-staff-invitation/send-staff-invitation.use-case';
@@ -15,6 +18,9 @@ import { SendBookingInfoRequestedNotificationUseCase } from './application/use-c
 import { SendBookingInfoSubmittedNotificationUseCase } from './application/use-cases/send-booking-info-submitted-notification/send-booking-info-submitted-notification.use-case';
 import { SendBookingCancelledNotificationUseCase } from './application/use-cases/send-booking-cancelled-notification/send-booking-cancelled-notification.use-case';
 import { SendBookingRescheduledNotificationUseCase } from './application/use-cases/send-booking-rescheduled-notification/send-booking-rescheduled-notification.use-case';
+import { SendServicePointsEarnedNotificationUseCase } from './application/use-cases/send-service-points-earned-notification/send-service-points-earned-notification.use-case';
+import { CustomerInfoAdapter } from './infrastructure/cross-context/customer-info.adapter';
+import { ServiceInfoAdapter } from './infrastructure/cross-context/service-info.adapter';
 import { StaffInfoAdapter } from './infrastructure/cross-context/staff-info.adapter';
 import { TenantInfoAdapter } from './infrastructure/cross-context/tenant-info.adapter';
 import { DELIVERY_CHANNEL } from './application/ports/delivery-channel.port';
@@ -29,6 +35,7 @@ import { BookingInfoRequestedHandler } from './infrastructure/events/booking-inf
 import { BookingInfoSubmittedHandler } from './infrastructure/events/booking-info-submitted.handler';
 import { BookingCancelledHandler } from './infrastructure/events/booking-cancelled.handler';
 import { BookingRescheduledHandler } from './infrastructure/events/booking-rescheduled.handler';
+import { ServicePointsEarnedHandler } from './infrastructure/events/service-points-earned.handler';
 import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/typeorm-notification-log.repository';
 
 @Module({
@@ -37,6 +44,7 @@ import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/
     TransactionManagerModule,
     StaffModule,
     PlatformModule,
+    CustomerModule,
   ],
   providers: [
     { provide: NOTIFICATION_LOG_REPOSITORY, useClass: TypeOrmNotificationLogRepository },
@@ -49,6 +57,8 @@ import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/
     { provide: NOTIFICATION_DISPATCHER, useClass: NotificationDispatcherAdapter },
     { provide: NOTIFICATION_STAFF_PORT, useClass: StaffInfoAdapter },
     { provide: NOTIFICATION_TENANT_PORT, useClass: TenantInfoAdapter },
+    { provide: NOTIFICATION_CUSTOMER_PORT, useClass: CustomerInfoAdapter },
+    { provide: NOTIFICATION_SERVICE_PORT, useClass: ServiceInfoAdapter },
     SendStaffInvitationUseCase,
     SendBookingRequestedNotificationUseCase,
     SendBookingApprovedNotificationUseCase,
@@ -57,6 +67,7 @@ import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/
     SendBookingInfoSubmittedNotificationUseCase,
     SendBookingCancelledNotificationUseCase,
     SendBookingRescheduledNotificationUseCase,
+    SendServicePointsEarnedNotificationUseCase,
     StaffInvitedHandler,
     BookingRequestedHandler,
     BookingApprovedHandler,
@@ -65,6 +76,7 @@ import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/
     BookingInfoSubmittedHandler,
     BookingCancelledHandler,
     BookingRescheduledHandler,
+    ServicePointsEarnedHandler,
   ],
 })
 export class NotificationModule {}

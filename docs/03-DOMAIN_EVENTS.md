@@ -361,10 +361,11 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
     pointsEarned:     number       // positive
     earnedAt:         ISO8601
     expiresAt:        ISO8601      // earnedAt + tenants.settings.loyalty.expiry_days
+    currentBalance:   number       // customer's total active points after this increment (snapshot)
   }
   ```
 - **Consumers:**
-  - **Notification Context** → may aggregate per-booking before sending (e.g. one email per completed booking summarising all per-line points, rather than N separate emails).
+  - **Notification Context** → sends one thank-you email per event (one per line for MVP). Uses `INotificationCustomerPort` to resolve `customerId → email/name` and `INotificationServicePort` to resolve `serviceId → serviceName`.
 
 ---
 
