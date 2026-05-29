@@ -483,7 +483,7 @@ const CHANNEL = 'EMAIL';
 
 ---
 
-### M10-S07 — Admin records point redemption
+### M10-S07 — Admin records point redemption ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
