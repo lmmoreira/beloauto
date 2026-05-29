@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { uuidv7 } from '../../../../shared/domain/uuid-v7';
+import { IEventBus, EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import { InMemoryNotificationDispatcher } from '../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { createNotificationIntegrationApp } from '../../../../test/utils/notification-integration-app';
 import { ServiceEntityBuilder } from '../../../../test/builders/booking/service-entity.builder';
@@ -15,6 +16,7 @@ import { BookingModule } from '../../../booking/booking.module';
 import { CustomerEntity } from '../../../customer/infrastructure/entities/customer.entity';
 import { NotificationLogEntity } from '../entities/notification-log.entity';
 import { StaffEntity } from '../../../staff/infrastructure/entities/staff.entity';
+import { ServicePointsEarned } from '../../../loyalty/domain/events/service-points-earned.event';
 import { waitFor } from '../../../../test/utils/wait-for';
 
 const PLATFORM_KEY = 'full-workflow-notif-key-xxxxxxxxxx';
@@ -32,12 +34,14 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
   let app: INestApplication;
   let ds: DataSource;
   let dispatcher: InMemoryNotificationDispatcher;
+  let eventBus: IEventBus;
   let tenantId: string;
   let adminEmail: string;
   let staffId: string;
   let customerId: string;
   let customerEmail: string;
   let serviceId: string;
+  let serviceId2: string;
 
   beforeAll(async () => {
     process.env['PLATFORM_ADMIN_KEY'] = PLATFORM_KEY;
@@ -45,13 +49,15 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     process.env['JWT_SECRET'] = 'booking-full-workflow-notif-test-secret-32c';
 
     dispatcher = new InMemoryNotificationDispatcher();
-    // All handlers active — no noOp suppression needed since there is only one spec.
+    // All handlers active — single app instance prevents cross-spec Pub/Sub contamination.
     ({ app, ds } = await createNotificationIntegrationApp({
       dispatcher,
       extraModules: [BookingModule],
       extraEntities: [...BOOKING_ENTITIES],
       withTenantInterceptor: true,
     }));
+
+    eventBus = app.get<IEventBus>(EVENT_BUS);
 
     const slug = `bfw-${Date.now()}`;
     adminEmail = `admin-bfw-${Date.now()}@lavacar.com.br`;
@@ -89,6 +95,14 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
       .build();
     await ds.getRepository(ServiceEntity).save(service);
     serviceId = service.id;
+
+    const service2 = new ServiceEntityBuilder()
+      .withTenantId(tenantId)
+      .withName('Enceramento')
+      .withDurationMinutes(30)
+      .build();
+    await ds.getRepository(ServiceEntity).save(service2);
+    serviceId2 = service2.id;
 
     customerId = uuidv7();
     customerEmail = `customer-bfw-${Date.now()}@example.com`;
@@ -320,5 +334,87 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     );
     expect(rescheduledAdminMsg).toBeDefined();
     expect(rescheduledAdminMsg!.to).toBe(adminEmail);
+  });
+
+  it('ServicePointsEarned: dispatches ONE thank-you email per booking with all services listed', async () => {
+    const event = new ServicePointsEarned(tenantId, uuidv7(), {
+      customerId,
+      bookingId: uuidv7(),
+      totalPointsEarned: 15,
+      earnedAt: new Date().toISOString(),
+      lines: [
+        {
+          entryId: uuidv7(),
+          serviceId,
+          pointsEarned: 10,
+          expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        {
+          entryId: uuidv7(),
+          serviceId: serviceId2,
+          pointsEarned: 5,
+          expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ],
+      currentBalance: 15,
+    });
+
+    await eventBus.publish(event);
+
+    await waitFor(async () => {
+      const log = await ds.getRepository(NotificationLogEntity).findOne({
+        where: { tenantId, eventId: event.eventId, notificationType: 'SERVICE_POINTS_EARNED' },
+      });
+      return log !== null;
+    });
+
+    const msgs = dispatcher.dispatched.filter(
+      (m) => m.templateKey === 'service-points-earned' && m.to === customerEmail,
+    );
+    expect(msgs).toHaveLength(1);
+
+    const msg = msgs[0];
+    expect(msg.subject).toContain('15 pontos');
+    expect(msg.data['totalPointsEarned']).toBe(15);
+    expect(msg.data['currentBalance']).toBe(15);
+
+    const services = msg.data['services'] as Array<{ serviceName: string }>;
+    expect(services).toHaveLength(2);
+    expect(services.map((s) => s.serviceName)).toContain('Lavagem Premium');
+    expect(services.map((s) => s.serviceName)).toContain('Enceramento');
+  });
+
+  it('ServicePointsEarned: is idempotent — replaying same event produces only one notification log', async () => {
+    const event = new ServicePointsEarned(tenantId, uuidv7(), {
+      customerId,
+      bookingId: uuidv7(),
+      totalPointsEarned: 5,
+      earnedAt: new Date().toISOString(),
+      lines: [
+        {
+          entryId: uuidv7(),
+          serviceId,
+          pointsEarned: 5,
+          expiresAt: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ],
+      currentBalance: 20,
+    });
+
+    await eventBus.publish(event);
+    await waitFor(async () => {
+      const log = await ds.getRepository(NotificationLogEntity).findOne({
+        where: { tenantId, eventId: event.eventId, notificationType: 'SERVICE_POINTS_EARNED' },
+      });
+      return log !== null;
+    });
+
+    await eventBus.publish(event);
+    await new Promise((r) => setTimeout(r, 400));
+
+    const logs = await ds.getRepository(NotificationLogEntity).find({
+      where: { tenantId, eventId: event.eventId, notificationType: 'SERVICE_POINTS_EARNED' },
+    });
+    expect(logs).toHaveLength(1);
   });
 });
