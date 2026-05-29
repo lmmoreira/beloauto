@@ -4,30 +4,16 @@ import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructur
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { NotificationLog } from '../../../domain/notification-log.entity';
-import { SendBookingCancelledNotificationDto } from '../../dtos/send-booking-cancelled-notification.dto';
+import { SendBookingCancelledNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
 import { SendBookingCancelledNotificationUseCase } from './send-booking-cancelled-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 const EVENT_ID = 'cccccccc-0001-4000-8000-000000000001';
 
-const baseDto: SendBookingCancelledNotificationDto = {
-  tenantId: TENANT_ID,
-  eventId: EVENT_ID,
-  correlationId: 'corr-cancelled-1',
-  guestEmail: 'joao@example.com',
-  guestName: 'João Silva',
-  cancelledBy: 'staffid-0000-4000-8000-000000000001',
-  isBusiness: true,
-  reason: 'Unavailability',
-  scheduledAt: '2026-07-01T13:00:00.000Z',
-  lineSummary: [
-    {
-      serviceNameAtBooking: 'Lavagem Completa',
-      priceAtBooking: { amount: '150.00', currency: 'BRL' },
-    },
-  ],
-  totalPrice: { amount: '150.00', currency: 'BRL' },
-};
+const dto = new SendBookingCancelledNotificationDtoBuilder()
+  .withTenantId(TENANT_ID)
+  .withEventId(EVENT_ID)
+  .build();
 
 describe('SendBookingCancelledNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
@@ -58,7 +44,7 @@ describe('SendBookingCancelledNotificationUseCase', () => {
   });
 
   it('dispatches customer and admin emails and saves two log rows', async () => {
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(true);
@@ -86,13 +72,14 @@ describe('SendBookingCancelledNotificationUseCase', () => {
   });
 
   it('passes isBusiness=false for customer-initiated cancellation', async () => {
-    const dto: SendBookingCancelledNotificationDto = {
-      ...baseDto,
-      isBusiness: false,
-      cancelledBy: 'customerid-0000-4000-8000-000000000001',
-    };
+    const customerCancelDto = new SendBookingCancelledNotificationDtoBuilder()
+      .withTenantId(TENANT_ID)
+      .withEventId('cccccccc-0099-4000-8000-000000000001')
+      .withIsBusiness(false)
+      .withCancelledBy('customerid-0000-4000-8000-000000000001')
+      .build();
 
-    await useCase.execute(dto);
+    await useCase.execute(customerCancelDto);
 
     const adminMsg = dispatcher.dispatched.find((m) => m.templateKey === 'booking-cancelled-admin');
     expect(adminMsg!.data['isBusiness']).toBe(false);
@@ -101,7 +88,7 @@ describe('SendBookingCancelledNotificationUseCase', () => {
   it('skips admin email gracefully when no managers exist', async () => {
     staffPort.setManagerEmails(TENANT_ID, []);
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(false);
@@ -119,7 +106,7 @@ describe('SendBookingCancelledNotificationUseCase', () => {
       }),
     );
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(false);
     expect(result.adminEmailSent).toBe(true);
@@ -137,7 +124,7 @@ describe('SendBookingCancelledNotificationUseCase', () => {
       }),
     );
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(false);
@@ -146,10 +133,10 @@ describe('SendBookingCancelledNotificationUseCase', () => {
   });
 
   it('is idempotent: second call with same eventId dispatches no emails and creates no extra logs', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
     dispatcher.clear();
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(false);
     expect(result.adminEmailSent).toBe(false);
@@ -158,13 +145,13 @@ describe('SendBookingCancelledNotificationUseCase', () => {
   });
 
   it('tenant isolation: log rows are scoped to the correct tenantId', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
 
     expect(logRepo.all.every((l) => l.tenantId === TENANT_ID)).toBe(true);
   });
 
   it('formats scheduledAt in tenant timezone', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
 
     const customerMsg = dispatcher.dispatched.find(
       (m) => m.templateKey === 'booking-cancelled-customer',
@@ -175,11 +162,10 @@ describe('SendBookingCancelledNotificationUseCase', () => {
   });
 
   it('falls back to America/Sao_Paulo timezone when tenant info is not found', async () => {
-    const unknownTenantDto: SendBookingCancelledNotificationDto = {
-      ...baseDto,
-      tenantId: 'ffffffff-0000-4000-8000-000000000099',
-      eventId: 'cccccccc-0099-4000-8000-000000000001',
-    };
+    const unknownTenantDto = new SendBookingCancelledNotificationDtoBuilder()
+      .withTenantId('ffffffff-0000-4000-8000-000000000099')
+      .withEventId('cccccccc-0099-4000-8000-000000000001')
+      .build();
 
     await expect(useCase.execute(unknownTenantDto)).resolves.not.toThrow();
   });

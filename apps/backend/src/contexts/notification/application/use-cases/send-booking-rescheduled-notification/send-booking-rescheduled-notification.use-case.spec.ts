@@ -4,30 +4,16 @@ import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructur
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { NotificationLog } from '../../../domain/notification-log.entity';
-import { SendBookingRescheduledNotificationDto } from '../../dtos/send-booking-rescheduled-notification.dto';
+import { SendBookingRescheduledNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
 import { SendBookingRescheduledNotificationUseCase } from './send-booking-rescheduled-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 const EVENT_ID = 'cccccccc-0002-4000-8000-000000000001';
 
-const baseDto: SendBookingRescheduledNotificationDto = {
-  tenantId: TENANT_ID,
-  eventId: EVENT_ID,
-  correlationId: 'corr-rescheduled-1',
-  guestEmail: 'joao@example.com',
-  guestName: 'João Silva',
-  previousSlot: { startTime: '2026-07-01T13:00:00.000Z', endTime: '2026-07-01T14:00:00.000Z' },
-  newSlot: { startTime: '2026-07-07T13:00:00.000Z', endTime: '2026-07-07T14:00:00.000Z' },
-  rescheduledBy: 'staffid-0000-4000-8000-000000000001',
-  adminNotes: null,
-  lineSummary: [
-    {
-      serviceNameAtBooking: 'Lavagem Completa',
-      priceAtBooking: { amount: '150.00', currency: 'BRL' },
-    },
-  ],
-  totalPrice: { amount: '150.00', currency: 'BRL' },
-};
+const dto = new SendBookingRescheduledNotificationDtoBuilder()
+  .withTenantId(TENANT_ID)
+  .withEventId(EVENT_ID)
+  .build();
 
 describe('SendBookingRescheduledNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
@@ -58,7 +44,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
   });
 
   it('dispatches customer and admin emails with old and new slot data', async () => {
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(true);
@@ -90,7 +76,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
   });
 
   it('old and new dates differ in dispatched data', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
 
     const customerMsg = dispatcher.dispatched.find(
       (m) => m.templateKey === 'booking-rescheduled-customer',
@@ -101,7 +87,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
   it('skips admin email gracefully when no managers exist', async () => {
     staffPort.setManagerEmails(TENANT_ID, []);
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(false);
@@ -119,7 +105,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
       }),
     );
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(false);
     expect(result.adminEmailSent).toBe(true);
@@ -137,7 +123,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
       }),
     );
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(false);
@@ -146,10 +132,10 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
   });
 
   it('is idempotent: second call with same eventId dispatches no emails and creates no extra logs', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
     dispatcher.clear();
 
-    const result = await useCase.execute(baseDto);
+    const result = await useCase.execute(dto);
 
     expect(result.customerEmailSent).toBe(false);
     expect(result.adminEmailSent).toBe(false);
@@ -158,17 +144,16 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
   });
 
   it('tenant isolation: log rows are scoped to the correct tenantId', async () => {
-    await useCase.execute(baseDto);
+    await useCase.execute(dto);
 
     expect(logRepo.all.every((l) => l.tenantId === TENANT_ID)).toBe(true);
   });
 
   it('falls back to America/Sao_Paulo timezone when tenant info is not found', async () => {
-    const unknownTenantDto: SendBookingRescheduledNotificationDto = {
-      ...baseDto,
-      tenantId: 'ffffffff-0000-4000-8000-000000000099',
-      eventId: 'cccccccc-0099-4000-8000-000000000002',
-    };
+    const unknownTenantDto = new SendBookingRescheduledNotificationDtoBuilder()
+      .withTenantId('ffffffff-0000-4000-8000-000000000099')
+      .withEventId('cccccccc-0099-4000-8000-000000000002')
+      .build();
 
     await expect(useCase.execute(unknownTenantDto)).resolves.not.toThrow();
   });

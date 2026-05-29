@@ -3,7 +3,7 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationServicePort } from '../../../../../test/infrastructure/in-memory-notification-service.port';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
-import { SendServicePointsEarnedNotificationDto } from '../../dtos/send-service-points-earned-notification.dto';
+import { SendServicePointsEarnedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
 import { SendServicePointsEarnedNotificationUseCase } from './send-service-points-earned-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -11,37 +11,12 @@ const CUSTOMER_ID = 'cccccccc-0000-4000-8000-000000000001';
 const SERVICE_ID_1 = 'ssssssss-0000-4000-8000-000000000001';
 const SERVICE_ID_2 = 'ssssssss-0000-4000-8000-000000000002';
 const EVENT_ID = 'eeeeeeee-0000-4000-8000-000000000001';
-const CORRELATION_ID = 'corr-0000-4000-8000-000000000001';
 
-function makeDto(
-  overrides: Partial<SendServicePointsEarnedNotificationDto> = {},
-): SendServicePointsEarnedNotificationDto {
-  return {
-    tenantId: TENANT_ID,
-    eventId: EVENT_ID,
-    correlationId: CORRELATION_ID,
-    customerId: CUSTOMER_ID,
-    bookingId: 'bbbbbbbb-0000-4000-8000-000000000001',
-    totalPointsEarned: 15,
-    earnedAt: '2026-06-01T10:00:00.000Z',
-    lines: [
-      {
-        entryId: 'e1',
-        serviceId: SERVICE_ID_1,
-        pointsEarned: 10,
-        expiresAt: '2026-11-28T10:00:00.000Z',
-      },
-      {
-        entryId: 'e2',
-        serviceId: SERVICE_ID_2,
-        pointsEarned: 5,
-        expiresAt: '2026-11-28T10:00:00.000Z',
-      },
-    ],
-    currentBalance: 15,
-    ...overrides,
-  };
-}
+const dto = new SendServicePointsEarnedNotificationDtoBuilder()
+  .withTenantId(TENANT_ID)
+  .withEventId(EVENT_ID)
+  .withCustomerId(CUSTOMER_ID)
+  .build();
 
 describe('SendServicePointsEarnedNotificationUseCase', () => {
   let useCase: SendServicePointsEarnedNotificationUseCase;
@@ -75,7 +50,7 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
   afterEach(() => jest.resetAllMocks());
 
   it('dispatches ONE email per booking with total points and all services', async () => {
-    const result = await useCase.execute(makeDto());
+    const result = await useCase.execute(dto);
 
     expect(result.emailSent).toBe(true);
     expect(dispatcher.dispatched).toHaveLength(1);
@@ -97,7 +72,7 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
   });
 
   it('saves a notification log entry', async () => {
-    await useCase.execute(makeDto());
+    await useCase.execute(dto);
 
     const log = await logRepo.findByEventAndChannel(
       TENANT_ID,
@@ -109,15 +84,21 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
   });
 
   it('is idempotent — second call returns emailSent=false without re-dispatching', async () => {
-    await useCase.execute(makeDto());
-    const second = await useCase.execute(makeDto());
+    await useCase.execute(dto);
+    const second = await useCase.execute(dto);
 
     expect(second.emailSent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(1);
   });
 
   it('returns emailSent=false and skips dispatch when customer is not found', async () => {
-    const result = await useCase.execute(makeDto({ customerId: 'unknown-customer-id' }));
+    const result = await useCase.execute(
+      new SendServicePointsEarnedNotificationDtoBuilder()
+        .withTenantId(TENANT_ID)
+        .withEventId('eeeeeeee-0099-4000-8000-000000000001')
+        .withCustomerId('unknown-customer-id')
+        .build(),
+    );
 
     expect(result.emailSent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(0);
@@ -126,17 +107,20 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
   it('falls back to serviceId string when service is not found', async () => {
     const unknownServiceId = 'unknown-service-id';
     await useCase.execute(
-      makeDto({
-        lines: [
+      new SendServicePointsEarnedNotificationDtoBuilder()
+        .withTenantId(TENANT_ID)
+        .withEventId('eeeeeeee-0098-4000-8000-000000000001')
+        .withCustomerId(CUSTOMER_ID)
+        .withTotalPointsEarned(10)
+        .withLines([
           {
             entryId: 'e1',
             serviceId: unknownServiceId,
             pointsEarned: 10,
             expiresAt: '2026-11-28T10:00:00.000Z',
           },
-        ],
-        totalPointsEarned: 10,
-      }),
+        ])
+        .build(),
     );
 
     const services = dispatcher.dispatched[0].data['services'] as Array<{ serviceName: string }>;
