@@ -18,40 +18,40 @@ const CUSTOMER_ID = 'aaaaaaaa-0000-7000-8000-000000000001';
 const STAFF_ID = 'bbbbbbbb-0000-7000-8000-000000000001';
 const SERVICE_ID = 'cccccccc-0000-7000-8000-000000000001';
 
-function makeController(actorId = CUSTOMER_ID, actorRole = 'CUSTOMER') {
-  const balanceRepo = new InMemoryLoyaltyBalanceRepository();
-  const entryRepo = new InMemoryLoyaltyEntryRepository();
-  const redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
-  const serviceCatalog = new InMemoryServiceCatalogPort();
-
-  const ctx = new TenantContextBuilder()
-    .withTenantId(TENANT_ID)
-    .withActorId(actorId)
-    .withActorType(actorRole === 'CUSTOMER' ? 'CUSTOMER' : 'STAFF')
-    .withActorRole(actorRole)
-    .build();
-
-  const controller = new LoyaltyController(
-    new GetLoyaltyBalanceUseCase(balanceRepo, entryRepo),
-    new GetLoyaltyEntriesUseCase(entryRepo, serviceCatalog),
-    new GetLoyaltyRedemptionsUseCase(redemptionRepo),
-    ctx,
-  );
-
-  return { controller, balanceRepo, entryRepo, redemptionRepo, serviceCatalog };
-}
-
 describe('LoyaltyController', () => {
+  let balanceRepo: InMemoryLoyaltyBalanceRepository;
+  let entryRepo: InMemoryLoyaltyEntryRepository;
+  let redemptionRepo: InMemoryLoyaltyRedemptionRepository;
+  let serviceCatalog: InMemoryServiceCatalogPort;
+  let controller: LoyaltyController;
+
   describe('getBalance() — customer route', () => {
+    beforeEach(() => {
+      balanceRepo = new InMemoryLoyaltyBalanceRepository();
+      entryRepo = new InMemoryLoyaltyEntryRepository();
+      redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
+      serviceCatalog = new InMemoryServiceCatalogPort();
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_ID)
+        .withActorId(CUSTOMER_ID)
+        .withActorType('CUSTOMER')
+        .withActorRole('CUSTOMER')
+        .build();
+      controller = new LoyaltyController(
+        new GetLoyaltyBalanceUseCase(balanceRepo, entryRepo),
+        new GetLoyaltyEntriesUseCase(entryRepo, serviceCatalog),
+        new GetLoyaltyRedemptionsUseCase(redemptionRepo),
+        ctx,
+      );
+    });
+
     it('returns zero balance when customer has no data', async () => {
-      const { controller } = makeController();
       const result = await controller.getBalance();
       expect(result.currentPoints).toBe(0);
       expect(result.nextExpiryDate).toBeNull();
     });
 
     it('returns currentPoints from balance row', async () => {
-      const { controller, balanceRepo } = makeController();
       await balanceRepo.upsert(
         new LoyaltyBalanceBuilder()
           .withTenantId(TENANT_ID)
@@ -66,14 +66,31 @@ describe('LoyaltyController', () => {
   });
 
   describe('getEntries() — customer route', () => {
+    beforeEach(() => {
+      balanceRepo = new InMemoryLoyaltyBalanceRepository();
+      entryRepo = new InMemoryLoyaltyEntryRepository();
+      redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
+      serviceCatalog = new InMemoryServiceCatalogPort();
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_ID)
+        .withActorId(CUSTOMER_ID)
+        .withActorType('CUSTOMER')
+        .withActorRole('CUSTOMER')
+        .build();
+      controller = new LoyaltyController(
+        new GetLoyaltyBalanceUseCase(balanceRepo, entryRepo),
+        new GetLoyaltyEntriesUseCase(entryRepo, serviceCatalog),
+        new GetLoyaltyRedemptionsUseCase(redemptionRepo),
+        ctx,
+      );
+    });
+
     it('returns empty entries list', async () => {
-      const { controller } = makeController();
       const result = await controller.getEntries({ page: 1, limit: 20 });
       expect(result.entries).toHaveLength(0);
     });
 
     it('resolves serviceName from catalog', async () => {
-      const { controller, entryRepo, serviceCatalog } = makeController();
       serviceCatalog.seed([{ serviceId: SERVICE_ID, serviceName: 'Lavagem Completa' }]);
       await entryRepo.save(
         new LoyaltyEntryBuilder()
@@ -89,14 +106,31 @@ describe('LoyaltyController', () => {
   });
 
   describe('getRedemptions() — customer route', () => {
+    beforeEach(() => {
+      balanceRepo = new InMemoryLoyaltyBalanceRepository();
+      entryRepo = new InMemoryLoyaltyEntryRepository();
+      redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
+      serviceCatalog = new InMemoryServiceCatalogPort();
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_ID)
+        .withActorId(CUSTOMER_ID)
+        .withActorType('CUSTOMER')
+        .withActorRole('CUSTOMER')
+        .build();
+      controller = new LoyaltyController(
+        new GetLoyaltyBalanceUseCase(balanceRepo, entryRepo),
+        new GetLoyaltyEntriesUseCase(entryRepo, serviceCatalog),
+        new GetLoyaltyRedemptionsUseCase(redemptionRepo),
+        ctx,
+      );
+    });
+
     it('returns empty redemptions list', async () => {
-      const { controller } = makeController();
       const result = await controller.getRedemptions({ page: 1, limit: 20 });
       expect(result.redemptions).toHaveLength(0);
     });
 
     it('returns customer redemptions', async () => {
-      const { controller, redemptionRepo } = makeController();
       await redemptionRepo.save(
         new LoyaltyRedemptionBuilder()
           .withTenantId(TENANT_ID)
@@ -111,14 +145,31 @@ describe('LoyaltyController', () => {
   });
 
   describe('getBalanceAdmin() — admin route', () => {
+    beforeEach(() => {
+      balanceRepo = new InMemoryLoyaltyBalanceRepository();
+      entryRepo = new InMemoryLoyaltyEntryRepository();
+      redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
+      serviceCatalog = new InMemoryServiceCatalogPort();
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_ID)
+        .withActorId(STAFF_ID)
+        .withActorType('STAFF')
+        .withActorRole('MANAGER')
+        .build();
+      controller = new LoyaltyController(
+        new GetLoyaltyBalanceUseCase(balanceRepo, entryRepo),
+        new GetLoyaltyEntriesUseCase(entryRepo, serviceCatalog),
+        new GetLoyaltyRedemptionsUseCase(redemptionRepo),
+        ctx,
+      );
+    });
+
     it('returns zero balance for customer with no data', async () => {
-      const { controller } = makeController(STAFF_ID, 'MANAGER');
       const result = await controller.getBalanceAdmin(CUSTOMER_ID);
       expect(result.currentPoints).toBe(0);
     });
 
     it('returns balance for specified customerId', async () => {
-      const { controller, balanceRepo } = makeController(STAFF_ID, 'MANAGER');
       await balanceRepo.upsert(
         new LoyaltyBalanceBuilder()
           .withTenantId(TENANT_ID)
@@ -133,8 +184,26 @@ describe('LoyaltyController', () => {
   });
 
   describe('getEntriesAdmin() — admin route', () => {
+    beforeEach(() => {
+      balanceRepo = new InMemoryLoyaltyBalanceRepository();
+      entryRepo = new InMemoryLoyaltyEntryRepository();
+      redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
+      serviceCatalog = new InMemoryServiceCatalogPort();
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_ID)
+        .withActorId(STAFF_ID)
+        .withActorType('STAFF')
+        .withActorRole('STAFF')
+        .build();
+      controller = new LoyaltyController(
+        new GetLoyaltyBalanceUseCase(balanceRepo, entryRepo),
+        new GetLoyaltyEntriesUseCase(entryRepo, serviceCatalog),
+        new GetLoyaltyRedemptionsUseCase(redemptionRepo),
+        ctx,
+      );
+    });
+
     it('returns entries for specified customerId', async () => {
-      const { controller, entryRepo } = makeController(STAFF_ID, 'STAFF');
       await entryRepo.save(
         new LoyaltyEntryBuilder()
           .withTenantId(TENANT_ID)
@@ -149,8 +218,26 @@ describe('LoyaltyController', () => {
   });
 
   describe('getRedemptionsAdmin() — admin route', () => {
+    beforeEach(() => {
+      balanceRepo = new InMemoryLoyaltyBalanceRepository();
+      entryRepo = new InMemoryLoyaltyEntryRepository();
+      redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
+      serviceCatalog = new InMemoryServiceCatalogPort();
+      const ctx = new TenantContextBuilder()
+        .withTenantId(TENANT_ID)
+        .withActorId(STAFF_ID)
+        .withActorType('STAFF')
+        .withActorRole('STAFF')
+        .build();
+      controller = new LoyaltyController(
+        new GetLoyaltyBalanceUseCase(balanceRepo, entryRepo),
+        new GetLoyaltyEntriesUseCase(entryRepo, serviceCatalog),
+        new GetLoyaltyRedemptionsUseCase(redemptionRepo),
+        ctx,
+      );
+    });
+
     it('returns redemptions for specified customerId', async () => {
-      const { controller, redemptionRepo } = makeController(STAFF_ID, 'STAFF');
       await redemptionRepo.save(
         new LoyaltyRedemptionBuilder()
           .withTenantId(TENANT_ID)

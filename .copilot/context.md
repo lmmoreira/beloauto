@@ -481,10 +481,16 @@ src/shared/
 ├── value-objects/    # Money, Address (used by multiple contexts)
 ├── tenant/           # TenantContext (request-scoped), TenantInterceptor
 ├── observability/    # Logger, OTel tracer, structured log helpers
-└── http/             # Pagination DTOs, RFC 9457 ProblemDetail base type
+├── http/             # Pagination DTOs, RFC 9457 ProblemDetail base type
+└── guards/           # Role guards used by more than one context (CustomerRoleGuard, ManagerRoleGuard, StaffOrManagerRoleGuard)
 ```
 
 **Rule:** A context module MUST NOT import from another context's path. Only `src/shared/` is importable across contexts. Domain objects (entities, aggregates, use cases, repositories) are NEVER in shared.
+
+**Guard placement rule:**
+- `src/shared/guards/` — role guards that enforce the `X-Actor-Role` header contract and are applied across multiple contexts. Every role guard lives here with its own `.spec.ts`.
+- `src/contexts/<context>/infrastructure/guards/` — guards with domain-specific logic tied to one context (e.g. `PlatformAdminGuard` which injects `ConfigService` and guards a single `/internal` route). These stay local.
+- Never import a guard from another context's `infrastructure/guards/` path — that is a context-isolation violation.
 
 ---
 

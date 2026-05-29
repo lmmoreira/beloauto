@@ -27,7 +27,7 @@ import {
   ListOpeningsUseCaseResult,
 } from '../../application/use-cases/list-openings.use-case';
 import { RemoveScheduleOpeningUseCase } from '../../application/use-cases/remove-schedule-opening.use-case';
-import { StaffOrManagerRoleGuard } from '../guards/staff-or-manager-role.guard';
+import { StaffOrManagerRoleGuard } from '../../../../shared/guards/staff-or-manager-role.guard';
 import { mapBookingError } from '../http/booking-error.mapper';
 
 @Controller('schedule/openings')

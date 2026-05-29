@@ -9,7 +9,7 @@ import {
   UpdateTenantSettingsUseCaseResult,
   UpdateTenantSettingsUseCase,
 } from '../../application/use-cases/update-tenant-settings.use-case';
-import { ManagerRoleGuard } from '../guards/manager-role.guard';
+import { ManagerRoleGuard } from '../../../../shared/guards/manager-role.guard';
 import { mapPlatformError } from '../http/platform-error.mapper';
 
 @Controller('tenants')

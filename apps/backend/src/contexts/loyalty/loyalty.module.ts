@@ -22,7 +22,7 @@ import { ProcessedEventEntity } from './infrastructure/entities/processed-event.
 import { LoyaltyTenantSettingsAdapter } from './infrastructure/cross-context/loyalty-tenant-settings.adapter';
 import { ServiceCatalogAdapter } from './infrastructure/cross-context/service-catalog.adapter';
 import { LoyaltyController } from './infrastructure/controllers/loyalty.controller';
-import { CustomerRoleGuard } from './infrastructure/guards/customer-role.guard';
+import { CustomerRoleGuard } from '../../shared/guards/customer-role.guard';
 import { BookingCompletedHandler } from './infrastructure/events/booking-completed.handler';
 import { TypeOrmBalanceExpiryLogRepository } from './infrastructure/repositories/typeorm-balance-expiry-log.repository';
 import { TypeOrmLoyaltyBalanceRepository } from './infrastructure/repositories/typeorm-loyalty-balance.repository';

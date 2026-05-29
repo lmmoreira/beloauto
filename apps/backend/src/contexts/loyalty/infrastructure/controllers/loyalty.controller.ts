@@ -1,7 +1,7 @@
 import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
-import { StaffOrManagerRoleGuard } from '../../../booking/infrastructure/guards/staff-or-manager-role.guard';
+import { StaffOrManagerRoleGuard } from '../../../../shared/guards/staff-or-manager-role.guard';
 import { PaginationDto, PaginationSchema } from '../../application/dtos/pagination.dto';
 import {
   GetLoyaltyBalanceUseCase,
@@ -15,7 +15,7 @@ import {
   GetLoyaltyRedemptionsUseCase,
   GetLoyaltyRedemptionsResult,
 } from '../../application/use-cases/get-loyalty-redemptions/get-loyalty-redemptions.use-case';
-import { CustomerRoleGuard } from '../guards/customer-role.guard';
+import { CustomerRoleGuard } from '../../../../shared/guards/customer-role.guard';
 import { mapLoyaltyError } from '../http/loyalty-error.mapper';
 
 @Controller()
