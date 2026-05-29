@@ -10,11 +10,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { z } from 'zod';
 import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
 import { StaffOrManagerRoleGuard } from '../../../../shared/guards/staff-or-manager-role.guard';
 import { PaginationDto, PaginationSchema } from '../../application/dtos/pagination.dto';
+import { RedeemPointsDto, RedeemPointsSchema } from '../../application/dtos/redeem-points.dto';
 import {
   GetLoyaltyBalanceUseCase,
   GetLoyaltyBalanceResult,
@@ -33,15 +33,6 @@ import {
 } from '../../application/use-cases/redeem-points/redeem-points.use-case';
 import { CustomerRoleGuard } from '../../../../shared/guards/customer-role.guard';
 import { mapLoyaltyError } from '../http/loyalty-error.mapper';
-
-const RedeemPointsSchema = z.object({
-  customerId: z.uuid(),
-  pointsToRedeem: z.number().int().min(1),
-  notes: z.string().optional().nullable(),
-  bookingId: z.uuid().optional().nullable(),
-});
-
-type RedeemPointsBodyDto = z.infer<typeof RedeemPointsSchema>;
 
 @Controller()
 export class LoyaltyController {
@@ -92,7 +83,7 @@ export class LoyaltyController {
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(StaffOrManagerRoleGuard)
   recordRedemption(
-    @Body(new ZodValidationPipe(RedeemPointsSchema)) body: RedeemPointsBodyDto,
+    @Body(new ZodValidationPipe(RedeemPointsSchema)) body: RedeemPointsDto,
   ): Promise<RedeemPointsUseCaseResult> {
     const { tenantId, actorId } = this.tenantContext;
     return this.redeemPointsUseCase
