@@ -1,4 +1,16 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { z } from 'zod';
 import { ZodValidationPipe } from '../../../../shared/http/zod-validation.pipe';
 import { TenantContext } from '../../../../shared/tenant/tenant-context';
 import { StaffOrManagerRoleGuard } from '../../../../shared/guards/staff-or-manager-role.guard';
@@ -15,8 +27,21 @@ import {
   GetLoyaltyRedemptionsUseCase,
   GetLoyaltyRedemptionsResult,
 } from '../../application/use-cases/get-loyalty-redemptions/get-loyalty-redemptions.use-case';
+import {
+  RedeemPointsUseCase,
+  RedeemPointsUseCaseResult,
+} from '../../application/use-cases/redeem-points/redeem-points.use-case';
 import { CustomerRoleGuard } from '../../../../shared/guards/customer-role.guard';
 import { mapLoyaltyError } from '../http/loyalty-error.mapper';
+
+const RedeemPointsSchema = z.object({
+  customerId: z.uuid(),
+  pointsToRedeem: z.number().int().min(1),
+  notes: z.string().optional().nullable(),
+  bookingId: z.uuid().optional().nullable(),
+});
+
+type RedeemPointsBodyDto = z.infer<typeof RedeemPointsSchema>;
 
 @Controller()
 export class LoyaltyController {
@@ -24,6 +49,7 @@ export class LoyaltyController {
     private readonly getLoyaltyBalance: GetLoyaltyBalanceUseCase,
     private readonly getLoyaltyEntries: GetLoyaltyEntriesUseCase,
     private readonly getLoyaltyRedemptions: GetLoyaltyRedemptionsUseCase,
+    private readonly redeemPointsUseCase: RedeemPointsUseCase,
     private readonly tenantContext: TenantContext,
   ) {}
 
@@ -61,6 +87,25 @@ export class LoyaltyController {
   }
 
   // ── Admin routes ──────────────────────────────────────────────────────────
+
+  @Post('loyalty/redeem')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(StaffOrManagerRoleGuard)
+  recordRedemption(
+    @Body(new ZodValidationPipe(RedeemPointsSchema)) body: RedeemPointsBodyDto,
+  ): Promise<RedeemPointsUseCaseResult> {
+    const { tenantId, actorId } = this.tenantContext;
+    return this.redeemPointsUseCase
+      .execute({
+        tenantId,
+        customerId: body.customerId,
+        pointsToRedeem: body.pointsToRedeem,
+        redeemedBy: actorId!,
+        notes: body.notes,
+        bookingId: body.bookingId,
+      })
+      .catch(mapLoyaltyError);
+  }
 
   @Get('customers/:customerId/loyalty/balance')
   @UseGuards(StaffOrManagerRoleGuard)
