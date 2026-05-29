@@ -1,0 +1,46 @@
+### Variables
+@bffUrl = http://localhost:3002
+@tenantId = {{$dotenv TENANT_ID}}
+@customerId = {{$dotenv CUSTOMER_ID}}
+@customerToken = {{$dotenv CUSTOMER_JWT}}
+@managerToken = {{$dotenv MANAGER_JWT}}
+
+### GET /v1/loyalty/balance — customer views own balance
+GET {{bffUrl}}/v1/loyalty/balance
+Cookie: access_token={{customerToken}}
+x-tenant-id: {{tenantId}}
+
+###
+
+### GET /v1/loyalty/entries — customer views earning history
+GET {{bffUrl}}/v1/loyalty/entries?page=1&limit=20
+Cookie: access_token={{customerToken}}
+x-tenant-id: {{tenantId}}
+
+###
+
+### GET /v1/loyalty/redemptions — customer views redemption history
+GET {{bffUrl}}/v1/loyalty/redemptions?page=1&limit=20
+Cookie: access_token={{customerToken}}
+x-tenant-id: {{tenantId}}
+
+###
+
+### GET /v1/customers/:customerId/loyalty/balance — admin views customer balance
+GET {{bffUrl}}/v1/customers/{{customerId}}/loyalty/balance
+Cookie: access_token={{managerToken}}
+x-tenant-id: {{tenantId}}
+
+###
+
+### GET /v1/customers/:customerId/loyalty/entries — admin views customer earning history
+GET {{bffUrl}}/v1/customers/{{customerId}}/loyalty/entries?page=1&limit=20
+Cookie: access_token={{managerToken}}
+x-tenant-id: {{tenantId}}
+
+###
+
+### GET /v1/customers/:customerId/loyalty/redemptions — admin views customer redemption history
+GET {{bffUrl}}/v1/customers/{{customerId}}/loyalty/redemptions?page=1&limit=20
+Cookie: access_token={{managerToken}}
+x-tenant-id: {{tenantId}}

@@ -1,4 +1,8 @@
-import { ILoyaltyEntryRepository } from '../../contexts/loyalty/application/ports/loyalty-entry-repository.port';
+import {
+  ILoyaltyEntryRepository,
+  NextExpiry,
+  PaginatedLoyaltyEntries,
+} from '../../contexts/loyalty/application/ports/loyalty-entry-repository.port';
 import { LoyaltyEntry } from '../../contexts/loyalty/domain/loyalty-entry.aggregate';
 
 export class InMemoryLoyaltyEntryRepository implements ILoyaltyEntryRepository {
@@ -10,6 +14,35 @@ export class InMemoryLoyaltyEntryRepository implements ILoyaltyEntryRepository {
 
   async findExpiringBefore(date: Date): Promise<LoyaltyEntry[]> {
     return this.entries.filter((e) => e.expiresAt < date);
+  }
+
+  async findByCustomerPaginated(
+    tenantId: string,
+    customerId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaginatedLoyaltyEntries> {
+    const filtered = this.entries
+      .filter((e) => e.tenantId === tenantId && e.customerId === customerId)
+      .sort((a, b) => b.earnedAt.getTime() - a.earnedAt.getTime());
+    const start = (page - 1) * limit;
+    return { items: filtered.slice(start, start + limit), total: filtered.length };
+  }
+
+  async findNextExpiry(tenantId: string, customerId: string): Promise<NextExpiry | null> {
+    const now = new Date();
+    const active = this.entries
+      .filter((e) => e.tenantId === tenantId && e.customerId === customerId && e.expiresAt > now)
+      .sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
+
+    if (!active.length) return null;
+
+    const minExpiry = active[0].expiresAt;
+    const points = active
+      .filter((e) => e.expiresAt.getTime() === minExpiry.getTime())
+      .reduce((sum, e) => sum + e.points, 0);
+
+    return { expiryDate: minExpiry, points };
   }
 
   clear(): void {

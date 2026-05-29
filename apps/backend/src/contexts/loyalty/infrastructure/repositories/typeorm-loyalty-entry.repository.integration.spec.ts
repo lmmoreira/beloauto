@@ -82,6 +82,102 @@ describe('TypeOrmLoyaltyEntryRepository (integration)', () => {
     });
   });
 
+  describe('findByCustomerPaginated()', () => {
+    it('returns entries sorted by earnedAt DESC with pagination', async () => {
+      const customerId = uuidv7();
+      const earlier = new Date(Date.now() - 2000);
+      const later = new Date(Date.now() - 1000);
+
+      await repo.save(
+        new LoyaltyEntryBuilder()
+          .withTenantId(TENANT_A)
+          .withCustomerId(customerId)
+          .withEarnedAt(earlier)
+          .build(),
+      );
+      await repo.save(
+        new LoyaltyEntryBuilder()
+          .withTenantId(TENANT_A)
+          .withCustomerId(customerId)
+          .withEarnedAt(later)
+          .build(),
+      );
+
+      const result = await repo.findByCustomerPaginated(TENANT_A, customerId, 1, 10);
+      expect(result.total).toBe(2);
+      expect(result.items[0].earnedAt.getTime()).toBeGreaterThan(
+        result.items[1].earnedAt.getTime(),
+      );
+    });
+
+    it('returns only entries for the given customer and tenant', async () => {
+      const customerA = uuidv7();
+      const customerB = uuidv7();
+
+      await repo.save(
+        new LoyaltyEntryBuilder().withTenantId(TENANT_A).withCustomerId(customerA).build(),
+      );
+      await repo.save(
+        new LoyaltyEntryBuilder().withTenantId(TENANT_A).withCustomerId(customerB).build(),
+      );
+
+      const result = await repo.findByCustomerPaginated(TENANT_A, customerA, 1, 10);
+      expect(result.total).toBe(1);
+      expect(result.items[0].customerId).toBe(customerA);
+    });
+  });
+
+  describe('findNextExpiry()', () => {
+    it('returns earliest expiry date and sum of points expiring on that date', async () => {
+      const customerId = uuidv7();
+      const sooner = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const later = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+
+      await repo.save(
+        new LoyaltyEntryBuilder()
+          .withTenantId(TENANT_A)
+          .withCustomerId(customerId)
+          .withPoints(10)
+          .withExpiresAt(sooner)
+          .build(),
+      );
+      await repo.save(
+        new LoyaltyEntryBuilder()
+          .withTenantId(TENANT_A)
+          .withCustomerId(customerId)
+          .withPoints(20)
+          .withExpiresAt(later)
+          .build(),
+      );
+
+      const result = await repo.findNextExpiry(TENANT_A, customerId);
+      expect(result).not.toBeNull();
+      expect(result!.points).toBe(10);
+      expect(result!.expiryDate.getTime()).toBeCloseTo(sooner.getTime(), -3);
+    });
+
+    it('returns null when customer has no active entries', async () => {
+      const customerId = uuidv7();
+      const past = new Date(Date.now() - 1000);
+
+      await repo.save(
+        new LoyaltyEntryBuilder()
+          .withTenantId(TENANT_A)
+          .withCustomerId(customerId)
+          .withExpiresAt(past)
+          .build(),
+      );
+
+      const result = await repo.findNextExpiry(TENANT_A, customerId);
+      expect(result).toBeNull();
+    });
+
+    it('returns null when customer has no entries at all', async () => {
+      const result = await repo.findNextExpiry(TENANT_A, uuidv7());
+      expect(result).toBeNull();
+    });
+  });
+
   describe('findExpiringBefore()', () => {
     it('returns entries whose expires_at is before the given date', async () => {
       const pastExpiry = new Date(Date.now() - 1000);

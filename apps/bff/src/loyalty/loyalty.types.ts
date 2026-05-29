@@ -1,0 +1,32 @@
+export interface LoyaltyBalanceResponse {
+  currentPoints: number;
+  nextExpiryDate: string | null;
+  nextExpiryPoints: number | null;
+}
+
+export interface LoyaltyEntryItem {
+  entryId: string;
+  serviceId: string;
+  serviceName: string;
+  points: number;
+  earnedAt: string;
+  expiresAt: string;
+  isActive: boolean;
+}
+
+export interface LoyaltyEntriesResponse {
+  entries: LoyaltyEntryItem[];
+  pagination: { page: number; limit: number; total: number };
+}
+
+export interface LoyaltyRedemptionItem {
+  redemptionId: string;
+  pointsRedeemed: number;
+  redeemedAt: string;
+  notes: string | null;
+}
+
+export interface LoyaltyRedemptionsResponse {
+  redemptions: LoyaltyRedemptionItem[];
+  pagination: { page: number; limit: number; total: number };
+}

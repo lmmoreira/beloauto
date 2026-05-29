@@ -101,7 +101,7 @@ import {
   CompleteBookingUseCase,
   CompleteBookingUseCaseResult,
 } from '../../application/use-cases/complete-booking.use-case';
-import { StaffOrManagerRoleGuard } from '../guards/staff-or-manager-role.guard';
+import { StaffOrManagerRoleGuard } from '../../../../shared/guards/staff-or-manager-role.guard';
 import { mapBookingError } from '../http/booking-error.mapper';
 
 @Controller('bookings')

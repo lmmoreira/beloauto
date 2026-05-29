@@ -33,7 +33,7 @@ import {
   ListStaffUseCase,
   ListStaffUseCaseResult,
 } from '../../application/use-cases/list-staff.use-case';
-import { ManagerRoleGuard } from '../../../platform/infrastructure/guards/manager-role.guard';
+import { ManagerRoleGuard } from '../../../../shared/guards/manager-role.guard';
 import { mapStaffError } from '../http/staff-error.mapper';
 
 @Controller('staff')

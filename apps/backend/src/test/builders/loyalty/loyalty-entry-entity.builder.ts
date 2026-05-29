@@ -7,7 +7,7 @@ export class LoyaltyEntryEntityBuilder {
   private customerId = uuidv7();
   private readonly bookingId = uuidv7();
   private bookingLineId = uuidv7();
-  private readonly serviceId = uuidv7();
+  private serviceId = uuidv7();
   private points = 10;
   private readonly earnedAt = new Date();
   private expiresAt = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000);
@@ -29,6 +29,11 @@ export class LoyaltyEntryEntityBuilder {
 
   withBookingLineId(bookingLineId: string): this {
     this.bookingLineId = bookingLineId;
+    return this;
+  }
+
+  withServiceId(serviceId: string): this {
+    this.serviceId = serviceId;
     return this;
   }
 
