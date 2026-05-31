@@ -43,7 +43,7 @@ export class TypeOrmNotificationTemplateRepository implements INotificationTempl
   }
 
   async copyGlobalDefaultsForTenant(tenantId: string): Promise<number> {
-    const result = (await this.dataSource.query(
+    const result: { rowCount?: number } | null = await this.dataSource.query(
       `INSERT INTO notification.notification_templates
          (id, tenant_id, trigger_event, channel, subject, body, created_at, updated_at)
        SELECT gen_random_uuid(), $1::uuid, trigger_event, channel, subject, body, now(), now()
@@ -51,7 +51,7 @@ export class TypeOrmNotificationTemplateRepository implements INotificationTempl
        WHERE tenant_id IS NULL
        ON CONFLICT DO NOTHING`,
       [tenantId],
-    )) as { rowCount?: number } | null;
+    );
     return result?.rowCount ?? 0;
   }
 
