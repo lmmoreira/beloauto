@@ -87,19 +87,16 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     // noise is fully drained before the it() block starts accumulating messages.
     // Timeout raised to 20 s: TenantProvisionedNotificationHandler now also seeds
     // 16 template rows per tenant, adding extra DB work on each provision.
-    await waitFor(
-      async () => {
-        const staff = await ds
-          .getRepository(StaffEntity)
-          .findOne({ where: { tenantId, role: 'MANAGER' } });
-        if (!staff) return false;
-        const log = await ds
-          .getRepository(NotificationLogEntity)
-          .findOne({ where: { tenantId, notificationType: 'STAFF_INVITED' } });
-        return log !== null;
-      },
-      { timeoutMs: 20000 },
-    );
+    await waitFor(async () => {
+      const staff = await ds
+        .getRepository(StaffEntity)
+        .findOne({ where: { tenantId, role: 'MANAGER' } });
+      if (!staff) return false;
+      const log = await ds
+        .getRepository(NotificationLogEntity)
+        .findOne({ where: { tenantId, notificationType: 'STAFF_INVITED' } });
+      return log !== null;
+    }, 20000);
 
     const manager = await ds
       .getRepository(StaffEntity)
