@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { formatBRL } from '../../../../../shared/utils/money-format';
 import { utcDateToLocalDate, utcDateToLocalHHMM } from '../../../../../shared/utils/calendar-date';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
@@ -79,7 +80,7 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
         tenantId: dto.tenantId,
         to: dto.guestEmail,
         subject: 'Seu agendamento foi reagendado',
-        templateKey: 'booking-rescheduled-customer',
+        templateKey: NotificationTemplateKey.BOOKING_RESCHEDULED_CUSTOMER,
         data: {
           serviceNames,
           totalPrice: formattedTotal,
@@ -103,7 +104,7 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
               tenantId: dto.tenantId,
               to: email,
               subject: 'Agendamento reagendado',
-              templateKey: 'booking-rescheduled-admin',
+              templateKey: NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN,
               data: {
                 guestName: dto.guestName,
                 previousLocalDate,

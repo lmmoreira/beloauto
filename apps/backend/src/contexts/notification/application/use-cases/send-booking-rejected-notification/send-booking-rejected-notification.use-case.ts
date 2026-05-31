@@ -3,6 +3,7 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingRejectedNotificationDto } from '../../dtos/send-booking-rejected-notification.dto';
 import {
   INotificationDispatcher,
@@ -42,7 +43,7 @@ export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseC
       tenantId: dto.tenantId,
       to: dto.guestEmail,
       subject: 'Sobre seu pedido de agendamento',
-      templateKey: 'booking-rejected-customer',
+      templateKey: NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
       data: {
         guestName: dto.guestName,
         reason: dto.reason,

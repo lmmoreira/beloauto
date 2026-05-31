@@ -4,6 +4,7 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingRequestedNotificationDto } from '../../dtos/send-booking-requested-notification.dto';
 import {
   INotificationDispatcher,
@@ -67,7 +68,7 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
               tenantId: dto.tenantId,
               to: email,
               subject: `Nova solicitação de agendamento — ${serviceNames}`,
-              templateKey: 'booking-requested-admin',
+              templateKey: NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
               data: {
                 guestName: dto.guestName,
                 scheduledAt: dto.scheduledAt,
@@ -89,7 +90,7 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
         tenantId: dto.tenantId,
         to: dto.guestEmail,
         subject: 'Seu agendamento foi recebido',
-        templateKey: 'booking-requested-customer',
+        templateKey: NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
         data: {
           guestName: dto.guestName,
           scheduledAt: dto.scheduledAt,

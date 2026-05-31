@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
@@ -48,7 +49,7 @@ export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificatio
       tenantId: dto.tenantId,
       to: dto.guestEmail,
       subject: 'Precisamos de mais informações sobre seu agendamento',
-      templateKey: 'booking-info-requested-customer',
+      templateKey: NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
       data: {
         guestName: dto.guestName,
         informationNeeded: dto.informationNeeded,

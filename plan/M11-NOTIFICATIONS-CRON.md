@@ -18,47 +18,95 @@
 **Docs to load:** `docs/02-DOMAIN_MODEL.md` § Notification context, `docs/13-DATABASE_SCHEMA.md` § notification schema
 
 **Description:**  
-Implement the `NotificationTemplate` aggregate and its database migration. Templates are per-tenant and contain the email subject and body for each event type. All templates must be in pt-BR. A default template set is seeded for every new tenant.
+Implement the `NotificationTemplate` aggregate, its database migration, and the `NotificationTemplateKey` enum. Templates are per-tenant (or global-default when `tenantId` is null) and hold the pt-BR subject and body for one `(triggerEvent, channel)` pair. All pt-BR copy lives in the DB — no hardcoded strings in use cases.
 
-**Domain layer:**
-- `NotificationTemplate` aggregate:
-  - Properties: `id` (UUID v7), `tenantId`, `eventName` (e.g., `'BookingApproved'`), `subject`, `bodyHtml`, `updatedAt`
-  - Methods: `update(subject, bodyHtml)`, `render(variables: Record<string, string>): RenderedEmail`
-  - Template engine: Mustache-style `{{variableName}}` placeholders
-  - Invariants: `subject` must be non-empty, `bodyHtml` must be non-empty
+**`NotificationTemplateKey` enum (created first — other files depend on it):**
+
+```typescript
+// src/contexts/notification/domain/notification-template-key.enum.ts
+export enum NotificationTemplateKey {
+  BOOKING_REQUESTED_ADMIN         = 'booking-requested-admin',
+  BOOKING_REQUESTED_CUSTOMER      = 'booking-requested-customer',
+  BOOKING_APPROVED_CUSTOMER       = 'booking-approved-customer',
+  BOOKING_REJECTED_CUSTOMER       = 'booking-rejected-customer',
+  BOOKING_INFO_REQUESTED_CUSTOMER = 'booking-info-requested-customer',
+  BOOKING_INFO_SUBMITTED_ADMIN    = 'booking-info-submitted-admin',
+  BOOKING_CANCELLED_CUSTOMER      = 'booking-cancelled-customer',
+  BOOKING_CANCELLED_ADMIN         = 'booking-cancelled-admin',
+  BOOKING_RESCHEDULED_CUSTOMER    = 'booking-rescheduled-customer',
+  BOOKING_RESCHEDULED_ADMIN       = 'booking-rescheduled-admin',
+  BOOKING_REMINDER_DUE            = 'booking-reminder-due',
+  BOOKING_REMINDER_DUE_TODAY      = 'booking-reminder-due-today',
+  ADMIN_DAILY_SCHEDULE_REMINDER   = 'admin-daily-schedule-reminder',
+  SERVICE_POINTS_EARNED           = 'service-points-earned',
+  POINTS_EXPIRING_SOON            = 'points-expiring-soon',
+  STAFF_INVITATION                = 'staff-invitation',
+}
+```
+
+**Refactor existing use cases to use the enum:**  
+All existing notification use cases (M04–M10) pass `templateKey` as a plain string to `dispatcher.dispatch()`. Replace every string literal with the matching `NotificationTemplateKey` enum value. Update the `OutboundMessage` interface so `templateKey: string` becomes `templateKey: NotificationTemplateKey`. This is in-scope for this story — it must be done before the migration is run so the enum values match the seeded rows.
+
+**`NotificationTemplate` aggregate:**
+- Properties: `id` (UUID v7), `tenantId` (`string | null` — null = global default), `triggerEvent` (`NotificationTemplateKey`), `channel` (`'EMAIL' | 'SMS' | 'WHATSAPP'`), `subject` (string), `body` (string), `updatedAt`
+- Methods: `update(subject, body)`, `render(variables: Record<string, string>): { subject: string; body: string }`
+- `render()` engine: replace every `{{key}}` with `variables[key] ?? ''` — missing variables become empty string, never an error
+- Invariants: `subject` non-empty, `body` non-empty
 
 **Migration: `notification.notification_templates`**
 ```sql
-id          UUID PRIMARY KEY
-tenant_id   UUID NOT NULL
-event_name  VARCHAR(100) NOT NULL
-subject     VARCHAR(500) NOT NULL
-body_html   TEXT NOT NULL
-created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+id            UUID PRIMARY KEY
+tenant_id     UUID NULLABLE                    -- NULL = global default; FK platform.tenants(id) when set
+trigger_event VARCHAR(100) NOT NULL            -- NotificationTemplateKey enum value
+channel       VARCHAR(20)  NOT NULL DEFAULT 'EMAIL'
+subject       VARCHAR(255) NOT NULL
+body          TEXT NOT NULL
+created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 
-UNIQUE (tenant_id, event_name)
-INDEX (tenant_id)
+-- Two partial unique indexes (PostgreSQL NULLs are distinct in standard UNIQUE)
+UNIQUE INDEX uq_notification_templates_global ON notification_templates (trigger_event, channel) WHERE tenant_id IS NULL
+UNIQUE INDEX uq_notification_templates_tenant ON notification_templates (tenant_id, trigger_event, channel) WHERE tenant_id IS NOT NULL
+INDEX ON notification_templates (tenant_id)
 ```
 
-**Default templates to seed (on new tenant creation via UC-024):**
-- `BookingRequested` — admin + customer variants
-- `BookingApproved`, `BookingRejected`, `BookingInfoRequested`, `BookingInfoSubmitted`
-- `BookingCancelled`, `BookingRescheduled`
-- `BookingReminderDue`, `BookingReminderDueToday`
-- `AdminDailyScheduleReminder`
-- `ServicePointsEarned`, `PointsExpiringSoon`
-- `StaffInvited`
+**Global default rows seeded by migration (`tenant_id = NULL`, `channel = 'EMAIL'`):**
 
-All subjects and bodies must be in pt-BR with `{{variableName}}` placeholders.
+| trigger_event | subject (pt-BR) |
+|---|---|
+| `booking-requested-admin` | `Novo agendamento recebido` |
+| `booking-requested-customer` | `Solicitação de agendamento recebida` |
+| `booking-approved-customer` | `Seu agendamento foi confirmado!` |
+| `booking-rejected-customer` | `Agendamento não confirmado` |
+| `booking-info-requested-customer` | `Precisamos de mais informações sobre seu agendamento` |
+| `booking-info-submitted-admin` | `Cliente respondeu à solicitação de informações` |
+| `booking-cancelled-customer` | `Seu agendamento foi cancelado` |
+| `booking-cancelled-admin` | `Agendamento cancelado` |
+| `booking-rescheduled-customer` | `Seu agendamento foi reagendado` |
+| `booking-rescheduled-admin` | `Agendamento reagendado` |
+| `booking-reminder-due` | `Lembrete: seu agendamento é amanhã!` |
+| `booking-reminder-due-today` | `Lembrete: seu agendamento é hoje!` |
+| `admin-daily-schedule-reminder` | `Agenda do dia — {{localDate}}` |
+| `service-points-earned` | `Lavagem concluída! Você ganhou {{totalPointsEarned}} pontos` |
+| `points-expiring-soon` | `Seus pontos de fidelidade estão prestes a expirar!` |
+| `staff-invitation` | `Você foi convidado para a equipe {{tenantName}}` |
+
+All `body` values must be pt-BR with `{{variableName}}` placeholders matching the variables each use case already passes to `dispatcher.dispatch()`.
+
+**Seeding on new tenant creation:**  
+A new `TenantProvisionedNotificationHandler` subscribes to the `TenantProvisioned` event. It runs `SeedDefaultTemplatesUseCase` which copies all rows where `tenant_id IS NULL` into new rows with `tenant_id = event.tenantId`. Every new tenant gets a full editable copy of the defaults.
 
 **Acceptance criteria:**
-- [ ] `UNIQUE (tenant_id, event_name)` constraint exists
+- [ ] `NotificationTemplateKey` enum covers all 16 keys; every existing use case's `templateKey` string literal replaced with enum value; `OutboundMessage.templateKey` typed as `NotificationTemplateKey`
+- [ ] Migration creates table with two partial UNIQUE indexes and seeds 16 global-default rows (`tenant_id = NULL`)
+- [ ] Migration revert drops the table cleanly
 - [ ] `template.render({ customerName: 'João' })` replaces `{{customerName}}` in subject and body
-- [ ] `template.render({})` with a missing variable leaves `{{variableName}}` as empty string (not an error)
-- [ ] Migration and revert run cleanly
-- [ ] Default templates are seeded automatically in `UC-024 tenant:create` command
-- [ ] All default template subjects are in pt-BR
+- [ ] `template.render({})` with a missing variable leaves the placeholder as empty string (not an error)
+- [ ] `TenantProvisionedNotificationHandler` copies all 16 global-default rows to the new tenant on `TenantProvisioned`
+- [ ] After provisioning, new tenant has exactly 16 rows in `notification_templates`
+- [ ] Tenant isolation: querying templates for Tenant B returns only Tenant B's rows — not Tenant A's, not global defaults
+- [ ] All default subjects and bodies are in pt-BR
+- [ ] Unit tests cover `render()` happy path, missing variable, and empty variables map
 
 **Dependencies:** M00-S07, M02-S05
 

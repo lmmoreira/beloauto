@@ -1,4 +1,5 @@
 export { NotificationLogEntityBuilder } from './notification-log-entity.builder';
+export { NotificationTemplateBuilder } from './notification-template.builder';
 export { SendBookingApprovedNotificationDtoBuilder } from './send-booking-approved-notification-dto.builder';
 export { SendBookingCancelledNotificationDtoBuilder } from './send-booking-cancelled-notification-dto.builder';
 export { SendBookingInfoRequestedNotificationDtoBuilder } from './send-booking-info-requested-notification-dto.builder';

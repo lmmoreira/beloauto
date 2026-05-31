@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { formatBRL } from '../../../../../shared/utils/money-format';
 import { utcDateToLocalDate, utcDateToLocalHHMM } from '../../../../../shared/utils/calendar-date';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
@@ -62,7 +63,7 @@ export class SendBookingApprovedNotificationUseCase extends BaseNotificationUseC
       tenantId: dto.tenantId,
       to: dto.guestEmail,
       subject: 'Seu agendamento foi confirmado! ✓',
-      templateKey: 'booking-approved-customer',
+      templateKey: NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
       data: {
         guestName: dto.guestName,
         localDate,

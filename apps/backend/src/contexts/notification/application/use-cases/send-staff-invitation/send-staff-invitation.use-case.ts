@@ -21,6 +21,7 @@ import {
   INotificationTenantPort,
   NOTIFICATION_TENANT_PORT,
 } from '../../ports/notification-tenant.port';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
 const NOTIFICATION_TYPE = 'STAFF_INVITED';
@@ -59,7 +60,7 @@ export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
       tenantId: dto.tenantId,
       to: staff.email,
       subject: `Você foi convidado para a equipe ${tenant.name}`,
-      templateKey: 'staff-invitation',
+      templateKey: NotificationTemplateKey.STAFF_INVITATION,
       data: {
         staffName: staff.name ?? staff.email,
         tenantName: tenant.name,

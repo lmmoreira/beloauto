@@ -4,6 +4,7 @@ import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingInfoSubmittedNotificationDto } from '../../dtos/send-booking-info-submitted-notification.dto';
 import {
   INotificationDispatcher,
@@ -59,7 +60,7 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
           tenantId: dto.tenantId,
           to: email,
           subject: 'Cliente respondeu à solicitação de informações',
-          templateKey: 'booking-info-submitted-admin',
+          templateKey: NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
           data: {
             submittedByEmail: dto.submittedByEmail,
             bookingId: dto.bookingId,

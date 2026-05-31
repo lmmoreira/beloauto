@@ -20,6 +20,7 @@ import {
   INotificationServicePort,
   NOTIFICATION_SERVICE_PORT,
 } from '../../ports/notification-service.port';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
 const NOTIFICATION_TYPE = 'SERVICE_POINTS_EARNED';
@@ -65,7 +66,7 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
       tenantId: dto.tenantId,
       to: customer.email,
       subject: `Lavagem concluída! Você ganhou ${dto.totalPointsEarned} pontos`,
-      templateKey: 'service-points-earned',
+      templateKey: NotificationTemplateKey.SERVICE_POINTS_EARNED,
       data: {
         customerName: customer.name,
         totalPointsEarned: dto.totalPointsEarned,
