@@ -435,6 +435,51 @@ describe('SmtpEmailAdapter', () => {
     });
   });
 
+  describe('booking-reminder-due template', () => {
+    it('falls back to subject-only paragraph', async () => {
+      const message: OutboundMessage = {
+        tenantId: TENANT_ID,
+        to: 'joao@example.com',
+        subject: 'Lembrete: seu agendamento é amanhã!',
+        templateKey: NotificationTemplateKey.BOOKING_REMINDER_DUE,
+        data: {},
+      };
+      await adapter.send(message);
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('Lembrete: seu agendamento é amanhã!');
+    });
+  });
+
+  describe('booking-reminder-due-today template', () => {
+    it('falls back to subject-only paragraph', async () => {
+      const message: OutboundMessage = {
+        tenantId: TENANT_ID,
+        to: 'joao@example.com',
+        subject: 'Lembrete: seu agendamento é hoje!',
+        templateKey: NotificationTemplateKey.BOOKING_REMINDER_DUE_TODAY,
+        data: {},
+      };
+      await adapter.send(message);
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('Lembrete: seu agendamento é hoje!');
+    });
+  });
+
+  describe('admin-daily-schedule-reminder template', () => {
+    it('falls back to subject-only paragraph', async () => {
+      const message: OutboundMessage = {
+        tenantId: TENANT_ID,
+        to: 'admin@lavacar.com.br',
+        subject: 'Agenda do dia',
+        templateKey: NotificationTemplateKey.ADMIN_DAILY_SCHEDULE_REMINDER,
+        data: {},
+      };
+      await adapter.send(message);
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('Agenda do dia');
+    });
+  });
+
   describe('unknown template key', () => {
     it('falls back to subject-only paragraph', async () => {
       const message: OutboundMessage = {
