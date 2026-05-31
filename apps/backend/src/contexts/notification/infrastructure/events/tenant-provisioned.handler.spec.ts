@@ -52,7 +52,9 @@ describe('TenantProvisionedNotificationHandler', () => {
 
   it('onModuleInit subscribes to TenantProvisioned with correct consumer name', () => {
     const mockEventBus = { publish: jest.fn(), subscribe: jest.fn() };
-    const seedUseCase = new SeedDefaultTemplatesUseCase(new InMemoryNotificationTemplateRepository());
+    const seedUseCase = new SeedDefaultTemplatesUseCase(
+      new InMemoryNotificationTemplateRepository(),
+    );
     const h = new TenantProvisionedNotificationHandler(seedUseCase, mockEventBus);
 
     h.onModuleInit();

@@ -33,7 +33,10 @@ export class InMemoryNotificationTemplateRepository implements INotificationTemp
       .filter(
         (d) =>
           !this.store.some(
-            (t) => t.tenantId === tenantId && t.triggerEvent === d.triggerEvent && t.channel === d.channel,
+            (t) =>
+              t.tenantId === tenantId &&
+              t.triggerEvent === d.triggerEvent &&
+              t.channel === d.channel,
           ),
       )
       .map((d) =>
