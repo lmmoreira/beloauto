@@ -92,6 +92,24 @@ describe('NotificationTemplate', () => {
     });
   });
 
+  describe('reconstitute()', () => {
+    it('restores aggregate from persisted props without validation', () => {
+      const props = {
+        id: '00000000-0000-4000-8000-000000000001',
+        tenantId: BASE_PROPS.tenantId,
+        triggerEvent: BASE_PROPS.triggerEvent,
+        channel: BASE_PROPS.channel,
+        subject: BASE_PROPS.subject,
+        body: BASE_PROPS.body,
+        updatedAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      const t = NotificationTemplate.reconstitute(props);
+      expect(t.id).toBe(props.id);
+      expect(t.subject).toBe(props.subject);
+      expect(t.updatedAt).toEqual(props.updatedAt);
+    });
+  });
+
   describe('update()', () => {
     it('updates subject and body', () => {
       const t = NotificationTemplate.create(BASE_PROPS);

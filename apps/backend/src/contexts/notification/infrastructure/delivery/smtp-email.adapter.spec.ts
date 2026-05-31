@@ -389,6 +389,52 @@ describe('SmtpEmailAdapter', () => {
     });
   });
 
+  describe('service-points-earned template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'joao@example.com',
+      subject: 'Você ganhou 50 pontos',
+      templateKey: NotificationTemplateKey.SERVICE_POINTS_EARNED,
+      data: {
+        customerName: 'João Silva',
+        totalPointsEarned: 50,
+        currentBalance: 150,
+      },
+    };
+
+    it('renders customer name, points earned and current balance', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('50');
+      expect(html).toContain('150');
+    });
+  });
+
+  describe('points-expiring-soon template', () => {
+    const message: OutboundMessage = {
+      tenantId: TENANT_ID,
+      to: 'joao@example.com',
+      subject: 'Seus pontos estão prestes a expirar',
+      templateKey: NotificationTemplateKey.POINTS_EXPIRING_SOON,
+      data: {
+        customerName: 'João Silva',
+        pointsExpiringSoon: 30,
+        earliestExpiresAt: '30/06/2026',
+      },
+    };
+
+    it('renders customer name, expiring points and expiry date', async () => {
+      await adapter.send(message);
+
+      const { html } = mockSendMail.mock.calls[0][0] as { html: string };
+      expect(html).toContain('João Silva');
+      expect(html).toContain('30');
+      expect(html).toContain('30/06/2026');
+    });
+  });
+
   describe('unknown template key', () => {
     it('falls back to subject-only paragraph', async () => {
       const message: OutboundMessage = {

@@ -52,6 +52,23 @@ describe('TenantProvisionedNotificationHandler', () => {
     expect(tenantTemplate!.tenantId).toBe(TENANT_ID);
   });
 
+  it('onModuleInit subscribes to TenantProvisioned with correct consumer name', () => {
+    const mockEventBus = { publish: jest.fn(), subscribe: jest.fn() };
+    const seedUseCase = new SeedDefaultTemplatesUseCase(
+      new InMemoryNotificationTemplateRepository(),
+      new InMemoryTransactionManager(),
+    );
+    const h = new TenantProvisionedNotificationHandler(seedUseCase, mockEventBus);
+
+    h.onModuleInit();
+
+    expect(mockEventBus.subscribe).toHaveBeenCalledWith(
+      'TenantProvisioned',
+      expect.any(Function),
+      'notification-template-seed',
+    );
+  });
+
   it('rethrows errors so Pub/Sub nacks and retries', async () => {
     jest.spyOn(templateRepo, 'findAllDefaults').mockRejectedValue(new Error('DB down'));
 

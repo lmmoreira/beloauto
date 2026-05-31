@@ -1,0 +1,158 @@
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { IsNull, Repository } from 'typeorm';
+import { NotificationTemplate } from '../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../domain/notification-template-key.enum';
+import { NotificationTemplateEntity } from '../entities/notification-template.entity';
+import { NotificationTemplateEntityBuilder } from '../../../../test/builders/notification/notification-template-entity.builder';
+import { TypeOrmNotificationTemplateRepository } from './typeorm-notification-template.repository';
+
+const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000011';
+
+describe('TypeOrmNotificationTemplateRepository', () => {
+  let repo: TypeOrmNotificationTemplateRepository;
+  let ormRepo: jest.Mocked<Pick<Repository<NotificationTemplateEntity>, 'findOne' | 'find' | 'save'>>;
+
+  beforeEach(async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        TypeOrmNotificationTemplateRepository,
+        {
+          provide: getRepositoryToken(NotificationTemplateEntity),
+          useValue: {
+            findOne: jest.fn(),
+            find: jest.fn(),
+            save: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    repo = moduleRef.get(TypeOrmNotificationTemplateRepository);
+    ormRepo = moduleRef.get(getRepositoryToken(NotificationTemplateEntity));
+  });
+
+  describe('findByTriggerEventAndChannel', () => {
+    it('returns null when no row found', async () => {
+      (ormRepo.findOne as jest.Mock).mockResolvedValue(null);
+
+      const result = await repo.findByTriggerEventAndChannel(
+        TENANT_ID,
+        NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+        'EMAIL',
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('maps entity to NotificationTemplate domain object', async () => {
+      const entity = new NotificationTemplateEntityBuilder()
+        .withTenantId(TENANT_ID)
+        .withTriggerEvent(NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER)
+        .withSubject('Confirmado!')
+        .withBody('<p>Ok</p>')
+        .build();
+      (ormRepo.findOne as jest.Mock).mockResolvedValue(entity);
+
+      const result = await repo.findByTriggerEventAndChannel(
+        TENANT_ID,
+        NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+        'EMAIL',
+      );
+
+      expect(result).toBeInstanceOf(NotificationTemplate);
+      expect(result!.tenantId).toBe(TENANT_ID);
+      expect(result!.triggerEvent).toBe(NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER);
+      expect(result!.subject).toBe('Confirmado!');
+    });
+
+    it('passes correct where clause to findOne', async () => {
+      (ormRepo.findOne as jest.Mock).mockResolvedValue(null);
+
+      await repo.findByTriggerEventAndChannel(
+        TENANT_ID,
+        NotificationTemplateKey.STAFF_INVITATION,
+        'EMAIL',
+      );
+
+      expect(ormRepo.findOne).toHaveBeenCalledWith({
+        where: {
+          tenantId: TENANT_ID,
+          triggerEvent: NotificationTemplateKey.STAFF_INVITATION,
+          channel: 'EMAIL',
+        },
+      });
+    });
+  });
+
+  describe('findAllDefaults', () => {
+    it('returns empty array when no global defaults exist', async () => {
+      (ormRepo.find as jest.Mock).mockResolvedValue([]);
+
+      const result = await repo.findAllDefaults();
+
+      expect(result).toEqual([]);
+    });
+
+    it('queries with tenant_id IS NULL', async () => {
+      (ormRepo.find as jest.Mock).mockResolvedValue([]);
+
+      await repo.findAllDefaults();
+
+      expect(ormRepo.find).toHaveBeenCalledWith({ where: { tenantId: IsNull() } });
+    });
+
+    it('maps multiple entities to domain objects', async () => {
+      const entities = [
+        new NotificationTemplateEntityBuilder()
+          .asGlobalDefault()
+          .withTriggerEvent(NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER)
+          .withSubject('Aprovado')
+          .withBody('<p>Ok</p>')
+          .build(),
+        new NotificationTemplateEntityBuilder()
+          .asGlobalDefault()
+          .withTriggerEvent(NotificationTemplateKey.STAFF_INVITATION)
+          .withSubject('Convite')
+          .withBody('<p>Olá</p>')
+          .build(),
+      ];
+      (ormRepo.find as jest.Mock).mockResolvedValue(entities);
+
+      const result = await repo.findAllDefaults();
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toBeInstanceOf(NotificationTemplate);
+      expect(result[0].tenantId).toBeNull();
+      expect(result[1].triggerEvent).toBe(NotificationTemplateKey.STAFF_INVITATION);
+    });
+  });
+
+  describe('saveAll', () => {
+    it('persists all templates via TypeORM save', async () => {
+      (ormRepo.save as jest.Mock).mockResolvedValue([]);
+      const templates = [
+        NotificationTemplate.create({
+          tenantId: TENANT_ID,
+          triggerEvent: NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+          channel: 'EMAIL',
+          subject: 'Aprovado',
+          body: '<p>Ok</p>',
+        }),
+      ];
+
+      await repo.saveAll(templates);
+
+      expect(ormRepo.save).toHaveBeenCalledTimes(1);
+      const saved = (ormRepo.save as jest.Mock).mock.calls[0][0] as NotificationTemplateEntity[];
+      expect(saved).toHaveLength(1);
+      expect(saved[0].tenantId).toBe(TENANT_ID);
+      expect(saved[0].triggerEvent).toBe(NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER);
+    });
+
+    it('does not call save when templates array is empty', async () => {
+      await repo.saveAll([]);
+      expect(ormRepo.save).toHaveBeenCalledWith([]);
+    });
+  });
+});

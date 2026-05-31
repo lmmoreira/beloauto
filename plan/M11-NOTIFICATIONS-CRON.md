@@ -320,20 +320,119 @@ Implement the weekly loyalty expiry warning: every Monday at 06:00 UTC, find cus
 **Docs to load:** `docs/05-BOUNDED_CONTEXTS.md` § Notification context
 
 **Description:**  
-Upgrade all existing notification handlers (from M04-S05, M07-S06, M08-S05, M09-S04, M10-S06) to use the full `NotificationTemplate` system from M11-S01 and the `NotificationLog` from M11-S02. The temporary hardcoded pt-BR strings from earlier milestones must be replaced with rendered templates from the DB.
+Upgrade all existing notification use cases (from M04-S05, M07-S06, M08-S05, M09-S04, M10-S06) to load and render templates from the DB, route dispatches through the correct channel, and log every send attempt. This story wires together the `NotificationTemplate` aggregate (M11-S01), the `NotificationLog` (M11-S02), and the `IEmailSender` adapter (M11-S03) into a complete, database-driven notification pipeline.
 
-**Changes per handler:**
-1. Load `NotificationTemplate` by `(tenantId, eventName)`
-2. Call `template.render(variables)` to get `{ subject, html }`
-3. Call `IEmailSender.send(to, { subject, html })`
-4. Persist `NotificationLog.recordSent()` or `NotificationLog.recordFailed()`
-5. Persist `processed_events` row for idempotency
+**Architecture locked in by M11-S01 design session:**
+
+The current `OutboundMessage` interface carries `templateKey` + `data` and delegates rendering to the `SmtpEmailAdapter`. This is temporary scaffolding. M11-S07 replaces it with a clean separation:
+
+- **Rendering belongs to the use case** (via `NotificationTemplate.render(variables)`) — not the adapter.
+- **The adapter is a pure transport layer** — it receives `{ subject, body, channel }` and sends; no switch/render logic.
+- **The dispatcher routes to the correct channel** (strategy pattern) — not broadcast to all adapters.
+
+**`OutboundMessage` — redesigned (remove `templateKey`/`data`, add `body`/`channel`):**
+```typescript
+export interface OutboundMessage {
+  tenantId: string;
+  to: string;
+  subject: string;           // already rendered
+  body: string;              // already rendered (HTML for EMAIL, plain text for SMS)
+  channel: NotificationChannel;  // EMAIL | SMS | WHATSAPP
+}
+```
+
+**`INotificationTemplateRepository` — add new method:**
+```typescript
+findAllByTriggerEvent(
+  tenantId: string,
+  triggerEvent: NotificationTemplateKey,
+): Promise<NotificationTemplate[]>;
+```
+Returns all channel variants for one event (e.g. both EMAIL and SMS rows). Use case iterates and dispatches one message per template.
+
+**`NotificationDispatcherAdapter` — strategy routing (not broadcast):**
+```typescript
+async dispatch(message: OutboundMessage): Promise<void> {
+  const adapter = this.channels.find(c => c.channelType === message.channel);
+  if (!adapter) {
+    this.logger.warn(`No adapter for channel ${message.channel} — skipping`);
+    return;
+  }
+  await adapter.send(message);
+}
+```
+
+**`SmtpEmailAdapter` — pure transport, no `render()` method:**
+```typescript
+async send(message: OutboundMessage): Promise<void> {
+  await this.transporter.sendMail({
+    from: this.config.get('SMTP_FROM'),
+    to: message.to,
+    subject: message.subject,
+    html: message.body,   // already rendered upstream by the use case
+  });
+}
+```
+The entire `private render(message)` switch block is deleted in this story.
+
+**Use case pattern per handler (replaces all hardcoded subjects + templateKey strings):**
+```typescript
+// 1. Load all templates for this event (one per channel in DB)
+const templates = await this.templateRepo.findAllByTriggerEvent(
+  tenantId,
+  NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+);
+if (templates.length === 0) {
+  this.logger.warn('No template found — skipping', { tenantId, triggerEvent });
+  return;
+}
+
+// 2. Render and dispatch one message per channel template
+for (const template of templates) {
+  const { subject, body } = template.render({
+    customerName: customer.name,
+    localDate,
+    localTime,
+    // ... event-specific variables
+  });
+  await this.dispatcher.dispatch({
+    tenantId,
+    to: recipient,
+    subject,
+    body,
+    channel: template.channel,  // determined by the DB row, not hardcoded
+  });
+}
+```
+
+Adding a new channel (SMS, WhatsApp) requires only:
+1. A new template row in the DB with `channel = 'SMS'`
+2. A new adapter class implementing `IDeliveryChannel`
+
+No use case changes needed.
+
+**Changes required in this story:**
+1. Redesign `OutboundMessage` — add `body: string`, `channel: NotificationChannel`; remove `templateKey`, `data`
+2. Add `findAllByTriggerEvent()` to `INotificationTemplateRepository` port + `TypeOrmNotificationTemplateRepository` + `InMemoryNotificationTemplateRepository`
+3. Update `NotificationDispatcherAdapter` — route by `message.channel` instead of broadcasting
+4. Delete `SmtpEmailAdapter.render()` private method; `send()` uses `message.subject` + `message.body` directly
+5. Update every use case (9 handlers from M04–M10 + 3 new reminder handlers from M11-S05 + 1 from M11-S06) to:
+   - Inject `INotificationTemplateRepository`
+   - Call `findAllByTriggerEvent()` + `template.render(variables)`
+   - Pass rendered `{ subject, body, channel }` to dispatcher
+6. Update all use case specs that assert `dispatcher.dispatched[x].templateKey` → assert `subject` and `body` instead
+7. Update `SmtpEmailAdapter` spec — remove template-key-based describe blocks; assert only transport behaviour (`sendMail` called with correct `to`, `subject`, `html`)
 
 **Acceptance criteria:**
-- [ ] All notification handlers use `NotificationTemplate` (no hardcoded subject strings)
-- [ ] If a template is not found for a `(tenantId, eventName)` pair → log warning + skip email (do not throw)
-- [ ] Every email attempt (success or failure) produces a `notification_logs` row
+- [ ] `OutboundMessage` has `body: string` and `channel: NotificationChannel`; `templateKey` and `data` are removed
+- [ ] `NotificationDispatcherAdapter` routes to the single adapter matching `message.channel`; skips with log when no adapter found
+- [ ] `SmtpEmailAdapter.send()` uses `message.subject` + `message.body`; no `render()` method exists
+- [ ] All 9 existing use cases load templates from DB via `findAllByTriggerEvent()`; no hardcoded `subject` strings or `templateKey` values remain
+- [ ] If no template found for `(tenantId, triggerEvent)` → log warning + return without throwing
+- [ ] Every email attempt produces a `notification_logs` row (via `NotificationLog` from M11-S02)
 - [ ] `processed_events` prevents duplicate handling across all handlers
+- [ ] All use case specs updated — assert on `subject`/`body` content, not `templateKey`
+- [ ] Adding a second channel template row for an event causes the use case to dispatch a second message — no code change needed
 - [ ] Existing integration tests from M04, M07, M08, M09, M10 still pass after refactor
 
 **Dependencies:** M11-S01, M11-S02, M11-S03
