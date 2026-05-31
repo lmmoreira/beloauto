@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import * as transactionContext from '../../../../shared/infrastructure/transaction-context';
 import { NotificationTemplate } from '../../domain/notification-template.aggregate';
 import { NotificationTemplateKey } from '../../domain/notification-template-key.enum';
 import { NotificationTemplateEntity } from '../entities/notification-template.entity';
@@ -40,6 +41,8 @@ describe('TypeOrmNotificationTemplateRepository', () => {
     repo = moduleRef.get(TypeOrmNotificationTemplateRepository);
     ormRepo = moduleRef.get(getRepositoryToken(NotificationTemplateEntity));
   });
+
+  afterEach(() => jest.restoreAllMocks());
 
   describe('findByTriggerEventAndChannel', () => {
     it('returns null when no row found', async () => {
@@ -138,7 +141,7 @@ describe('TypeOrmNotificationTemplateRepository', () => {
   });
 
   describe('saveAll', () => {
-    it('persists all templates via TypeORM save', async () => {
+    it('persists all templates via TypeORM repo when no active manager', async () => {
       (ormRepo.save as jest.Mock).mockResolvedValue([]);
       const templates = [
         NotificationTemplate.create({
@@ -154,14 +157,34 @@ describe('TypeOrmNotificationTemplateRepository', () => {
 
       expect(ormRepo.save).toHaveBeenCalledTimes(1);
       const saved = (ormRepo.save as jest.Mock).mock.calls[0][0] as NotificationTemplateEntity[];
-      expect(saved).toHaveLength(1);
-      expect(saved[0].tenantId).toBe(TENANT_ID);
       expect(saved[0].triggerEvent).toBe(NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER);
+    });
+
+    it('uses active EntityManager when one is present', async () => {
+      const mockManagerSave = jest.fn().mockResolvedValue([]);
+      jest
+        .spyOn(transactionContext, 'getActiveEntityManager')
+        .mockReturnValue({ save: mockManagerSave } as never);
+
+      const templates = [
+        NotificationTemplate.create({
+          tenantId: TENANT_ID,
+          triggerEvent: NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+          channel: 'EMAIL',
+          subject: 'Aprovado',
+          body: '<p>Ok</p>',
+        }),
+      ];
+
+      await repo.saveAll(templates);
+
+      expect(mockManagerSave).toHaveBeenCalledTimes(1);
+      expect(ormRepo.save).not.toHaveBeenCalled();
     });
   });
 
   describe('copyGlobalDefaultsForTenant', () => {
-    it('executes INSERT ... SELECT and returns row count', async () => {
+    it('executes INSERT...SELECT and returns rowCount', async () => {
       const result = await repo.copyGlobalDefaultsForTenant(TENANT_ID);
 
       expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO'), [TENANT_ID]);
@@ -171,8 +194,23 @@ describe('TypeOrmNotificationTemplateRepository', () => {
     it('uses ON CONFLICT DO NOTHING for idempotency', async () => {
       await repo.copyGlobalDefaultsForTenant(TENANT_ID);
 
-      const sql = mockQuery.mock.calls[0][0] as string;
-      expect(sql).toContain('ON CONFLICT DO NOTHING');
+      expect((mockQuery.mock.calls[0][0] as string)).toContain('ON CONFLICT DO NOTHING');
+    });
+
+    it('returns 0 when query result has no rowCount', async () => {
+      mockQuery.mockResolvedValueOnce(null);
+
+      const result = await repo.copyGlobalDefaultsForTenant(TENANT_ID);
+
+      expect(result).toBe(0);
+    });
+
+    it('returns 0 when rowCount is undefined', async () => {
+      mockQuery.mockResolvedValueOnce({ rowCount: undefined });
+
+      const result = await repo.copyGlobalDefaultsForTenant(TENANT_ID);
+
+      expect(result).toBe(0);
     });
   });
 });

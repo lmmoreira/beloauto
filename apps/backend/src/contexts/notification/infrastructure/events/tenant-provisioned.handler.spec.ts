@@ -50,7 +50,15 @@ describe('TenantProvisionedNotificationHandler', () => {
     expect(tenantTemplate!.tenantId).toBe(TENANT_ID);
   });
 
-  it('onModuleInit subscribes to TenantProvisioned with correct consumer name', () => {
+  it('onModuleInit subscribes to TenantProvisioned with correct consumer name', async () => {
+    templateRepo.seed(
+      new NotificationTemplateBuilder()
+        .asGlobalDefault()
+        .withTriggerEvent(NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER)
+        .withSubject('Ok')
+        .withBody('<p>Ok</p>')
+        .build(),
+    );
     const mockEventBus = { publish: jest.fn(), subscribe: jest.fn() };
     const seedUseCase = new SeedDefaultTemplatesUseCase(
       new InMemoryNotificationTemplateRepository(),
@@ -64,6 +72,12 @@ describe('TenantProvisionedNotificationHandler', () => {
       expect.any(Function),
       'notification-template-seed',
     );
+
+    // Invoke the registered callback to cover the arrow function branch
+    const callback = mockEventBus.subscribe.mock.calls[0][1] as (
+      event: TenantProvisioned,
+    ) => Promise<void>;
+    await expect(callback(makeEvent())).resolves.not.toThrow();
   });
 
   it('rethrows errors so Pub/Sub nacks and retries', async () => {
