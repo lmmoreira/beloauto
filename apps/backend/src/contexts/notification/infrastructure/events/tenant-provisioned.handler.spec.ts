@@ -80,9 +80,15 @@ describe('TenantProvisionedNotificationHandler', () => {
     await expect(callback(makeEvent())).resolves.not.toThrow();
   });
 
-  it('rethrows errors so Pub/Sub nacks and retries', async () => {
+  it('rethrows Error instances so Pub/Sub nacks and retries', async () => {
     jest.spyOn(templateRepo, 'copyGlobalDefaultsForTenant').mockRejectedValue(new Error('DB down'));
 
     await expect(handler.handle(makeEvent())).rejects.toThrow('DB down');
+  });
+
+  it('rethrows non-Error rejections (covers String(err) branch)', async () => {
+    jest.spyOn(templateRepo, 'copyGlobalDefaultsForTenant').mockRejectedValue('plain-string-error');
+
+    await expect(handler.handle(makeEvent())).rejects.toBe('plain-string-error');
   });
 });
