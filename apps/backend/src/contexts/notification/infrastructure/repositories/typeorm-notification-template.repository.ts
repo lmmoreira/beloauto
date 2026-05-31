@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
-import { NotificationTemplate, NotificationChannel } from '../../domain/notification-template.aggregate';
+import {
+  NotificationTemplate,
+  NotificationChannel,
+} from '../../domain/notification-template.aggregate';
 import { NotificationTemplateKey } from '../../domain/notification-template-key.enum';
 import { INotificationTemplateRepository } from '../../application/ports/notification-template-repository.port';
 import { NotificationTemplateEntity } from '../entities/notification-template.entity';

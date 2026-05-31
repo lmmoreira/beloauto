@@ -106,8 +106,6 @@ export class CreateNotificationTemplates1748100000010 implements MigrationInterf
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP TABLE IF EXISTS "notification"."notification_templates"`,
-    );
+    await queryRunner.query(`DROP TABLE IF EXISTS "notification"."notification_templates"`);
   }
 }

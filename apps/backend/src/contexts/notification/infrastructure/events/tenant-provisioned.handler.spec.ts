@@ -53,9 +53,7 @@ describe('TenantProvisionedNotificationHandler', () => {
   });
 
   it('rethrows errors so Pub/Sub nacks and retries', async () => {
-    jest
-      .spyOn(templateRepo, 'findAllDefaults')
-      .mockRejectedValue(new Error('DB down'));
+    jest.spyOn(templateRepo, 'findAllDefaults').mockRejectedValue(new Error('DB down'));
 
     await expect(handler.handle(makeEvent())).rejects.toThrow('DB down');
   });

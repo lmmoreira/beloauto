@@ -45,9 +45,7 @@ export class NotificationTemplate {
     return this._body;
   }
 
-  static create(
-    props: Omit<NotificationTemplateProps, 'id' | 'updatedAt'>,
-  ): NotificationTemplate {
+  static create(props: Omit<NotificationTemplateProps, 'id' | 'updatedAt'>): NotificationTemplate {
     if (!props.subject.trim()) throw new Error('NotificationTemplate subject must be non-empty');
     if (!props.body.trim()) throw new Error('NotificationTemplate body must be non-empty');
     return new NotificationTemplate({ ...props, id: uuidv7(), updatedAt: new Date() });
