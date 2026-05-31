@@ -194,7 +194,7 @@ describe('TypeOrmNotificationTemplateRepository', () => {
     it('uses ON CONFLICT DO NOTHING for idempotency', async () => {
       await repo.copyGlobalDefaultsForTenant(TENANT_ID);
 
-      expect((mockQuery.mock.calls[0][0] as string)).toContain('ON CONFLICT DO NOTHING');
+      expect(mockQuery.mock.calls[0][0] as string).toContain('ON CONFLICT DO NOTHING');
     });
 
     it('returns 0 when query result has no rowCount', async () => {
