@@ -11,7 +11,9 @@ const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000011';
 
 describe('TypeOrmNotificationTemplateRepository', () => {
   let repo: TypeOrmNotificationTemplateRepository;
-  let ormRepo: jest.Mocked<Pick<Repository<NotificationTemplateEntity>, 'findOne' | 'find' | 'save'>>;
+  let ormRepo: jest.Mocked<
+    Pick<Repository<NotificationTemplateEntity>, 'findOne' | 'find' | 'save'>
+  >;
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
