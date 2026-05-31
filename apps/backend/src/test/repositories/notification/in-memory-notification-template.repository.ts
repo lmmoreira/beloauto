@@ -27,6 +27,30 @@ export class InMemoryNotificationTemplateRepository implements INotificationTemp
     }
   }
 
+  async copyGlobalDefaultsForTenant(tenantId: string): Promise<number> {
+    const defaults = this.store.filter((t) => t.tenantId === null);
+    const copies = defaults
+      .filter(
+        (d) =>
+          !this.store.some(
+            (t) => t.tenantId === tenantId && t.triggerEvent === d.triggerEvent && t.channel === d.channel,
+          ),
+      )
+      .map((d) =>
+        NotificationTemplate.create({
+          tenantId,
+          triggerEvent: d.triggerEvent,
+          channel: d.channel as 'EMAIL' | 'SMS' | 'WHATSAPP',
+          subject: d.subject,
+          body: d.body,
+        }),
+      );
+    for (const t of copies) {
+      this.store.push(t);
+    }
+    return copies.length;
+  }
+
   seed(template: NotificationTemplate): void {
     this.store.push(template);
   }

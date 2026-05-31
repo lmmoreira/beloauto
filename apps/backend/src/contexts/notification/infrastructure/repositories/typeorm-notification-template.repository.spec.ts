@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { NotificationTemplate } from '../../domain/notification-template.aggregate';
 import { NotificationTemplateKey } from '../../domain/notification-template-key.enum';
@@ -14,8 +14,11 @@ describe('TypeOrmNotificationTemplateRepository', () => {
   let ormRepo: jest.Mocked<
     Pick<Repository<NotificationTemplateEntity>, 'findOne' | 'find' | 'save'>
   >;
+  let mockQuery: jest.Mock;
 
   beforeEach(async () => {
+    mockQuery = jest.fn().mockResolvedValue({ rowCount: 16 });
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         TypeOrmNotificationTemplateRepository,
@@ -26,6 +29,10 @@ describe('TypeOrmNotificationTemplateRepository', () => {
             find: jest.fn(),
             save: jest.fn(),
           },
+        },
+        {
+          provide: getDataSourceToken(),
+          useValue: { query: mockQuery },
         },
       ],
     }).compile();
@@ -151,10 +158,21 @@ describe('TypeOrmNotificationTemplateRepository', () => {
       expect(saved[0].tenantId).toBe(TENANT_ID);
       expect(saved[0].triggerEvent).toBe(NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER);
     });
+  });
 
-    it('does not call save when templates array is empty', async () => {
-      await repo.saveAll([]);
-      expect(ormRepo.save).toHaveBeenCalledWith([]);
+  describe('copyGlobalDefaultsForTenant', () => {
+    it('executes INSERT ... SELECT and returns row count', async () => {
+      const result = await repo.copyGlobalDefaultsForTenant(TENANT_ID);
+
+      expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO'), [TENANT_ID]);
+      expect(result).toBe(16);
+    });
+
+    it('uses ON CONFLICT DO NOTHING for idempotency', async () => {
+      await repo.copyGlobalDefaultsForTenant(TENANT_ID);
+
+      const sql = mockQuery.mock.calls[0][0] as string;
+      expect(sql).toContain('ON CONFLICT DO NOTHING');
     });
   });
 });

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import {
   NotificationTemplate,
@@ -15,6 +15,7 @@ export class TypeOrmNotificationTemplateRepository implements INotificationTempl
   constructor(
     @InjectRepository(NotificationTemplateEntity)
     private readonly repo: Repository<NotificationTemplateEntity>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   async findByTriggerEventAndChannel(
@@ -39,6 +40,21 @@ export class TypeOrmNotificationTemplateRepository implements INotificationTempl
     } else {
       await this.repo.save(entities);
     }
+  }
+
+  async copyGlobalDefaultsForTenant(tenantId: string): Promise<number> {
+    const result = await this.dataSource.query<{ rowCount?: number }>(
+      `INSERT INTO notification.notification_templates
+         (id, tenant_id, trigger_event, channel, subject, body, created_at, updated_at)
+       SELECT gen_random_uuid(), $1::uuid, trigger_event, channel, subject, body, now(), now()
+       FROM notification.notification_templates
+       WHERE tenant_id IS NULL
+       ON CONFLICT DO NOTHING`,
+      [tenantId],
+    );
+    return typeof result === 'object' && result !== null && 'rowCount' in result
+      ? (result.rowCount ?? 0)
+      : 0;
   }
 
   private toDomain(entity: NotificationTemplateEntity): NotificationTemplate {

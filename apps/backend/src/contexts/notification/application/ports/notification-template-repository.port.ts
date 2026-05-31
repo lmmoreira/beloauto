@@ -11,4 +11,5 @@ export interface INotificationTemplateRepository {
   ): Promise<NotificationTemplate | null>;
   findAllDefaults(): Promise<NotificationTemplate[]>;
   saveAll(templates: NotificationTemplate[]): Promise<void>;
+  copyGlobalDefaultsForTenant(tenantId: string): Promise<number>;
 }

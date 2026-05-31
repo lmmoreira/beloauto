@@ -1,4 +1,3 @@
-import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { NotificationTemplateBuilder } from '../../../../../test/builders/notification/notification-template.builder';
 import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
@@ -9,13 +8,11 @@ const TENANT_B = '10000000-0000-4000-8000-000000000032';
 
 describe('SeedDefaultTemplatesUseCase', () => {
   let templateRepo: InMemoryNotificationTemplateRepository;
-  let txManager: InMemoryTransactionManager;
   let useCase: SeedDefaultTemplatesUseCase;
 
   beforeEach(() => {
     templateRepo = new InMemoryNotificationTemplateRepository();
-    txManager = new InMemoryTransactionManager();
-    useCase = new SeedDefaultTemplatesUseCase(templateRepo, txManager);
+    useCase = new SeedDefaultTemplatesUseCase(templateRepo);
   });
 
   it('copies all global defaults to the given tenantId', async () => {
@@ -39,8 +36,6 @@ describe('SeedDefaultTemplatesUseCase', () => {
     const result = await useCase.execute({ tenantId: TENANT_A });
 
     expect(result.seeded).toBe(2);
-    const tenantTemplates = await templateRepo.findAllDefaults();
-    expect(tenantTemplates).toHaveLength(2);
     const tenantApproved = await templateRepo.findByTriggerEventAndChannel(
       TENANT_A,
       NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,

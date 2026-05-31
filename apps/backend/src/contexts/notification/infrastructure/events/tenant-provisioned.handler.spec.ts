@@ -1,4 +1,3 @@
-import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryNotificationTemplateRepository } from '../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { NotificationTemplateBuilder } from '../../../../test/builders/notification/notification-template.builder';
 import { NotificationTemplateKey } from '../../domain/notification-template-key.enum';
@@ -23,8 +22,7 @@ describe('TenantProvisionedNotificationHandler', () => {
 
   beforeEach(() => {
     templateRepo = new InMemoryNotificationTemplateRepository();
-    const txManager = new InMemoryTransactionManager();
-    const seedUseCase = new SeedDefaultTemplatesUseCase(templateRepo, txManager);
+    const seedUseCase = new SeedDefaultTemplatesUseCase(templateRepo);
     handler = new TenantProvisionedNotificationHandler(seedUseCase, {
       publish: jest.fn(),
       subscribe: jest.fn(),
@@ -54,10 +52,7 @@ describe('TenantProvisionedNotificationHandler', () => {
 
   it('onModuleInit subscribes to TenantProvisioned with correct consumer name', () => {
     const mockEventBus = { publish: jest.fn(), subscribe: jest.fn() };
-    const seedUseCase = new SeedDefaultTemplatesUseCase(
-      new InMemoryNotificationTemplateRepository(),
-      new InMemoryTransactionManager(),
-    );
+    const seedUseCase = new SeedDefaultTemplatesUseCase(new InMemoryNotificationTemplateRepository());
     const h = new TenantProvisionedNotificationHandler(seedUseCase, mockEventBus);
 
     h.onModuleInit();
@@ -70,7 +65,7 @@ describe('TenantProvisionedNotificationHandler', () => {
   });
 
   it('rethrows errors so Pub/Sub nacks and retries', async () => {
-    jest.spyOn(templateRepo, 'findAllDefaults').mockRejectedValue(new Error('DB down'));
+    jest.spyOn(templateRepo, 'copyGlobalDefaultsForTenant').mockRejectedValue(new Error('DB down'));
 
     await expect(handler.handle(makeEvent())).rejects.toThrow('DB down');
   });
