@@ -41,7 +41,14 @@ export class SendBookingApprovedNotificationUseCase extends BaseNotificationUseC
   async execute(
     dto: SendBookingApprovedNotificationDto,
   ): Promise<SendBookingApprovedNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER, CHANNEL)) {
+    if (
+      await this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+        CHANNEL,
+      )
+    ) {
       return { emailSent: false };
     }
 
@@ -73,7 +80,12 @@ export class SendBookingApprovedNotificationUseCase extends BaseNotificationUseC
       },
     });
 
-    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER, CHANNEL);
+    await this.saveLog(
+      dto.tenantId,
+      dto.eventId,
+      NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+      CHANNEL,
+    );
     return { emailSent: true };
   }
 }

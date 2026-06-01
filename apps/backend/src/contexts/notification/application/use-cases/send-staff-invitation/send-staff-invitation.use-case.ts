@@ -44,7 +44,14 @@ export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
   }
 
   async execute(dto: SendStaffInvitationDto): Promise<SendStaffInvitationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.STAFF_INVITATION, CHANNEL)) {
+    if (
+      await this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.STAFF_INVITATION,
+        CHANNEL,
+      )
+    ) {
       return { sent: false };
     }
 
@@ -67,7 +74,12 @@ export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
       },
     });
 
-    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.STAFF_INVITATION, CHANNEL);
+    await this.saveLog(
+      dto.tenantId,
+      dto.eventId,
+      NotificationTemplateKey.STAFF_INVITATION,
+      CHANNEL,
+    );
     return { sent: true };
   }
 }

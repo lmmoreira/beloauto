@@ -41,7 +41,14 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
   async execute(
     dto: SendBookingInfoSubmittedNotificationDto,
   ): Promise<SendBookingInfoSubmittedNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN, CHANNEL)) {
+    if (
+      await this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
+        CHANNEL,
+      )
+    ) {
       return { emailSent: false };
     }
 
@@ -70,7 +77,12 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
       ),
     );
 
-    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN, CHANNEL);
+    await this.saveLog(
+      dto.tenantId,
+      dto.eventId,
+      NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
+      CHANNEL,
+    );
     return { emailSent: true };
   }
 }

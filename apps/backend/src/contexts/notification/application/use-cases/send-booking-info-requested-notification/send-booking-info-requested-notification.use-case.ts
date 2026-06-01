@@ -38,7 +38,14 @@ export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificatio
   async execute(
     dto: SendBookingInfoRequestedNotificationDto,
   ): Promise<SendBookingInfoRequestedNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER, CHANNEL)) {
+    if (
+      await this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
+        CHANNEL,
+      )
+    ) {
       return { emailSent: false };
     }
 
@@ -56,7 +63,12 @@ export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificatio
       },
     });
 
-    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER, CHANNEL);
+    await this.saveLog(
+      dto.tenantId,
+      dto.eventId,
+      NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
+      CHANNEL,
+    );
     return { emailSent: true };
   }
 

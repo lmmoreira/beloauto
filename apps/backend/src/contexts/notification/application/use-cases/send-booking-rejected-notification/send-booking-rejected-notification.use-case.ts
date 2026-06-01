@@ -34,7 +34,14 @@ export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseC
   async execute(
     dto: SendBookingRejectedNotificationDto,
   ): Promise<SendBookingRejectedNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER, CHANNEL)) {
+    if (
+      await this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
+        CHANNEL,
+      )
+    ) {
       return { emailSent: false };
     }
 
@@ -49,7 +56,12 @@ export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseC
       },
     });
 
-    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER, CHANNEL);
+    await this.saveLog(
+      dto.tenantId,
+      dto.eventId,
+      NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
+      CHANNEL,
+    );
     return { emailSent: true };
   }
 }

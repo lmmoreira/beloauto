@@ -48,8 +48,18 @@ export class SendBookingCancelledNotificationUseCase extends BaseNotificationUse
     dto: SendBookingCancelledNotificationDto,
   ): Promise<SendBookingCancelledNotificationUseCaseResult> {
     const [customerSent, adminSent] = await Promise.all([
-      this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER, CHANNEL),
-      this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_CANCELLED_ADMIN, CHANNEL),
+      this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER,
+        CHANNEL,
+      ),
+      this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_CANCELLED_ADMIN,
+        CHANNEL,
+      ),
     ]);
 
     if (customerSent && adminSent) {
@@ -83,7 +93,12 @@ export class SendBookingCancelledNotificationUseCase extends BaseNotificationUse
           localTime,
         },
       });
-      await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER, CHANNEL);
+      await this.saveLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER,
+        CHANNEL,
+      );
       customerEmailSent = true;
     }
 
@@ -110,7 +125,12 @@ export class SendBookingCancelledNotificationUseCase extends BaseNotificationUse
             }),
           ),
         );
-        await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_CANCELLED_ADMIN, CHANNEL);
+        await this.saveLog(
+          dto.tenantId,
+          dto.eventId,
+          NotificationTemplateKey.BOOKING_CANCELLED_ADMIN,
+          CHANNEL,
+        );
         adminEmailSent = true;
       }
     }

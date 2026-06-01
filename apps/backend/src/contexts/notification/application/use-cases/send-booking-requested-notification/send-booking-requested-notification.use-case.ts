@@ -47,8 +47,18 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
     dto: SendBookingRequestedNotificationDto,
   ): Promise<SendBookingRequestedNotificationUseCaseResult> {
     const [adminSent, customerSent] = await Promise.all([
-      this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_ADMIN, CHANNEL),
-      this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER, CHANNEL),
+      this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
+        CHANNEL,
+      ),
+      this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
+        CHANNEL,
+      ),
     ]);
 
     const serviceNames = dto.lines.map((l) => l.serviceNameAtBooking).join(', ');
@@ -77,7 +87,12 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
             }),
           ),
         );
-        await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_ADMIN, CHANNEL);
+        await this.saveLog(
+          dto.tenantId,
+          dto.eventId,
+          NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
+          CHANNEL,
+        );
         adminEmailSent = true;
       }
     }
@@ -97,7 +112,12 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
           tenantName: tenantInfo?.name ?? '',
         },
       });
-      await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER, CHANNEL);
+      await this.saveLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
+        CHANNEL,
+      );
       customerEmailSent = true;
     }
 

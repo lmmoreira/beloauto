@@ -44,7 +44,14 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
   async execute(
     dto: SendServicePointsEarnedNotificationDto,
   ): Promise<SendServicePointsEarnedNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.SERVICE_POINTS_EARNED, CHANNEL)) {
+    if (
+      await this.isAlreadySent(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.SERVICE_POINTS_EARNED,
+        CHANNEL,
+      )
+    ) {
       return { emailSent: false };
     }
 
@@ -74,7 +81,12 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
       },
     });
 
-    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.SERVICE_POINTS_EARNED, CHANNEL);
+    await this.saveLog(
+      dto.tenantId,
+      dto.eventId,
+      NotificationTemplateKey.SERVICE_POINTS_EARNED,
+      CHANNEL,
+    );
     return { emailSent: true };
   }
 }
