@@ -15,7 +15,6 @@ import {
 } from '../../ports/notification-log-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const NOTIFICATION_TYPE = 'BOOKING_REJECTED_CUSTOMER';
 const CHANNEL = 'EMAIL';
 
 export interface SendBookingRejectedNotificationUseCaseResult {
@@ -35,7 +34,7 @@ export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseC
   async execute(
     dto: SendBookingRejectedNotificationDto,
   ): Promise<SendBookingRejectedNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL)) {
+    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER, CHANNEL)) {
       return { emailSent: false };
     }
 
@@ -50,7 +49,7 @@ export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseC
       },
     });
 
-    await this.saveLog(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL);
+    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER, CHANNEL);
     return { emailSent: true };
   }
 }

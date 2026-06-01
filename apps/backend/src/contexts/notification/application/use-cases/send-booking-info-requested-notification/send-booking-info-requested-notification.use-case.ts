@@ -17,7 +17,6 @@ import {
 } from '../../ports/notification-log-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const NOTIFICATION_TYPE = 'BOOKING_INFO_REQUESTED_CUSTOMER';
 const CHANNEL = 'EMAIL';
 const GUEST_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
@@ -39,7 +38,7 @@ export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificatio
   async execute(
     dto: SendBookingInfoRequestedNotificationDto,
   ): Promise<SendBookingInfoRequestedNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL)) {
+    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER, CHANNEL)) {
       return { emailSent: false };
     }
 
@@ -57,7 +56,7 @@ export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificatio
       },
     });
 
-    await this.saveLog(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL);
+    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER, CHANNEL);
     return { emailSent: true };
   }
 

@@ -25,8 +25,6 @@ import {
 } from '../../ports/notification-tenant.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const CUSTOMER_NOTIFICATION_TYPE = 'BOOKING_CANCELLED_CUSTOMER';
-const ADMIN_NOTIFICATION_TYPE = 'BOOKING_CANCELLED_ADMIN';
 const CHANNEL = 'EMAIL';
 
 export interface SendBookingCancelledNotificationUseCaseResult {
@@ -50,8 +48,8 @@ export class SendBookingCancelledNotificationUseCase extends BaseNotificationUse
     dto: SendBookingCancelledNotificationDto,
   ): Promise<SendBookingCancelledNotificationUseCaseResult> {
     const [customerSent, adminSent] = await Promise.all([
-      this.isAlreadySent(dto.tenantId, dto.eventId, CUSTOMER_NOTIFICATION_TYPE, CHANNEL),
-      this.isAlreadySent(dto.tenantId, dto.eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL),
+      this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER, CHANNEL),
+      this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_CANCELLED_ADMIN, CHANNEL),
     ]);
 
     if (customerSent && adminSent) {
@@ -85,7 +83,7 @@ export class SendBookingCancelledNotificationUseCase extends BaseNotificationUse
           localTime,
         },
       });
-      await this.saveLog(dto.tenantId, dto.eventId, CUSTOMER_NOTIFICATION_TYPE, CHANNEL);
+      await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER, CHANNEL);
       customerEmailSent = true;
     }
 
@@ -112,7 +110,7 @@ export class SendBookingCancelledNotificationUseCase extends BaseNotificationUse
             }),
           ),
         );
-        await this.saveLog(dto.tenantId, dto.eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL);
+        await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_CANCELLED_ADMIN, CHANNEL);
         adminEmailSent = true;
       }
     }

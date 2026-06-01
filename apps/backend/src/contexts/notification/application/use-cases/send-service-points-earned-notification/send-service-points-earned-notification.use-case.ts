@@ -23,7 +23,6 @@ import {
 import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const NOTIFICATION_TYPE = 'SERVICE_POINTS_EARNED';
 const CHANNEL = 'EMAIL';
 
 export interface SendServicePointsEarnedNotificationUseCaseResult {
@@ -45,7 +44,7 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
   async execute(
     dto: SendServicePointsEarnedNotificationDto,
   ): Promise<SendServicePointsEarnedNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL)) {
+    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.SERVICE_POINTS_EARNED, CHANNEL)) {
       return { emailSent: false };
     }
 
@@ -75,7 +74,7 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
       },
     });
 
-    await this.saveLog(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL);
+    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.SERVICE_POINTS_EARNED, CHANNEL);
     return { emailSent: true };
   }
 }

@@ -20,7 +20,6 @@ import {
 } from '../../ports/notification-staff.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const NOTIFICATION_TYPE = 'BOOKING_INFO_SUBMITTED_ADMIN';
 const CHANNEL = 'EMAIL';
 
 export interface SendBookingInfoSubmittedNotificationUseCaseResult {
@@ -42,7 +41,7 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
   async execute(
     dto: SendBookingInfoSubmittedNotificationDto,
   ): Promise<SendBookingInfoSubmittedNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL)) {
+    if (await this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN, CHANNEL)) {
       return { emailSent: false };
     }
 
@@ -71,7 +70,7 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
       ),
     );
 
-    await this.saveLog(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL);
+    await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN, CHANNEL);
     return { emailSent: true };
   }
 }

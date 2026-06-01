@@ -24,8 +24,6 @@ import {
 } from '../../ports/notification-tenant.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const ADMIN_NOTIFICATION_TYPE = 'BOOKING_REQUESTED_ADMIN';
-const CUSTOMER_NOTIFICATION_TYPE = 'BOOKING_REQUESTED_CUSTOMER';
 const CHANNEL = 'EMAIL';
 
 export interface SendBookingRequestedNotificationUseCaseResult {
@@ -49,8 +47,8 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
     dto: SendBookingRequestedNotificationDto,
   ): Promise<SendBookingRequestedNotificationUseCaseResult> {
     const [adminSent, customerSent] = await Promise.all([
-      this.isAlreadySent(dto.tenantId, dto.eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL),
-      this.isAlreadySent(dto.tenantId, dto.eventId, CUSTOMER_NOTIFICATION_TYPE, CHANNEL),
+      this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_ADMIN, CHANNEL),
+      this.isAlreadySent(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER, CHANNEL),
     ]);
 
     const serviceNames = dto.lines.map((l) => l.serviceNameAtBooking).join(', ');
@@ -79,7 +77,7 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
             }),
           ),
         );
-        await this.saveLog(dto.tenantId, dto.eventId, ADMIN_NOTIFICATION_TYPE, CHANNEL);
+        await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_ADMIN, CHANNEL);
         adminEmailSent = true;
       }
     }
@@ -99,7 +97,7 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
           tenantName: tenantInfo?.name ?? '',
         },
       });
-      await this.saveLog(dto.tenantId, dto.eventId, CUSTOMER_NOTIFICATION_TYPE, CHANNEL);
+      await this.saveLog(dto.tenantId, dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER, CHANNEL);
       customerEmailSent = true;
     }
 
