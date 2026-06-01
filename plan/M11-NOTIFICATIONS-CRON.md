@@ -338,7 +338,7 @@ SendGrid requires the sender email to be verified before any email sends. One-ti
 
 ---
 
-### M11-S04 — Cron endpoint + UC-018/019/020: Reminder jobs
+### M11-S04 — Cron endpoint + UC-018/019/020: Reminder jobs ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** L  
