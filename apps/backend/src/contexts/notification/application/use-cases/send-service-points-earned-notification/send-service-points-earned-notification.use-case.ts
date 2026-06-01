@@ -69,26 +69,37 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
       expiresAt: l.expiresAt,
     }));
 
-    await this.dispatcher.dispatch({
-      tenantId: dto.tenantId,
-      to: customer.email,
-      subject: `Lavagem concluída! Você ganhou ${dto.totalPointsEarned} pontos`,
-      templateKey: NotificationTemplateKey.SERVICE_POINTS_EARNED,
-      data: {
-        customerName: customer.name,
-        totalPointsEarned: dto.totalPointsEarned,
-        services,
-        currentBalance: dto.currentBalance,
-      },
-    });
-
-    await this.saveLog(
-      dto.tenantId,
-      dto.eventId,
-      NotificationTemplateKey.SERVICE_POINTS_EARNED,
-      CHANNEL,
-      customer.email,
-    );
-    return { emailSent: true };
+    try {
+      await this.dispatcher.dispatch({
+        tenantId: dto.tenantId,
+        to: customer.email,
+        subject: `Lavagem concluída! Você ganhou ${dto.totalPointsEarned} pontos`,
+        templateKey: NotificationTemplateKey.SERVICE_POINTS_EARNED,
+        data: {
+          customerName: customer.name,
+          totalPointsEarned: dto.totalPointsEarned,
+          services,
+          currentBalance: dto.currentBalance,
+        },
+      });
+      await this.saveLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.SERVICE_POINTS_EARNED,
+        CHANNEL,
+        customer.email,
+      );
+      return { emailSent: true };
+    } catch (err: unknown) {
+      await this.saveFailedLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.SERVICE_POINTS_EARNED,
+        CHANNEL,
+        customer.email,
+        String(err),
+      );
+      throw err;
+    }
   }
 }

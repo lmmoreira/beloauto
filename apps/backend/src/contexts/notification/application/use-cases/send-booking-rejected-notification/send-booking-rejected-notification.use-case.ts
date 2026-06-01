@@ -50,24 +50,35 @@ export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseC
       return { emailSent: false };
     }
 
-    await this.dispatcher.dispatch({
-      tenantId: dto.tenantId,
-      to: dto.guestEmail,
-      subject: 'Sobre seu pedido de agendamento',
-      templateKey: NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
-      data: {
-        guestName: dto.guestName,
-        reason: dto.reason,
-      },
-    });
-
-    await this.saveLog(
-      dto.tenantId,
-      dto.eventId,
-      NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
-      CHANNEL,
-      dto.guestEmail,
-    );
-    return { emailSent: true };
+    try {
+      await this.dispatcher.dispatch({
+        tenantId: dto.tenantId,
+        to: dto.guestEmail,
+        subject: 'Sobre seu pedido de agendamento',
+        templateKey: NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
+        data: {
+          guestName: dto.guestName,
+          reason: dto.reason,
+        },
+      });
+      await this.saveLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
+        CHANNEL,
+        dto.guestEmail,
+      );
+      return { emailSent: true };
+    } catch (err: unknown) {
+      await this.saveFailedLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
+        CHANNEL,
+        dto.guestEmail,
+        String(err),
+      );
+      throw err;
+    }
   }
 }

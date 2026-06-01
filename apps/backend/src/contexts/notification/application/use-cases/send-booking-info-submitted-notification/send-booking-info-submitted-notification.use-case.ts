@@ -65,30 +65,41 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
     const customerResponse =
       typeof dto.infoPayload['notes'] === 'string' ? dto.infoPayload['notes'] : '';
 
-    await Promise.all(
-      managerEmails.map((email) =>
-        this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: email,
-          subject: 'Cliente respondeu à solicitação de informações',
-          templateKey: NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
-          data: {
-            submittedByEmail: dto.submittedByEmail,
-            bookingId: dto.bookingId,
-            customerResponse,
-            bookingLink,
-          },
-        }),
-      ),
-    );
-
-    await this.saveLog(
-      dto.tenantId,
-      dto.eventId,
-      NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
-      CHANNEL,
-      managerEmails[0],
-    );
-    return { emailSent: true };
+    try {
+      await Promise.all(
+        managerEmails.map((email) =>
+          this.dispatcher.dispatch({
+            tenantId: dto.tenantId,
+            to: email,
+            subject: 'Cliente respondeu à solicitação de informações',
+            templateKey: NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
+            data: {
+              submittedByEmail: dto.submittedByEmail,
+              bookingId: dto.bookingId,
+              customerResponse,
+              bookingLink,
+            },
+          }),
+        ),
+      );
+      await this.saveLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
+        CHANNEL,
+        managerEmails[0],
+      );
+      return { emailSent: true };
+    } catch (err: unknown) {
+      await this.saveFailedLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
+        CHANNEL,
+        managerEmails[0],
+        String(err),
+      );
+      throw err;
+    }
   }
 }

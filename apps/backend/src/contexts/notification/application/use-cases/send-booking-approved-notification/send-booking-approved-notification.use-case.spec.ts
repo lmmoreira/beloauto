@@ -91,4 +91,18 @@ describe('SendBookingApprovedNotificationUseCase', () => {
     await useCase.execute(dto);
     expect(logRepo.all.every((l) => l.tenantId === TENANT_ID)).toBe(true);
   });
+
+  it('saves FAILED log and rethrows when dispatch fails', async () => {
+    dispatcher.failNext(new Error('SMTP timeout'));
+
+    await expect(useCase.execute(dto)).rejects.toThrow('SMTP timeout');
+
+    expect(dispatcher.dispatched).toHaveLength(0);
+    const logs = logRepo.all;
+    expect(logs).toHaveLength(1);
+    expect(logs[0].status).toBe('FAILED');
+    expect(logs[0].errorMessage).toContain('SMTP timeout');
+    const isDup = await processedEventRepo.isDuplicate(EVENT_ID, 'booking-approved-customer', 'EMAIL');
+    expect(isDup).toBe(false);
+  });
 });

@@ -1,6 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as transactionContext from '../../../../shared/infrastructure/transaction-context';
 import { NotificationProcessedEventEntity } from '../entities/processed-event.entity';
 import { TypeOrmNotificationProcessedEventRepository } from './typeorm-processed-event.repository';
 
@@ -52,7 +53,11 @@ describe('TypeOrmNotificationProcessedEventRepository', () => {
   });
 
   describe('markProcessed', () => {
-    it('upserts with composite conflict paths', async () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('upserts with composite conflict paths via repo when no active manager', async () => {
       ormRepo.upsert.mockResolvedValue({ raw: [], generatedMaps: [], identifiers: [] });
 
       await repo.markProcessed(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
@@ -63,6 +68,18 @@ describe('TypeOrmNotificationProcessedEventRepository', () => {
       expect((entity as NotificationProcessedEventEntity).notificationType).toBe(NOTIFICATION_TYPE);
       expect((entity as NotificationProcessedEventEntity).channel).toBe(CHANNEL);
       expect(conflictPaths).toEqual(['eventId', 'notificationType', 'channel']);
+    });
+
+    it('uses active EntityManager when one is present', async () => {
+      const mockManagerUpsert = jest.fn().mockResolvedValue({ raw: [] });
+      jest
+        .spyOn(transactionContext, 'getActiveEntityManager')
+        .mockReturnValue({ upsert: mockManagerUpsert } as never);
+
+      await repo.markProcessed(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
+
+      expect(mockManagerUpsert).toHaveBeenCalledTimes(1);
+      expect(ormRepo.upsert).not.toHaveBeenCalled();
     });
   });
 });

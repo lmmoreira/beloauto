@@ -76,60 +76,84 @@ export class SendBookingCancelledNotificationUseCase extends BaseNotificationUse
     let adminEmailSent = false;
 
     if (!customerSent) {
-      await this.dispatcher.dispatch({
-        tenantId: dto.tenantId,
-        to: dto.guestEmail,
-        subject: 'Seu agendamento foi cancelado',
-        templateKey: NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER,
-        data: {
-          serviceNames,
-          totalPrice: formattedTotal,
-          guestName: dto.guestName,
-          localDate,
-          localTime,
-        },
-      });
-      await this.saveLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER,
-        CHANNEL,
-        dto.guestEmail,
-      );
-      customerEmailSent = true;
+      try {
+        await this.dispatcher.dispatch({
+          tenantId: dto.tenantId,
+          to: dto.guestEmail,
+          subject: 'Seu agendamento foi cancelado',
+          templateKey: NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER,
+          data: {
+            serviceNames,
+            totalPrice: formattedTotal,
+            guestName: dto.guestName,
+            localDate,
+            localTime,
+          },
+        });
+        await this.saveLog(
+          dto.tenantId,
+          dto.eventId,
+          NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER,
+          CHANNEL,
+          dto.guestEmail,
+        );
+        customerEmailSent = true;
+      } catch (err: unknown) {
+        await this.saveFailedLog(
+          dto.tenantId,
+          dto.eventId,
+          NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER,
+          CHANNEL,
+          dto.guestEmail,
+          String(err),
+        );
+        throw err;
+      }
     }
 
     if (!adminSent) {
       const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
       if (managerEmails.length > 0) {
-        await Promise.all(
-          managerEmails.map((email) =>
-            this.dispatcher.dispatch({
-              tenantId: dto.tenantId,
-              to: email,
-              subject: 'Agendamento cancelado',
-              templateKey: NotificationTemplateKey.BOOKING_CANCELLED_ADMIN,
-              data: {
-                guestName: dto.guestName,
-                localDate,
-                localTime,
-                serviceNames,
-                totalPrice: formattedTotal,
-                cancelledBy: dto.cancelledBy,
-                isBusiness: dto.isBusiness,
-                reason: dto.reason,
-              },
-            }),
-          ),
-        );
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          NotificationTemplateKey.BOOKING_CANCELLED_ADMIN,
-          CHANNEL,
-          managerEmails[0],
-        );
-        adminEmailSent = true;
+        try {
+          await Promise.all(
+            managerEmails.map((email) =>
+              this.dispatcher.dispatch({
+                tenantId: dto.tenantId,
+                to: email,
+                subject: 'Agendamento cancelado',
+                templateKey: NotificationTemplateKey.BOOKING_CANCELLED_ADMIN,
+                data: {
+                  guestName: dto.guestName,
+                  localDate,
+                  localTime,
+                  serviceNames,
+                  totalPrice: formattedTotal,
+                  cancelledBy: dto.cancelledBy,
+                  isBusiness: dto.isBusiness,
+                  reason: dto.reason,
+                },
+              }),
+            ),
+          );
+          await this.saveLog(
+            dto.tenantId,
+            dto.eventId,
+            NotificationTemplateKey.BOOKING_CANCELLED_ADMIN,
+            CHANNEL,
+            managerEmails[0],
+          );
+          adminEmailSent = true;
+        } catch (err: unknown) {
+          await this.saveFailedLog(
+            dto.tenantId,
+            dto.eventId,
+            NotificationTemplateKey.BOOKING_CANCELLED_ADMIN,
+            CHANNEL,
+            managerEmails[0],
+            String(err),
+          );
+          throw err;
+        }
       }
     }
 

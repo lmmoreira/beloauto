@@ -66,57 +66,81 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
     if (!adminSent) {
       const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
       if (managerEmails.length > 0) {
-        await Promise.all(
-          managerEmails.map((email) =>
-            this.dispatcher.dispatch({
-              tenantId: dto.tenantId,
-              to: email,
-              subject: `Nova solicitação de agendamento — ${serviceNames}`,
-              templateKey: NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
-              data: {
-                guestName: dto.guestName,
-                scheduledAt: dto.scheduledAt,
-                serviceNames,
-                totalPrice: formattedPrice,
-                pickupAddress: dto.pickupAddress,
-              },
-            }),
-          ),
-        );
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
-          CHANNEL,
-          managerEmails[0],
-        );
-        adminEmailSent = true;
+        try {
+          await Promise.all(
+            managerEmails.map((email) =>
+              this.dispatcher.dispatch({
+                tenantId: dto.tenantId,
+                to: email,
+                subject: `Nova solicitação de agendamento — ${serviceNames}`,
+                templateKey: NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
+                data: {
+                  guestName: dto.guestName,
+                  scheduledAt: dto.scheduledAt,
+                  serviceNames,
+                  totalPrice: formattedPrice,
+                  pickupAddress: dto.pickupAddress,
+                },
+              }),
+            ),
+          );
+          await this.saveLog(
+            dto.tenantId,
+            dto.eventId,
+            NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
+            CHANNEL,
+            managerEmails[0],
+          );
+          adminEmailSent = true;
+        } catch (err: unknown) {
+          await this.saveFailedLog(
+            dto.tenantId,
+            dto.eventId,
+            NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
+            CHANNEL,
+            managerEmails[0],
+            String(err),
+          );
+          throw err;
+        }
       }
     }
 
     if (!customerSent) {
       const tenantInfo = await this.tenantPort.getTenantInfo(dto.tenantId);
-      await this.dispatcher.dispatch({
-        tenantId: dto.tenantId,
-        to: dto.guestEmail,
-        subject: 'Seu agendamento foi recebido',
-        templateKey: NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
-        data: {
-          guestName: dto.guestName,
-          scheduledAt: dto.scheduledAt,
-          serviceNames,
-          totalPrice: formattedPrice,
-          tenantName: tenantInfo?.name ?? '',
-        },
-      });
-      await this.saveLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
-        CHANNEL,
-        dto.guestEmail,
-      );
-      customerEmailSent = true;
+      try {
+        await this.dispatcher.dispatch({
+          tenantId: dto.tenantId,
+          to: dto.guestEmail,
+          subject: 'Seu agendamento foi recebido',
+          templateKey: NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
+          data: {
+            guestName: dto.guestName,
+            scheduledAt: dto.scheduledAt,
+            serviceNames,
+            totalPrice: formattedPrice,
+            tenantName: tenantInfo?.name ?? '',
+          },
+        });
+        await this.saveLog(
+          dto.tenantId,
+          dto.eventId,
+          NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
+          CHANNEL,
+          dto.guestEmail,
+        );
+        customerEmailSent = true;
+      } catch (err: unknown) {
+        await this.saveFailedLog(
+          dto.tenantId,
+          dto.eventId,
+          NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
+          CHANNEL,
+          dto.guestEmail,
+          String(err),
+        );
+        throw err;
+      }
     }
 
     return { adminEmailSent, customerEmailSent };

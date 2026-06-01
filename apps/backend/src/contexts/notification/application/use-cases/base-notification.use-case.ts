@@ -37,7 +37,28 @@ export abstract class BaseNotificationUseCase {
     log.markSent();
     await this.txManager.run(async () => {
       await this.logRepo.save(log);
+      await this.processedEventRepo.markProcessed(eventId, notificationType, channel);
     });
-    await this.processedEventRepo.markProcessed(eventId, notificationType, channel);
+  }
+
+  protected async saveFailedLog(
+    tenantId: string,
+    eventId: string,
+    notificationType: string,
+    channel: string,
+    recipientEmail: string,
+    errorMessage: string,
+  ): Promise<void> {
+    const log = NotificationLog.create({
+      tenantId,
+      eventId,
+      notificationType,
+      channel,
+      recipientEmail,
+    });
+    log.markFailed(errorMessage);
+    await this.txManager.run(async () => {
+      await this.logRepo.save(log);
+    });
   }
 }

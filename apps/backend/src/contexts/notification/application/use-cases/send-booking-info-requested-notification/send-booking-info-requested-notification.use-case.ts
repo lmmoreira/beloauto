@@ -56,26 +56,37 @@ export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificatio
 
     const respondLink = this.buildRespondLink(dto);
 
-    await this.dispatcher.dispatch({
-      tenantId: dto.tenantId,
-      to: dto.guestEmail,
-      subject: 'Precisamos de mais informações sobre seu agendamento',
-      templateKey: NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
-      data: {
-        guestName: dto.guestName,
-        informationNeeded: dto.informationNeeded,
-        respondLink,
-      },
-    });
-
-    await this.saveLog(
-      dto.tenantId,
-      dto.eventId,
-      NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
-      CHANNEL,
-      dto.guestEmail,
-    );
-    return { emailSent: true };
+    try {
+      await this.dispatcher.dispatch({
+        tenantId: dto.tenantId,
+        to: dto.guestEmail,
+        subject: 'Precisamos de mais informações sobre seu agendamento',
+        templateKey: NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
+        data: {
+          guestName: dto.guestName,
+          informationNeeded: dto.informationNeeded,
+          respondLink,
+        },
+      });
+      await this.saveLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
+        CHANNEL,
+        dto.guestEmail,
+      );
+      return { emailSent: true };
+    } catch (err: unknown) {
+      await this.saveFailedLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
+        CHANNEL,
+        dto.guestEmail,
+        String(err),
+      );
+      throw err;
+    }
   }
 
   private buildRespondLink(dto: SendBookingInfoRequestedNotificationDto): string {

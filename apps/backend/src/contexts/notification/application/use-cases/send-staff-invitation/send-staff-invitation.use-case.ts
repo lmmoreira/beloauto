@@ -61,25 +61,36 @@ export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
 
     if (!staff || !tenant) return { sent: false };
 
-    await this.dispatcher.dispatch({
-      tenantId: dto.tenantId,
-      to: staff.email,
-      subject: `Você foi convidado para a equipe ${tenant.name}`,
-      templateKey: NotificationTemplateKey.STAFF_INVITATION,
-      data: {
-        staffName: staff.name ?? staff.email,
-        tenantName: tenant.name,
-        activationLink: `${this.config.getOrThrow<string>('FRONTEND_URL')}/${tenant.slug}/auth/staff`,
-      },
-    });
-
-    await this.saveLog(
-      dto.tenantId,
-      dto.eventId,
-      NotificationTemplateKey.STAFF_INVITATION,
-      CHANNEL,
-      staff.email,
-    );
-    return { sent: true };
+    try {
+      await this.dispatcher.dispatch({
+        tenantId: dto.tenantId,
+        to: staff.email,
+        subject: `Você foi convidado para a equipe ${tenant.name}`,
+        templateKey: NotificationTemplateKey.STAFF_INVITATION,
+        data: {
+          staffName: staff.name ?? staff.email,
+          tenantName: tenant.name,
+          activationLink: `${this.config.getOrThrow<string>('FRONTEND_URL')}/${tenant.slug}/auth/staff`,
+        },
+      });
+      await this.saveLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.STAFF_INVITATION,
+        CHANNEL,
+        staff.email,
+      );
+      return { sent: true };
+    } catch (err: unknown) {
+      await this.saveFailedLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.STAFF_INVITATION,
+        CHANNEL,
+        staff.email,
+        String(err),
+      );
+      throw err;
+    }
   }
 }

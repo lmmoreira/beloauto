@@ -70,28 +70,39 @@ export class SendBookingApprovedNotificationUseCase extends BaseNotificationUseC
       (l) => `${l.serviceNameAtBooking}: ${formatBRL(l.priceAtBooking.amount)}`,
     );
 
-    await this.dispatcher.dispatch({
-      tenantId: dto.tenantId,
-      to: dto.guestEmail,
-      subject: 'Seu agendamento foi confirmado! ✓',
-      templateKey: NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
-      data: {
-        guestName: dto.guestName,
-        localDate,
-        localTime,
-        serviceNames,
-        lineItems,
-        totalPrice: formattedTotal,
-      },
-    });
-
-    await this.saveLog(
-      dto.tenantId,
-      dto.eventId,
-      NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
-      CHANNEL,
-      dto.guestEmail,
-    );
-    return { emailSent: true };
+    try {
+      await this.dispatcher.dispatch({
+        tenantId: dto.tenantId,
+        to: dto.guestEmail,
+        subject: 'Seu agendamento foi confirmado! ✓',
+        templateKey: NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+        data: {
+          guestName: dto.guestName,
+          localDate,
+          localTime,
+          serviceNames,
+          lineItems,
+          totalPrice: formattedTotal,
+        },
+      });
+      await this.saveLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+        CHANNEL,
+        dto.guestEmail,
+      );
+      return { emailSent: true };
+    } catch (err: unknown) {
+      await this.saveFailedLog(
+        dto.tenantId,
+        dto.eventId,
+        NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+        CHANNEL,
+        dto.guestEmail,
+        String(err),
+      );
+      throw err;
+    }
   }
 }
