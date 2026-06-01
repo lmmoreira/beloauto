@@ -30,7 +30,7 @@ export class TenantSettingsPropsBuilder {
   }
 
   withNotification(overrides: Partial<NotificationSettings>): this {
-    this.props.notification = { ...this.props.notification, ...overrides };
+    this.props.notification = { from_email: null, ...this.props.notification, ...overrides };
     return this;
   }
 

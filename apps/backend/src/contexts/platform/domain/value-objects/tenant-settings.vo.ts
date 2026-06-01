@@ -46,7 +46,7 @@ export interface TenantSettingsProps {
   booking: BookingSettings;
   business_hours: BusinessHours;
   localization: LocalizationSettings;
-  notification: NotificationSettings;
+  notification?: NotificationSettings;
 }
 
 export class TenantSettings {

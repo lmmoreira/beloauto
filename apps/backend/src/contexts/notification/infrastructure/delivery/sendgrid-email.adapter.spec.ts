@@ -28,9 +28,16 @@ describe('SendGridEmailAdapter', () => {
     adapter = new SendGridEmailAdapter(configService);
   });
 
-  it('calls sgMail.setApiKey with the configured key on onModuleInit', () => {
+  it('calls sgMail.setApiKey with the configured key on onModuleInit when key is set', () => {
     adapter.onModuleInit();
     expect(mockSetApiKey).toHaveBeenCalledWith('SG.test-key');
+  });
+
+  it('does not call sgMail.setApiKey on onModuleInit when key is empty', () => {
+    const emptyConfig = { get: jest.fn().mockReturnValue('') } as unknown as ConfigService;
+    const emptyAdapter = new SendGridEmailAdapter(emptyConfig);
+    emptyAdapter.onModuleInit();
+    expect(mockSetApiKey).not.toHaveBeenCalled();
   });
 
   it('calls sgMail.send with correct args', async () => {

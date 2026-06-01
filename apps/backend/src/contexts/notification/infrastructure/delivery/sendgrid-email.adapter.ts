@@ -13,7 +13,9 @@ export class SendGridEmailAdapter implements IEmailSender, OnModuleInit {
   }
 
   onModuleInit(): void {
-    sgMail.setApiKey(this.apiKey);
+    if (this.apiKey) {
+      sgMail.setApiKey(this.apiKey);
+    }
   }
 
   async send(options: EmailSendOptions): Promise<void> {
