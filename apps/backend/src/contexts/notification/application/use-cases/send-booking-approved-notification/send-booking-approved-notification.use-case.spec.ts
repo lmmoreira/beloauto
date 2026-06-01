@@ -102,7 +102,11 @@ describe('SendBookingApprovedNotificationUseCase', () => {
     expect(logs).toHaveLength(1);
     expect(logs[0].status).toBe('FAILED');
     expect(logs[0].errorMessage).toContain('SMTP timeout');
-    const isDup = await processedEventRepo.isDuplicate(EVENT_ID, 'booking-approved-customer', 'EMAIL');
+    const isDup = await processedEventRepo.isDuplicate(
+      EVENT_ID,
+      'booking-approved-customer',
+      'EMAIL',
+    );
     expect(isDup).toBe(false);
   });
 });
