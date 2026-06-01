@@ -8,10 +8,13 @@ import { PlatformSettingsModule } from '../platform/platform-settings.module';
 import { BOOKING_AVAILABILITY_PORT } from './application/ports/booking-availability.port';
 import { BOOKING_REPOSITORY } from './application/ports/booking-repository.port';
 import { CUSTOMER_PROFILE_PORT } from './application/ports/customer-profile.port';
+import { REMINDER_TENANT_PORT } from './application/ports/reminder-tenant.port';
 import { SCHEDULE_CLOSURE_REPOSITORY } from './application/ports/schedule-closure-repository.port';
 import { SCHEDULE_OPENING_REPOSITORY } from './application/ports/schedule-opening-repository.port';
 import { SCHEDULE_TENANT_SETTINGS_PORT } from './application/ports/schedule-tenant-settings.port';
 import { SERVICE_REPOSITORY } from './application/ports/service-repository.port';
+import { AdminScheduleReminderJob } from './application/jobs/admin-schedule-reminder.job';
+import { BookingReminderJob } from './application/jobs/booking-reminder.job';
 import { CloseScheduleUseCase } from './application/use-cases/close-schedule.use-case';
 import { CreateServiceUseCase } from './application/use-cases/create-service.use-case';
 import { RequestAuthenticatedBookingUseCase } from './application/use-cases/request-authenticated-booking.use-case';
@@ -45,11 +48,13 @@ import { ScheduleOpeningEntity } from './infrastructure/entities/schedule-openin
 import { ServiceEntity } from './infrastructure/entities/service.entity';
 import { CustomerProfileAdapter } from './infrastructure/adapters/customer-profile.adapter';
 import { BookingController } from './infrastructure/controllers/booking.controller';
+import { CronBookingController } from './infrastructure/controllers/cron-booking.controller';
 import { ScheduleAvailabilityController } from './infrastructure/controllers/schedule-availability.controller';
 import { ScheduleAvailabilitySummaryController } from './infrastructure/controllers/schedule-availability-summary.controller';
 import { ScheduleClosureController } from './infrastructure/controllers/schedule-closure.controller';
 import { ScheduleOpeningController } from './infrastructure/controllers/schedule-opening.controller';
 import { ServiceController } from './infrastructure/controllers/service.controller';
+import { ReminderTenantAdapter } from './infrastructure/cross-context/reminder-tenant.adapter';
 import { ScheduleTenantSettingsAdapter } from './infrastructure/cross-context/schedule-tenant-settings.adapter';
 import { TypeOrmBookingAvailabilityAdapter } from './infrastructure/cross-context/typeorm-booking-availability.adapter';
 import { TypeOrmBookingRepository } from './infrastructure/repositories/typeorm-booking.repository';
@@ -80,6 +85,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     ScheduleOpeningController,
     ScheduleAvailabilityController,
     ScheduleAvailabilitySummaryController,
+    CronBookingController,
   ],
   providers: [
     { provide: SERVICE_REPOSITORY, useClass: TypeOrmServiceRepository },
@@ -89,7 +95,10 @@ import { AvailabilityService } from './domain/services/availability.service';
     { provide: BOOKING_AVAILABILITY_PORT, useClass: TypeOrmBookingAvailabilityAdapter },
     { provide: BOOKING_REPOSITORY, useClass: TypeOrmBookingRepository },
     { provide: CUSTOMER_PROFILE_PORT, useClass: CustomerProfileAdapter },
+    { provide: REMINDER_TENANT_PORT, useClass: ReminderTenantAdapter },
     AvailabilityService,
+    BookingReminderJob,
+    AdminScheduleReminderJob,
     BookingSlotConflictService,
     CreateServiceUseCase,
     RequestBookingUseCase,
