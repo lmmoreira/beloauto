@@ -8,7 +8,9 @@ import { TenantEntity } from '../../../platform/infrastructure/entities/tenant.e
 import {
   BookingEntityBuilder,
   BookingLineEntityBuilder,
+  ServiceEntityBuilder,
 } from '../../../../test/builders/booking/index';
+import { ServiceEntity } from '../entities/service.entity';
 import { TenantEntityBuilder } from '../../../../test/builders/platform/tenant-entity.builder';
 import { TenantSettings } from '../../../platform/domain/value-objects/tenant-settings.vo';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
@@ -19,6 +21,8 @@ import { AdminScheduleReminderJob } from '../../application/jobs/admin-schedule-
 // Inline tenant UUID to avoid count cross-contamination
 const TENANT_IN = '00000000-1104-7000-8000-000000000001';
 const TENANT_OUT = '00000000-1104-7000-8000-000000000002';
+const SERVICE_ID_IN = '00000000-1104-7000-8000-000000000011';
+const SERVICE_ID_OUT = '00000000-1104-7000-8000-000000000012';
 
 // 06:15 UTC — in window for UTC-timezone tenant
 const NOW_IN = new Date('2026-06-01T06:15:00.000Z');
@@ -51,6 +55,14 @@ describe('CronBookingController (integration)', () => {
     outWindowTenant.settings = TenantSettings.default('UTC').toJSON();
 
     await ds.getRepository(TenantEntity).save([inWindowTenant, outWindowTenant]);
+
+    // Seed one service per tenant so booking_lines FK (tenant_id, service_id) → services is satisfied
+    await ds
+      .getRepository(ServiceEntity)
+      .save([
+        new ServiceEntityBuilder().withId(SERVICE_ID_IN).withTenantId(TENANT_IN).build(),
+        new ServiceEntityBuilder().withId(SERVICE_ID_OUT).withTenantId(TENANT_OUT).build(),
+      ]);
   });
 
   afterAll(async () => {
@@ -58,6 +70,8 @@ describe('CronBookingController (integration)', () => {
     await ds.getRepository(BookingLineEntity).delete({ tenantId: TENANT_OUT });
     await ds.getRepository(BookingEntity).delete({ tenantId: TENANT_IN });
     await ds.getRepository(BookingEntity).delete({ tenantId: TENANT_OUT });
+    await ds.getRepository(ServiceEntity).delete({ tenantId: TENANT_IN });
+    await ds.getRepository(ServiceEntity).delete({ tenantId: TENANT_OUT });
     await ds.getRepository(TenantEntity).delete({ id: TENANT_IN });
     await ds.getRepository(TenantEntity).delete({ id: TENANT_OUT });
     delete process.env['PLATFORM_ADMIN_KEY'];
@@ -90,6 +104,7 @@ describe('CronBookingController (integration)', () => {
     const lineEntity = new BookingLineEntityBuilder()
       .withTenantId(TENANT_IN)
       .withBookingId(bookingEntity.id)
+      .withServiceId(SERVICE_ID_IN)
       .withServiceNameAtBooking('Lavagem Completa')
       .build();
     await ds.getRepository(BookingLineEntity).save(lineEntity);
@@ -114,6 +129,7 @@ describe('CronBookingController (integration)', () => {
     const lineEntity = new BookingLineEntityBuilder()
       .withTenantId(TENANT_OUT)
       .withBookingId(bookingEntity.id)
+      .withServiceId(SERVICE_ID_OUT)
       .build();
     await ds.getRepository(BookingLineEntity).save(lineEntity);
 
@@ -148,6 +164,7 @@ describe('CronBookingController (integration)', () => {
     const lineEntity = new BookingLineEntityBuilder()
       .withTenantId(TENANT_IN)
       .withBookingId(bookingEntity.id)
+      .withServiceId(SERVICE_ID_IN)
       .build();
     await ds.getRepository(BookingLineEntity).save(lineEntity);
 

@@ -19,7 +19,11 @@ export class TenantInterceptor implements NestInterceptor {
       path: string;
     }>();
 
-    if (req.path?.startsWith('/health') || req.path?.startsWith('/internal')) {
+    if (
+      req.path?.startsWith('/health') ||
+      req.path?.startsWith('/internal') ||
+      req.path?.startsWith('/cron')
+    ) {
       return next.handle();
     }
 
