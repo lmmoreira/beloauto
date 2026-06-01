@@ -1,5 +1,6 @@
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
+import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingApprovedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
@@ -15,12 +16,14 @@ const dto = new SendBookingApprovedNotificationDtoBuilder()
 
 describe('SendBookingApprovedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
+  let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let dispatcher: InMemoryNotificationDispatcher;
   let tenantPort: InMemoryNotificationTenantPort;
   let useCase: SendBookingApprovedNotificationUseCase;
 
   beforeEach(() => {
     logRepo = new InMemoryNotificationLogRepository();
+    processedEventRepo = new InMemoryNotificationProcessedEventRepository();
     dispatcher = new InMemoryNotificationDispatcher();
     tenantPort = new InMemoryNotificationTenantPort();
     tenantPort.setTenantInfo(TENANT_ID, {
@@ -31,6 +34,7 @@ describe('SendBookingApprovedNotificationUseCase', () => {
     });
     useCase = new SendBookingApprovedNotificationUseCase(
       logRepo,
+      processedEventRepo,
       dispatcher,
       tenantPort,
       new InMemoryTransactionManager(),
@@ -63,6 +67,7 @@ describe('SendBookingApprovedNotificationUseCase', () => {
     const emptyTenantPort = new InMemoryNotificationTenantPort();
     const uc = new SendBookingApprovedNotificationUseCase(
       logRepo,
+      processedEventRepo,
       dispatcher,
       emptyTenantPort,
       new InMemoryTransactionManager(),

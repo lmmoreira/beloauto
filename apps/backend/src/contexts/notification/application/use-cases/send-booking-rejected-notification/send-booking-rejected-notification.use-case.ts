@@ -13,6 +13,10 @@ import {
   INotificationLogRepository,
   NOTIFICATION_LOG_REPOSITORY,
 } from '../../ports/notification-log-repository.port';
+import {
+  INotificationProcessedEventRepository,
+  NOTIFICATION_PROCESSED_EVENT_REPOSITORY,
+} from '../../ports/processed-event-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
 const CHANNEL = 'EMAIL';
@@ -25,10 +29,12 @@ export interface SendBookingRejectedNotificationUseCaseResult {
 export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseCase {
   constructor(
     @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
+    @Inject(NOTIFICATION_PROCESSED_EVENT_REPOSITORY)
+    processedEventRepo: INotificationProcessedEventRepository,
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
   ) {
-    super(logRepo, dispatcher, txManager);
+    super(logRepo, processedEventRepo, dispatcher, txManager);
   }
 
   async execute(
@@ -36,7 +42,6 @@ export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseC
   ): Promise<SendBookingRejectedNotificationUseCaseResult> {
     if (
       await this.isAlreadySent(
-        dto.tenantId,
         dto.eventId,
         NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
         CHANNEL,
@@ -61,6 +66,7 @@ export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseC
       dto.eventId,
       NotificationTemplateKey.BOOKING_REJECTED_CUSTOMER,
       CHANNEL,
+      dto.guestEmail,
     );
     return { emailSent: true };
   }

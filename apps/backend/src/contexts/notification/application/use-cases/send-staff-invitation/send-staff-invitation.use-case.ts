@@ -14,6 +14,10 @@ import {
   NOTIFICATION_LOG_REPOSITORY,
 } from '../../ports/notification-log-repository.port';
 import {
+  INotificationProcessedEventRepository,
+  NOTIFICATION_PROCESSED_EVENT_REPOSITORY,
+} from '../../ports/processed-event-repository.port';
+import {
   INotificationStaffPort,
   NOTIFICATION_STAFF_PORT,
 } from '../../ports/notification-staff.port';
@@ -34,24 +38,19 @@ export interface SendStaffInvitationUseCaseResult {
 export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
   constructor(
     @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
+    @Inject(NOTIFICATION_PROCESSED_EVENT_REPOSITORY)
+    processedEventRepo: INotificationProcessedEventRepository,
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
     @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
     private readonly config: ConfigService,
   ) {
-    super(logRepo, dispatcher, txManager);
+    super(logRepo, processedEventRepo, dispatcher, txManager);
   }
 
   async execute(dto: SendStaffInvitationDto): Promise<SendStaffInvitationUseCaseResult> {
-    if (
-      await this.isAlreadySent(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.STAFF_INVITATION,
-        CHANNEL,
-      )
-    ) {
+    if (await this.isAlreadySent(dto.eventId, NotificationTemplateKey.STAFF_INVITATION, CHANNEL)) {
       return { sent: false };
     }
 
@@ -79,6 +78,7 @@ export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
       dto.eventId,
       NotificationTemplateKey.STAFF_INVITATION,
       CHANNEL,
+      staff.email,
     );
     return { sent: true };
   }

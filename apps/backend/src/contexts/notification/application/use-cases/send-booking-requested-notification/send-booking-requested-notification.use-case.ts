@@ -15,6 +15,10 @@ import {
   NOTIFICATION_LOG_REPOSITORY,
 } from '../../ports/notification-log-repository.port';
 import {
+  INotificationProcessedEventRepository,
+  NOTIFICATION_PROCESSED_EVENT_REPOSITORY,
+} from '../../ports/processed-event-repository.port';
+import {
   INotificationStaffPort,
   NOTIFICATION_STAFF_PORT,
 } from '../../ports/notification-staff.port';
@@ -35,30 +39,22 @@ export interface SendBookingRequestedNotificationUseCaseResult {
 export class SendBookingRequestedNotificationUseCase extends BaseNotificationUseCase {
   constructor(
     @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
+    @Inject(NOTIFICATION_PROCESSED_EVENT_REPOSITORY)
+    processedEventRepo: INotificationProcessedEventRepository,
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
     @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
   ) {
-    super(logRepo, dispatcher, txManager);
+    super(logRepo, processedEventRepo, dispatcher, txManager);
   }
 
   async execute(
     dto: SendBookingRequestedNotificationDto,
   ): Promise<SendBookingRequestedNotificationUseCaseResult> {
     const [adminSent, customerSent] = await Promise.all([
-      this.isAlreadySent(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
-        CHANNEL,
-      ),
-      this.isAlreadySent(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
-        CHANNEL,
-      ),
+      this.isAlreadySent(dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_ADMIN, CHANNEL),
+      this.isAlreadySent(dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER, CHANNEL),
     ]);
 
     const serviceNames = dto.lines.map((l) => l.serviceNameAtBooking).join(', ');
@@ -92,6 +88,7 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
           dto.eventId,
           NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
           CHANNEL,
+          managerEmails[0],
         );
         adminEmailSent = true;
       }
@@ -117,6 +114,7 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
         dto.eventId,
         NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
         CHANNEL,
+        dto.guestEmail,
       );
       customerEmailSent = true;
     }

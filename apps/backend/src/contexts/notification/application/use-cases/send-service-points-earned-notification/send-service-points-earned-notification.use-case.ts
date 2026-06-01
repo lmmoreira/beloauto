@@ -17,6 +17,10 @@ import {
   NOTIFICATION_LOG_REPOSITORY,
 } from '../../ports/notification-log-repository.port';
 import {
+  INotificationProcessedEventRepository,
+  NOTIFICATION_PROCESSED_EVENT_REPOSITORY,
+} from '../../ports/processed-event-repository.port';
+import {
   INotificationServicePort,
   NOTIFICATION_SERVICE_PORT,
 } from '../../ports/notification-service.port';
@@ -33,24 +37,21 @@ export interface SendServicePointsEarnedNotificationUseCaseResult {
 export class SendServicePointsEarnedNotificationUseCase extends BaseNotificationUseCase {
   constructor(
     @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
+    @Inject(NOTIFICATION_PROCESSED_EVENT_REPOSITORY)
+    processedEventRepo: INotificationProcessedEventRepository,
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_CUSTOMER_PORT) private readonly customerPort: INotificationCustomerPort,
     @Inject(NOTIFICATION_SERVICE_PORT) private readonly servicePort: INotificationServicePort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
   ) {
-    super(logRepo, dispatcher, txManager);
+    super(logRepo, processedEventRepo, dispatcher, txManager);
   }
 
   async execute(
     dto: SendServicePointsEarnedNotificationDto,
   ): Promise<SendServicePointsEarnedNotificationUseCaseResult> {
     if (
-      await this.isAlreadySent(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.SERVICE_POINTS_EARNED,
-        CHANNEL,
-      )
+      await this.isAlreadySent(dto.eventId, NotificationTemplateKey.SERVICE_POINTS_EARNED, CHANNEL)
     ) {
       return { emailSent: false };
     }
@@ -86,6 +87,7 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
       dto.eventId,
       NotificationTemplateKey.SERVICE_POINTS_EARNED,
       CHANNEL,
+      customer.email,
     );
     return { emailSent: true };
   }

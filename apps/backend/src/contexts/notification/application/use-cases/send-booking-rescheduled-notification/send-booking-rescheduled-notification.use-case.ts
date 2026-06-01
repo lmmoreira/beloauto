@@ -16,6 +16,10 @@ import {
   NOTIFICATION_LOG_REPOSITORY,
 } from '../../ports/notification-log-repository.port';
 import {
+  INotificationProcessedEventRepository,
+  NOTIFICATION_PROCESSED_EVENT_REPOSITORY,
+} from '../../ports/processed-event-repository.port';
+import {
   INotificationStaffPort,
   NOTIFICATION_STAFF_PORT,
 } from '../../ports/notification-staff.port';
@@ -36,12 +40,14 @@ export interface SendBookingRescheduledNotificationUseCaseResult {
 export class SendBookingRescheduledNotificationUseCase extends BaseNotificationUseCase {
   constructor(
     @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
+    @Inject(NOTIFICATION_PROCESSED_EVENT_REPOSITORY)
+    processedEventRepo: INotificationProcessedEventRepository,
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
     @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
   ) {
-    super(logRepo, dispatcher, txManager);
+    super(logRepo, processedEventRepo, dispatcher, txManager);
   }
 
   async execute(
@@ -49,17 +55,11 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
   ): Promise<SendBookingRescheduledNotificationUseCaseResult> {
     const [customerSent, adminSent] = await Promise.all([
       this.isAlreadySent(
-        dto.tenantId,
         dto.eventId,
         NotificationTemplateKey.BOOKING_RESCHEDULED_CUSTOMER,
         CHANNEL,
       ),
-      this.isAlreadySent(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN,
-        CHANNEL,
-      ),
+      this.isAlreadySent(dto.eventId, NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN, CHANNEL),
     ]);
 
     if (customerSent && adminSent) {
@@ -104,6 +104,7 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
         dto.eventId,
         NotificationTemplateKey.BOOKING_RESCHEDULED_CUSTOMER,
         CHANNEL,
+        dto.guestEmail,
       );
       customerEmailSent = true;
     }
@@ -135,6 +136,7 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
           dto.eventId,
           NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN,
           CHANNEL,
+          managerEmails[0],
         );
         adminEmailSent = true;
       }
