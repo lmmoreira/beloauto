@@ -11,7 +11,7 @@
 
 ---
 
-### M11-S01 — NotificationTemplate aggregate domain + migration
+### M11-S01 — NotificationTemplate aggregate domain + migration ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
