@@ -5,7 +5,6 @@ export class SendAdminDailyScheduleReminderNotificationDtoBuilder {
   private eventId = 'eeeeeeee-0011-4000-8000-000000000001';
   private readonly correlationId = 'corr-admin-schedule-1';
   private localDate = '2026-07-02';
-  private totalBookingsToday = 1;
   private bookingsToday: SendAdminDailyScheduleReminderNotificationDto['bookingsToday'] = [
     {
       bookingId: 'bbbbbbbb-0001-4000-8000-000000000001',
@@ -39,13 +38,11 @@ export class SendAdminDailyScheduleReminderNotificationDtoBuilder {
     bookings: SendAdminDailyScheduleReminderNotificationDto['bookingsToday'],
   ): this {
     this.bookingsToday = bookings;
-    this.totalBookingsToday = bookings.length;
     return this;
   }
 
   withNoBookings(): this {
     this.bookingsToday = [];
-    this.totalBookingsToday = 0;
     return this;
   }
 
@@ -56,7 +53,7 @@ export class SendAdminDailyScheduleReminderNotificationDtoBuilder {
       correlationId: this.correlationId,
       localDate: this.localDate,
       bookingsToday: this.bookingsToday,
-      totalBookingsToday: this.totalBookingsToday,
+      totalBookingsToday: this.bookingsToday.length,
     };
   }
 }
