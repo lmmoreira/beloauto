@@ -246,12 +246,12 @@ The original plan specified `@nestjs/schedule` with a `@Cron('0 2 * * *')` decor
 **The solution:** GCP Cloud Scheduler issues one HTTP POST at the scheduled time. Exactly one Cloud Run instance handles it.
 
 ```ts
-// infrastructure/controllers/internal-loyalty.controller.ts
-@Controller('internal/loyalty')
-export class InternalLoyaltyController {
+// infrastructure/controllers/cron-loyalty.controller.ts
+@Controller('cron')
+export class CronLoyaltyController {
   constructor(private readonly expirePoints: ExpirePointsUseCase) {}
 
-  @Post('expire-points')
+  @Post('loyalty-expiry')
   @HttpCode(HttpStatus.OK)
   runExpiry(): Promise<ExpirePointsResult> {
     return this.expirePoints.execute().catch(mapLoyaltyError);
@@ -259,7 +259,7 @@ export class InternalLoyaltyController {
 }
 ```
 
-No `@UseGuards` in MVP — the backend is only reachable from within GCP's network. M115-S03 adds `InternalApiGuard` with `X-Internal-Key` header validation, consistent with the other `/internal/*` controllers.
+No `@UseGuards` in MVP — the backend is only reachable from within GCP's network. M115-S03 adds `CronAuthGuard` with OIDC token validation (same pattern as `POST /cron/reminders`).
 
 ### ExpirePointsUseCase idempotency
 
@@ -322,7 +322,7 @@ Admin (JWT role = MANAGER|STAFF):
 
 The backend mirrors this split with `CustomerRoleGuard` vs `StaffOrManagerRoleGuard`. The admin routes pass `customerId` from the URL path param — the same three backend use cases handle both variants.
 
-`POST /internal/loyalty/expire-points` is **not** exposed through the BFF. Cloud Scheduler calls the backend's Cloud Run internal URL directly within GCP's network.
+`POST /cron/loyalty-expiry` is **not** exposed through the BFF. Cloud Scheduler calls the backend's Cloud Run internal URL directly within GCP's network.
 
 ---
 

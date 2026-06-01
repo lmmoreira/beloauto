@@ -318,19 +318,18 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
 ---
 
 #### **AdminDailyScheduleReminder**
-- **Trigger:** Scheduled cron job (06:00 tenant-local) builds the day's schedule digest for each active staff member
+- **Trigger:** Scheduled cron job (06:00 tenant-local) builds the day's schedule digest. One event emitted **per tenant** — the Notification handler fans out to all managers via `INotificationStaffPort.getManagerEmails()`.
 - **State change:** none
 - **Data:**
   ```
   {
-    staffId:           string
-    staffEmail:        string
+    localDate:         string              // YYYY-MM-DD in tenant timezone — used in email subject
     bookingsToday:     [
       {
         bookingId:         string
         customerName:      string
-        customerPhone:     string
-        lines: [                                   // ≥ 1 — all services in this booking
+        customerPhone:     string | null   // booking.guestPhone for guests; ICustomerProfilePort.phone for authenticated (null if not set)
+        lines: [                           // ≥ 1 — all services in this booking
           { serviceId: string, serviceName: string }
         ]
         appointmentSlot:   { startTime: ISO8601, endTime: ISO8601 }
@@ -341,7 +340,7 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
   }
   ```
 - **Consumers:**
-  - **Notification Context** → digest email to admin
+  - **Notification Context** → digest email to all MANAGER-role staff; uses `INotificationStaffPort.getManagerEmails(tenantId)` to resolve recipients
 
 ---
 
@@ -376,7 +375,7 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
 
 #### **PointsExpiringSoon**
 - **Trigger:** Weekly cron (Mondays 06:00 tenant-local) finds customers who have one or more `LoyaltyEntry` rows whose `expires_at` falls within the **next 7 days**.
-- **Direction:** Forward-looking — this is a heads-up, not a post-mortem. Once `expires_at` actually passes, `POST /internal/loyalty/expire-points` (triggered by GCP Cloud Scheduler at 02:00 UTC) decrements `loyalty_balances.current_points` for those entries.
+- **Direction:** Forward-looking — this is a heads-up, not a post-mortem. Once `expires_at` actually passes, `POST /cron/loyalty-expiry` (triggered by GCP Cloud Scheduler at 02:00 UTC) decrements `loyalty_balances.current_points` for those entries.
 - **Aggregation:** One event per `(customer, service)` pair so the notification can group neatly per service.
 - **State change:** None — the weekly cron does not write any DB rows. It only computes and publishes.
 - **Data:**
@@ -392,7 +391,7 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
 - **Consumers:**
   - **Notification Context** → may aggregate per customer before sending a single weekly email: "Heads up — [X] points on [service] will expire on [earliestExpiresAt]. Book a wash to keep earning."
 
-> **No `PointsExpired` event.** When points actually expire, GCP Cloud Scheduler calls `POST /internal/loyalty/expire-points` at 02:00 UTC, which decrements `loyalty_balances.current_points` and logs the processed entry IDs in `balance_expiry_log` (idempotent). No domain event is published — the customer was already warned in advance by `PointsExpiringSoon`.
+> **No `PointsExpired` event.** When points actually expire, GCP Cloud Scheduler calls `POST /cron/loyalty-expiry` at 02:00 UTC, which decrements `loyalty_balances.current_points` and logs the processed entry IDs in `balance_expiry_log` (idempotent). No domain event is published — the customer was already warned in advance by `PointsExpiringSoon`.
 
 > **No `PointsRedeemed` event.** Redemptions are recorded synchronously via `POST /v1/loyalty/redeem` (admin-only REST endpoint). The `loyalty_redemptions` table is the audit trail. No async event is needed — the balance decrement and redemption row are written atomically in the same HTTP transaction.
 

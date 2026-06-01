@@ -6,12 +6,12 @@ import {
 import { mapLoyaltyError } from '../http/loyalty-error.mapper';
 
 // MVP: protected at network level (backend not publicly reachable — BFF-only access).
-// M115-S03 adds InternalApiGuard (X-Internal-Key header) — same pattern as other /internal/* controllers.
-@Controller('internal/loyalty')
-export class InternalLoyaltyController {
+// M115-S03 adds CronAuthGuard (OIDC token from GCP Cloud Scheduler).
+@Controller('cron')
+export class CronLoyaltyController {
   constructor(private readonly expirePoints: ExpirePointsUseCase) {}
 
-  @Post('expire-points')
+  @Post('loyalty-expiry')
   @HttpCode(HttpStatus.OK)
   runExpiry(): Promise<ExpirePointsResult> {
     return this.expirePoints.execute().catch(mapLoyaltyError);

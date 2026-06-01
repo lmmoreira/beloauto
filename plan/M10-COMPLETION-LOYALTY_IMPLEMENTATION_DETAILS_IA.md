@@ -16,7 +16,7 @@
 | `RedeemPointsUseCase` | `apps/backend/src/contexts/loyalty/application/use-cases/redeem-points/` |
 | `ExpirePointsUseCase` | `apps/backend/src/contexts/loyalty/application/use-cases/expire-points/` |
 | `LoyaltyController` (tenant-scoped) | `apps/backend/src/contexts/loyalty/infrastructure/controllers/loyalty.controller.ts` |
-| `InternalLoyaltyController` (expiry trigger) | `apps/backend/src/contexts/loyalty/infrastructure/controllers/internal-loyalty.controller.ts` |
+| `CronLoyaltyController` (expiry trigger) | `apps/backend/src/contexts/loyalty/infrastructure/controllers/cron-loyalty.controller.ts` |
 | `BookingCompletedHandler` | `apps/backend/src/contexts/loyalty/infrastructure/events/booking-completed.handler.ts` |
 | `SendServicePointsEarnedNotificationUseCase` | `apps/backend/src/contexts/notification/application/use-cases/send-service-points-earned-notification/` |
 | `ServicePointsEarnedHandler` | `apps/backend/src/contexts/notification/infrastructure/events/service-points-earned.handler.ts` |
@@ -37,7 +37,7 @@
 | BFF loyalty controller | `apps/bff/src/loyalty/loyalty.controller.ts` |
 | Loyalty error mapper | `apps/backend/src/contexts/loyalty/infrastructure/http/loyalty-error.mapper.ts` |
 | HTTP file (customer/admin routes) | `apps/backend/http/loyalty/loyalty.http` |
-| HTTP file (expiry trigger) | `apps/backend/http/loyalty/internal-expire-points.http` |
+| HTTP file (expiry trigger) | `apps/backend/http/loyalty/cron-loyalty-expiry.http` |
 | Integration app helper | `apps/backend/src/test/utils/loyalty-integration-app.ts` |
 
 ---
@@ -106,7 +106,7 @@ UNIQUE (event_id, consumer_name)
 `loyalty_balances.current_points` is the authoritative balance. It is incremented on earn (`RecordLoyaltyEntriesUseCase`), decremented on redemption (`RedeemPointsUseCase`) and expiry (`ExpirePointsUseCase`). Never compute balance via `SUM(loyalty_entries.points)` — O(n) and ignores redemptions.
 
 ### Points expiry via HTTP trigger, not @Cron
-`POST /internal/loyalty/expire-points` is called by GCP Cloud Scheduler at 02:00 UTC daily. `@nestjs/schedule` / `@Cron` not used. Reason: Cloud Run scales to zero (in-process cron never fires); multi-pod would duplicate. One HTTP request → one pod handles it. Controller is `InternalLoyaltyController` — no TenantContext, no guard in MVP (M115-S03 adds `InternalApiGuard`).
+`POST /cron/loyalty-expiry` is called by GCP Cloud Scheduler at 02:00 UTC daily. `@nestjs/schedule` / `@Cron` not used. Reason: Cloud Run scales to zero (in-process cron never fires); multi-pod would duplicate. One HTTP request → one pod handles it. Controller is `CronLoyaltyController` — no TenantContext, no guard in MVP (M115-S03 adds `CronAuthGuard` with OIDC token).
 
 ### Expiry trigger idempotency via `balance_expiry_log`
 `ExpirePointsUseCase` calls `findExpiringBefore(new Date())` then filters out already-processed entry IDs via `IBalanceExpiryLogRepository.hasBeenProcessed()`. Entries marked in the same `txManager.run()` as the balance upsert. If balance is already 0 or null, entries are still marked — no infinite retry.

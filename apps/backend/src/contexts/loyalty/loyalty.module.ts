@@ -24,7 +24,7 @@ import { ProcessedEventEntity } from './infrastructure/entities/processed-event.
 import { LoyaltyTenantSettingsAdapter } from './infrastructure/cross-context/loyalty-tenant-settings.adapter';
 import { ServiceCatalogAdapter } from './infrastructure/cross-context/service-catalog.adapter';
 import { LoyaltyController } from './infrastructure/controllers/loyalty.controller';
-import { InternalLoyaltyController } from './infrastructure/controllers/internal-loyalty.controller';
+import { CronLoyaltyController } from './infrastructure/controllers/cron-loyalty.controller';
 import { CustomerRoleGuard } from '../../shared/guards/customer-role.guard';
 import { BookingCompletedHandler } from './infrastructure/events/booking-completed.handler';
 import { TypeOrmBalanceExpiryLogRepository } from './infrastructure/repositories/typeorm-balance-expiry-log.repository';
@@ -46,7 +46,7 @@ import { TypeOrmProcessedEventRepository } from './infrastructure/repositories/t
     TenantModule,
     PlatformModule,
   ],
-  controllers: [LoyaltyController, InternalLoyaltyController],
+  controllers: [LoyaltyController, CronLoyaltyController],
   providers: [
     { provide: LOYALTY_ENTRY_REPOSITORY, useClass: TypeOrmLoyaltyEntryRepository },
     { provide: LOYALTY_BALANCE_REPOSITORY, useClass: TypeOrmLoyaltyBalanceRepository },
