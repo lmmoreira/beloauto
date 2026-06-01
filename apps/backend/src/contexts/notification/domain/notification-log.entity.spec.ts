@@ -54,4 +54,32 @@ describe('NotificationLog', () => {
       expect(log.errorMessage).toBe('second');
     });
   });
+
+  describe('reconstitute()', () => {
+    it('restores all props without re-validating', () => {
+      const sentAt = new Date('2026-06-01T12:00:00Z');
+      const createdAt = new Date('2026-06-01T10:00:00Z');
+
+      const log = NotificationLog.reconstitute({
+        id: 'some-id',
+        tenantId: BASE_PROPS.tenantId,
+        eventId: BASE_PROPS.eventId,
+        notificationType: BASE_PROPS.notificationType,
+        channel: BASE_PROPS.channel,
+        recipientEmail: BASE_PROPS.recipientEmail,
+        status: 'SENT',
+        retryCount: 2,
+        errorMessage: 'prev error',
+        sentAt,
+        createdAt,
+      });
+
+      expect(log.id).toBe('some-id');
+      expect(log.status).toBe('SENT');
+      expect(log.retryCount).toBe(2);
+      expect(log.errorMessage).toBe('prev error');
+      expect(log.sentAt).toBe(sentAt);
+      expect(log.createdAt).toBe(createdAt);
+    });
+  });
 });

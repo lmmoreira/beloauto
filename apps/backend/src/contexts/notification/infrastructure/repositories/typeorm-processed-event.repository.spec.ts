@@ -1,43 +1,68 @@
-import { InMemoryNotificationProcessedEventRepository } from '../../../../test/repositories/notification/in-memory-processed-event.repository';
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NotificationProcessedEventEntity } from '../entities/processed-event.entity';
+import { TypeOrmNotificationProcessedEventRepository } from './typeorm-processed-event.repository';
 
 const EVENT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
 const NOTIFICATION_TYPE = 'booking-approved-customer';
 const CHANNEL = 'EMAIL';
 
-describe('InMemoryNotificationProcessedEventRepository', () => {
-  let repo: InMemoryNotificationProcessedEventRepository;
+describe('TypeOrmNotificationProcessedEventRepository', () => {
+  let repo: TypeOrmNotificationProcessedEventRepository;
+  let ormRepo: jest.Mocked<Repository<NotificationProcessedEventEntity>>;
 
-  beforeEach(() => {
-    repo = new InMemoryNotificationProcessedEventRepository();
+  beforeEach(async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        TypeOrmNotificationProcessedEventRepository,
+        {
+          provide: getRepositoryToken(NotificationProcessedEventEntity),
+          useValue: {
+            count: jest.fn(),
+            upsert: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    repo = moduleRef.get(TypeOrmNotificationProcessedEventRepository);
+    ormRepo = moduleRef.get(getRepositoryToken(NotificationProcessedEventEntity));
   });
 
-  it('isDuplicate returns false for unseen event', async () => {
-    const result = await repo.isDuplicate(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
-    expect(result).toBe(false);
+  describe('isDuplicate', () => {
+    it('returns false when count is 0', async () => {
+      ormRepo.count.mockResolvedValue(0);
+
+      const result = await repo.isDuplicate(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
+
+      expect(result).toBe(false);
+      expect(ormRepo.count).toHaveBeenCalledWith({
+        where: { eventId: EVENT_ID, notificationType: NOTIFICATION_TYPE, channel: CHANNEL },
+      });
+    });
+
+    it('returns true when count is 1', async () => {
+      ormRepo.count.mockResolvedValue(1);
+
+      const result = await repo.isDuplicate(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
+
+      expect(result).toBe(true);
+    });
   });
 
-  it('markProcessed then isDuplicate returns true', async () => {
-    await repo.markProcessed(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
-    const result = await repo.isDuplicate(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
-    expect(result).toBe(true);
-  });
+  describe('markProcessed', () => {
+    it('upserts with composite conflict paths', async () => {
+      ormRepo.upsert.mockResolvedValue({ raw: [], generatedMaps: [], identifiers: [] });
 
-  it('same eventId with different notificationType is not a duplicate', async () => {
-    await repo.markProcessed(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
-    const result = await repo.isDuplicate(EVENT_ID, 'booking-requested-admin', CHANNEL);
-    expect(result).toBe(false);
-  });
+      await repo.markProcessed(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
 
-  it('same eventId and notificationType with different channel is not a duplicate', async () => {
-    await repo.markProcessed(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
-    const result = await repo.isDuplicate(EVENT_ID, NOTIFICATION_TYPE, 'SMS');
-    expect(result).toBe(false);
-  });
-
-  it('markProcessed is idempotent: calling twice does not error', async () => {
-    await repo.markProcessed(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
-    await repo.markProcessed(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
-    const result = await repo.isDuplicate(EVENT_ID, NOTIFICATION_TYPE, CHANNEL);
-    expect(result).toBe(true);
+      expect(ormRepo.upsert).toHaveBeenCalledTimes(1);
+      const [entity, conflictPaths] = ormRepo.upsert.mock.calls[0];
+      expect((entity as NotificationProcessedEventEntity).eventId).toBe(EVENT_ID);
+      expect((entity as NotificationProcessedEventEntity).notificationType).toBe(NOTIFICATION_TYPE);
+      expect((entity as NotificationProcessedEventEntity).channel).toBe(CHANNEL);
+      expect(conflictPaths).toEqual(['eventId', 'notificationType', 'channel']);
+    });
   });
 });
