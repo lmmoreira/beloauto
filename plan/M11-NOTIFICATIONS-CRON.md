@@ -345,27 +345,118 @@ SendGrid requires the sender email to be verified before any email sends. One-ti
 **Docs to load:** `docs/04-USE_CASES.md` § UC-018, UC-019, UC-020, `docs/23-INFRASTRUCTURE_SETUP.md` § Cloud Scheduler cron jobs
 
 **Description:**  
-Implement the `POST /cron/reminders` endpoint that runs every 30 minutes and processes reminder emails for tenants whose local time is currently 06:00. This single endpoint handles UC-018 (admin daily digest), UC-019 (customer day-before reminder), and UC-020 (customer day-of reminder).
+Implement the `POST /cron/reminders` endpoint. GCP Cloud Scheduler fires it every 30 minutes; the handler checks which tenants have local time between 06:00–06:29 and emits reminder events for those tenants. The endpoint only raises events — all email logic lives in the Notification context consumers (M11-S05). Handles UC-018 (admin daily digest), UC-019 (customer day-before reminder), and UC-020 (customer day-of reminder).
+
+**Module:** Booking context (`src/contexts/booking/`). Same pattern as M10's `CronLoyaltyController` — the context that publishes the events owns the controller and job classes.
+
+**New files to create:**
+
+| File | Purpose |
+|---|---|
+| `booking/domain/events/booking-reminder-due.event.ts` | Event class for day-before reminder (one per booking) |
+| `booking/domain/events/booking-reminder-due-today.event.ts` | Event class for day-of reminder (one per booking) |
+| `booking/domain/events/admin-daily-schedule-reminder.event.ts` | Event class for admin digest (one per tenant) |
+| `booking/application/ports/reminder-tenant.port.ts` | `IReminderTenantPort` — cross-context port for tenant listing |
+| `booking/application/jobs/booking-reminder.job.ts` | UC-019 + UC-020 logic |
+| `booking/application/jobs/admin-schedule-reminder.job.ts` | UC-018 logic |
+| `booking/infrastructure/cross-context/reminder-tenant.adapter.ts` | Adapter — injects `TypeOrmTenantRepository` directly |
+| `booking/infrastructure/controllers/cron-booking.controller.ts` | `POST /cron/reminders` |
+| `apps/backend/http/booking/cron-reminders.http` | REST Client file for the endpoint |
+
+**`IReminderTenantPort`** (`booking/application/ports/reminder-tenant.port.ts`):
+```typescript
+export const REMINDER_TENANT_PORT = Symbol('IReminderTenantPort');
+export interface ActiveTenantInfo {
+  id: string;
+  timezone: string;  // IANA timezone from settings.business_hours.timezone
+}
+export interface IReminderTenantPort {
+  findAllActive(): Promise<ActiveTenantInfo[]>;
+}
+```
 
 **Algorithm:**
-1. Load all active tenants with their `timezone` setting
-2. For each tenant, convert `now()` to tenant local time
-3. If tenant local time is between 06:00 and 06:29 (within the 30-min window):
-   a. **UC-018 (Admin digest):** Find all APPROVED bookings for today → emit `AdminDailyScheduleReminder`
-   b. **UC-019 (Day-before):** Find APPROVED bookings for tomorrow → emit `BookingReminderDue` per booking
-   c. **UC-020 (Day-of):** Find APPROVED bookings for today → emit `BookingReminderDueToday` per booking
-4. Process is idempotent — re-running within the same 30-min window emits events but handlers deduplicate on `eventId`
+1. `IReminderTenantPort.findAllActive()` → all active tenants with timezone
+2. For each tenant, `utcDateToLocalHHMM(now, timezone)` → tenant local HH:MM
+3. If local time is between `'06:00'` and `'06:29'` (string comparison on HH:MM is safe within one hour):
+   a. **UC-019:** `IBookingRepository.findAllByTenant(tenantId, { status: 'APPROVED', scheduledAfter: startOfTomorrow, scheduledBefore: endOfTomorrow })` → emit `BookingReminderDue` per booking
+   b. **UC-020:** same query for today's date range → emit `BookingReminderDueToday` per booking
+   c. **UC-018:** reuse today's bookings result → build digest → emit `AdminDailyScheduleReminder`
+4. `correlationId`: fresh `uuidv7()` per tenant loop iteration
+5. Idempotent — re-running within the window emits duplicate events but Notification handlers deduplicate via `processed_events`
 
-**Endpoint security:** Protected by a shared secret (`CRON_SECRET` header) — not authenticated via JWT.
+**Endpoint security:** No auth guard in MVP — backend is not publicly reachable (BFF-only path). M115-S03 adds `CronAuthGuard` (OIDC token from GCP Cloud Scheduler, same design as `docs/23-INFRASTRUCTURE_SETUP.md § Authentication`).
+
+**`cron-booking.controller.ts`:**
+```typescript
+// MVP: no auth guard — M115-S03 adds CronAuthGuard (OIDC, see docs/23-INFRASTRUCTURE_SETUP.md)
+@Controller('cron')
+export class CronBookingController {
+  constructor(
+    private readonly bookingReminderJob: BookingReminderJob,
+    private readonly adminScheduleReminderJob: AdminScheduleReminderJob,
+  ) {}
+
+  @Post('reminders')
+  @HttpCode(HttpStatus.OK)
+  async reminders(): Promise<{ ok: boolean }> {
+    await this.bookingReminderJob.run();
+    await this.adminScheduleReminderJob.run();
+    return { ok: true };
+  }
+}
+```
+
+**`BookingReminderDue` event payload** (one per booking):
+```typescript
+{
+  bookingId:       string
+  customerId:      string | null
+  recipientEmail:  string          // booking.guestEmail for guests; ICustomerProfilePort.findById().email for authenticated
+  customerName:    string
+  scheduledAt:     string          // ISO8601
+  appointmentSlot: { startTime: string; endTime: string }
+  lines:           { serviceId: string; serviceName: string }[]
+}
+```
+
+**`BookingReminderDueToday` event payload** — identical shape to `BookingReminderDue`.
+
+**`AdminDailyScheduleReminder` event payload** (one per tenant):
+```typescript
+{
+  localDate:          string   // YYYY-MM-DD in tenant timezone — used in email subject
+  bookingsToday:      {
+    bookingId:        string
+    customerName:     string
+    customerPhone:    string | null  // booking.guestPhone for guests; ICustomerProfilePort.findById().phone for authenticated (may be null if customer hasn't set one)
+    lines:            { serviceId: string; serviceName: string }[]
+    appointmentSlot:  { startTime: string; endTime: string }
+    adminNotes:       string | null
+  }[]
+  totalBookingsToday: number
+}
+```
+
+**`ICustomerProfilePort`** — the job needs to resolve `recipientEmail` (and `phone` for `AdminDailyScheduleReminder`) for authenticated-customer bookings. Reuse the existing `ICustomerProfilePort` from M07 (`booking/application/ports/customer-profile.port.ts`) — it already has `{ email, name, phone: string | null }`. For guest bookings use `booking.guestEmail` / `booking.guestPhone` directly.
+
+**Code change required before implementation (not part of this story's branch — raise on main or in a prep commit):**
+- `platform/application/ports/tenant-repository.port.ts` — add `findAllActive(): Promise<Tenant[]>` to `ITenantRepository`
+- `platform/infrastructure/repositories/typeorm-tenant.repository.ts` — implement the method (queries `WHERE active = true` or equivalent active-tenant filter)
 
 **Acceptance criteria:**
-- [ ] Endpoint processes only tenants whose local time is 06:00–06:29
-- [ ] A tenant with `timezone=America/Sao_Paulo` at local 06:00 is processed; at 07:00 it is not
-- [ ] `AdminDailyScheduleReminder` is emitted once per eligible tenant
-- [ ] `BookingReminderDue` is emitted once per APPROVED booking scheduled for tomorrow
-- [ ] `BookingReminderDueToday` is emitted once per APPROVED booking scheduled for today
-- [ ] Request without `CRON_SECRET` header returns `401`
-- [ ] Integration test: create tenant + booking → mock clock to 06:00 tenant local → call endpoint → assert events emitted
+- [ ] `POST /cron/reminders` returns `{ ok: true }` with HTTP 200
+- [ ] `BookingReminderDue` emitted once per APPROVED booking scheduled for tomorrow (per eligible tenant)
+- [ ] `BookingReminderDueToday` emitted once per APPROVED booking scheduled for today (per eligible tenant)
+- [ ] `AdminDailyScheduleReminder` emitted once per eligible tenant; `bookingsToday` contains all today's APPROVED bookings
+- [ ] A tenant whose local time is outside 06:00–06:29 receives no events
+- [ ] If a tenant has no APPROVED bookings today, `AdminDailyScheduleReminder` is still emitted with `totalBookingsToday = 0` and empty `bookingsToday`
+- [ ] Integration test: seed tenant + APPROVED booking for tomorrow → call endpoint with that tenant's timezone set so local time is in 06:00–06:29 → assert `BookingReminderDue` published for that booking
+- [ ] Integration test: tenant with timezone placing it outside the window → call endpoint → assert no events published for that tenant
+- [ ] Tenant isolation: Tenant A's bookings do not appear in events emitted for Tenant B
+- [ ] `correlationId` is a fresh `uuidv7()` per tenant loop iteration (not shared across tenants)
+- [ ] `cron-reminders.http` file present with `POST /cron/reminders` call
+- [ ] `CronBookingController` registered in `BookingModule`; `IReminderTenantPort` wired to `ReminderTenantAdapter`
 
 **Dependencies:** M07-S03, M02-S03
 

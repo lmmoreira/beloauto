@@ -12,7 +12,7 @@ import {
 
 const TEST_KEY = 'loyalty-internal-test-key-xxxxxxxx';
 
-describe('InternalLoyaltyController (integration)', () => {
+describe('CronLoyaltyController (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
   let tenantId: string;
@@ -49,9 +49,7 @@ describe('InternalLoyaltyController (integration)', () => {
   const future = (): Date => new Date(Date.now() + 180 * 24 * 60 * 60 * 1000);
 
   it('returns zero counts when no entries have expired', async () => {
-    const { body } = await request(app.getHttpServer())
-      .post('/internal/loyalty/expire-points')
-      .expect(200);
+    const { body } = await request(app.getHttpServer()).post('/cron/loyalty-expiry').expect(200);
 
     expect(body.processedEntries).toBe(0);
     expect(body.affectedCustomers).toBe(0);
@@ -76,9 +74,7 @@ describe('InternalLoyaltyController (integration)', () => {
           .build(),
       );
 
-    const { body } = await request(app.getHttpServer())
-      .post('/internal/loyalty/expire-points')
-      .expect(200);
+    const { body } = await request(app.getHttpServer()).post('/cron/loyalty-expiry').expect(200);
 
     expect(body.processedEntries).toBe(1);
     expect(body.affectedCustomers).toBe(1);
@@ -113,10 +109,8 @@ describe('InternalLoyaltyController (integration)', () => {
           .build(),
       );
 
-    await request(app.getHttpServer()).post('/internal/loyalty/expire-points').expect(200);
-    const { body } = await request(app.getHttpServer())
-      .post('/internal/loyalty/expire-points')
-      .expect(200);
+    await request(app.getHttpServer()).post('/cron/loyalty-expiry').expect(200);
+    const { body } = await request(app.getHttpServer()).post('/cron/loyalty-expiry').expect(200);
 
     expect(body.processedEntries).toBe(0);
 
@@ -147,9 +141,7 @@ describe('InternalLoyaltyController (integration)', () => {
           .build(),
       );
 
-    const { body } = await request(app.getHttpServer())
-      .post('/internal/loyalty/expire-points')
-      .expect(200);
+    const { body } = await request(app.getHttpServer()).post('/cron/loyalty-expiry').expect(200);
 
     expect(body.processedEntries).toBe(0);
 

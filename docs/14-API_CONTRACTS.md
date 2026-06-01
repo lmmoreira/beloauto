@@ -731,7 +731,7 @@ Content-Type: application/json
 
 ---
 
-### `POST /internal/loyalty/expire-points` — Run daily points expiry (M10-S08)
+### `POST /cron/loyalty-expiry` — Run daily points expiry (M10-S08)
 
 Decrements `loyalty_balances.current_points` for all `loyalty_entries` whose `expires_at` has passed. Triggered by a GCP Cloud Scheduler job at 02:00 UTC daily. Fully idempotent — safe to call multiple times; already-processed entries are skipped via `balance_expiry_log`.
 
@@ -739,7 +739,7 @@ Decrements `loyalty_balances.current_points` for all `loyalty_entries` whose `ex
 
 **Request headers:**
 ```
-(no Authorization header required in MVP — network-protected; M115-S03 adds X-Internal-Key via InternalApiGuard)
+(no Authorization header required in MVP — network-protected; M115-S03 adds CronAuthGuard via OIDC token)
 ```
 
 **Request body:** none
@@ -761,7 +761,7 @@ resource "google_cloud_scheduler_job" "loyalty_expire_points" {
   schedule = "0 2 * * *"
   time_zone = "UTC"
   http_target {
-    uri        = "${var.backend_internal_url}/internal/loyalty/expire-points"
+    uri         = "${google_cloud_run_v2_service.backend.uri}/cron/loyalty-expiry"
     http_method = "POST"
   }
 }

@@ -7,24 +7,24 @@ import {
   LoyaltyEntryBuilder,
 } from '../../../../test/builders/loyalty/index';
 import { ExpirePointsUseCase } from '../../application/use-cases/expire-points/expire-points.use-case';
-import { InternalLoyaltyController } from './internal-loyalty.controller';
+import { CronLoyaltyController } from './cron-loyalty.controller';
 
 const TENANT_ID = '10000000-0000-7000-8000-000000000011';
 const CUSTOMER_ID = 'aaaaaaaa-0000-7000-8000-000000000011';
 
-describe('InternalLoyaltyController', () => {
+describe('CronLoyaltyController', () => {
   let entryRepo: InMemoryLoyaltyEntryRepository;
   let balanceRepo: InMemoryLoyaltyBalanceRepository;
   let expiryLogRepo: InMemoryBalanceExpiryLogRepository;
   let txManager: InMemoryTransactionManager;
-  let controller: InternalLoyaltyController;
+  let controller: CronLoyaltyController;
 
   beforeEach(() => {
     entryRepo = new InMemoryLoyaltyEntryRepository();
     balanceRepo = new InMemoryLoyaltyBalanceRepository();
     expiryLogRepo = new InMemoryBalanceExpiryLogRepository();
     txManager = new InMemoryTransactionManager();
-    controller = new InternalLoyaltyController(
+    controller = new CronLoyaltyController(
       new ExpirePointsUseCase(entryRepo, balanceRepo, expiryLogRepo, txManager),
     );
   });

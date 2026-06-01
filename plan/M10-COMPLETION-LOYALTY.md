@@ -536,15 +536,15 @@ Implement the admin-facing redemption flow. When a customer uses their points (e
 **Docs to load:** `docs/02-DOMAIN_MODEL.md` § Loyalty context
 
 **Description:**  
-Implement the points expiry logic as an internal HTTP endpoint. A GCP Cloud Scheduler job calls `POST /internal/loyalty/expire-points` at 02:00 UTC daily, which decrements `loyalty_balances.current_points` for all `loyalty_entries` whose `expires_at` has passed. Fully idempotent via `balance_expiry_log` — if the scheduler fires twice, no entry is double-processed.
+Implement the points expiry logic as a cron HTTP endpoint. A GCP Cloud Scheduler job calls `POST /cron/loyalty-expiry` at 02:00 UTC daily, which decrements `loyalty_balances.current_points` for all `loyalty_entries` whose `expires_at` has passed. Fully idempotent via `balance_expiry_log` — if the scheduler fires twice, no entry is double-processed.
 
 **Why HTTP trigger instead of `@nestjs/schedule` + `@Cron`:**
 - Cloud Run scales to zero — an in-process cron never fires when no instance is running.
 - Multi-pod deployments would execute a `@Cron` on every pod simultaneously.
 - GCP Cloud Scheduler issues one HTTP request; exactly one pod handles it.
 
-**Backend endpoint:** `POST /internal/loyalty/expire-points`  
-- No JWT required — network-protected (backend not publicly reachable from the internet). M115-S03 adds `InternalApiGuard` (`X-Internal-Key` header), consistent with the other `/internal/*` controllers.
+**Backend endpoint:** `POST /cron/loyalty-expiry`  
+- No JWT required — network-protected (backend not publicly reachable from the internet). M115-S03 adds `CronAuthGuard` (OIDC token from GCP Cloud Scheduler), consistent with other `/cron/*` controllers.
 - No request body.
 - Returns: `200 { processedEntries: number, affectedCustomers: number, totalPointsExpired: number }`
 
@@ -560,7 +560,7 @@ Implement the points expiry logic as an internal HTTP endpoint. A GCP Cloud Sche
 
 **GCP Cloud Scheduler (Terraform):**
 - Schedule: `0 2 * * *` (02:00 UTC)
-- HTTP target: `POST <BACKEND_INTERNAL_URL>/internal/loyalty/expire-points`
+- HTTP target: `POST <BACKEND_URL>/cron/loyalty-expiry`
 - The Terraform resource (`google_cloud_scheduler_job`) is tracked as a separate infra task in M115 or M16. The endpoint must be deployed before the scheduler resource is created.
 
 **Acceptance criteria:**
@@ -569,7 +569,7 @@ Implement the points expiry logic as an internal HTTP endpoint. A GCP Cloud Sche
 - [ ] `balance_expiry_log` row inserted per processed entry
 - [ ] If no entries have expired → returns `{ processedEntries: 0, affectedCustomers: 0, totalPointsExpired: 0 }` with no DB writes
 - [ ] No `@nestjs/schedule` or `@Cron` decorator used anywhere in this story
-- [ ] Integration test: insert entry with `expires_at` in past → `POST /internal/loyalty/expire-points` → assert balance decremented + `balance_expiry_log` row exists
+- [ ] Integration test: insert entry with `expires_at` in past → `POST /cron/loyalty-expiry` → assert balance decremented + `balance_expiry_log` row exists
 - [ ] Integration test: call endpoint twice → balance decremented only once, one `balance_expiry_log` row
 
 **Dependencies:** M10-S03.1
