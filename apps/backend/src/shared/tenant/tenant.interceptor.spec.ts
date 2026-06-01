@@ -79,6 +79,11 @@ describe('TenantInterceptor', () => {
     expect(() => interceptor.intercept(ctx, mockCallHandler)).not.toThrow();
   });
 
+  it('skips tenant check for cron routes', () => {
+    const ctx = makeContext({}, '/cron/reminders');
+    expect(() => interceptor.intercept(ctx, mockCallHandler)).not.toThrow();
+  });
+
   it('populates actorId, actorType, actorRole when X-Actor-* headers are present', async () => {
     const ctx = makeContext({
       'x-tenant-id': 'tid-1',
