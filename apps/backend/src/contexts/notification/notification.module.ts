@@ -44,8 +44,7 @@ import { BookingInfoSubmittedHandler } from './infrastructure/events/booking-inf
 import { BookingCancelledHandler } from './infrastructure/events/booking-cancelled.handler';
 import { BookingRescheduledHandler } from './infrastructure/events/booking-rescheduled.handler';
 import { ServicePointsEarnedHandler } from './infrastructure/events/service-points-earned.handler';
-import { BookingReminderDueHandler } from './infrastructure/events/booking-reminder-due.handler';
-import { BookingReminderDueTodayHandler } from './infrastructure/events/booking-reminder-due-today.handler';
+import { BookingReminderHandler } from './infrastructure/events/booking-reminder.handler';
 import { AdminDailyScheduleReminderHandler } from './infrastructure/events/admin-daily-schedule-reminder.handler';
 import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/typeorm-notification-log.repository';
 import { TypeOrmNotificationProcessedEventRepository } from './infrastructure/repositories/typeorm-processed-event.repository';
@@ -120,8 +119,7 @@ import { TenantProvisionedNotificationHandler } from './infrastructure/events/te
     BookingCancelledHandler,
     BookingRescheduledHandler,
     ServicePointsEarnedHandler,
-    BookingReminderDueHandler,
-    BookingReminderDueTodayHandler,
+    BookingReminderHandler,
     AdminDailyScheduleReminderHandler,
   ],
 })
