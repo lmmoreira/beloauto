@@ -23,7 +23,6 @@ const schema = z
     SMTP_PORT: z.coerce.number().default(1025),
     EMAIL_ADAPTER: z.enum(['sendgrid', 'mailhog']).default('mailhog'),
     EMAIL_FROM: z
-      .string()
       .email({ message: 'EMAIL_FROM must be a valid email address' })
       .default('noreply@beloauto.com.br'),
     SENDGRID_API_KEY: z.string().min(1).optional(),
@@ -33,7 +32,7 @@ const schema = z
   .superRefine((data, ctx) => {
     if (data.EMAIL_ADAPTER === 'sendgrid' && !data.SENDGRID_API_KEY) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['SENDGRID_API_KEY'],
         message: 'SENDGRID_API_KEY is required when EMAIL_ADAPTER=sendgrid',
       });
