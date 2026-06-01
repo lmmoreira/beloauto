@@ -472,27 +472,38 @@ export class CronBookingController {
 Implement the 3 Notification context consumers for reminder events. All emails in pt-BR.
 
 **`BookingReminderDueHandler`** (day-before):
-- Recipient: customer email
+- Recipient: `event.data.recipientEmail`
 - Subject: `"Lembrete: seu agendamento é amanhã!"`
-- Body: service names, date, time (tenant timezone), address if applicable
+- Dispatch: `templateKey = BOOKING_REMINDER_DUE`, `data = { customerName, localDate, localTime, serviceNames }` — `localDate`/`localTime` derived from `event.data.scheduledAt` + tenant timezone via `utcDateToLocalDate` / `utcDateToLocalHHMM`
+- Note: render switch stub (`<p>subject</p>`) remains — proper HTML body is added in M11-S07
 
 **`BookingReminderDueTodayHandler`** (day-of):
-- Recipient: customer email
+- Recipient: `event.data.recipientEmail`
 - Subject: `"Lembrete: seu agendamento é hoje!"`
-- Body: service names, time (tenant timezone), "estamos esperando você"
+- Dispatch: `templateKey = BOOKING_REMINDER_DUE_TODAY`, `data = { customerName, localDate, localTime, serviceNames }` — same shape as above
+- Note: render switch stub (`<p>subject</p>`) remains — proper HTML body is added in M11-S07
 
 **`AdminDailyScheduleReminderHandler`**:
-- Recipient: all MANAGER emails for the tenant
-- Subject: `"Agenda do dia — [date in pt-BR format]"`
-- Body: table of today's APPROVED bookings (time, customer name, services, duration)
+- Recipient: all MANAGER emails via `INotificationStaffPort.getManagerEmails(tenantId)` — same multi-recipient `Promise.all()` pattern as `SendBookingRequestedNotificationUseCase`; `saveLog` uses `managerEmails[0]` as canonical recipient
+- Subject: `"Agenda do dia — {{localDate}}"` where `localDate = event.data.localDate`
+- Dispatch: `templateKey = ADMIN_DAILY_SCHEDULE_REMINDER`, `data = { localDate, totalBookingsToday, bookingsHtml }` — `bookingsHtml` is a simple HTML table built in the use case from `event.data.bookingsToday`; duration per booking is computed as `(endTime − startTime)` in minutes from `appointmentSlot`
+- Empty digest: when `totalBookingsToday === 0`, `bookingsHtml = "<p>Nenhum agendamento para hoje</p>"`
+- Note: render switch stub (`<p>subject</p>`) remains — proper HTML body is added in M11-S07
 
 **Acceptance criteria:**
-- [ ] Each event triggers the correct email to the correct recipient
-- [ ] Admin digest email lists all of today's approved bookings in chronological order
-- [ ] Times displayed in tenant timezone (not UTC)
-- [ ] All 3 handlers are idempotent on `eventId`
-- [ ] If tenant has no bookings today, admin digest email says `"Nenhum agendamento para hoje"` (not a blank email)
-- [ ] MailHog shows the correct email for each handler in integration tests
+- [ ] `BookingReminderDueHandler` subscribes to `'BookingReminderDue'` with consumer name `'notification'`; dispatches to `event.data.recipientEmail` with `templateKey = BOOKING_REMINDER_DUE`
+- [ ] `BookingReminderDueTodayHandler` subscribes to `'BookingReminderDueToday'` with consumer name `'notification'`; dispatches to `event.data.recipientEmail` with `templateKey = BOOKING_REMINDER_DUE_TODAY`
+- [ ] `AdminDailyScheduleReminderHandler` subscribes to `'AdminDailyScheduleReminder'` with consumer name `'notification'`; dispatches one email per manager via `getManagerEmails()`
+- [ ] `data.localDate` and `data.localTime` passed to dispatcher are in tenant timezone (not UTC) — derived from `scheduledAt` using `utcDateToLocalDate` / `utcDateToLocalHHMM`
+- [ ] All 3 handlers are idempotent on `eventId` — second publish of same event → `isAlreadySent()` returns true → no dispatch, no duplicate `notification_logs` row
+- [ ] If `getManagerEmails()` returns empty list, `AdminDailyScheduleReminderHandler` dispatches nothing and does not throw
+- [ ] Admin digest: when `totalBookingsToday === 0`, dispatched `data.bookingsHtml` contains `"Nenhum agendamento para hoje"`
+- [ ] Unit test: `BookingReminderDueHandler.handle(event)` → asserts `dispatcher.dispatched[0].to === event.data.recipientEmail` and `dispatcher.dispatched[0].templateKey === BOOKING_REMINDER_DUE`
+- [ ] Unit test: `AdminDailyScheduleReminderHandler.handle(event)` with 2 managers → asserts `dispatcher.dispatched` has 2 entries, each with correct `templateKey` and `to`
+- [ ] Integration test (using `createNotificationIntegrationApp` + `InMemoryNotificationDispatcher`): publish `BookingReminderDue` event via `eventBus` → `waitFor` → assert `dispatcher.dispatched[0].subject === "Lembrete: seu agendamento é amanhã!"`
+- [ ] Integration test: publish `BookingReminderDueToday` → assert `dispatcher.dispatched[0].subject === "Lembrete: seu agendamento é hoje!"`
+- [ ] Integration test: publish `AdminDailyScheduleReminder` with 1 booking and 2 managers → assert `dispatcher.dispatched` has 2 entries both with `templateKey === ADMIN_DAILY_SCHEDULE_REMINDER`
+- [ ] Tenant-isolation: `AdminDailyScheduleReminder` emitted for Tenant A does not trigger dispatch for Tenant B's managers — verified by seeding 2 tenants and asserting `dispatcher.dispatched` count after one event
 
 **Dependencies:** M11-S04, M11-S03
 
