@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { utcDateToLocalHHMM } from '../../../../../shared/utils/calendar-date';
+import { escapeHtml } from '../../../../../shared/utils/escape-html';
 import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
@@ -124,10 +125,10 @@ export class SendAdminDailyScheduleReminderNotificationUseCase extends BaseNotif
         const endDate = new Date(b.appointmentSlot.endTime);
         const localTime = utcDateToLocalHHMM(startDate, timezone);
         const durationMin = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
-        const serviceNames = b.lines.map((l) => l.serviceName).join(', ');
-        const phone = b.customerPhone ?? '-';
-        const notes = b.adminNotes ?? '-';
-        return `<tr><td>${localTime}</td><td>${b.customerName}</td><td>${phone}</td><td>${serviceNames}</td><td>${durationMin} min</td><td>${notes}</td></tr>`;
+        const serviceNames = b.lines.map((l) => escapeHtml(l.serviceName)).join(', ');
+        const phone = b.customerPhone ? escapeHtml(b.customerPhone) : '-';
+        const notes = b.adminNotes ? escapeHtml(b.adminNotes) : '-';
+        return `<tr><td>${localTime}</td><td>${escapeHtml(b.customerName)}</td><td>${phone}</td><td>${serviceNames}</td><td>${durationMin} min</td><td>${notes}</td></tr>`;
       })
       .join('');
 
