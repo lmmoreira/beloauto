@@ -70,47 +70,12 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
     const customerResponse =
       typeof dto.infoPayload['notes'] === 'string' ? dto.infoPayload['notes'] : '';
 
-    let emailSent = false;
-    for (const template of templates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({
-        submittedByEmail: dto.submittedByEmail,
-        bookingId: dto.bookingId,
-        customerResponse,
-        bookingLink,
-      });
-      try {
-        await Promise.all(
-          managerEmails.map((email) =>
-            this.dispatcher.dispatch({
-              tenantId: dto.tenantId,
-              to: email,
-              subject,
-              body,
-              channel: template.channel,
-            }),
-          ),
-        );
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          managerEmails[0],
-        );
-        emailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          managerEmails[0],
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const emailSent = await this.dispatchTemplatesToMany(templates, dto, managerEmails, {
+      submittedByEmail: dto.submittedByEmail,
+      bookingId: dto.bookingId,
+      customerResponse,
+      bookingLink,
+    });
     return { emailSent };
   }
 }

@@ -49,43 +49,12 @@ export abstract class BaseBookingReminderNotificationUseCase extends BaseNotific
     const localTime = utcDateToLocalHHMM(start, timezone);
     const serviceNames = dto.lines.map((l) => l.serviceName).join(', ');
 
-    let emailSent = false;
-    for (const template of templates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({
-        customerName: dto.customerName,
-        localDate,
-        localTime,
-        serviceNames,
-      });
-      try {
-        await this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: dto.recipientEmail,
-          subject,
-          body,
-          channel: template.channel,
-        });
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.recipientEmail,
-        );
-        emailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.recipientEmail,
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const emailSent = await this.dispatchTemplates(templates, dto, dto.recipientEmail, {
+      customerName: dto.customerName,
+      localDate,
+      localTime,
+      serviceNames,
+    });
     return { emailSent };
   }
 }

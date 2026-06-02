@@ -73,42 +73,11 @@ export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
 
     const activationLink = `${this.config.getOrThrow<string>('FRONTEND_URL')}/${tenant.slug}/auth/staff`;
 
-    let sent = false;
-    for (const template of templates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({
-        staffName: staff.name ?? staff.email,
-        tenantName: tenant.name,
-        activationLink,
-      });
-      try {
-        await this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: staff.email,
-          subject,
-          body,
-          channel: template.channel,
-        });
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          staff.email,
-        );
-        sent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          staff.email,
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const sent = await this.dispatchTemplates(templates, dto, staff.email, {
+      staffName: staff.name ?? staff.email,
+      tenantName: tenant.name,
+      activationLink,
+    });
     return { sent };
   }
 }

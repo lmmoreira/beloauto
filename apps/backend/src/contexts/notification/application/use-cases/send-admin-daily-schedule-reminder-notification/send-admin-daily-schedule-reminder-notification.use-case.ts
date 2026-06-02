@@ -77,46 +77,11 @@ export class SendAdminDailyScheduleReminderNotificationUseCase extends BaseNotif
     const timezone = tenantInfo?.timezone ?? 'America/Sao_Paulo';
     const bookingsHtml = this.buildBookingsHtml(dto.bookingsToday, timezone);
 
-    let emailSent = false;
-    for (const template of templates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({
-        localDate: dto.localDate,
-        totalBookingsToday: String(dto.totalBookingsToday),
-        bookingsHtml,
-      });
-      try {
-        await Promise.all(
-          managerEmails.map((email) =>
-            this.dispatcher.dispatch({
-              tenantId: dto.tenantId,
-              to: email,
-              subject,
-              body,
-              channel: template.channel,
-            }),
-          ),
-        );
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          managerEmails[0],
-        );
-        emailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          managerEmails[0],
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const emailSent = await this.dispatchTemplatesToMany(templates, dto, managerEmails, {
+      localDate: dto.localDate,
+      totalBookingsToday: String(dto.totalBookingsToday),
+      bookingsHtml,
+    });
     return { emailSent, recipientCount: emailSent ? managerEmails.length : 0 };
   }
 

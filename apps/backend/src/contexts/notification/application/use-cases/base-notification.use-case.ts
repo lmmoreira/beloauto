@@ -1,6 +1,7 @@
 import { AppLogger } from '../../../../shared/observability/app-logger';
 import { ITransactionManager } from '../../../../shared/ports/transaction-manager.port';
 import { NotificationLog } from '../../domain/notification-log.entity';
+import { NotificationTemplate } from '../../domain/notification-template.aggregate';
 import { INotificationDispatcher } from '../ports/notification-dispatcher.port';
 import { INotificationLogRepository } from '../ports/notification-log-repository.port';
 import { INotificationProcessedEventRepository } from '../ports/processed-event-repository.port';
@@ -63,5 +64,85 @@ export abstract class BaseNotificationUseCase {
     await this.txManager.run(async () => {
       await this.logRepo.save(log);
     });
+  }
+
+  protected async dispatchTemplates(
+    templates: NotificationTemplate[],
+    dto: { tenantId: string; eventId: string },
+    to: string,
+    variables: Record<string, string>,
+  ): Promise<boolean> {
+    let sent = false;
+    for (const template of templates) {
+      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
+      const { subject, body } = template.render(variables);
+      try {
+        await this.dispatcher.dispatch({
+          tenantId: dto.tenantId,
+          to,
+          subject,
+          body,
+          channel: template.channel,
+        });
+        await this.saveLog(dto.tenantId, dto.eventId, template.triggerEvent, template.channel, to);
+        sent = true;
+      } catch (err: unknown) {
+        await this.saveFailedLog(
+          dto.tenantId,
+          dto.eventId,
+          template.triggerEvent,
+          template.channel,
+          to,
+          String(err),
+        );
+        throw err;
+      }
+    }
+    return sent;
+  }
+
+  protected async dispatchTemplatesToMany(
+    templates: NotificationTemplate[],
+    dto: { tenantId: string; eventId: string },
+    emails: string[],
+    variables: Record<string, string>,
+  ): Promise<boolean> {
+    let sent = false;
+    for (const template of templates) {
+      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
+      const { subject, body } = template.render(variables);
+      try {
+        await Promise.all(
+          emails.map((email) =>
+            this.dispatcher.dispatch({
+              tenantId: dto.tenantId,
+              to: email,
+              subject,
+              body,
+              channel: template.channel,
+            }),
+          ),
+        );
+        await this.saveLog(
+          dto.tenantId,
+          dto.eventId,
+          template.triggerEvent,
+          template.channel,
+          emails[0],
+        );
+        sent = true;
+      } catch (err: unknown) {
+        await this.saveFailedLog(
+          dto.tenantId,
+          dto.eventId,
+          template.triggerEvent,
+          template.channel,
+          emails[0],
+          String(err),
+        );
+        throw err;
+      }
+    }
+    return sent;
   }
 }

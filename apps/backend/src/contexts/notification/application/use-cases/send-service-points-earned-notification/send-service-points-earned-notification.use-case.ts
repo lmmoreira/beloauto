@@ -73,43 +73,12 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
     const nameById = new Map(serviceInfos.map((s) => [s.serviceId, s.serviceName]));
     const serviceNames = dto.lines.map((l) => nameById.get(l.serviceId) ?? l.serviceId).join(', ');
 
-    let emailSent = false;
-    for (const template of templates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({
-        customerName: customer.name,
-        totalPointsEarned: String(dto.totalPointsEarned),
-        serviceNames,
-        currentBalance: String(dto.currentBalance),
-      });
-      try {
-        await this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: customer.email,
-          subject,
-          body,
-          channel: template.channel,
-        });
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          customer.email,
-        );
-        emailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          customer.email,
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const emailSent = await this.dispatchTemplates(templates, dto, customer.email, {
+      customerName: customer.name,
+      totalPointsEarned: String(dto.totalPointsEarned),
+      serviceNames,
+      currentBalance: String(dto.currentBalance),
+    });
     return { emailSent };
   }
 }

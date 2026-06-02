@@ -76,94 +76,29 @@ export class SendBookingCancelledNotificationUseCase extends BaseNotificationUse
       ),
     ]);
 
-    let customerEmailSent = false;
-    for (const template of customerTemplates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({
-        guestName: dto.guestName,
-        serviceNames,
-        totalPrice: formattedTotal,
-        localDate,
-        localTime,
-      });
-      try {
-        await this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: dto.guestEmail,
-          subject,
-          body,
-          channel: template.channel,
-        });
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.guestEmail,
-        );
-        customerEmailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.guestEmail,
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const variables: Record<string, string> = {
+      guestName: dto.guestName,
+      serviceNames,
+      totalPrice: formattedTotal,
+      localDate,
+      localTime,
+      cancelledBy: dto.cancelledBy,
+      isBusiness: String(dto.isBusiness),
+      reason: dto.reason ?? '',
+    };
 
-    let adminEmailSent = false;
+    const customerEmailSent = await this.dispatchTemplates(
+      customerTemplates,
+      dto,
+      dto.guestEmail,
+      variables,
+    );
+
     const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
-    if (managerEmails.length > 0) {
-      for (const template of adminTemplates) {
-        if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel))
-          continue;
-        const { subject, body } = template.render({
-          guestName: dto.guestName,
-          serviceNames,
-          totalPrice: formattedTotal,
-          localDate,
-          localTime,
-          cancelledBy: dto.cancelledBy,
-          isBusiness: String(dto.isBusiness),
-          reason: dto.reason ?? '',
-        });
-        try {
-          await Promise.all(
-            managerEmails.map((email) =>
-              this.dispatcher.dispatch({
-                tenantId: dto.tenantId,
-                to: email,
-                subject,
-                body,
-                channel: template.channel,
-              }),
-            ),
-          );
-          await this.saveLog(
-            dto.tenantId,
-            dto.eventId,
-            template.triggerEvent,
-            template.channel,
-            managerEmails[0],
-          );
-          adminEmailSent = true;
-        } catch (err: unknown) {
-          await this.saveFailedLog(
-            dto.tenantId,
-            dto.eventId,
-            template.triggerEvent,
-            template.channel,
-            managerEmails[0],
-            String(err),
-          );
-          throw err;
-        }
-      }
-    }
+    const adminEmailSent =
+      managerEmails.length > 0
+        ? await this.dispatchTemplatesToMany(adminTemplates, dto, managerEmails, variables)
+        : false;
 
     return { customerEmailSent, adminEmailSent };
   }

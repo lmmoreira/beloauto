@@ -72,90 +72,26 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
       this.tenantPort.getTenantInfo(dto.tenantId),
     ]);
 
-    let adminEmailSent = false;
-    if (managerEmails.length > 0) {
-      for (const template of adminTemplates) {
-        if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel))
-          continue;
-        const { subject, body } = template.render({
-          guestName: dto.guestName,
-          scheduledAt: dto.scheduledAt,
-          serviceNames,
-          totalPrice: formattedPrice,
-          pickupAddress: dto.pickupAddress ? JSON.stringify(dto.pickupAddress) : '',
-        });
-        try {
-          await Promise.all(
-            managerEmails.map((email) =>
-              this.dispatcher.dispatch({
-                tenantId: dto.tenantId,
-                to: email,
-                subject,
-                body,
-                channel: template.channel,
-              }),
-            ),
-          );
-          await this.saveLog(
-            dto.tenantId,
-            dto.eventId,
-            template.triggerEvent,
-            template.channel,
-            managerEmails[0],
-          );
-          adminEmailSent = true;
-        } catch (err: unknown) {
-          await this.saveFailedLog(
-            dto.tenantId,
-            dto.eventId,
-            template.triggerEvent,
-            template.channel,
-            managerEmails[0],
-            String(err),
-          );
-          throw err;
-        }
-      }
-    }
+    const variables: Record<string, string> = {
+      guestName: dto.guestName,
+      scheduledAt: dto.scheduledAt,
+      serviceNames,
+      totalPrice: formattedPrice,
+      pickupAddress: dto.pickupAddress ? JSON.stringify(dto.pickupAddress) : '',
+      tenantName: tenantInfo?.name ?? '',
+    };
 
-    let customerEmailSent = false;
-    for (const template of customerTemplates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({
-        guestName: dto.guestName,
-        scheduledAt: dto.scheduledAt,
-        serviceNames,
-        totalPrice: formattedPrice,
-        tenantName: tenantInfo?.name ?? '',
-      });
-      try {
-        await this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: dto.guestEmail,
-          subject,
-          body,
-          channel: template.channel,
-        });
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.guestEmail,
-        );
-        customerEmailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.guestEmail,
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const adminEmailSent =
+      managerEmails.length > 0
+        ? await this.dispatchTemplatesToMany(adminTemplates, dto, managerEmails, variables)
+        : false;
+
+    const customerEmailSent = await this.dispatchTemplates(
+      customerTemplates,
+      dto,
+      dto.guestEmail,
+      variables,
+    );
 
     return { adminEmailSent, customerEmailSent };
   }

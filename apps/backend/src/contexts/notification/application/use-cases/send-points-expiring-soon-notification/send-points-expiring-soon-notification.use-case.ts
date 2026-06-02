@@ -63,42 +63,11 @@ export class SendPointsExpiringSoonNotificationUseCase extends BaseNotificationU
     const customer = await this.customerPort.getCustomerInfo(dto.customerId, dto.tenantId);
     if (!customer) return { emailSent: false };
 
-    let emailSent = false;
-    for (const template of templates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({
-        customerName: customer.name,
-        pointsExpiringSoon: String(dto.pointsExpiringSoon),
-        earliestExpiresAt: dto.earliestExpiresAt,
-      });
-      try {
-        await this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: customer.email,
-          subject,
-          body,
-          channel: template.channel,
-        });
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          customer.email,
-        );
-        emailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          customer.email,
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const emailSent = await this.dispatchTemplates(templates, dto, customer.email, {
+      customerName: customer.name,
+      pointsExpiringSoon: String(dto.pointsExpiringSoon),
+      earliestExpiresAt: dto.earliestExpiresAt,
+    });
     return { emailSent };
   }
 }

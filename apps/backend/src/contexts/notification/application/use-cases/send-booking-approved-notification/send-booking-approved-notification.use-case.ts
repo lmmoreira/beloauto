@@ -73,45 +73,14 @@ export class SendBookingApprovedNotificationUseCase extends BaseNotificationUseC
       .map((l) => `${l.serviceNameAtBooking}: ${formatBRL(l.priceAtBooking.amount)}`)
       .join(', ');
 
-    let emailSent = false;
-    for (const template of templates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({
-        guestName: dto.guestName,
-        localDate,
-        localTime,
-        serviceNames,
-        lineItems,
-        totalPrice: formattedTotal,
-      });
-      try {
-        await this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: dto.guestEmail,
-          subject,
-          body,
-          channel: template.channel,
-        });
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.guestEmail,
-        );
-        emailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.guestEmail,
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const emailSent = await this.dispatchTemplates(templates, dto, dto.guestEmail, {
+      guestName: dto.guestName,
+      localDate,
+      localTime,
+      serviceNames,
+      lineItems,
+      totalPrice: formattedTotal,
+    });
     return { emailSent };
   }
 }

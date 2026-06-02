@@ -55,38 +55,10 @@ export class SendBookingRejectedNotificationUseCase extends BaseNotificationUseC
       return { emailSent: false };
     }
 
-    let emailSent = false;
-    for (const template of templates) {
-      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
-      const { subject, body } = template.render({ guestName: dto.guestName, reason: dto.reason });
-      try {
-        await this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: dto.guestEmail,
-          subject,
-          body,
-          channel: template.channel,
-        });
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.guestEmail,
-        );
-        emailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          template.triggerEvent,
-          template.channel,
-          dto.guestEmail,
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const emailSent = await this.dispatchTemplates(templates, dto, dto.guestEmail, {
+      guestName: dto.guestName,
+      reason: dto.reason,
+    });
     return { emailSent };
   }
 }
