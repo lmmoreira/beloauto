@@ -462,7 +462,7 @@ export class CronBookingController {
 
 ---
 
-### M11-S05 — Notification consumers for reminder events
+### M11-S05 — Notification consumers for reminder events ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
