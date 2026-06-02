@@ -374,22 +374,20 @@ Every event — Booking, Loyalty, Notification, or any future event — is publi
 ---
 
 #### **PointsExpiringSoon**
-- **Trigger:** Weekly cron (Mondays 06:00 tenant-local) finds customers who have one or more `LoyaltyEntry` rows whose `expires_at` falls within the **next 7 days**.
+- **Trigger:** GCP Cloud Scheduler fires `POST /cron/loyalty-expiry-warning` once a week (Mondays 06:00 UTC). The handler finds all customers across all tenants who have `LoyaltyEntry` rows whose `expires_at` falls within the configured warning window (`settings.loyalty.expiry_warning_days`, default 7).
 - **Direction:** Forward-looking — this is a heads-up, not a post-mortem. Once `expires_at` actually passes, `POST /cron/loyalty-expiry` (triggered by GCP Cloud Scheduler at 02:00 UTC) decrements `loyalty_balances.current_points` for those entries.
-- **Aggregation:** One event per `(customer, service)` pair so the notification can group neatly per service.
+- **Aggregation:** One event per customer per tenant — all expiring entries for a customer are aggregated into a single event.
 - **State change:** None — the weekly cron does not write any DB rows. It only computes and publishes.
 - **Data:**
   ```
   {
     customerId:           string
-    serviceId:            string
-    pointsExpiringSoon:   number    // sum of `points` from entries with expires_at in [now, now + 7 days)
+    pointsExpiringSoon:   number    // sum of `points` from entries with expires_at in [now, now + expiry_warning_days)
     earliestExpiresAt:    ISO8601   // the soonest expires_at among those entries
-    activeTotal:          number    // customer's current balance from loyalty_balances.current_points
   }
   ```
 - **Consumers:**
-  - **Notification Context** → may aggregate per customer before sending a single weekly email: "Heads up — [X] points on [service] will expire on [earliestExpiresAt]. Book a wash to keep earning."
+  - **Notification Context** → sends one email per customer: "Você tem [X] pontos prestes a expirar em [earliestExpiresAt]. Realize um agendamento para utilizá-los."
 
 > **No `PointsExpired` event.** When points actually expire, GCP Cloud Scheduler calls `POST /cron/loyalty-expiry` at 02:00 UTC, which decrements `loyalty_balances.current_points` and logs the processed entry IDs in `balance_expiry_log` (idempotent). No domain event is published — the customer was already warned in advance by `PointsExpiringSoon`.
 
