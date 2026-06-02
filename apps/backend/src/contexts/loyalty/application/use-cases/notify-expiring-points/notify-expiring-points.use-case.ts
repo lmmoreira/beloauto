@@ -36,7 +36,7 @@ export class NotifyExpiringPointsUseCase {
       const pointsExpiringSoon = group.reduce((sum, e) => sum + e.points, 0);
       const earliestExpiresAt = group
         .map((e) => e.expiresAt)
-        .reduce((min, d) => (d < min ? d : min), group[0].expiresAt);
+        .reduce((min, d) => new Date(Math.min(d.getTime(), min.getTime())), group[0].expiresAt);
 
       await this.eventBus.publish(
         new PointsExpiringSoon(tenantId, correlationId, {
