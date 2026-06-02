@@ -24,6 +24,7 @@ import { SendServicePointsEarnedNotificationUseCase } from './application/use-ca
 import { SendBookingReminderDueNotificationUseCase } from './application/use-cases/send-booking-reminder-due-notification/send-booking-reminder-due-notification.use-case';
 import { SendBookingReminderDueTodayNotificationUseCase } from './application/use-cases/send-booking-reminder-due-today-notification/send-booking-reminder-due-today-notification.use-case';
 import { SendAdminDailyScheduleReminderNotificationUseCase } from './application/use-cases/send-admin-daily-schedule-reminder-notification/send-admin-daily-schedule-reminder-notification.use-case';
+import { SendPointsExpiringSoonNotificationUseCase } from './application/use-cases/send-points-expiring-soon-notification/send-points-expiring-soon-notification.use-case';
 import { CustomerInfoAdapter } from './infrastructure/cross-context/customer-info.adapter';
 import { ServiceInfoAdapter } from './infrastructure/cross-context/service-info.adapter';
 import { StaffInfoAdapter } from './infrastructure/cross-context/staff-info.adapter';
@@ -46,6 +47,7 @@ import { BookingRescheduledHandler } from './infrastructure/events/booking-resch
 import { ServicePointsEarnedHandler } from './infrastructure/events/service-points-earned.handler';
 import { BookingReminderHandler } from './infrastructure/events/booking-reminder.handler';
 import { AdminDailyScheduleReminderHandler } from './infrastructure/events/admin-daily-schedule-reminder.handler';
+import { PointsExpiringSoonHandler } from './infrastructure/events/points-expiring-soon.handler';
 import { TypeOrmNotificationLogRepository } from './infrastructure/repositories/typeorm-notification-log.repository';
 import { TypeOrmNotificationProcessedEventRepository } from './infrastructure/repositories/typeorm-processed-event.repository';
 import { TypeOrmNotificationTemplateRepository } from './infrastructure/repositories/typeorm-notification-template.repository';
@@ -110,6 +112,7 @@ import { TenantProvisionedNotificationHandler } from './infrastructure/events/te
     SendBookingReminderDueNotificationUseCase,
     SendBookingReminderDueTodayNotificationUseCase,
     SendAdminDailyScheduleReminderNotificationUseCase,
+    SendPointsExpiringSoonNotificationUseCase,
     StaffInvitedHandler,
     BookingRequestedHandler,
     BookingApprovedHandler,
@@ -121,6 +124,7 @@ import { TenantProvisionedNotificationHandler } from './infrastructure/events/te
     ServicePointsEarnedHandler,
     BookingReminderHandler,
     AdminDailyScheduleReminderHandler,
+    PointsExpiringSoonHandler,
   ],
 })
 export class NotificationModule {}

@@ -5,7 +5,7 @@ import {
   LoyaltyTenantSettings,
 } from '../../application/ports/loyalty-tenant-settings.port';
 
-const DEFAULT_EXPIRY_DAYS = 180;
+const DEFAULTS: LoyaltyTenantSettings = { expiryDays: 180, notificationMinPoints: 50 };
 
 @Injectable()
 export class LoyaltyTenantSettingsAdapter implements ILoyaltyTenantSettingsPort {
@@ -14,9 +14,12 @@ export class LoyaltyTenantSettingsAdapter implements ILoyaltyTenantSettingsPort 
   async getLoyaltySettings(tenantId: string): Promise<LoyaltyTenantSettings> {
     try {
       const result = await this.getTenantById.execute(tenantId);
-      return { expiryDays: result.settings.loyalty.expiry_days };
+      return {
+        expiryDays: result.settings.loyalty.expiry_days,
+        notificationMinPoints: result.settings.loyalty.notification_min_points,
+      };
     } catch {
-      return { expiryDays: DEFAULT_EXPIRY_DAYS };
+      return { ...DEFAULTS };
     }
   }
 }

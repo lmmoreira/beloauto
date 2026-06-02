@@ -16,6 +16,10 @@ export class InMemoryLoyaltyEntryRepository implements ILoyaltyEntryRepository {
     return this.entries.filter((e) => e.expiresAt < date);
   }
 
+  async findExpiringSoon(from: Date, to: Date): Promise<LoyaltyEntry[]> {
+    return this.entries.filter((e) => e.expiresAt >= from && e.expiresAt <= to);
+  }
+
   async findByCustomerPaginated(
     tenantId: string,
     customerId: string,

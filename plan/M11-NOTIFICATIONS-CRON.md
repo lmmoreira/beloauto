@@ -462,7 +462,7 @@ export class CronBookingController {
 
 ---
 
-### M11-S05 — Notification consumers for reminder events
+### M11-S05 — Notification consumers for reminder events ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
@@ -513,32 +513,39 @@ Implement the 3 Notification context consumers for reminder events. All emails i
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
-**Docs to load:** `docs/04-USE_CASES.md` § loyalty expiry warning, `docs/03-DOMAIN_EVENTS.md` § PointsExpiringSoon
+**Docs to load:** `docs/04-USE_CASES.md` § UC-016b, `docs/03-DOMAIN_EVENTS.md` § PointsExpiringSoon
 
 **Description:**  
-Implement the weekly loyalty expiry warning: every Monday at 06:00 UTC, find customers who have loyalty points expiring within the next 7 days (configurable via `settings.loyalty.expiry_warning_days`) and send them a warning email.
+Implement the weekly loyalty expiry warning: GCP Cloud Scheduler fires `POST /cron/loyalty-expiry-warning` once a week (Mondays 06:00 UTC). Find all customers with loyalty points expiring within the configured window (`settings.loyalty.expiry_warning_days`, default 7) and send them a warning email.
 
-**Cron endpoint:** `POST /cron/loyalty-expiry`
-- Protected by `CRON_SECRET` header
-- Algorithm:
-  1. For each active tenant:
-     - Load `expiry_warning_days` from tenant settings (default 7)
-     - Find all `LoyaltyEntry` rows where `expires_at BETWEEN now() AND now() + expiry_warning_days days`
-     - Group by `customer_id`
-     - For each customer with expiring points → emit `PointsExpiringSoon`
+**Cron endpoint:** `POST /cron/loyalty-expiry-warning`
+- MVP: no auth guard (consistent with existing cron endpoints; M115-S03 adds CronAuthGuard)
+- Algorithm (all-tenant single-pass, same pattern as `ExpirePointsUseCase`):
+  1. Fetch all `LoyaltyEntry` rows where `expires_at BETWEEN now() AND now() + DEFAULT_WARNING_DAYS` across all tenants via `ILoyaltyEntryRepository.findExpiringSoon(from, to)`
+  2. Group by `(tenant_id, customer_id)`
+  3. For each group: compute `pointsExpiringSoon` (sum) and `earliestExpiresAt` (min)
+  4. Emit one `PointsExpiringSoon` event per customer
+
+**Pre-requisite code changes (implement on the feature branch before writing the use case):**
+- `ILoyaltyTenantSettingsPort` / `LoyaltyTenantSettings`: add `expiryWarningDays: number`
+- `LoyaltyTenantSettingsAdapter`: read `settings.loyalty.expiry_warning_days`; add `DEFAULT_EXPIRY_WARNING_DAYS = 7`
+- `ILoyaltyEntryRepository`: add `findExpiringSoon(from: Date, to: Date): Promise<LoyaltyEntry[]>`
+- `loyalty/domain/events/points-expiring-soon.event.ts`: new event class with payload `{ customerId, pointsExpiringSoon, earliestExpiresAt }`
 
 **`PointsExpiringSoonHandler`** (Notification consumer):
-- Recipient: customer email
-- Subject: `"Seus pontos de fidelidade estão prestes a expirar!"`
-- Body: points amount + expiry date + "utilize em seu próximo agendamento"
+- Recipient: customer email (via `INotificationCustomerPort`)
+- Template key: `POINTS_EXPIRING_SOON`
+- Variables: `{ customerName, pointsExpiringSoon, earliestExpiresAt }`
+- Idempotency: `BaseNotificationUseCase.isAlreadySent(eventId, 'points-expiring-soon', 'EMAIL')`
 
 **Acceptance criteria:**
-- [ ] Endpoint processes all tenants with expiring loyalty entries
+- [ ] `POST /cron/loyalty-expiry-warning` emits one `PointsExpiringSoon` per customer with expiring entries
 - [ ] `expiry_warning_days` is read from `tenants.settings.loyalty.expiry_warning_days` (default 7)
-- [ ] Customer with 0 expiring points is NOT emailed
-- [ ] `PointsExpiringSoon` event payload contains `pointsExpiringSoon`, `earliestExpiresAt`, `customerId`
-- [ ] Email appears in MailHog with correct subject in pt-BR
-- [ ] Handler is idempotent on `eventId`
+- [ ] Customer with 0 expiring points in the window is NOT emailed
+- [ ] `PointsExpiringSoon` event payload contains `{ customerId, pointsExpiringSoon, earliestExpiresAt }`
+- [ ] Email appears in MailHog with subject `"Seus pontos de fidelidade estão prestes a expirar!"`
+- [ ] Handler is idempotent on `eventId` (duplicate event → no second email)
+- [ ] Tenant isolation: Tenant A's expiring entries do not trigger emails for Tenant B customers
 
 **Dependencies:** M10-S03, M11-S03, M11-S04
 

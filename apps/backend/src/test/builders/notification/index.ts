@@ -12,3 +12,4 @@ export { SendServicePointsEarnedNotificationDtoBuilder } from './send-service-po
 export { SendStaffInvitationDtoBuilder } from './send-staff-invitation-dto.builder';
 export { SendBookingReminderDueNotificationDtoBuilder } from './send-booking-reminder-due-notification-dto.builder';
 export { SendAdminDailyScheduleReminderNotificationDtoBuilder } from './send-admin-daily-schedule-reminder-notification-dto.builder';
+export { SendPointsExpiringSoonNotificationDtoBuilder } from './send-points-expiring-soon-notification-dto.builder';

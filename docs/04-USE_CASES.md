@@ -629,6 +629,31 @@ Returns:
 
 ---
 
+### **UC-016b: Weekly Loyalty Expiry Warning**
+
+- **Actor:** System (GCP Cloud Scheduler)
+- **Preconditions:** At least one tenant has customers with `LoyaltyEntry` rows whose `expires_at` falls within the warning window.
+- **Trigger:** GCP Cloud Scheduler fires `POST /cron/loyalty-expiry-warning` once a week (Mondays 06:00 UTC).
+- **Main Flow:**
+  1. Handler fetches all `LoyaltyEntry` rows where `expires_at BETWEEN now() AND now() + expiry_warning_days` across all tenants in a single query (all-tenant pass, same pattern as `POST /cron/loyalty-expiry`).
+  2. Groups entries by `(tenant_id, customer_id)`.
+  3. For each group: computes `pointsExpiringSoon` (sum of `points`) and `earliestExpiresAt` (minimum `expires_at`).
+  4. Publishes one `PointsExpiringSoon` event per customer.
+  5. Notification context consumer receives the event, looks up the customer email via `INotificationCustomerPort`, and sends the warning email using the `points-expiring-soon` template.
+  6. Returns `{ processed: N }` where N is the number of customers notified.
+
+- **Alternative Flows:**
+  - **A1: No expiring entries found** → Handler returns `{ processed: 0 }` immediately. No events published.
+  - **A2: Customer not found in Notification context** → Consumer skips silently (logs a warning). Idempotency log is not written.
+  - **A3: Duplicate delivery (handler called twice)** → Consumer checks `notification_logs` by `eventId`; second call is a no-op.
+
+- **Postconditions:** One warning email sent per customer with expiring points. No DB rows written by the cron itself (state-free read + publish).
+- **Events Triggered:** `PointsExpiringSoon` (one per affected customer per tenant).
+- **Config key:** `settings.loyalty.expiry_warning_days` (integer, default 7, range 1–89, must be less than `expiry_days`).
+- **Out of scope (MVP):** No per-service breakdown in the email. No opt-out mechanism.
+
+---
+
 ### **UC-017: Admin Views Booking Analytics (Future)**
 
 - **Actor:** Staff/Admin
@@ -1029,6 +1054,7 @@ Returns:
 | UC-012 | Create service | Admin | Service created with points value |
 | UC-013 | Edit service | Admin | Service updated |
 | UC-016 | View loyalty metrics | Customer/Admin | Read-only aggregation of `loyalty_entries` — total active points + per-service breakdown + completions count |
+| UC-016b | Weekly loyalty expiry warning | System (cron) | Monday 06:00 UTC — emit `PointsExpiringSoon` per customer with expiring points; Notification context sends email |
 | UC-017 | View analytics | Admin | Future feature |
 | UC-018 | Admin receives daily schedule | System | Scheduled reminder email at 6 AM |
 | UC-019 | Customer reminder (day before) | System | Cron emits `BookingReminderDue`; Notification sends email at 6 AM |

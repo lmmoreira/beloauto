@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { uuidv7 } from '../../../../shared/domain/uuid-v7';
 import { createLoyaltyIntegrationApp } from '../../../../test/utils/loyalty-integration-app';
 import { BalanceExpiryLogEntity } from '../entities/balance-expiry-log.entity';
 import { LoyaltyBalanceEntity } from '../entities/loyalty-balance.entity';
@@ -149,5 +150,62 @@ describe('CronLoyaltyController (integration)', () => {
       .getRepository(LoyaltyBalanceEntity)
       .findOne({ where: { tenantId, customerId: CUSTOMER_ID } });
     expect(balance?.currentPoints).toBe(50);
+  });
+
+  describe('POST /cron/loyalty-expiry-warning', () => {
+    const soonDate = (): Date => new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const farDate = (): Date => new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+
+    it('returns zero when no entries expiring within warning window', async () => {
+      const { body } = await request(app.getHttpServer())
+        .post('/cron/loyalty-expiry-warning')
+        .expect(200);
+
+      expect(body.customersNotified).toBe(0);
+    });
+
+    it('returns customersNotified count for entries expiring within 7 days', async () => {
+      const inlineCustomer = uuidv7();
+      await ds
+        .getRepository(LoyaltyEntryEntity)
+        .save(
+          new LoyaltyEntryEntityBuilder()
+            .withTenantId(tenantId)
+            .withCustomerId(inlineCustomer)
+            .withPoints(60)
+            .withExpiresAt(soonDate())
+            .build(),
+        );
+
+      const { body } = await request(app.getHttpServer())
+        .post('/cron/loyalty-expiry-warning')
+        .expect(200);
+
+      expect(body.customersNotified).toBeGreaterThanOrEqual(1);
+
+      await ds.getRepository(LoyaltyEntryEntity).delete({ tenantId, customerId: inlineCustomer });
+    });
+
+    it('does not notify customers whose entries expire beyond the warning window', async () => {
+      const inlineCustomer = uuidv7();
+      await ds
+        .getRepository(LoyaltyEntryEntity)
+        .save(
+          new LoyaltyEntryEntityBuilder()
+            .withTenantId(tenantId)
+            .withCustomerId(inlineCustomer)
+            .withPoints(20)
+            .withExpiresAt(farDate())
+            .build(),
+        );
+
+      const { body } = await request(app.getHttpServer())
+        .post('/cron/loyalty-expiry-warning')
+        .expect(200);
+
+      expect(body.customersNotified).toBe(0);
+
+      await ds.getRepository(LoyaltyEntryEntity).delete({ tenantId, customerId: inlineCustomer });
+    });
   });
 });

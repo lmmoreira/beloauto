@@ -2,6 +2,7 @@ export const LOYALTY_TENANT_SETTINGS_PORT = Symbol('ILoyaltyTenantSettingsPort')
 
 export interface LoyaltyTenantSettings {
   expiryDays: number;
+  notificationMinPoints: number;
 }
 
 export interface ILoyaltyTenantSettingsPort {
