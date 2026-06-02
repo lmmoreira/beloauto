@@ -509,7 +509,7 @@ Implement the 3 Notification context consumers for reminder events. All emails i
 
 ---
 
-### M11-S06 — PointsExpiringSoon cron + notification consumer
+### M11-S06 — PointsExpiringSoon cron + notification consumer ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
