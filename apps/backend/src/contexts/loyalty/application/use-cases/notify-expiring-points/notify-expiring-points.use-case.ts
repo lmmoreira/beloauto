@@ -31,8 +31,8 @@ export class NotifyExpiringPointsUseCase {
 
     const groups = this.groupByTenantAndCustomer(entries);
 
-    for (const [key, group] of groups) {
-      const [tenantId, customerId] = key.split(':');
+    for (const group of groups.values()) {
+      const { tenantId, customerId } = group[0];
       const pointsExpiringSoon = group.reduce((sum, e) => sum + e.points, 0);
       const earliestExpiresAt = group
         .map((e) => e.expiresAt)
