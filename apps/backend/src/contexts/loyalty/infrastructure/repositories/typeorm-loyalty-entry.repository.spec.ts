@@ -113,4 +113,30 @@ describe('TypeOrmLoyaltyEntryRepository', () => {
       expect(result[0]).toBeInstanceOf(LoyaltyEntry);
     });
   });
+
+  describe('findExpiringSoon()', () => {
+    it('returns empty array when no entries in window', async () => {
+      ormRepo.find.mockResolvedValue([]);
+
+      const from = new Date();
+      const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const result = await repo.findExpiringSoon(from, to);
+
+      expect(result).toEqual([]);
+    });
+
+    it('maps entries within the window to LoyaltyEntry domain objects', async () => {
+      const soonDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+      ormRepo.find.mockResolvedValue([
+        new LoyaltyEntryEntityBuilder().withExpiresAt(soonDate).build(),
+      ]);
+
+      const from = new Date();
+      const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const result = await repo.findExpiringSoon(from, to);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBeInstanceOf(LoyaltyEntry);
+    });
+  });
 });
