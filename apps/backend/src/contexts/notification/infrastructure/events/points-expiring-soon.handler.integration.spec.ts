@@ -56,9 +56,7 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
     await eventBus.publish(event);
 
     // Filter by recipient to be tolerant of cross-spec Pub/Sub fan-out noise
-    await waitFor(async () =>
-      dispatcher.dispatched.some((m) => m.to === 'joao@example.com'),
-    );
+    await waitFor(async () => dispatcher.dispatched.some((m) => m.to === 'joao@example.com'));
 
     const msg = dispatcher.dispatched.find((m) => m.to === 'joao@example.com')!;
     expect(msg.subject).toBe('Seus pontos de fidelidade estão prestes a expirar!');
@@ -75,7 +73,11 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
     await eventBus.publish(event);
     await waitFor(async () => {
       const log = await ds.getRepository(NotificationLogEntity).findOne({
-        where: { tenantId: TENANT_A, eventId: event.eventId, notificationType: 'points-expiring-soon' },
+        where: {
+          tenantId: TENANT_A,
+          eventId: event.eventId,
+          notificationType: 'points-expiring-soon',
+        },
       });
       return log !== null;
     });
@@ -85,7 +87,11 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     const logs = await ds.getRepository(NotificationLogEntity).find({
-      where: { tenantId: TENANT_A, eventId: event.eventId, notificationType: 'points-expiring-soon' },
+      where: {
+        tenantId: TENANT_A,
+        eventId: event.eventId,
+        notificationType: 'points-expiring-soon',
+      },
     });
     expect(logs).toHaveLength(1);
   });
@@ -104,9 +110,7 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
 
     await eventBus.publish(event);
 
-    await waitFor(async () =>
-      dispatcher.dispatched.some((m) => m.to === 'joao@example.com'),
-    );
+    await waitFor(async () => dispatcher.dispatched.some((m) => m.to === 'joao@example.com'));
 
     expect(dispatcher.dispatched.some((m) => m.to === 'tenantb@example.com')).toBe(false);
     expect(dispatcher.dispatched.some((m) => m.to === 'joao@example.com')).toBe(true);
