@@ -10,7 +10,11 @@ function makeResult(expiryDays: number, notificationMinPoints = 50) {
     slug: 'test-tenant',
     name: 'Test Tenant',
     settings: {
-      loyalty: { expiry_days: expiryDays, expiry_warning_days: 7, notification_min_points: notificationMinPoints },
+      loyalty: {
+        expiry_days: expiryDays,
+        expiry_warning_days: 7,
+        notification_min_points: notificationMinPoints,
+      },
       business_hours: {
         timezone: 'America/Sao_Paulo',
         monday: null,
