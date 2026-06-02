@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { Between, LessThan, Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import {
   ILoyaltyEntryRepository,
@@ -30,6 +30,13 @@ export class TypeOrmLoyaltyEntryRepository implements ILoyaltyEntryRepository {
   async findExpiringBefore(date: Date): Promise<LoyaltyEntry[]> {
     const entities = await this.repo.find({
       where: { expiresAt: LessThan(date) },
+    });
+    return entities.map((e) => this.toDomain(e));
+  }
+
+  async findExpiringSoon(from: Date, to: Date): Promise<LoyaltyEntry[]> {
+    const entities = await this.repo.find({
+      where: { expiresAt: Between(from, to) },
     });
     return entities.map((e) => this.toDomain(e));
   }

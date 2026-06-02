@@ -1,0 +1,62 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { uuidv7 } from '../../../../../shared/domain/uuid-v7';
+import { EVENT_BUS, IEventBus } from '../../../../../shared/ports/event-bus.port';
+import { PointsExpiringSoon } from '../../../domain/events/points-expiring-soon.event';
+import { LoyaltyEntry } from '../../../domain/loyalty-entry.aggregate';
+import {
+  ILoyaltyEntryRepository,
+  LOYALTY_ENTRY_REPOSITORY,
+} from '../../ports/loyalty-entry-repository.port';
+
+const DEFAULT_EXPIRY_WARNING_DAYS = 7;
+
+export interface NotifyExpiringPointsResult {
+  customersNotified: number;
+}
+
+@Injectable()
+export class NotifyExpiringPointsUseCase {
+  constructor(
+    @Inject(LOYALTY_ENTRY_REPOSITORY) private readonly entryRepo: ILoyaltyEntryRepository,
+    @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
+  ) {}
+
+  async execute(warningDays = DEFAULT_EXPIRY_WARNING_DAYS): Promise<NotifyExpiringPointsResult> {
+    const now = new Date();
+    const to = new Date(now.getTime() + warningDays * 24 * 60 * 60 * 1000);
+
+    const entries = await this.entryRepo.findExpiringSoon(now, to);
+    if (entries.length === 0) return { customersNotified: 0 };
+
+    const groups = this.groupByTenantAndCustomer(entries);
+
+    for (const [key, group] of groups) {
+      const [tenantId, customerId] = key.split(':');
+      const pointsExpiringSoon = group.reduce((sum, e) => sum + e.points, 0);
+      const earliestExpiresAt = group
+        .map((e) => e.expiresAt)
+        .reduce((min, d) => (d < min ? d : min));
+
+      await this.eventBus.publish(
+        new PointsExpiringSoon(tenantId, uuidv7(), {
+          customerId,
+          pointsExpiringSoon,
+          earliestExpiresAt: earliestExpiresAt.toISOString(),
+        }),
+      );
+    }
+
+    return { customersNotified: groups.size };
+  }
+
+  private groupByTenantAndCustomer(entries: LoyaltyEntry[]): Map<string, LoyaltyEntry[]> {
+    const groups = new Map<string, LoyaltyEntry[]>();
+    for (const entry of entries) {
+      const key = `${entry.tenantId}:${entry.customerId}`;
+      const group = groups.get(key) ?? [];
+      group.push(entry);
+      groups.set(key, group);
+    }
+    return groups;
+  }
+}

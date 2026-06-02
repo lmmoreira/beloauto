@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventBusModule } from '../../shared/infrastructure/event-bus.module';
 import { TransactionManagerModule } from '../../shared/infrastructure/transaction-manager.module';
 import { TenantModule } from '../../shared/tenant/tenant.module';
 import { PlatformModule } from '../platform/platform.module';
@@ -16,6 +17,7 @@ import { GetLoyaltyRedemptionsUseCase } from './application/use-cases/get-loyalt
 import { RecordLoyaltyEntriesUseCase } from './application/use-cases/record-loyalty-entries/record-loyalty-entries.use-case';
 import { RedeemPointsUseCase } from './application/use-cases/redeem-points/redeem-points.use-case';
 import { ExpirePointsUseCase } from './application/use-cases/expire-points/expire-points.use-case';
+import { NotifyExpiringPointsUseCase } from './application/use-cases/notify-expiring-points/notify-expiring-points.use-case';
 import { BalanceExpiryLogEntity } from './infrastructure/entities/balance-expiry-log.entity';
 import { LoyaltyBalanceEntity } from './infrastructure/entities/loyalty-balance.entity';
 import { LoyaltyEntryEntity } from './infrastructure/entities/loyalty-entry.entity';
@@ -42,6 +44,7 @@ import { TypeOrmProcessedEventRepository } from './infrastructure/repositories/t
       BalanceExpiryLogEntity,
       ProcessedEventEntity,
     ]),
+    EventBusModule,
     TransactionManagerModule,
     TenantModule,
     PlatformModule,
@@ -62,6 +65,7 @@ import { TypeOrmProcessedEventRepository } from './infrastructure/repositories/t
     GetLoyaltyRedemptionsUseCase,
     RedeemPointsUseCase,
     ExpirePointsUseCase,
+    NotifyExpiringPointsUseCase,
     BookingCompletedHandler,
   ],
   exports: [
