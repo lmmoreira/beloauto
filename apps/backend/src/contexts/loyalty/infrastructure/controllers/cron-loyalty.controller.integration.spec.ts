@@ -172,7 +172,7 @@ describe('CronLoyaltyController (integration)', () => {
           new LoyaltyEntryEntityBuilder()
             .withTenantId(tenantId)
             .withCustomerId(inlineCustomer)
-            .withPoints(20)
+            .withPoints(60)
             .withExpiresAt(soonDate())
             .build(),
         );
