@@ -2,13 +2,21 @@ import { INestApplication } from '@nestjs/common';
 import { uuidv7 } from '../../../../shared/domain/uuid-v7';
 import { IEventBus } from '../../../../shared/ports/event-bus.port';
 import { NOTIFICATION_CUSTOMER_PORT } from '../../application/ports/notification-customer.port';
-import { NotificationLogEntity } from '../../infrastructure/entities/notification-log.entity';
+import { NOTIFICATION_STAFF_PORT } from '../../application/ports/notification-staff.port';
+import { NOTIFICATION_TENANT_PORT } from '../../application/ports/notification-tenant.port';
+import { NOTIFICATION_SERVICE_PORT } from '../../application/ports/notification-service.port';
+import { NOTIFICATION_LOG_REPOSITORY } from '../../application/ports/notification-log-repository.port';
+import { NOTIFICATION_PROCESSED_EVENT_REPOSITORY } from '../../application/ports/processed-event-repository.port';
 import { PointsExpiringSoon } from '../../../loyalty/domain/events/points-expiring-soon.event';
 import { InMemoryNotificationCustomerPort } from '../../../../test/infrastructure/in-memory-notification-customer.port';
+import { InMemoryNotificationStaffPort } from '../../../../test/infrastructure/in-memory-notification-staff.port';
+import { InMemoryNotificationTenantPort } from '../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationServicePort } from '../../../../test/infrastructure/in-memory-notification-service.port';
+import { InMemoryNotificationLogRepository } from '../../../../test/repositories/notification/in-memory-notification-log.repository';
+import { InMemoryNotificationProcessedEventRepository } from '../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationDispatcher } from '../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { createNotificationIntegrationApp } from '../../../../test/utils/notification-integration-app';
 import { waitFor } from '../../../../test/utils/wait-for';
-import { DataSource } from 'typeorm';
 
 const TENANT_A = 'aaaaaaaa-1600-4000-8000-000000000001';
 const TENANT_B = 'bbbbbbbb-1600-4000-8000-000000000001';
@@ -16,9 +24,10 @@ const CUSTOMER_A = 'cccccccc-1600-4000-8000-000000000001';
 
 describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispatcher) integration', () => {
   let app: INestApplication;
-  let ds: DataSource;
   let dispatcher: InMemoryNotificationDispatcher;
   let customerPort: InMemoryNotificationCustomerPort;
+  let logRepo: InMemoryNotificationLogRepository;
+  let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let eventBus: IEventBus;
 
   beforeAll(async () => {
@@ -26,16 +35,33 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
 
     dispatcher = new InMemoryNotificationDispatcher();
     customerPort = new InMemoryNotificationCustomerPort();
+    logRepo = new InMemoryNotificationLogRepository();
+    processedEventRepo = new InMemoryNotificationProcessedEventRepository();
 
     customerPort.setCustomer(TENANT_A, CUSTOMER_A, {
       email: 'joao@example.com',
       name: 'João Silva',
     });
 
-    ({ app, ds, eventBus } = await createNotificationIntegrationApp({
+    // Use InMemory log and processed-event repos so this spec never writes to the real DB.
+    // This prevents cross-spec Pub/Sub fan-out from contaminating notification_logs counts
+    // in other parallel specs (e.g. booking-full-workflow.handler.integration.spec.ts).
+    ({ app, eventBus } = await createNotificationIntegrationApp({
       dispatcher,
       configure: (builder) =>
-        builder.overrideProvider(NOTIFICATION_CUSTOMER_PORT).useValue(customerPort),
+        builder
+          .overrideProvider(NOTIFICATION_CUSTOMER_PORT)
+          .useValue(customerPort)
+          .overrideProvider(NOTIFICATION_STAFF_PORT)
+          .useValue(new InMemoryNotificationStaffPort())
+          .overrideProvider(NOTIFICATION_TENANT_PORT)
+          .useValue(new InMemoryNotificationTenantPort())
+          .overrideProvider(NOTIFICATION_SERVICE_PORT)
+          .useValue(new InMemoryNotificationServicePort())
+          .overrideProvider(NOTIFICATION_LOG_REPOSITORY)
+          .useValue(logRepo)
+          .overrideProvider(NOTIFICATION_PROCESSED_EVENT_REPOSITORY)
+          .useValue(processedEventRepo),
     }));
   });
 
@@ -44,7 +70,10 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
     delete process.env['PUBSUB_SUBSCRIPTION_SUFFIX'];
   });
 
-  afterEach(() => dispatcher.clear());
+  afterEach(() => {
+    dispatcher.clear();
+    processedEventRepo.clear();
+  });
 
   it('PointsExpiringSoon → dispatches warning email to customer', async () => {
     const event = new PointsExpiringSoon(TENANT_A, uuidv7(), {
@@ -55,7 +84,6 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
 
     await eventBus.publish(event);
 
-    // Filter by recipient to be tolerant of cross-spec Pub/Sub fan-out noise
     await waitFor(async () => dispatcher.dispatched.some((m) => m.to === 'joao@example.com'));
 
     const msg = dispatcher.dispatched.find((m) => m.to === 'joao@example.com')!;
@@ -71,28 +99,19 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
     });
 
     await eventBus.publish(event);
-    await waitFor(async () => {
-      const log = await ds.getRepository(NotificationLogEntity).findOne({
-        where: {
-          tenantId: TENANT_A,
-          eventId: event.eventId,
-          notificationType: 'points-expiring-soon',
-        },
-      });
-      return log !== null;
-    });
+    await waitFor(async () =>
+      logRepo.all.some(
+        (l) => l.eventId === event.eventId && l.notificationType === 'points-expiring-soon',
+      ),
+    );
 
     await eventBus.publish(event);
 
     await new Promise((resolve) => setTimeout(resolve, 400));
 
-    const logs = await ds.getRepository(NotificationLogEntity).find({
-      where: {
-        tenantId: TENANT_A,
-        eventId: event.eventId,
-        notificationType: 'points-expiring-soon',
-      },
-    });
+    const logs = logRepo.all.filter(
+      (l) => l.eventId === event.eventId && l.notificationType === 'points-expiring-soon',
+    );
     expect(logs).toHaveLength(1);
   });
 
