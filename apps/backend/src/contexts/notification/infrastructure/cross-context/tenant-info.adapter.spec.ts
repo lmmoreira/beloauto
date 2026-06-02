@@ -12,7 +12,7 @@ const tenantResult: GetTenantByIdUseCaseResult = {
   name: 'Lava Car',
   slug: 'lavacar',
   settings: {
-    loyalty: { expiry_days: 180, enable_notifications: true, expiry_warning_days: 7 },
+    loyalty: { expiry_days: 180, enable_notifications: true, expiry_warning_days: 7, notification_min_points: 50 },
     booking: {
       cancellation_window_hours: 48,
       auto_approve_enabled: false,

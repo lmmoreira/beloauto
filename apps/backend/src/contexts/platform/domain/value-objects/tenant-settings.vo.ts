@@ -12,6 +12,7 @@ export interface LoyaltySettings {
   expiry_days: number;
   enable_notifications: boolean;
   expiry_warning_days: number;
+  notification_min_points: number;
 }
 
 export interface BookingSettings {
@@ -86,6 +87,7 @@ export class TenantSettings {
         expiry_days: 180,
         enable_notifications: true,
         expiry_warning_days: 7,
+        notification_min_points: 50,
       },
       booking: {
         cancellation_window_hours: 48,
@@ -141,6 +143,9 @@ export class TenantSettings {
     }
     if (loyalty.expiry_warning_days >= loyalty.expiry_days) {
       throw new PlatformDomainError('loyalty.expiry_warning_days must be less than expiry_days');
+    }
+    if (loyalty.notification_min_points < 0 || loyalty.notification_min_points > 10000) {
+      throw new PlatformDomainError('loyalty.notification_min_points must be between 0 and 10000');
     }
   }
 

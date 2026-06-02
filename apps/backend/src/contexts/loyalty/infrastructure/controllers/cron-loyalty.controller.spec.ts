@@ -2,6 +2,7 @@ import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-even
 import { InMemoryBalanceExpiryLogRepository } from '../../../../test/infrastructure/in-memory-balance-expiry-log.repository';
 import { InMemoryLoyaltyBalanceRepository } from '../../../../test/infrastructure/in-memory-loyalty-balance.repository';
 import { InMemoryLoyaltyEntryRepository } from '../../../../test/infrastructure/in-memory-loyalty-entry.repository';
+import { InMemoryLoyaltyTenantSettingsPort } from '../../../../test/infrastructure/in-memory-loyalty-tenant-settings.port';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import {
   LoyaltyBalanceBuilder,
@@ -30,7 +31,7 @@ describe('CronLoyaltyController', () => {
     eventBus = new InMemoryEventBus();
     controller = new CronLoyaltyController(
       new ExpirePointsUseCase(entryRepo, balanceRepo, expiryLogRepo, txManager),
-      new NotifyExpiringPointsUseCase(entryRepo, eventBus),
+      new NotifyExpiringPointsUseCase(entryRepo, eventBus, new InMemoryLoyaltyTenantSettingsPort()),
     );
   });
 

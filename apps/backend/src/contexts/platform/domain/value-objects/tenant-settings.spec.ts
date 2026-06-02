@@ -9,6 +9,7 @@ describe('TenantSettings', () => {
       expect(settings.loyalty.expiry_days).toBe(180);
       expect(settings.loyalty.enable_notifications).toBe(true);
       expect(settings.loyalty.expiry_warning_days).toBe(7);
+      expect(settings.loyalty.notification_min_points).toBe(50);
       expect(settings.booking.cancellation_window_hours).toBe(48);
       expect(settings.booking.auto_approve_enabled).toBe(false);
       expect(settings.booking.min_booking_advance_hours).toBe(0);
@@ -40,6 +41,20 @@ describe('TenantSettings', () => {
         .withLoyalty({ expiry_warning_days: 180 })
         .build();
       expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
+    });
+
+    it('throws for notification_min_points above 10000', () => {
+      const props = new TenantSettingsPropsBuilder()
+        .withLoyalty({ notification_min_points: 10001 })
+        .build();
+      expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
+    });
+
+    it('accepts notification_min_points of 0 (no threshold)', () => {
+      const props = new TenantSettingsPropsBuilder()
+        .withLoyalty({ notification_min_points: 0 })
+        .build();
+      expect(() => TenantSettings.create(props)).not.toThrow();
     });
   });
 

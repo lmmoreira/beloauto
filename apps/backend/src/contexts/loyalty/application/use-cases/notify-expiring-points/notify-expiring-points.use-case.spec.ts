@@ -1,5 +1,6 @@
 import { InMemoryEventBus } from '../../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryLoyaltyEntryRepository } from '../../../../../test/infrastructure/in-memory-loyalty-entry.repository';
+import { InMemoryLoyaltyTenantSettingsPort } from '../../../../../test/infrastructure/in-memory-loyalty-tenant-settings.port';
 import { LoyaltyEntryBuilder } from '../../../../../test/builders/loyalty/index';
 import { PointsExpiringSoon } from '../../../domain/events/points-expiring-soon.event';
 import { NotifyExpiringPointsUseCase } from './notify-expiring-points.use-case';
@@ -16,11 +17,13 @@ describe('NotifyExpiringPointsUseCase', () => {
   let useCase: NotifyExpiringPointsUseCase;
   let entryRepo: InMemoryLoyaltyEntryRepository;
   let eventBus: InMemoryEventBus;
+  let settingsPort: InMemoryLoyaltyTenantSettingsPort;
 
   beforeEach(() => {
     entryRepo = new InMemoryLoyaltyEntryRepository();
     eventBus = new InMemoryEventBus();
-    useCase = new NotifyExpiringPointsUseCase(entryRepo, eventBus);
+    settingsPort = new InMemoryLoyaltyTenantSettingsPort();
+    useCase = new NotifyExpiringPointsUseCase(entryRepo, eventBus, settingsPort);
   });
 
   it('returns zero when no entries are expiring soon', async () => {
@@ -127,5 +130,67 @@ describe('NotifyExpiringPointsUseCase', () => {
     const tenantBEvent = events.find((e) => e.tenantId === TENANT_B);
     expect(tenantAEvent?.data.pointsExpiringSoon).toBe(10);
     expect(tenantBEvent?.data.pointsExpiringSoon).toBe(15);
+  });
+
+  it('skips customer whose expiring points are below the tenant threshold', async () => {
+    settingsPort.withNotificationMinPoints(50);
+    await entryRepo.save(
+      new LoyaltyEntryBuilder()
+        .withTenantId(TENANT_A)
+        .withCustomerId(CUSTOMER_1)
+        .withPoints(30)
+        .withExpiresAt(soon(3))
+        .build(),
+    );
+
+    const result = await useCase.execute();
+
+    expect(result.customersNotified).toBe(0);
+    expect(eventBus.published).toHaveLength(0);
+  });
+
+  it('notifies customer whose expiring points meet the threshold exactly', async () => {
+    settingsPort.withNotificationMinPoints(50);
+    await entryRepo.save(
+      new LoyaltyEntryBuilder()
+        .withTenantId(TENANT_A)
+        .withCustomerId(CUSTOMER_1)
+        .withPoints(50)
+        .withExpiresAt(soon(3))
+        .build(),
+    );
+
+    const result = await useCase.execute();
+
+    expect(result.customersNotified).toBe(1);
+    expect(eventBus.published.filter((e) => e.eventName === 'PointsExpiringSoon')).toHaveLength(1);
+  });
+
+  it('notifies only customers above threshold, skips those below', async () => {
+    settingsPort.withNotificationMinPoints(50);
+    await entryRepo.save(
+      new LoyaltyEntryBuilder()
+        .withTenantId(TENANT_A)
+        .withCustomerId(CUSTOMER_1)
+        .withPoints(20)
+        .withExpiresAt(soon(3))
+        .build(),
+    );
+    await entryRepo.save(
+      new LoyaltyEntryBuilder()
+        .withTenantId(TENANT_A)
+        .withCustomerId(CUSTOMER_2)
+        .withPoints(60)
+        .withExpiresAt(soon(3))
+        .build(),
+    );
+
+    const result = await useCase.execute();
+
+    expect(result.customersNotified).toBe(1);
+    const events = eventBus.published.filter(
+      (e) => e.eventName === 'PointsExpiringSoon',
+    ) as PointsExpiringSoon[];
+    expect(events[0].data.customerId).toBe(CUSTOMER_2);
   });
 });

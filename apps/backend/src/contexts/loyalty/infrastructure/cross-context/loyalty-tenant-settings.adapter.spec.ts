@@ -4,13 +4,13 @@ import { LoyaltyTenantSettingsAdapter } from './loyalty-tenant-settings.adapter'
 
 const TENANT_ID = '00000000-0000-7000-8000-000000000001';
 
-function makeResult(expiryDays: number) {
+function makeResult(expiryDays: number, notificationMinPoints = 50) {
   return {
     id: TENANT_ID,
     slug: 'test-tenant',
     name: 'Test Tenant',
     settings: {
-      loyalty: { expiry_days: expiryDays, expiry_warning_days: 7 },
+      loyalty: { expiry_days: expiryDays, expiry_warning_days: 7, notification_min_points: notificationMinPoints },
       business_hours: {
         timezone: 'America/Sao_Paulo',
         monday: null,
@@ -35,21 +35,24 @@ describe('LoyaltyTenantSettingsAdapter', () => {
     adapter = new LoyaltyTenantSettingsAdapter(useCase);
   });
 
-  it('returns expiryDays from tenant settings', async () => {
-    useCase.execute.mockResolvedValue(makeResult(90) as never);
+  it('returns expiryDays and notificationMinPoints from tenant settings', async () => {
+    useCase.execute.mockResolvedValue(makeResult(90, 75) as never);
     const result = await adapter.getLoyaltySettings(TENANT_ID);
     expect(result.expiryDays).toBe(90);
+    expect(result.notificationMinPoints).toBe(75);
   });
 
-  it('falls back to 180 days when tenant is not found', async () => {
+  it('falls back to defaults when tenant is not found', async () => {
     useCase.execute.mockRejectedValue(new TenantNotFoundError(TENANT_ID));
     const result = await adapter.getLoyaltySettings(TENANT_ID);
     expect(result.expiryDays).toBe(180);
+    expect(result.notificationMinPoints).toBe(50);
   });
 
-  it('falls back to 180 days on any error', async () => {
+  it('falls back to defaults on any error', async () => {
     useCase.execute.mockRejectedValue(new Error('db down'));
     const result = await adapter.getLoyaltySettings(TENANT_ID);
     expect(result.expiryDays).toBe(180);
+    expect(result.notificationMinPoints).toBe(50);
   });
 });
