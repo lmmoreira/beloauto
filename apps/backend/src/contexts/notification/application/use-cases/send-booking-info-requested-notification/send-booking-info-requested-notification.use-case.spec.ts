@@ -2,8 +2,11 @@ import { ConfigService } from '@nestjs/config';
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
+import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingInfoRequestedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
+import { NotificationTemplate } from '../../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingInfoRequestedNotificationUseCase } from './send-booking-info-requested-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0003-4000-8000-000000000001';
@@ -25,7 +28,7 @@ const guestDto = new SendBookingInfoRequestedNotificationDtoBuilder()
   .withTenantId(TENANT_ID)
   .withEventId(EVENT_ID)
   .withBookingId(BOOKING_ID)
-  .build(); // customerId: null by default
+  .build();
 
 const customerDto = new SendBookingInfoRequestedNotificationDtoBuilder()
   .withTenantId(TENANT_ID)
@@ -38,22 +41,34 @@ describe('SendBookingInfoRequestedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let dispatcher: InMemoryNotificationDispatcher;
+  let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendBookingInfoRequestedNotificationUseCase;
 
   beforeEach(() => {
     logRepo = new InMemoryNotificationLogRepository();
     processedEventRepo = new InMemoryNotificationProcessedEventRepository();
     dispatcher = new InMemoryNotificationDispatcher();
+    templateRepo = new InMemoryNotificationTemplateRepository();
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
+        channel: 'EMAIL',
+        subject: 'Precisamos de mais informações sobre seu agendamento',
+        body: '<p>{{guestName}} — {{informationNeeded}} — <a href="{{respondLink}}">Responder</a></p>',
+      }),
+    );
     useCase = new SendBookingInfoRequestedNotificationUseCase(
       logRepo,
       processedEventRepo,
       dispatcher,
       new InMemoryTransactionManager(),
+      templateRepo,
       configService,
     );
   });
 
-  it('dispatches info-request email to guest with signed token link', async () => {
+  it('dispatches info-request email to guest with signed token link in body', async () => {
     const result = await useCase.execute(guestDto);
 
     expect(result.emailSent).toBe(true);
@@ -62,24 +77,20 @@ describe('SendBookingInfoRequestedNotificationUseCase', () => {
     const msg = dispatcher.dispatched[0];
     expect(msg.to).toBe('joao@example.com');
     expect(msg.subject).toBe('Precisamos de mais informações sobre seu agendamento');
-    expect(msg.templateKey).toBe('booking-info-requested-customer');
-    expect(msg.data['informationNeeded']).toBe(guestDto.informationNeeded);
-
-    const link = msg.data['respondLink'] as string;
-    expect(link).toContain(`/bookings/${BOOKING_ID}/responder?token=`);
-    expect(link).not.toContain('/dashboard/');
+    expect(msg.body).toContain(guestDto.informationNeeded);
+    expect(msg.body).toContain(`/bookings/${BOOKING_ID}/responder?token=`);
+    expect(msg.body).not.toContain('/dashboard/');
 
     expect(logRepo.all).toHaveLength(1);
     expect(logRepo.all[0].notificationType).toBe('booking-info-requested-customer');
   });
 
-  it('dispatches info-request email to authenticated customer with dashboard link', async () => {
+  it('dispatches info-request email to authenticated customer with dashboard link in body', async () => {
     await useCase.execute(customerDto);
 
     const msg = dispatcher.dispatched[0];
-    const link = msg.data['respondLink'] as string;
-    expect(link).toBe(`http://localhost:3000/dashboard/bookings/${BOOKING_ID}`);
-    expect(link).not.toContain('token=');
+    expect(msg.body).toContain(`http://localhost:3000/dashboard/bookings/${BOOKING_ID}`);
+    expect(msg.body).not.toContain('token=');
   });
 
   it('is idempotent: second call with same eventId sends no email', async () => {

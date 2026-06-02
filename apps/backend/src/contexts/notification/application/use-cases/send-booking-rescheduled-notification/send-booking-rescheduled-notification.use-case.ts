@@ -27,9 +27,11 @@ import {
   INotificationTenantPort,
   NOTIFICATION_TENANT_PORT,
 } from '../../ports/notification-tenant.port';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
-
-const CHANNEL = 'EMAIL';
 
 export interface SendBookingRescheduledNotificationUseCaseResult {
   customerEmailSent: boolean;
@@ -46,6 +48,8 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
     @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
     @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: INotificationTemplateRepository,
   ) {
     super(logRepo, processedEventRepo, dispatcher, txManager);
   }
@@ -53,58 +57,53 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
   async execute(
     dto: SendBookingRescheduledNotificationDto,
   ): Promise<SendBookingRescheduledNotificationUseCaseResult> {
-    const [customerSent, adminSent] = await Promise.all([
-      this.isAlreadySent(
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_RESCHEDULED_CUSTOMER,
-        CHANNEL,
-      ),
-      this.isAlreadySent(dto.eventId, NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN, CHANNEL),
-    ]);
-
-    if (customerSent && adminSent) {
-      return { customerEmailSent: false, adminEmailSent: false };
-    }
-
     const tenantInfo = await this.tenantPort.getTenantInfo(dto.tenantId);
     const timezone = tenantInfo?.timezone ?? 'America/Sao_Paulo';
-
     const previousStart = new Date(dto.previousSlot.startTime);
     const newStart = new Date(dto.newSlot.startTime);
-
     const previousLocalDate = utcDateToLocalDate(previousStart, timezone);
     const previousLocalTime = utcDateToLocalHHMM(previousStart, timezone);
     const newLocalDate = utcDateToLocalDate(newStart, timezone);
     const newLocalTime = utcDateToLocalHHMM(newStart, timezone);
-
     const serviceNames = dto.lineSummary.map((l) => l.serviceNameAtBooking).join(', ');
     const formattedTotal = formatBRL(dto.totalPrice.amount);
 
-    let customerEmailSent = false;
-    let adminEmailSent = false;
+    const [customerTemplates, adminTemplates] = await Promise.all([
+      this.templateRepo.findAllByTriggerEvent(
+        dto.tenantId,
+        NotificationTemplateKey.BOOKING_RESCHEDULED_CUSTOMER,
+      ),
+      this.templateRepo.findAllByTriggerEvent(
+        dto.tenantId,
+        NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN,
+      ),
+    ]);
 
-    if (!customerSent) {
+    let customerEmailSent = false;
+    for (const template of customerTemplates) {
+      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
+      const { subject, body } = template.render({
+        guestName: dto.guestName,
+        serviceNames,
+        totalPrice: formattedTotal,
+        previousLocalDate,
+        previousLocalTime,
+        newLocalDate,
+        newLocalTime,
+      });
       try {
         await this.dispatcher.dispatch({
           tenantId: dto.tenantId,
           to: dto.guestEmail,
-          subject: 'Seu agendamento foi reagendado',
-          templateKey: NotificationTemplateKey.BOOKING_RESCHEDULED_CUSTOMER,
-          data: {
-            serviceNames,
-            totalPrice: formattedTotal,
-            guestName: dto.guestName,
-            previousLocalDate,
-            previousLocalTime,
-            newLocalDate,
-            newLocalTime,
-          },
+          subject,
+          body,
+          channel: template.channel,
         });
         await this.saveLog(
           dto.tenantId,
           dto.eventId,
-          NotificationTemplateKey.BOOKING_RESCHEDULED_CUSTOMER,
-          CHANNEL,
+          template.triggerEvent,
+          template.channel,
           dto.guestEmail,
         );
         customerEmailSent = true;
@@ -112,8 +111,8 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
         await this.saveFailedLog(
           dto.tenantId,
           dto.eventId,
-          NotificationTemplateKey.BOOKING_RESCHEDULED_CUSTOMER,
-          CHANNEL,
+          template.triggerEvent,
+          template.channel,
           dto.guestEmail,
           String(err),
         );
@@ -121,34 +120,38 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
       }
     }
 
-    if (!adminSent) {
-      const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
-      if (managerEmails.length > 0) {
+    let adminEmailSent = false;
+    const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
+    if (managerEmails.length > 0) {
+      for (const template of adminTemplates) {
+        if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel))
+          continue;
+        const { subject, body } = template.render({
+          guestName: dto.guestName,
+          serviceNames,
+          totalPrice: formattedTotal,
+          previousLocalDate,
+          previousLocalTime,
+          newLocalDate,
+          newLocalTime,
+        });
         try {
           await Promise.all(
             managerEmails.map((email) =>
               this.dispatcher.dispatch({
                 tenantId: dto.tenantId,
                 to: email,
-                subject: 'Agendamento reagendado',
-                templateKey: NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN,
-                data: {
-                  guestName: dto.guestName,
-                  previousLocalDate,
-                  previousLocalTime,
-                  newLocalDate,
-                  newLocalTime,
-                  serviceNames,
-                  totalPrice: formattedTotal,
-                },
+                subject,
+                body,
+                channel: template.channel,
               }),
             ),
           );
           await this.saveLog(
             dto.tenantId,
             dto.eventId,
-            NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN,
-            CHANNEL,
+            template.triggerEvent,
+            template.channel,
             managerEmails[0],
           );
           adminEmailSent = true;
@@ -156,8 +159,8 @@ export class SendBookingRescheduledNotificationUseCase extends BaseNotificationU
           await this.saveFailedLog(
             dto.tenantId,
             dto.eventId,
-            NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN,
-            CHANNEL,
+            template.triggerEvent,
+            template.channel,
             managerEmails[0],
             String(err),
           );

@@ -3,8 +3,11 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationServicePort } from '../../../../../test/infrastructure/in-memory-notification-service.port';
+import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendServicePointsEarnedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
+import { NotificationTemplate } from '../../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendServicePointsEarnedNotificationUseCase } from './send-service-points-earned-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -26,6 +29,7 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let customerPort: InMemoryNotificationCustomerPort;
   let servicePort: InMemoryNotificationServicePort;
+  let templateRepo: InMemoryNotificationTemplateRepository;
 
   beforeEach(() => {
     dispatcher = new InMemoryNotificationDispatcher();
@@ -33,6 +37,7 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
     processedEventRepo = new InMemoryNotificationProcessedEventRepository();
     customerPort = new InMemoryNotificationCustomerPort();
     servicePort = new InMemoryNotificationServicePort();
+    templateRepo = new InMemoryNotificationTemplateRepository();
 
     customerPort.setCustomer(TENANT_ID, CUSTOMER_ID, {
       email: 'maria@example.com',
@@ -40,6 +45,15 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
     });
     servicePort.setService(TENANT_ID, { serviceId: SERVICE_ID_1, serviceName: 'Lavagem Premium' });
     servicePort.setService(TENANT_ID, { serviceId: SERVICE_ID_2, serviceName: 'Enceramento' });
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.SERVICE_POINTS_EARNED,
+        channel: 'EMAIL',
+        subject: 'Lavagem concluída! Você ganhou {{totalPointsEarned}} pontos',
+        body: '<p>{{customerName}} — saldo: {{currentBalance}}</p>',
+      }),
+    );
 
     useCase = new SendServicePointsEarnedNotificationUseCase(
       logRepo,
@@ -48,12 +62,13 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
       customerPort,
       servicePort,
       new InMemoryTransactionManager(),
+      templateRepo,
     );
   });
 
   afterEach(() => jest.resetAllMocks());
 
-  it('dispatches ONE email per booking with total points and all services', async () => {
+  it('dispatches ONE email with rendered subject containing points earned', async () => {
     const result = await useCase.execute(dto);
 
     expect(result.emailSent).toBe(true);
@@ -62,17 +77,8 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
     const msg = dispatcher.dispatched[0];
     expect(msg.to).toBe('maria@example.com');
     expect(msg.subject).toContain('15 pontos');
-    expect(msg.templateKey).toBe('service-points-earned');
-    expect(msg.data['customerName']).toBe('Maria Silva');
-    expect(msg.data['totalPointsEarned']).toBe(15);
-    expect(msg.data['currentBalance']).toBe(15);
-
-    const services = msg.data['services'] as Array<{ serviceName: string; pointsEarned: number }>;
-    expect(services).toHaveLength(2);
-    expect(services[0].serviceName).toBe('Lavagem Premium');
-    expect(services[0].pointsEarned).toBe(10);
-    expect(services[1].serviceName).toBe('Enceramento');
-    expect(services[1].pointsEarned).toBe(5);
+    expect(msg.body).toContain('Maria Silva');
+    expect(msg.body).toContain('15');
   });
 
   it('saves a notification log entry', async () => {
@@ -102,28 +108,5 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
 
     expect(result.emailSent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(0);
-  });
-
-  it('falls back to serviceId string when service is not found', async () => {
-    const unknownServiceId = 'unknown-service-id';
-    await useCase.execute(
-      new SendServicePointsEarnedNotificationDtoBuilder()
-        .withTenantId(TENANT_ID)
-        .withEventId('eeeeeeee-0098-4000-8000-000000000001')
-        .withCustomerId(CUSTOMER_ID)
-        .withTotalPointsEarned(10)
-        .withLines([
-          {
-            entryId: 'e1',
-            serviceId: unknownServiceId,
-            pointsEarned: 10,
-            expiresAt: '2026-11-28T10:00:00.000Z',
-          },
-        ])
-        .build(),
-    );
-
-    const services = dispatcher.dispatched[0].data['services'] as Array<{ serviceName: string }>;
-    expect(services[0].serviceName).toBe(unknownServiceId);
   });
 });

@@ -3,12 +3,16 @@ import { uuidv7 } from '../../../../shared/domain/uuid-v7';
 import { IEventBus } from '../../../../shared/ports/event-bus.port';
 import { NOTIFICATION_STAFF_PORT } from '../../application/ports/notification-staff.port';
 import { NOTIFICATION_TENANT_PORT } from '../../application/ports/notification-tenant.port';
+import { NOTIFICATION_TEMPLATE_REPOSITORY } from '../../application/ports/notification-template-repository.port';
 import { BookingReminderDue } from '../../../booking/domain/events/booking-reminder-due.event';
 import { BookingReminderDueToday } from '../../../booking/domain/events/booking-reminder-due-today.event';
 import { AdminDailyScheduleReminder } from '../../../booking/domain/events/admin-daily-schedule-reminder.event';
+import { NotificationTemplate } from '../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../domain/notification-template-key.enum';
 import { InMemoryNotificationDispatcher } from '../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationStaffPort } from '../../../../test/infrastructure/in-memory-notification-staff.port';
 import { InMemoryNotificationTenantPort } from '../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationTemplateRepository } from '../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { createNotificationIntegrationApp } from '../../../../test/utils/notification-integration-app';
 import { waitFor } from '../../../../test/utils/wait-for';
 
@@ -46,6 +50,47 @@ describe('Reminder handlers (Pub/Sub → handler → use case → dispatcher) in
     staffPort.setManagerEmails(TENANT_A, ['manager-a@lavacar.com']);
     staffPort.setManagerEmails(TENANT_B, ['manager-b@lavacar.com']);
 
+    // Seed templates for both tenants so reminder use cases can find them without hitting the
+    // real DB (which has no tenant-specific copies for these static test UUIDs).
+    const templateRepo = new InMemoryNotificationTemplateRepository();
+    const reminderSubjectDue = 'Lembrete: seu agendamento é amanhã!';
+    const reminderBodyDue =
+      '<p>Olá, {{customerName}}! Seu agendamento é amanhã {{localDate}} às {{localTime}}. Serviços: {{serviceNames}}</p>';
+    const reminderSubjectToday = 'Lembrete: seu agendamento é hoje!';
+    const reminderBodyToday =
+      '<p>Olá, {{customerName}}! Seu agendamento é hoje às {{localTime}}. Serviços: {{serviceNames}}</p>';
+    const adminSubject = 'Agenda do dia — {{localDate}}';
+    const adminBody = '<p>{{bookingsHtml}}</p>';
+    for (const tenantId of [TENANT_A, TENANT_B]) {
+      templateRepo.seed(
+        NotificationTemplate.create({
+          tenantId,
+          triggerEvent: NotificationTemplateKey.BOOKING_REMINDER_DUE,
+          channel: 'EMAIL',
+          subject: reminderSubjectDue,
+          body: reminderBodyDue,
+        }),
+      );
+      templateRepo.seed(
+        NotificationTemplate.create({
+          tenantId,
+          triggerEvent: NotificationTemplateKey.BOOKING_REMINDER_DUE_TODAY,
+          channel: 'EMAIL',
+          subject: reminderSubjectToday,
+          body: reminderBodyToday,
+        }),
+      );
+      templateRepo.seed(
+        NotificationTemplate.create({
+          tenantId,
+          triggerEvent: NotificationTemplateKey.ADMIN_DAILY_SCHEDULE_REMINDER,
+          channel: 'EMAIL',
+          subject: adminSubject,
+          body: adminBody,
+        }),
+      );
+    }
+
     ({ app, eventBus } = await createNotificationIntegrationApp({
       dispatcher,
       configure: (builder) =>
@@ -53,7 +98,9 @@ describe('Reminder handlers (Pub/Sub → handler → use case → dispatcher) in
           .overrideProvider(NOTIFICATION_STAFF_PORT)
           .useValue(staffPort)
           .overrideProvider(NOTIFICATION_TENANT_PORT)
-          .useValue(tenantPort),
+          .useValue(tenantPort)
+          .overrideProvider(NOTIFICATION_TEMPLATE_REPOSITORY)
+          .useValue(templateRepo),
     }));
   });
 
@@ -134,9 +181,7 @@ describe('Reminder handlers (Pub/Sub → handler → use case → dispatcher) in
     await waitFor(async () => dispatcher.dispatched.length >= 2);
 
     expect(dispatcher.dispatched).toHaveLength(2);
-    expect(
-      dispatcher.dispatched.every((m) => m.templateKey === 'admin-daily-schedule-reminder'),
-    ).toBe(true);
+    expect(dispatcher.dispatched.every((m) => m.subject.includes('Agenda do dia'))).toBe(true);
 
     staffPort.setManagerEmails(TENANT_A, ['manager-a@lavacar.com']);
   });
@@ -150,10 +195,9 @@ describe('Reminder handlers (Pub/Sub → handler → use case → dispatcher) in
 
     await eventBus.publish(event);
 
-    await waitFor(async () => dispatcher.dispatched.length >= 1);
+    await waitFor(async () => dispatcher.dispatched.some((m) => m.to === 'manager-a@lavacar.com'));
 
-    const tenantBDispatched = dispatcher.dispatched.filter((m) => m.to === 'manager-b@lavacar.com');
-    expect(tenantBDispatched).toHaveLength(0);
-    expect(dispatcher.dispatched[0].to).toBe('manager-a@lavacar.com');
+    expect(dispatcher.dispatched.some((m) => m.to === 'manager-a@lavacar.com')).toBe(true);
+    expect(dispatcher.dispatched.some((m) => m.to === 'manager-b@lavacar.com')).toBe(false);
   });
 });

@@ -18,6 +18,14 @@ export class TypeOrmNotificationTemplateRepository implements INotificationTempl
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
+  async findAllByTriggerEvent(
+    tenantId: string,
+    triggerEvent: NotificationTemplateKey,
+  ): Promise<NotificationTemplate[]> {
+    const entities = await this.repo.find({ where: { tenantId, triggerEvent } });
+    return entities.map((e) => this.toDomain(e));
+  }
+
   async findByTriggerEventAndChannel(
     tenantId: string,
     triggerEvent: NotificationTemplateKey,

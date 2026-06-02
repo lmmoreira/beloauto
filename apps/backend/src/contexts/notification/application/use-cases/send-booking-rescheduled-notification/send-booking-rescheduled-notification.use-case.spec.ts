@@ -3,8 +3,11 @@ import { InMemoryNotificationLogRepository } from '../../../../../test/repositor
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingRescheduledNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
+import { NotificationTemplate } from '../../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingRescheduledNotificationUseCase } from './send-booking-rescheduled-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -21,6 +24,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
   let dispatcher: InMemoryNotificationDispatcher;
   let staffPort: InMemoryNotificationStaffPort;
   let tenantPort: InMemoryNotificationTenantPort;
+  let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendBookingRescheduledNotificationUseCase;
 
   beforeEach(() => {
@@ -37,6 +41,25 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
       timezone: 'America/Sao_Paulo',
       fromEmail: null,
     });
+    templateRepo = new InMemoryNotificationTemplateRepository();
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.BOOKING_RESCHEDULED_CUSTOMER,
+        channel: 'EMAIL',
+        subject: 'Seu agendamento foi reagendado',
+        body: '<p>Olá, {{guestName}}! Anterior: {{previousLocalDate}} {{previousLocalTime}} Novo: {{newLocalDate}} {{newLocalTime}}</p>',
+      }),
+    );
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.BOOKING_RESCHEDULED_ADMIN,
+        channel: 'EMAIL',
+        subject: 'Agendamento reagendado',
+        body: '<p>Cliente: {{guestName}}</p>',
+      }),
+    );
     useCase = new SendBookingRescheduledNotificationUseCase(
       logRepo,
       processedEventRepo,
@@ -44,6 +67,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
       staffPort,
       tenantPort,
       new InMemoryTransactionManager(),
+      templateRepo,
     );
   });
 
@@ -57,20 +81,11 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
     const customerMsg = dispatcher.dispatched.find((m) => m.to === 'joao@example.com');
     expect(customerMsg).toBeDefined();
     expect(customerMsg!.subject).toBe('Seu agendamento foi reagendado');
-    expect(customerMsg!.templateKey).toBe('booking-rescheduled-customer');
-    expect(customerMsg!.data['guestName']).toBe('João Silva');
-    expect(customerMsg!.data['previousLocalDate']).toBeDefined();
-    expect(customerMsg!.data['previousLocalTime']).toBeDefined();
-    expect(customerMsg!.data['newLocalDate']).toBeDefined();
-    expect(customerMsg!.data['newLocalTime']).toBeDefined();
-    expect(customerMsg!.data['serviceNames']).toBe('Lavagem Completa');
+    expect(customerMsg!.body).toContain('João Silva');
 
     const adminMsg = dispatcher.dispatched.find((m) => m.to === 'manager@lavacar.com.br');
     expect(adminMsg).toBeDefined();
     expect(adminMsg!.subject).toBe('Agendamento reagendado');
-    expect(adminMsg!.templateKey).toBe('booking-rescheduled-admin');
-    expect(adminMsg!.data['previousLocalDate']).toBeDefined();
-    expect(adminMsg!.data['newLocalDate']).toBeDefined();
 
     const logs = logRepo.all;
     expect(logs).toHaveLength(2);
@@ -79,13 +94,12 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
     expect(types).toContain('booking-rescheduled-admin');
   });
 
-  it('old and new dates differ in dispatched data', async () => {
+  it('renders previous and new dates in customer email body', async () => {
     await useCase.execute(dto);
-
-    const customerMsg = dispatcher.dispatched.find(
-      (m) => m.templateKey === 'booking-rescheduled-customer',
-    );
-    expect(customerMsg!.data['previousLocalDate']).not.toBe(customerMsg!.data['newLocalDate']);
+    const customerMsg = dispatcher.dispatched.find((m) => m.to === 'joao@example.com');
+    // previousLocalDate and newLocalDate should differ (different timestamps in dto builder)
+    expect(customerMsg!.body).toContain('Anterior:');
+    expect(customerMsg!.body).toContain('Novo:');
   });
 
   it('skips admin email gracefully when no managers exist', async () => {
@@ -96,7 +110,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(1);
-    expect(dispatcher.dispatched[0].templateKey).toBe('booking-rescheduled-customer');
+    expect(dispatcher.dispatched[0].to).toBe('joao@example.com');
   });
 
   it('sends only admin email when customer already processed (partial retry)', async () => {
@@ -107,7 +121,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
     expect(result.customerEmailSent).toBe(false);
     expect(result.adminEmailSent).toBe(true);
     expect(dispatcher.dispatched).toHaveLength(1);
-    expect(dispatcher.dispatched[0].templateKey).toBe('booking-rescheduled-admin');
+    expect(dispatcher.dispatched[0].to).toBe('manager@lavacar.com.br');
   });
 
   it('sends only customer email when admin already processed (partial retry)', async () => {
@@ -118,7 +132,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(1);
-    expect(dispatcher.dispatched[0].templateKey).toBe('booking-rescheduled-customer');
+    expect(dispatcher.dispatched[0].to).toBe('joao@example.com');
   });
 
   it('is idempotent: second call with same eventId dispatches no emails and creates no extra logs', async () => {
@@ -135,7 +149,6 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
 
   it('tenant isolation: log rows are scoped to the correct tenantId', async () => {
     await useCase.execute(dto);
-
     expect(logRepo.all.every((l) => l.tenantId === TENANT_ID)).toBe(true);
   });
 

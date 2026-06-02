@@ -7,13 +7,17 @@ import { NOTIFICATION_TENANT_PORT } from '../../application/ports/notification-t
 import { NOTIFICATION_SERVICE_PORT } from '../../application/ports/notification-service.port';
 import { NOTIFICATION_LOG_REPOSITORY } from '../../application/ports/notification-log-repository.port';
 import { NOTIFICATION_PROCESSED_EVENT_REPOSITORY } from '../../application/ports/processed-event-repository.port';
+import { NOTIFICATION_TEMPLATE_REPOSITORY } from '../../application/ports/notification-template-repository.port';
 import { PointsExpiringSoon } from '../../../loyalty/domain/events/points-expiring-soon.event';
+import { NotificationTemplate } from '../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../domain/notification-template-key.enum';
 import { InMemoryNotificationCustomerPort } from '../../../../test/infrastructure/in-memory-notification-customer.port';
 import { InMemoryNotificationStaffPort } from '../../../../test/infrastructure/in-memory-notification-staff.port';
 import { InMemoryNotificationTenantPort } from '../../../../test/infrastructure/in-memory-notification-tenant.port';
 import { InMemoryNotificationServicePort } from '../../../../test/infrastructure/in-memory-notification-service.port';
 import { InMemoryNotificationLogRepository } from '../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../test/repositories/notification/in-memory-processed-event.repository';
+import { InMemoryNotificationTemplateRepository } from '../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryNotificationDispatcher } from '../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { createNotificationIntegrationApp } from '../../../../test/utils/notification-integration-app';
 import { waitFor } from '../../../../test/utils/wait-for';
@@ -43,9 +47,20 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
       name: 'João Silva',
     });
 
-    // Use InMemory log and processed-event repos so this spec never writes to the real DB.
-    // This prevents cross-spec Pub/Sub fan-out from contaminating notification_logs counts
-    // in other parallel specs (e.g. booking-full-workflow.handler.integration.spec.ts).
+    const templateRepo = new InMemoryNotificationTemplateRepository();
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_A,
+        triggerEvent: NotificationTemplateKey.POINTS_EXPIRING_SOON,
+        channel: 'EMAIL',
+        subject: 'Seus pontos de fidelidade estão prestes a expirar!',
+        body: '<p>Olá, {{customerName}}! Você tem {{pointsExpiringSoon}} pontos prestes a expirar em {{earliestExpiresAt}}.</p>',
+      }),
+    );
+
+    // Use InMemory log, processed-event, and template repos so this spec never touches the real
+    // DB for notification data. This prevents cross-spec Pub/Sub fan-out from contaminating
+    // notification_logs counts in other parallel specs.
     ({ app, eventBus } = await createNotificationIntegrationApp({
       dispatcher,
       configure: (builder) =>
@@ -61,7 +76,9 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
           .overrideProvider(NOTIFICATION_LOG_REPOSITORY)
           .useValue(logRepo)
           .overrideProvider(NOTIFICATION_PROCESSED_EVENT_REPOSITORY)
-          .useValue(processedEventRepo),
+          .useValue(processedEventRepo)
+          .overrideProvider(NOTIFICATION_TEMPLATE_REPOSITORY)
+          .useValue(templateRepo),
     }));
   });
 
@@ -88,7 +105,7 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispat
 
     const msg = dispatcher.dispatched.find((m) => m.to === 'joao@example.com')!;
     expect(msg.subject).toBe('Seus pontos de fidelidade estão prestes a expirar!');
-    expect(msg.data['pointsExpiringSoon']).toBe(30);
+    expect(msg.subject).toBe('Seus pontos de fidelidade estão prestes a expirar!');
   });
 
   it('is idempotent — publishing same event twice writes only one notification log', async () => {

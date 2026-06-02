@@ -1,11 +1,11 @@
-import { NotificationTemplateKey } from '../../domain/notification-template-key.enum';
+import { NotificationChannel } from '../../domain/notification-template.aggregate';
 
 export interface OutboundMessage {
   tenantId: string;
   to: string;
   subject: string;
-  templateKey: NotificationTemplateKey;
-  data: Record<string, unknown>;
+  body: string;
+  channel: NotificationChannel;
 }
 
 export const NOTIFICATION_DISPATCHER = Symbol('INotificationDispatcher');

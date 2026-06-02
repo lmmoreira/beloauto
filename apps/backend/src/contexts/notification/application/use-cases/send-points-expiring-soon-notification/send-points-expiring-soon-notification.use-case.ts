@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
@@ -20,11 +21,13 @@ import {
   INotificationProcessedEventRepository,
   NOTIFICATION_PROCESSED_EVENT_REPOSITORY,
 } from '../../ports/processed-event-repository.port';
-import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const CHANNEL = 'EMAIL';
-const NOTIFICATION_TYPE = NotificationTemplateKey.POINTS_EXPIRING_SOON;
+const TRIGGER = NotificationTemplateKey.POINTS_EXPIRING_SOON;
 
 export interface SendPointsExpiringSoonNotificationUseCaseResult {
   emailSent: boolean;
@@ -39,6 +42,8 @@ export class SendPointsExpiringSoonNotificationUseCase extends BaseNotificationU
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_CUSTOMER_PORT) private readonly customerPort: INotificationCustomerPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: INotificationTemplateRepository,
   ) {
     super(logRepo, processedEventRepo, dispatcher, txManager);
   }
@@ -46,37 +51,54 @@ export class SendPointsExpiringSoonNotificationUseCase extends BaseNotificationU
   async execute(
     dto: SendPointsExpiringSoonNotificationDto,
   ): Promise<SendPointsExpiringSoonNotificationUseCaseResult> {
-    if (await this.isAlreadySent(dto.eventId, NOTIFICATION_TYPE, CHANNEL)) {
+    const templates = await this.templateRepo.findAllByTriggerEvent(dto.tenantId, TRIGGER);
+    if (templates.length === 0) {
+      this.logger.warn('No template found — skipping', {
+        tenantId: dto.tenantId,
+        triggerEvent: TRIGGER,
+      });
       return { emailSent: false };
     }
 
     const customer = await this.customerPort.getCustomerInfo(dto.customerId, dto.tenantId);
     if (!customer) return { emailSent: false };
 
-    try {
-      await this.dispatcher.dispatch({
-        tenantId: dto.tenantId,
-        to: customer.email,
-        subject: 'Seus pontos de fidelidade estão prestes a expirar!',
-        templateKey: NOTIFICATION_TYPE,
-        data: {
-          customerName: customer.name,
-          pointsExpiringSoon: dto.pointsExpiringSoon,
-          earliestExpiresAt: dto.earliestExpiresAt,
-        },
+    let emailSent = false;
+    for (const template of templates) {
+      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
+      const { subject, body } = template.render({
+        customerName: customer.name,
+        pointsExpiringSoon: String(dto.pointsExpiringSoon),
+        earliestExpiresAt: dto.earliestExpiresAt,
       });
-      await this.saveLog(dto.tenantId, dto.eventId, NOTIFICATION_TYPE, CHANNEL, customer.email);
-      return { emailSent: true };
-    } catch (err: unknown) {
-      await this.saveFailedLog(
-        dto.tenantId,
-        dto.eventId,
-        NOTIFICATION_TYPE,
-        CHANNEL,
-        customer.email,
-        String(err),
-      );
-      throw err;
+      try {
+        await this.dispatcher.dispatch({
+          tenantId: dto.tenantId,
+          to: customer.email,
+          subject,
+          body,
+          channel: template.channel,
+        });
+        await this.saveLog(
+          dto.tenantId,
+          dto.eventId,
+          template.triggerEvent,
+          template.channel,
+          customer.email,
+        );
+        emailSent = true;
+      } catch (err: unknown) {
+        await this.saveFailedLog(
+          dto.tenantId,
+          dto.eventId,
+          template.triggerEvent,
+          template.channel,
+          customer.email,
+          String(err),
+        );
+        throw err;
+      }
     }
+    return { emailSent };
   }
 }

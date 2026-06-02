@@ -1,3 +1,4 @@
+import { AppLogger } from '../../../../shared/observability/app-logger';
 import { ITransactionManager } from '../../../../shared/ports/transaction-manager.port';
 import { NotificationLog } from '../../domain/notification-log.entity';
 import { INotificationDispatcher } from '../ports/notification-dispatcher.port';
@@ -5,6 +6,8 @@ import { INotificationLogRepository } from '../ports/notification-log-repository
 import { INotificationProcessedEventRepository } from '../ports/processed-event-repository.port';
 
 export abstract class BaseNotificationUseCase {
+  protected readonly logger = new AppLogger(this.constructor.name);
+
   constructor(
     protected readonly logRepo: INotificationLogRepository,
     protected readonly processedEventRepo: INotificationProcessedEventRepository,

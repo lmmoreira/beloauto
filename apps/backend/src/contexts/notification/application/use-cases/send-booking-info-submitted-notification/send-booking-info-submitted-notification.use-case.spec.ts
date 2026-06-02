@@ -3,8 +3,11 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
+import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingInfoSubmittedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
+import { NotificationTemplate } from '../../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingInfoSubmittedNotificationUseCase } from './send-booking-info-submitted-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0004-4000-8000-000000000001';
@@ -28,6 +31,7 @@ describe('SendBookingInfoSubmittedNotificationUseCase', () => {
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let dispatcher: InMemoryNotificationDispatcher;
   let staffPort: InMemoryNotificationStaffPort;
+  let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendBookingInfoSubmittedNotificationUseCase;
 
   beforeEach(() => {
@@ -36,17 +40,28 @@ describe('SendBookingInfoSubmittedNotificationUseCase', () => {
     dispatcher = new InMemoryNotificationDispatcher();
     staffPort = new InMemoryNotificationStaffPort();
     staffPort.setManagerEmails(TENANT_ID, ['manager@lavacar.com.br']);
+    templateRepo = new InMemoryNotificationTemplateRepository();
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
+        channel: 'EMAIL',
+        subject: 'Cliente respondeu à solicitação de informações',
+        body: '<p>{{submittedByEmail}} — {{customerResponse}} — <a href="{{bookingLink}}">Ver</a></p>',
+      }),
+    );
     useCase = new SendBookingInfoSubmittedNotificationUseCase(
       logRepo,
       processedEventRepo,
       dispatcher,
       staffPort,
       new InMemoryTransactionManager(),
+      templateRepo,
       configService,
     );
   });
 
-  it('dispatches admin email with customer response and booking link', async () => {
+  it('dispatches admin email with customer response and booking link in body', async () => {
     const result = await useCase.execute(dto);
 
     expect(result.emailSent).toBe(true);
@@ -55,10 +70,9 @@ describe('SendBookingInfoSubmittedNotificationUseCase', () => {
     const msg = dispatcher.dispatched[0];
     expect(msg.to).toBe('manager@lavacar.com.br');
     expect(msg.subject).toBe('Cliente respondeu à solicitação de informações');
-    expect(msg.templateKey).toBe('booking-info-submitted-admin');
-    expect(msg.data['submittedByEmail']).toBe('joao@example.com');
-    expect(msg.data['customerResponse']).toBe('Aqui estão as fotos do veículo conforme solicitado');
-    expect(msg.data['bookingLink']).toBe(`http://localhost:3000/dashboard/bookings/${BOOKING_ID}`);
+    expect(msg.body).toContain('joao@example.com');
+    expect(msg.body).toContain('Aqui estão as fotos do veículo conforme solicitado');
+    expect(msg.body).toContain(`http://localhost:3000/dashboard/bookings/${BOOKING_ID}`);
 
     expect(logRepo.all).toHaveLength(1);
     expect(logRepo.all[0].notificationType).toBe('booking-info-submitted-admin');

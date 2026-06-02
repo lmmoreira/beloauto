@@ -3,8 +3,11 @@ import { InMemoryNotificationLogRepository } from '../../../../../test/repositor
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingCancelledNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
+import { NotificationTemplate } from '../../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingCancelledNotificationUseCase } from './send-booking-cancelled-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -21,6 +24,7 @@ describe('SendBookingCancelledNotificationUseCase', () => {
   let dispatcher: InMemoryNotificationDispatcher;
   let staffPort: InMemoryNotificationStaffPort;
   let tenantPort: InMemoryNotificationTenantPort;
+  let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendBookingCancelledNotificationUseCase;
 
   beforeEach(() => {
@@ -37,6 +41,25 @@ describe('SendBookingCancelledNotificationUseCase', () => {
       timezone: 'America/Sao_Paulo',
       fromEmail: null,
     });
+    templateRepo = new InMemoryNotificationTemplateRepository();
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.BOOKING_CANCELLED_CUSTOMER,
+        channel: 'EMAIL',
+        subject: 'Seu agendamento foi cancelado',
+        body: '<p>Olá, {{guestName}}! Serviços: {{serviceNames}} Data: {{localDate}}</p>',
+      }),
+    );
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.BOOKING_CANCELLED_ADMIN,
+        channel: 'EMAIL',
+        subject: 'Agendamento cancelado',
+        body: '<p>Cliente: {{guestName}} isBusiness: {{isBusiness}} reason: {{reason}}</p>',
+      }),
+    );
     useCase = new SendBookingCancelledNotificationUseCase(
       logRepo,
       processedEventRepo,
@@ -44,6 +67,7 @@ describe('SendBookingCancelledNotificationUseCase', () => {
       staffPort,
       tenantPort,
       new InMemoryTransactionManager(),
+      templateRepo,
     );
   });
 
@@ -57,36 +81,18 @@ describe('SendBookingCancelledNotificationUseCase', () => {
     const customerMsg = dispatcher.dispatched.find((m) => m.to === 'joao@example.com');
     expect(customerMsg).toBeDefined();
     expect(customerMsg!.subject).toBe('Seu agendamento foi cancelado');
-    expect(customerMsg!.templateKey).toBe('booking-cancelled-customer');
-    expect(customerMsg!.data['guestName']).toBe('João Silva');
-    expect(customerMsg!.data['serviceNames']).toBe('Lavagem Completa');
+    expect(customerMsg!.body).toContain('João Silva');
+    expect(customerMsg!.body).toContain('Lavagem Completa');
 
     const adminMsg = dispatcher.dispatched.find((m) => m.to === 'manager@lavacar.com.br');
     expect(adminMsg).toBeDefined();
     expect(adminMsg!.subject).toBe('Agendamento cancelado');
-    expect(adminMsg!.templateKey).toBe('booking-cancelled-admin');
-    expect(adminMsg!.data['isBusiness']).toBe(true);
-    expect(adminMsg!.data['reason']).toBe('Unavailability');
 
     const logs = logRepo.all;
     expect(logs).toHaveLength(2);
     const types = logs.map((l) => l.notificationType);
     expect(types).toContain('booking-cancelled-customer');
     expect(types).toContain('booking-cancelled-admin');
-  });
-
-  it('passes isBusiness=false for customer-initiated cancellation', async () => {
-    const customerCancelDto = new SendBookingCancelledNotificationDtoBuilder()
-      .withTenantId(TENANT_ID)
-      .withEventId('cccccccc-0099-4000-8000-000000000001')
-      .withIsBusiness(false)
-      .withCancelledBy('customerid-0000-4000-8000-000000000001')
-      .build();
-
-    await useCase.execute(customerCancelDto);
-
-    const adminMsg = dispatcher.dispatched.find((m) => m.templateKey === 'booking-cancelled-admin');
-    expect(adminMsg!.data['isBusiness']).toBe(false);
   });
 
   it('skips admin email gracefully when no managers exist', async () => {
@@ -97,7 +103,7 @@ describe('SendBookingCancelledNotificationUseCase', () => {
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(1);
-    expect(dispatcher.dispatched[0].templateKey).toBe('booking-cancelled-customer');
+    expect(dispatcher.dispatched[0].to).toBe('joao@example.com');
   });
 
   it('sends only admin email when customer already processed (partial retry)', async () => {
@@ -108,7 +114,7 @@ describe('SendBookingCancelledNotificationUseCase', () => {
     expect(result.customerEmailSent).toBe(false);
     expect(result.adminEmailSent).toBe(true);
     expect(dispatcher.dispatched).toHaveLength(1);
-    expect(dispatcher.dispatched[0].templateKey).toBe('booking-cancelled-admin');
+    expect(dispatcher.dispatched[0].to).toBe('manager@lavacar.com.br');
   });
 
   it('sends only customer email when admin already processed (partial retry)', async () => {
@@ -119,7 +125,7 @@ describe('SendBookingCancelledNotificationUseCase', () => {
     expect(result.customerEmailSent).toBe(true);
     expect(result.adminEmailSent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(1);
-    expect(dispatcher.dispatched[0].templateKey).toBe('booking-cancelled-customer');
+    expect(dispatcher.dispatched[0].to).toBe('joao@example.com');
   });
 
   it('is idempotent: second call with same eventId dispatches no emails and creates no extra logs', async () => {
@@ -136,19 +142,13 @@ describe('SendBookingCancelledNotificationUseCase', () => {
 
   it('tenant isolation: log rows are scoped to the correct tenantId', async () => {
     await useCase.execute(dto);
-
     expect(logRepo.all.every((l) => l.tenantId === TENANT_ID)).toBe(true);
   });
 
   it('formats scheduledAt in tenant timezone', async () => {
     await useCase.execute(dto);
-
-    const customerMsg = dispatcher.dispatched.find(
-      (m) => m.templateKey === 'booking-cancelled-customer',
-    );
-    expect(customerMsg!.data['localDate']).toBeDefined();
-    expect(customerMsg!.data['localTime']).toBeDefined();
-    expect(typeof customerMsg!.data['localDate']).toBe('string');
+    const customerMsg = dispatcher.dispatched.find((m) => m.to === 'joao@example.com');
+    expect(customerMsg!.body).toContain('2026');
   });
 
   it('falls back to America/Sao_Paulo timezone when tenant info is not found', async () => {

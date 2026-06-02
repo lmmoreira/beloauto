@@ -5,6 +5,13 @@ import { NotificationTemplateKey } from '../../../contexts/notification/domain/n
 export class InMemoryNotificationTemplateRepository implements INotificationTemplateRepository {
   private readonly store: NotificationTemplate[] = [];
 
+  async findAllByTriggerEvent(
+    tenantId: string,
+    triggerEvent: NotificationTemplateKey,
+  ): Promise<NotificationTemplate[]> {
+    return this.store.filter((t) => t.tenantId === tenantId && t.triggerEvent === triggerEvent);
+  }
+
   async findByTriggerEventAndChannel(
     tenantId: string,
     triggerEvent: NotificationTemplateKey,

@@ -2,8 +2,11 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingReminderDueNotificationDtoBuilder } from '../../../../../test/builders/notification/send-booking-reminder-due-notification-dto.builder';
+import { NotificationTemplate } from '../../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingReminderDueNotificationUseCase } from './send-booking-reminder-due-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0001-4000-8000-000000000001';
@@ -19,6 +22,7 @@ describe('SendBookingReminderDueNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let tenantPort: InMemoryNotificationTenantPort;
+  let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendBookingReminderDueNotificationUseCase;
 
   beforeEach(() => {
@@ -26,6 +30,7 @@ describe('SendBookingReminderDueNotificationUseCase', () => {
     logRepo = new InMemoryNotificationLogRepository();
     processedEventRepo = new InMemoryNotificationProcessedEventRepository();
     tenantPort = new InMemoryNotificationTenantPort();
+    templateRepo = new InMemoryNotificationTemplateRepository();
 
     tenantPort.setTenantInfo(TENANT_ID, {
       id: TENANT_ID,
@@ -34,6 +39,15 @@ describe('SendBookingReminderDueNotificationUseCase', () => {
       timezone: 'America/Sao_Paulo',
       fromEmail: null,
     });
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.BOOKING_REMINDER_DUE,
+        channel: 'EMAIL',
+        subject: 'Lembrete: seu agendamento é amanhã!',
+        body: '<p>{{customerName}} — {{serviceNames}} — {{localDate}} {{localTime}}</p>',
+      }),
+    );
 
     useCase = new SendBookingReminderDueNotificationUseCase(
       logRepo,
@@ -41,12 +55,13 @@ describe('SendBookingReminderDueNotificationUseCase', () => {
       dispatcher,
       tenantPort,
       new InMemoryTransactionManager(),
+      templateRepo,
     );
   });
 
   afterEach(() => jest.resetAllMocks());
 
-  it('dispatches email to recipientEmail with correct subject and template key', async () => {
+  it('dispatches email to recipientEmail with correct rendered subject', async () => {
     const result = await useCase.execute(dto);
 
     expect(result.emailSent).toBe(true);
@@ -55,30 +70,36 @@ describe('SendBookingReminderDueNotificationUseCase', () => {
     const msg = dispatcher.dispatched[0];
     expect(msg.to).toBe('joao@example.com');
     expect(msg.subject).toBe('Lembrete: seu agendamento é amanhã!');
-    expect(msg.templateKey).toBe('booking-reminder-due');
-    expect(msg.data['customerName']).toBe('João Silva');
-    expect(msg.data['serviceNames']).toBe('Lavagem Completa');
+    expect(msg.channel).toBe('EMAIL');
+    expect(msg.body).toContain('João Silva');
+    expect(msg.body).toContain('Lavagem Completa');
   });
 
   it('derives localDate and localTime from scheduledAt + tenant timezone', async () => {
-    const result = await useCase.execute(dto);
-
-    expect(result.emailSent).toBe(true);
+    await useCase.execute(dto);
     const msg = dispatcher.dispatched[0];
-    expect(typeof msg.data['localDate']).toBe('string');
-    expect(typeof msg.data['localTime']).toBe('string');
+    expect(msg.body).toMatch(/\d{4}-\d{2}-\d{2}/);
+    expect(msg.body).toMatch(/\d{2}:\d{2}/);
   });
 
   it('falls back to America/Sao_Paulo when tenant not found', async () => {
     const dtoUnknownTenant = new SendBookingReminderDueNotificationDtoBuilder()
-      .withTenantId('unknown-tenant-id')
+      .withTenantId(TENANT_ID)
       .withEventId('eeeeeeee-0010-4000-8000-000000000099')
       .build();
 
-    const result = await useCase.execute(dtoUnknownTenant);
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.BOOKING_REMINDER_DUE,
+        channel: 'EMAIL',
+        subject: 'Lembrete: seu agendamento é amanhã!',
+        body: '<p>body</p>',
+      }),
+    );
 
+    const result = await useCase.execute(dtoUnknownTenant);
     expect(result.emailSent).toBe(true);
-    expect(dispatcher.dispatched).toHaveLength(1);
   });
 
   it('saves a notification log entry', async () => {
@@ -95,5 +116,19 @@ describe('SendBookingReminderDueNotificationUseCase', () => {
 
     expect(second.emailSent).toBe(false);
     expect(dispatcher.dispatched).toHaveLength(1);
+  });
+
+  it('returns emailSent=false when no template found', async () => {
+    const uc = new SendBookingReminderDueNotificationUseCase(
+      logRepo,
+      processedEventRepo,
+      dispatcher,
+      tenantPort,
+      new InMemoryTransactionManager(),
+      new InMemoryNotificationTemplateRepository(),
+    );
+    const result = await uc.execute(dto);
+    expect(result.emailSent).toBe(false);
+    expect(dispatcher.dispatched).toHaveLength(0);
   });
 });

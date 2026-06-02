@@ -23,9 +23,13 @@ import {
   INotificationTenantPort,
   NOTIFICATION_TENANT_PORT,
 } from '../../ports/notification-tenant.port';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const CHANNEL = 'EMAIL';
+const TRIGGER = NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER;
 
 export interface SendBookingApprovedNotificationUseCaseResult {
   emailSent: boolean;
@@ -40,6 +44,8 @@ export class SendBookingApprovedNotificationUseCase extends BaseNotificationUseC
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: INotificationTemplateRepository,
   ) {
     super(logRepo, processedEventRepo, dispatcher, txManager);
   }
@@ -47,62 +53,65 @@ export class SendBookingApprovedNotificationUseCase extends BaseNotificationUseC
   async execute(
     dto: SendBookingApprovedNotificationDto,
   ): Promise<SendBookingApprovedNotificationUseCaseResult> {
-    if (
-      await this.isAlreadySent(
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
-        CHANNEL,
-      )
-    ) {
+    const templates = await this.templateRepo.findAllByTriggerEvent(dto.tenantId, TRIGGER);
+    if (templates.length === 0) {
+      this.logger.warn('No template found — skipping', {
+        tenantId: dto.tenantId,
+        triggerEvent: TRIGGER,
+      });
       return { emailSent: false };
     }
 
     const tenantInfo = await this.tenantPort.getTenantInfo(dto.tenantId);
     const timezone = tenantInfo?.timezone ?? 'America/Sao_Paulo';
-
     const startDate = new Date(dto.approvedSlot.startTime);
     const localDate = utcDateToLocalDate(startDate, timezone);
     const localTime = utcDateToLocalHHMM(startDate, timezone);
-
     const serviceNames = dto.lineSummary.map((l) => l.serviceNameAtBooking).join(', ');
     const formattedTotal = formatBRL(dto.totalPrice.amount);
-    const lineItems = dto.lineSummary.map(
-      (l) => `${l.serviceNameAtBooking}: ${formatBRL(l.priceAtBooking.amount)}`,
-    );
+    const lineItems = dto.lineSummary
+      .map((l) => `${l.serviceNameAtBooking}: ${formatBRL(l.priceAtBooking.amount)}`)
+      .join(', ');
 
-    try {
-      await this.dispatcher.dispatch({
-        tenantId: dto.tenantId,
-        to: dto.guestEmail,
-        subject: 'Seu agendamento foi confirmado! ✓',
-        templateKey: NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
-        data: {
-          guestName: dto.guestName,
-          localDate,
-          localTime,
-          serviceNames,
-          lineItems,
-          totalPrice: formattedTotal,
-        },
+    let emailSent = false;
+    for (const template of templates) {
+      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
+      const { subject, body } = template.render({
+        guestName: dto.guestName,
+        localDate,
+        localTime,
+        serviceNames,
+        lineItems,
+        totalPrice: formattedTotal,
       });
-      await this.saveLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
-        CHANNEL,
-        dto.guestEmail,
-      );
-      return { emailSent: true };
-    } catch (err: unknown) {
-      await this.saveFailedLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
-        CHANNEL,
-        dto.guestEmail,
-        String(err),
-      );
-      throw err;
+      try {
+        await this.dispatcher.dispatch({
+          tenantId: dto.tenantId,
+          to: dto.guestEmail,
+          subject,
+          body,
+          channel: template.channel,
+        });
+        await this.saveLog(
+          dto.tenantId,
+          dto.eventId,
+          template.triggerEvent,
+          template.channel,
+          dto.guestEmail,
+        );
+        emailSent = true;
+      } catch (err: unknown) {
+        await this.saveFailedLog(
+          dto.tenantId,
+          dto.eventId,
+          template.triggerEvent,
+          template.channel,
+          dto.guestEmail,
+          String(err),
+        );
+        throw err;
+      }
     }
+    return { emailSent };
   }
 }

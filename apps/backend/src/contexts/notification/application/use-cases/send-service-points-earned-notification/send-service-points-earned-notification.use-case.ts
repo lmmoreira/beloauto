@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
@@ -24,10 +25,13 @@ import {
   INotificationServicePort,
   NOTIFICATION_SERVICE_PORT,
 } from '../../ports/notification-service.port';
-import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const CHANNEL = 'EMAIL';
+const TRIGGER = NotificationTemplateKey.SERVICE_POINTS_EARNED;
 
 export interface SendServicePointsEarnedNotificationUseCaseResult {
   emailSent: boolean;
@@ -43,6 +47,8 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
     @Inject(NOTIFICATION_CUSTOMER_PORT) private readonly customerPort: INotificationCustomerPort,
     @Inject(NOTIFICATION_SERVICE_PORT) private readonly servicePort: INotificationServicePort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: INotificationTemplateRepository,
   ) {
     super(logRepo, processedEventRepo, dispatcher, txManager);
   }
@@ -50,9 +56,12 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
   async execute(
     dto: SendServicePointsEarnedNotificationDto,
   ): Promise<SendServicePointsEarnedNotificationUseCaseResult> {
-    if (
-      await this.isAlreadySent(dto.eventId, NotificationTemplateKey.SERVICE_POINTS_EARNED, CHANNEL)
-    ) {
+    const templates = await this.templateRepo.findAllByTriggerEvent(dto.tenantId, TRIGGER);
+    if (templates.length === 0) {
+      this.logger.warn('No template found — skipping', {
+        tenantId: dto.tenantId,
+        triggerEvent: TRIGGER,
+      });
       return { emailSent: false };
     }
 
@@ -62,44 +71,45 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
     const serviceIds = dto.lines.map((l) => l.serviceId);
     const serviceInfos = await this.servicePort.findServicesByIds(dto.tenantId, serviceIds);
     const nameById = new Map(serviceInfos.map((s) => [s.serviceId, s.serviceName]));
+    const serviceNames = dto.lines.map((l) => nameById.get(l.serviceId) ?? l.serviceId).join(', ');
 
-    const services = dto.lines.map((l) => ({
-      serviceName: nameById.get(l.serviceId) ?? l.serviceId,
-      pointsEarned: l.pointsEarned,
-      expiresAt: l.expiresAt,
-    }));
-
-    try {
-      await this.dispatcher.dispatch({
-        tenantId: dto.tenantId,
-        to: customer.email,
-        subject: `Lavagem concluída! Você ganhou ${dto.totalPointsEarned} pontos`,
-        templateKey: NotificationTemplateKey.SERVICE_POINTS_EARNED,
-        data: {
-          customerName: customer.name,
-          totalPointsEarned: dto.totalPointsEarned,
-          services,
-          currentBalance: dto.currentBalance,
-        },
+    let emailSent = false;
+    for (const template of templates) {
+      if (await this.isAlreadySent(dto.eventId, template.triggerEvent, template.channel)) continue;
+      const { subject, body } = template.render({
+        customerName: customer.name,
+        totalPointsEarned: String(dto.totalPointsEarned),
+        serviceNames,
+        currentBalance: String(dto.currentBalance),
       });
-      await this.saveLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.SERVICE_POINTS_EARNED,
-        CHANNEL,
-        customer.email,
-      );
-      return { emailSent: true };
-    } catch (err: unknown) {
-      await this.saveFailedLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.SERVICE_POINTS_EARNED,
-        CHANNEL,
-        customer.email,
-        String(err),
-      );
-      throw err;
+      try {
+        await this.dispatcher.dispatch({
+          tenantId: dto.tenantId,
+          to: customer.email,
+          subject,
+          body,
+          channel: template.channel,
+        });
+        await this.saveLog(
+          dto.tenantId,
+          dto.eventId,
+          template.triggerEvent,
+          template.channel,
+          customer.email,
+        );
+        emailSent = true;
+      } catch (err: unknown) {
+        await this.saveFailedLog(
+          dto.tenantId,
+          dto.eventId,
+          template.triggerEvent,
+          template.channel,
+          customer.email,
+          String(err),
+        );
+        throw err;
+      }
     }
+    return { emailSent };
   }
 }
