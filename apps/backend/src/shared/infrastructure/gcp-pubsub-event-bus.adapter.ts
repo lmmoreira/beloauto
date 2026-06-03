@@ -122,7 +122,7 @@ export class GcpPubSubEventBusAdapter
   ): Promise<void> {
     const dlqTopic = 'beloauto-dead-letter';
     await this.ensureTopicOnce(dlqTopic);
-    const serialized = JSON.parse(JSON.stringify(event)) as Record<string, unknown>;
+    const serialized = structuredClone(event) as Record<string, unknown>;
     const enrichedData = {
       ...serialized,
       deadLetterReason: err instanceof Error ? err.message : String(err),

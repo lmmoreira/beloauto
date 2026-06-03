@@ -124,6 +124,34 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → real D
     expect(logs).toHaveLength(1);
   });
 
+  it('dispatch failure + Pub/Sub retry → SENT log with retryCount=1 (upsert preserves failure count)', async () => {
+    const event = new PointsExpiringSoon(tenantId, uuidv7(), {
+      customerId,
+      pointsExpiringSoon: 99,
+      earliestExpiresAt: '2026-06-09T00:00:00.000Z',
+    });
+
+    dispatcher.failNext(new Error('SMTP connection refused'));
+    await eventBus.publish(event);
+
+    // The FAILED state is transient (Pub/Sub retries within ~100 ms and updates the row to SENT).
+    // Polling for FAILED would be a race; instead wait for the stable final state.
+    // retryCount=1 is the key proof: orIgnore() would have reset it to 0 on the SENT upsert.
+    await waitFor(async () => {
+      const log = await ds.getRepository(NotificationLogEntity).findOne({
+        where: { tenantId, eventId: event.eventId, notificationType: 'points-expiring-soon' },
+      });
+      return log !== null && log.status === 'SENT' && log.retryCount >= 1;
+    });
+
+    const log = await ds.getRepository(NotificationLogEntity).findOne({
+      where: { tenantId, eventId: event.eventId, notificationType: 'points-expiring-soon' },
+    });
+    expect(log!.status).toBe('SENT');
+    expect(log!.sentAt).toBeTruthy();
+    expect(log!.retryCount).toBe(1);
+  });
+
   it('tenant isolation: PointsExpiringSoon for Tenant A does not notify Tenant B customer', async () => {
     const tenantBSlug = `pts-expiring-b-${Date.now()}`;
     const tenantBAdminEmail = `admin-pts-b-${Date.now()}@lavacar.com.br`;

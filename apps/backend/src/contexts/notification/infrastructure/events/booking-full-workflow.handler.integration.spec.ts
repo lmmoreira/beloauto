@@ -310,7 +310,15 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     await waitFor(async () => {
       const logs = await ds.getRepository(NotificationLogEntity).find({ where: { tenantId } });
       const types = new Set(logs.map((l) => l.notificationType));
-      return REQUIRED_TYPES.every((t) => types.has(t));
+      if (!REQUIRED_TYPES.every((t) => types.has(t))) return false;
+      // Also gate on the dispatcher messages that later point-assertions need.
+      // DB log existence implies dispatch already happened (dispatch → saveLog order), but
+      // a FAILED log from a first-attempt retry would satisfy the type check while the
+      // message is still absent from dispatcher.dispatched under full-suite load.
+      return (
+        dispatcher.dispatched.some((m) => m.to === adminEmail && m.subject.includes('respondeu')) &&
+        dispatcher.dispatched.some((m) => m.to === customerEmail && m.subject.includes('cancelado'))
+      );
     }, 20000);
 
     // Assert all notification types present in DB

@@ -6,6 +6,23 @@ import { INotificationLogRepository } from '../../application/ports/notification
 import { NotificationLog } from '../../domain/notification-log.entity';
 import { NotificationLogEntity } from '../entities/notification-log.entity';
 
+const UPSERT_SQL = `
+  INSERT INTO "notification"."notification_logs"
+    ("id","tenant_id","event_id","notification_type","channel",
+     "recipient_email","status","retry_count","error_message","sent_at","created_at")
+  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+  ON CONFLICT ("tenant_id","event_id","notification_type","channel")
+  DO UPDATE SET
+    "status"        = EXCLUDED."status",
+    "retry_count"   = CASE
+                        WHEN EXCLUDED."status" = 'FAILED'
+                        THEN "notification_logs"."retry_count" + 1
+                        ELSE "notification_logs"."retry_count"
+                      END,
+    "error_message" = EXCLUDED."error_message",
+    "sent_at"       = EXCLUDED."sent_at"
+`;
+
 @Injectable()
 export class TypeOrmNotificationLogRepository implements INotificationLogRepository {
   constructor(
@@ -16,22 +33,23 @@ export class TypeOrmNotificationLogRepository implements INotificationLogReposit
   async save(log: NotificationLog): Promise<void> {
     const manager = getActiveEntityManager();
     const entity = this.toEntity(log);
+    const params = [
+      entity.id,
+      entity.tenantId,
+      entity.eventId,
+      entity.notificationType,
+      entity.channel,
+      entity.recipientEmail,
+      entity.status,
+      entity.retryCount,
+      entity.errorMessage,
+      entity.sentAt,
+      entity.createdAt,
+    ];
     if (manager) {
-      await manager
-        .createQueryBuilder()
-        .insert()
-        .into(NotificationLogEntity)
-        .values(entity)
-        .orIgnore()
-        .execute();
+      await manager.query(UPSERT_SQL, params);
     } else {
-      await this.repo
-        .createQueryBuilder()
-        .insert()
-        .into(NotificationLogEntity)
-        .values(entity)
-        .orIgnore()
-        .execute();
+      await this.repo.query(UPSERT_SQL, params);
     }
   }
 
