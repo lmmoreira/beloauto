@@ -40,7 +40,12 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → real D
     const { body } = await request(app.getHttpServer())
       .post('/internal/tenants')
       .set('Authorization', `Bearer ${PLATFORM_KEY}`)
-      .send({ name: 'Points Expiring Integration', slug, adminEmail, timezone: 'America/Sao_Paulo' })
+      .send({
+        name: 'Points Expiring Integration',
+        slug,
+        adminEmail,
+        timezone: 'America/Sao_Paulo',
+      })
       .expect(201);
 
     tenantId = body.tenantId as string;
@@ -54,13 +59,15 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → real D
 
     customerId = uuidv7();
     customerEmail = `customer-pts-${Date.now()}@example.com`;
-    await ds.getRepository(CustomerEntity).save(
-      new CustomerEntityBuilder()
-        .withId(customerId)
-        .withTenantId(tenantId)
-        .withEmail(customerEmail)
-        .build(),
-    );
+    await ds
+      .getRepository(CustomerEntity)
+      .save(
+        new CustomerEntityBuilder()
+          .withId(customerId)
+          .withTenantId(tenantId)
+          .withEmail(customerEmail)
+          .build(),
+      );
   });
 
   afterAll(async () => {
@@ -123,7 +130,12 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → real D
     const { body: bodyB } = await request(app.getHttpServer())
       .post('/internal/tenants')
       .set('Authorization', `Bearer ${PLATFORM_KEY}`)
-      .send({ name: 'Points Expiring B', slug: tenantBSlug, adminEmail: tenantBAdminEmail, timezone: 'America/Sao_Paulo' })
+      .send({
+        name: 'Points Expiring B',
+        slug: tenantBSlug,
+        adminEmail: tenantBAdminEmail,
+        timezone: 'America/Sao_Paulo',
+      })
       .expect(201);
     const tenantBId = bodyB.tenantId as string;
 
@@ -135,13 +147,15 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → real D
     });
 
     const tenantBCustomerEmail = `customer-pts-b-${Date.now()}@example.com`;
-    await ds.getRepository(CustomerEntity).save(
-      new CustomerEntityBuilder()
-        .withId(uuidv7())
-        .withTenantId(tenantBId)
-        .withEmail(tenantBCustomerEmail)
-        .build(),
-    );
+    await ds
+      .getRepository(CustomerEntity)
+      .save(
+        new CustomerEntityBuilder()
+          .withId(uuidv7())
+          .withTenantId(tenantBId)
+          .withEmail(tenantBCustomerEmail)
+          .build(),
+      );
 
     dispatcher.clear();
 

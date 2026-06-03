@@ -96,7 +96,9 @@ describe('Reminder handlers (Pub/Sub → handler → use case → real DB templa
     );
 
     expect(
-      dispatcher.dispatched.some((m) => m.to === 'joao@example.com' && m.subject.includes('amanhã')),
+      dispatcher.dispatched.some(
+        (m) => m.to === 'joao@example.com' && m.subject.includes('amanhã'),
+      ),
     ).toBe(true);
   });
 
@@ -156,9 +158,7 @@ describe('Reminder handlers (Pub/Sub → handler → use case → real DB templa
     );
 
     expect(
-      dispatcher.dispatched.some(
-        (m) => m.to === adminEmail && m.subject.includes('Agenda do dia'),
-      ),
+      dispatcher.dispatched.some((m) => m.to === adminEmail && m.subject.includes('Agenda do dia')),
     ).toBe(true);
   });
 
@@ -178,7 +178,9 @@ describe('Reminder handlers (Pub/Sub → handler → use case → real DB templa
     const tenantBId = bodyB.tenantId as string;
 
     await waitFor(async () =>
-      logRepo.all.some((l) => l.tenantId === tenantBId && l.notificationType === 'staff-invitation'),
+      logRepo.all.some(
+        (l) => l.tenantId === tenantBId && l.notificationType === 'staff-invitation',
+      ),
     );
 
     logRepo.clear();
