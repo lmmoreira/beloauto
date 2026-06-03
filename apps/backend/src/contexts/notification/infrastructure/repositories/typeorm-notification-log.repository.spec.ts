@@ -17,25 +17,37 @@ const BASE_CREATE_PROPS = {
   recipientEmail: 'joao@example.com',
 };
 
+function makeQueryBuilderChain(executeResult: unknown = {}) {
+  const execute = jest.fn().mockResolvedValue(executeResult);
+  const qb = {
+    insert: jest.fn().mockReturnThis(),
+    into: jest.fn().mockReturnThis(),
+    values: jest.fn().mockReturnThis(),
+    orIgnore: jest.fn().mockReturnThis(),
+    execute,
+  };
+  return { qb, execute };
+}
+
 describe('TypeOrmNotificationLogRepository', () => {
   let repo: TypeOrmNotificationLogRepository;
-  let ormRepo: jest.Mocked<Repository<NotificationLogEntity>>;
+  let ormRepo: jest.Mocked<Pick<Repository<NotificationLogEntity>, 'createQueryBuilder'>>;
 
   beforeEach(async () => {
+    const { qb } = makeQueryBuilderChain();
+    ormRepo = { createQueryBuilder: jest.fn().mockReturnValue(qb) } as never;
+
     const moduleRef = await Test.createTestingModule({
       providers: [
         TypeOrmNotificationLogRepository,
         {
           provide: getRepositoryToken(NotificationLogEntity),
-          useValue: {
-            save: jest.fn(),
-          },
+          useValue: ormRepo,
         },
       ],
     }).compile();
 
     repo = moduleRef.get(TypeOrmNotificationLogRepository);
-    ormRepo = moduleRef.get(getRepositoryToken(NotificationLogEntity));
   });
 
   afterEach(() => {
@@ -43,50 +55,56 @@ describe('TypeOrmNotificationLogRepository', () => {
   });
 
   describe('save', () => {
-    it('persists a SENT log via TypeORM save', async () => {
-      ormRepo.save.mockResolvedValue({} as NotificationLogEntity);
+    it('persists a SENT log via INSERT ON CONFLICT DO NOTHING', async () => {
       const log = NotificationLog.create(BASE_CREATE_PROPS);
       log.markSent();
 
       await repo.save(log);
 
-      expect(ormRepo.save).toHaveBeenCalledTimes(1);
-      const saved = ormRepo.save.mock.calls[0][0] as NotificationLogEntity;
-      expect(saved.tenantId).toBe(TENANT_ID);
-      expect(saved.eventId).toBe(EVENT_ID);
-      expect(saved.notificationType).toBe('booking-approved-customer');
-      expect(saved.channel).toBe('EMAIL');
-      expect(saved.recipientEmail).toBe('joao@example.com');
-      expect(saved.status).toBe('SENT');
-      expect(saved.retryCount).toBe(0);
+      expect(ormRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
+      const qb = (ormRepo.createQueryBuilder as jest.Mock).mock.results[0].value;
+      expect(qb.insert).toHaveBeenCalledTimes(1);
+      expect(qb.orIgnore).toHaveBeenCalledTimes(1);
+      expect(qb.execute).toHaveBeenCalledTimes(1);
+
+      const entity = qb.values.mock.calls[0][0] as NotificationLogEntity;
+      expect(entity.tenantId).toBe(TENANT_ID);
+      expect(entity.eventId).toBe(EVENT_ID);
+      expect(entity.notificationType).toBe('booking-approved-customer');
+      expect(entity.channel).toBe('EMAIL');
+      expect(entity.recipientEmail).toBe('joao@example.com');
+      expect(entity.status).toBe('SENT');
+      expect(entity.retryCount).toBe(0);
     });
 
     it('persists a FAILED log with errorMessage', async () => {
-      ormRepo.save.mockResolvedValue({} as NotificationLogEntity);
       const log = NotificationLog.create(BASE_CREATE_PROPS);
       log.markFailed('SMTP timeout');
 
       await repo.save(log);
 
-      const saved = ormRepo.save.mock.calls[0][0] as NotificationLogEntity;
-      expect(saved.status).toBe('FAILED');
-      expect(saved.errorMessage).toBe('SMTP timeout');
-      expect(saved.retryCount).toBe(1);
+      const qb = (ormRepo.createQueryBuilder as jest.Mock).mock.results[0].value;
+      const entity = qb.values.mock.calls[0][0] as NotificationLogEntity;
+      expect(entity.status).toBe('FAILED');
+      expect(entity.errorMessage).toBe('SMTP timeout');
+      expect(entity.retryCount).toBe(1);
     });
 
-    it('uses active EntityManager when one is present', async () => {
-      const mockManagerSave = jest.fn().mockResolvedValue({});
+    it('uses active EntityManager createQueryBuilder when one is present', async () => {
+      const { qb: managerQb } = makeQueryBuilderChain();
       jest
         .spyOn(transactionContext, 'getActiveEntityManager')
-        .mockReturnValue({ save: mockManagerSave } as never);
+        .mockReturnValue({ createQueryBuilder: jest.fn().mockReturnValue(managerQb) } as never);
 
       const log = NotificationLog.create(BASE_CREATE_PROPS);
       log.markSent();
 
       await repo.save(log);
 
-      expect(mockManagerSave).toHaveBeenCalledTimes(1);
-      expect(ormRepo.save).not.toHaveBeenCalled();
+      expect(managerQb.insert).toHaveBeenCalledTimes(1);
+      expect(managerQb.orIgnore).toHaveBeenCalledTimes(1);
+      expect(managerQb.execute).toHaveBeenCalledTimes(1);
+      expect(ormRepo.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 });
