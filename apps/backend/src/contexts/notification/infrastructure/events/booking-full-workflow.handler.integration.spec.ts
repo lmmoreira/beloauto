@@ -297,9 +297,20 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
     //   2x BOOKING_CANCELLED_* (booking1)
     //   2x BOOKING_RESCHEDULED_* (booking3)
     //   1x SERVICE_POINTS_EARNED (booking4 completed by authenticated customer) — 2-hop chain
+    const REQUIRED_TYPES = [
+      'booking-info-requested-customer',
+      'booking-info-submitted-admin',
+      'booking-rejected-customer',
+      'booking-cancelled-customer',
+      'booking-cancelled-admin',
+      'booking-rescheduled-customer',
+      'booking-rescheduled-admin',
+      'service-points-earned',
+    ];
     await waitFor(async () => {
       const logs = await ds.getRepository(NotificationLogEntity).find({ where: { tenantId } });
-      return logs.some((l) => l.notificationType === 'service-points-earned');
+      const types = new Set(logs.map((l) => l.notificationType));
+      return REQUIRED_TYPES.every((t) => types.has(t));
     }, 20000);
 
     // Assert all notification types present in DB

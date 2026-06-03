@@ -16,4 +16,8 @@ export class InMemoryNotificationLogRepository implements INotificationLogReposi
   get all(): NotificationLog[] {
     return [...this.store];
   }
+
+  clear(): void {
+    this.store.length = 0;
+  }
 }

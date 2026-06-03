@@ -1,118 +1,80 @@
 import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
 import { uuidv7 } from '../../../../shared/domain/uuid-v7';
 import { IEventBus } from '../../../../shared/ports/event-bus.port';
-import { NOTIFICATION_STAFF_PORT } from '../../application/ports/notification-staff.port';
-import { NOTIFICATION_TENANT_PORT } from '../../application/ports/notification-tenant.port';
-import { NOTIFICATION_TEMPLATE_REPOSITORY } from '../../application/ports/notification-template-repository.port';
 import { BookingReminderDue } from '../../../booking/domain/events/booking-reminder-due.event';
 import { BookingReminderDueToday } from '../../../booking/domain/events/booking-reminder-due-today.event';
 import { AdminDailyScheduleReminder } from '../../../booking/domain/events/admin-daily-schedule-reminder.event';
-import { NotificationTemplate } from '../../domain/notification-template.aggregate';
-import { NotificationTemplateKey } from '../../domain/notification-template-key.enum';
+import { NOTIFICATION_LOG_REPOSITORY } from '../../application/ports/notification-log-repository.port';
+import { NOTIFICATION_PROCESSED_EVENT_REPOSITORY } from '../../application/ports/processed-event-repository.port';
+import { InMemoryNotificationLogRepository } from '../../../../test/repositories/notification/in-memory-notification-log.repository';
+import { InMemoryNotificationProcessedEventRepository } from '../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationDispatcher } from '../../../../test/infrastructure/in-memory-notification-dispatcher';
-import { InMemoryNotificationStaffPort } from '../../../../test/infrastructure/in-memory-notification-staff.port';
-import { InMemoryNotificationTenantPort } from '../../../../test/infrastructure/in-memory-notification-tenant.port';
-import { InMemoryNotificationTemplateRepository } from '../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { createNotificationIntegrationApp } from '../../../../test/utils/notification-integration-app';
 import { waitFor } from '../../../../test/utils/wait-for';
 
-const TENANT_A = 'aaaaaaaa-1100-4000-8000-000000000001';
-const TENANT_B = 'bbbbbbbb-1100-4000-8000-000000000001';
+const PLATFORM_KEY = 'reminder-integration-test-key-xxxxxxxxxx';
 
-describe('Reminder handlers (Pub/Sub → handler → use case → dispatcher) integration', () => {
+describe('Reminder handlers (Pub/Sub → handler → use case → real DB templates) integration', () => {
   let app: INestApplication;
   let dispatcher: InMemoryNotificationDispatcher;
-  let staffPort: InMemoryNotificationStaffPort;
-  let tenantPort: InMemoryNotificationTenantPort;
+  let logRepo: InMemoryNotificationLogRepository;
+  let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let eventBus: IEventBus;
+  let tenantId: string;
+  let adminEmail: string;
 
   beforeAll(async () => {
+    process.env['PLATFORM_ADMIN_KEY'] = PLATFORM_KEY;
     process.env['PUBSUB_SUBSCRIPTION_SUFFIX'] = `-reminder-${Date.now()}`;
+    process.env['JWT_SECRET'] = 'reminder-integration-test-secret-32chars';
 
     dispatcher = new InMemoryNotificationDispatcher();
-    staffPort = new InMemoryNotificationStaffPort();
-    tenantPort = new InMemoryNotificationTenantPort();
-
-    tenantPort.setTenantInfo(TENANT_A, {
-      id: TENANT_A,
-      name: 'LavaCar A',
-      slug: 'lavacar-a',
-      timezone: 'America/Sao_Paulo',
-      fromEmail: null,
-    });
-    tenantPort.setTenantInfo(TENANT_B, {
-      id: TENANT_B,
-      name: 'LavaCar B',
-      slug: 'lavacar-b',
-      timezone: 'America/Sao_Paulo',
-      fromEmail: null,
-    });
-    staffPort.setManagerEmails(TENANT_A, ['manager-a@lavacar.com']);
-    staffPort.setManagerEmails(TENANT_B, ['manager-b@lavacar.com']);
-
-    // Seed templates for both tenants so reminder use cases can find them without hitting the
-    // real DB (which has no tenant-specific copies for these static test UUIDs).
-    const templateRepo = new InMemoryNotificationTemplateRepository();
-    const reminderSubjectDue = 'Lembrete: seu agendamento é amanhã!';
-    const reminderBodyDue =
-      '<p>Olá, {{customerName}}! Seu agendamento é amanhã {{localDate}} às {{localTime}}. Serviços: {{serviceNames}}</p>';
-    const reminderSubjectToday = 'Lembrete: seu agendamento é hoje!';
-    const reminderBodyToday =
-      '<p>Olá, {{customerName}}! Seu agendamento é hoje às {{localTime}}. Serviços: {{serviceNames}}</p>';
-    const adminSubject = 'Agenda do dia — {{localDate}}';
-    const adminBody = '<p>{{bookingsHtml}}</p>';
-    for (const tenantId of [TENANT_A, TENANT_B]) {
-      templateRepo.seed(
-        NotificationTemplate.create({
-          tenantId,
-          triggerEvent: NotificationTemplateKey.BOOKING_REMINDER_DUE,
-          channel: 'EMAIL',
-          subject: reminderSubjectDue,
-          body: reminderBodyDue,
-        }),
-      );
-      templateRepo.seed(
-        NotificationTemplate.create({
-          tenantId,
-          triggerEvent: NotificationTemplateKey.BOOKING_REMINDER_DUE_TODAY,
-          channel: 'EMAIL',
-          subject: reminderSubjectToday,
-          body: reminderBodyToday,
-        }),
-      );
-      templateRepo.seed(
-        NotificationTemplate.create({
-          tenantId,
-          triggerEvent: NotificationTemplateKey.ADMIN_DAILY_SCHEDULE_REMINDER,
-          channel: 'EMAIL',
-          subject: adminSubject,
-          body: adminBody,
-        }),
-      );
-    }
+    logRepo = new InMemoryNotificationLogRepository();
+    processedEventRepo = new InMemoryNotificationProcessedEventRepository();
 
     ({ app, eventBus } = await createNotificationIntegrationApp({
       dispatcher,
+      withTenantInterceptor: true,
       configure: (builder) =>
         builder
-          .overrideProvider(NOTIFICATION_STAFF_PORT)
-          .useValue(staffPort)
-          .overrideProvider(NOTIFICATION_TENANT_PORT)
-          .useValue(tenantPort)
-          .overrideProvider(NOTIFICATION_TEMPLATE_REPOSITORY)
-          .useValue(templateRepo),
+          .overrideProvider(NOTIFICATION_LOG_REPOSITORY)
+          .useValue(logRepo)
+          .overrideProvider(NOTIFICATION_PROCESSED_EVENT_REPOSITORY)
+          .useValue(processedEventRepo),
     }));
+
+    const slug = `reminder-${Date.now()}`;
+    adminEmail = `admin-reminder-${Date.now()}@lavacar.com.br`;
+
+    const { body } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${PLATFORM_KEY}`)
+      .send({ name: 'Reminder Integration', slug, adminEmail, timezone: 'America/Sao_Paulo' })
+      .expect(201);
+
+    tenantId = body.tenantId as string;
+
+    await waitFor(async () =>
+      logRepo.all.some((l) => l.tenantId === tenantId && l.notificationType === 'staff-invitation'),
+    );
   });
 
   afterAll(async () => {
     await app.close();
+    delete process.env['PLATFORM_ADMIN_KEY'];
     delete process.env['PUBSUB_SUBSCRIPTION_SUFFIX'];
+    delete process.env['JWT_SECRET'];
   });
 
-  afterEach(() => dispatcher.clear());
+  afterEach(() => {
+    dispatcher.clear();
+    logRepo.clear();
+    processedEventRepo.clear();
+  });
 
-  it('BookingReminderDue → dispatches email with day-before subject', async () => {
-    const event = new BookingReminderDue(TENANT_A, uuidv7(), {
+  it('BookingReminderDue → writes log and dispatches day-before email', async () => {
+    const event = new BookingReminderDue(tenantId, uuidv7(), {
       bookingId: uuidv7(),
       customerId: uuidv7(),
       recipientEmail: 'joao@example.com',
@@ -127,14 +89,19 @@ describe('Reminder handlers (Pub/Sub → handler → use case → dispatcher) in
 
     await eventBus.publish(event);
 
-    await waitFor(async () => dispatcher.dispatched.length >= 1);
+    await waitFor(async () =>
+      logRepo.all.some(
+        (l) => l.eventId === event.eventId && l.notificationType === 'booking-reminder-due',
+      ),
+    );
 
-    expect(dispatcher.dispatched[0].subject).toBe('Lembrete: seu agendamento é amanhã!');
-    expect(dispatcher.dispatched[0].to).toBe('joao@example.com');
+    expect(
+      dispatcher.dispatched.some((m) => m.to === 'joao@example.com' && m.subject.includes('amanhã')),
+    ).toBe(true);
   });
 
-  it('BookingReminderDueToday → dispatches email with day-of subject', async () => {
-    const event = new BookingReminderDueToday(TENANT_A, uuidv7(), {
+  it('BookingReminderDueToday → writes log and dispatches day-of email', async () => {
+    const event = new BookingReminderDueToday(tenantId, uuidv7(), {
       bookingId: uuidv7(),
       customerId: null,
       recipientEmail: 'maria@example.com',
@@ -149,16 +116,19 @@ describe('Reminder handlers (Pub/Sub → handler → use case → dispatcher) in
 
     await eventBus.publish(event);
 
-    await waitFor(async () => dispatcher.dispatched.length >= 1);
+    await waitFor(async () =>
+      logRepo.all.some(
+        (l) => l.eventId === event.eventId && l.notificationType === 'booking-reminder-due-today',
+      ),
+    );
 
-    expect(dispatcher.dispatched[0].subject).toBe('Lembrete: seu agendamento é hoje!');
-    expect(dispatcher.dispatched[0].to).toBe('maria@example.com');
+    expect(
+      dispatcher.dispatched.some((m) => m.to === 'maria@example.com' && m.subject.includes('hoje')),
+    ).toBe(true);
   });
 
-  it('AdminDailyScheduleReminder with 1 booking and 2 managers → dispatches 2 emails', async () => {
-    staffPort.setManagerEmails(TENANT_A, ['manager-a1@lavacar.com', 'manager-a2@lavacar.com']);
-
-    const event = new AdminDailyScheduleReminder(TENANT_A, uuidv7(), {
+  it('AdminDailyScheduleReminder → writes log and dispatches to manager email', async () => {
+    const event = new AdminDailyScheduleReminder(tenantId, uuidv7(), {
       localDate: '2026-07-02',
       totalBookingsToday: 1,
       bookingsToday: [
@@ -178,26 +148,67 @@ describe('Reminder handlers (Pub/Sub → handler → use case → dispatcher) in
 
     await eventBus.publish(event);
 
-    await waitFor(async () => dispatcher.dispatched.length >= 2);
+    await waitFor(async () =>
+      logRepo.all.some(
+        (l) =>
+          l.eventId === event.eventId && l.notificationType === 'admin-daily-schedule-reminder',
+      ),
+    );
 
-    expect(dispatcher.dispatched).toHaveLength(2);
-    expect(dispatcher.dispatched.every((m) => m.subject.includes('Agenda do dia'))).toBe(true);
-
-    staffPort.setManagerEmails(TENANT_A, ['manager-a@lavacar.com']);
+    expect(
+      dispatcher.dispatched.some(
+        (m) => m.to === adminEmail && m.subject.includes('Agenda do dia'),
+      ),
+    ).toBe(true);
   });
 
-  it('tenant isolation: AdminDailyScheduleReminder for Tenant A does not dispatch to Tenant B managers', async () => {
-    const event = new AdminDailyScheduleReminder(TENANT_A, uuidv7(), {
-      localDate: '2026-07-03',
-      totalBookingsToday: 0,
-      bookingsToday: [],
+  it('tenant isolation: BookingReminderDue for Tenant A does not write log for Tenant B', async () => {
+    const tenantBSlug = `reminder-b-${Date.now()}`;
+    const tenantBAdminEmail = `admin-reminder-b-${Date.now()}@lavacar.com.br`;
+    const { body: bodyB } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${PLATFORM_KEY}`)
+      .send({
+        name: 'Reminder B',
+        slug: tenantBSlug,
+        adminEmail: tenantBAdminEmail,
+        timezone: 'America/Sao_Paulo',
+      })
+      .expect(201);
+    const tenantBId = bodyB.tenantId as string;
+
+    await waitFor(async () =>
+      logRepo.all.some((l) => l.tenantId === tenantBId && l.notificationType === 'staff-invitation'),
+    );
+
+    logRepo.clear();
+    processedEventRepo.clear();
+    dispatcher.clear();
+
+    const event = new BookingReminderDue(tenantId, uuidv7(), {
+      bookingId: uuidv7(),
+      customerId: uuidv7(),
+      recipientEmail: 'tenant-a-customer@example.com',
+      customerName: 'Tenant A Customer',
+      scheduledAt: '2026-07-05T10:00:00.000Z',
+      appointmentSlot: {
+        startTime: '2026-07-05T10:00:00.000Z',
+        endTime: '2026-07-05T11:00:00.000Z',
+      },
+      lines: [{ serviceId: uuidv7(), serviceName: 'Lavagem' }],
     });
 
     await eventBus.publish(event);
 
-    await waitFor(async () => dispatcher.dispatched.some((m) => m.to === 'manager-a@lavacar.com'));
+    await waitFor(async () =>
+      dispatcher.dispatched.some((m) => m.to === 'tenant-a-customer@example.com'),
+    );
 
-    expect(dispatcher.dispatched.some((m) => m.to === 'manager-a@lavacar.com')).toBe(true);
-    expect(dispatcher.dispatched.some((m) => m.to === 'manager-b@lavacar.com')).toBe(false);
+    expect(dispatcher.dispatched.some((m) => m.to === tenantBAdminEmail)).toBe(false);
+
+    const tenantBLogs = logRepo.all.filter(
+      (l) => l.tenantId === tenantBId && l.eventId === event.eventId,
+    );
+    expect(tenantBLogs).toHaveLength(0);
   });
 });
