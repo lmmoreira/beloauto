@@ -6,9 +6,17 @@ class StubDeadLetterEvent extends DomainEvent<Record<string, never>> {
   readonly eventName = 'dead-letter';
   readonly eventVersion = 1;
   readonly data: Record<string, never> = {};
+  readonly deliveryAttempt?: number;
+  readonly deadLetterReason?: string;
 
-  constructor(tenantId: string, correlationId: string) {
+  constructor(
+    tenantId: string,
+    correlationId: string,
+    opts: { deliveryAttempt?: number; deadLetterReason?: string } = {},
+  ) {
     super(tenantId, correlationId);
+    this.deliveryAttempt = opts.deliveryAttempt;
+    this.deadLetterReason = opts.deadLetterReason;
   }
 }
 
@@ -43,9 +51,10 @@ describe('DeadLetterHandler', () => {
 
   describe('handle()', () => {
     it('logs at ERROR level with all required context fields', async () => {
-      const event = new StubDeadLetterEvent('tenant-123', 'corr-abc');
-      (event as unknown as Record<string, unknown>)['deadLetterReason'] = 'handler crashed';
-      (event as unknown as Record<string, unknown>)['deliveryAttempt'] = 5;
+      const event = new StubDeadLetterEvent('tenant-123', 'corr-abc', {
+        deadLetterReason: 'handler crashed',
+        deliveryAttempt: 5,
+      });
 
       await handler.handle(event);
 

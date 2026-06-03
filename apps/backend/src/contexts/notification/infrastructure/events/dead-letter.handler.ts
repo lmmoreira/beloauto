@@ -3,6 +3,11 @@ import { DomainEvent } from '../../../../shared/domain/domain-event';
 import { AppLogger } from '../../../../shared/observability/app-logger';
 import { EVENT_BUS, IEventBus } from '../../../../shared/ports/event-bus.port';
 
+type DeadLetterEvent = DomainEvent & {
+  readonly deliveryAttempt?: number;
+  readonly deadLetterReason?: string;
+};
+
 @Injectable()
 export class DeadLetterHandler implements OnModuleInit {
   private readonly logger = new AppLogger(DeadLetterHandler.name);
@@ -14,12 +19,13 @@ export class DeadLetterHandler implements OnModuleInit {
   }
 
   async handle(event: DomainEvent): Promise<void> {
+    const dlq = event as DeadLetterEvent;
     this.logger.error('Dead-letter message received — requires human investigation', undefined, {
-      eventId: event.eventId,
-      eventName: event.eventName,
-      tenantId: event.tenantId,
-      deliveryAttempt: (event as unknown as Record<string, unknown>)['deliveryAttempt'],
-      deadLetterReason: (event as unknown as Record<string, unknown>)['deadLetterReason'],
+      eventId: dlq.eventId,
+      eventName: dlq.eventName,
+      tenantId: dlq.tenantId,
+      deliveryAttempt: dlq.deliveryAttempt,
+      deadLetterReason: dlq.deadLetterReason,
     });
     // Does NOT throw — adapter must ACK to prevent infinite DLQ redelivery
   }
