@@ -83,20 +83,66 @@ export class GcpPubSubEventBusAdapter
     eventName: string,
     handler: (event: DomainEvent) => Promise<void>,
   ): Promise<void> {
+    let event: DomainEvent;
     try {
-      const event = JSON.parse(message.data.toString()) as DomainEvent;
+      event = JSON.parse(message.data.toString()) as DomainEvent;
+    } catch {
+      this.logger.error('[pubsub] unparseable message — ACKing to prevent retry loop', undefined, {
+        eventName,
+        rawBytes: message.data.toString().slice(0, 200),
+      });
+      message.ack();
+      return;
+    }
+
+    try {
       await handler(event);
       message.ack();
     } catch (err) {
+      const attempt = message.deliveryAttempt ?? 1;
+      const max = this.config.get<number>('PUBSUB_MAX_DELIVERY_ATTEMPTS', 5);
       this.logger.error(
-        `[pubsub] handler failed for ${eventName}`,
+        `[pubsub] handler failed for ${eventName} (attempt ${attempt}/${max})`,
         err instanceof Error ? err.stack : String(err),
       );
-      message.nack();
+      if (attempt >= max) {
+        await this.publishToDlq(message, event, eventName, err);
+        message.ack();
+      } else {
+        message.nack();
+      }
     }
   }
 
+  private async publishToDlq(
+    message: Message,
+    event: DomainEvent,
+    eventName: string,
+    err: unknown,
+  ): Promise<void> {
+    const dlqTopic = 'beloauto-dead-letter';
+    await this.ensureTopicOnce(dlqTopic);
+    const enrichedData = {
+      ...(event as unknown as Record<string, unknown>),
+      deadLetterReason: err instanceof Error ? err.message : String(err),
+      deliveryAttempt: message.deliveryAttempt ?? 1,
+    };
+    await this.pubsub.topic(dlqTopic).publishMessage({
+      data: Buffer.from(JSON.stringify(enrichedData)),
+      attributes: {
+        ...message.attributes,
+        originalEventName: eventName,
+      },
+    });
+    this.logger.warn(`[pubsub] routed to DLQ: ${eventName}`, {
+      eventId: event.eventId,
+      tenantId: event.tenantId,
+      deliveryAttempt: message.deliveryAttempt ?? 1,
+    });
+  }
+
   private async ensureTopicOnce(topicName: string): Promise<void> {
+    if (!this.config.get<boolean>('PUBSUB_AUTO_CREATE', true)) return;
     if (this.ensuredTopics.has(topicName)) return;
     const [exists] = await this.pubsub.topic(topicName).exists();
     if (!exists) {
@@ -112,6 +158,7 @@ export class GcpPubSubEventBusAdapter
   }
 
   private async ensureSubscription(topicName: string, subscriptionName: string): Promise<void> {
+    if (!this.config.get<boolean>('PUBSUB_AUTO_CREATE', true)) return;
     const topic = this.pubsub.topic(topicName);
     const subscription = topic.subscription(subscriptionName);
     const [exists] = await subscription.exists();

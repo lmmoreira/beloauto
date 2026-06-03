@@ -56,6 +56,7 @@ import { NotificationTemplateEntity } from './infrastructure/entities/notificati
 import { NOTIFICATION_TEMPLATE_REPOSITORY } from './application/ports/notification-template-repository.port';
 import { SeedDefaultTemplatesUseCase } from './application/use-cases/seed-default-templates/seed-default-templates.use-case';
 import { TenantProvisionedNotificationHandler } from './infrastructure/events/tenant-provisioned.handler';
+import { DeadLetterHandler } from './infrastructure/events/dead-letter.handler';
 
 @Module({
   imports: [
@@ -125,6 +126,7 @@ import { TenantProvisionedNotificationHandler } from './infrastructure/events/te
     BookingReminderHandler,
     AdminDailyScheduleReminderHandler,
     PointsExpiringSoonHandler,
+    DeadLetterHandler,
   ],
 })
 export class NotificationModule {}
