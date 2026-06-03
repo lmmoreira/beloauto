@@ -551,7 +551,7 @@ Implement the weekly loyalty expiry warning: GCP Cloud Scheduler fires `POST /cr
 
 ---
 
-### M11-S07 — Refactor all notification handlers to use full template + log system
+### M11-S07 — Refactor all notification handlers to use full template + log system ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
