@@ -4,6 +4,10 @@ import { NotificationTemplateKey } from '../../domain/notification-template-key.
 export const NOTIFICATION_TEMPLATE_REPOSITORY = Symbol('INotificationTemplateRepository');
 
 export interface INotificationTemplateRepository {
+  findAllByTriggerEvent(
+    tenantId: string,
+    triggerEvent: NotificationTemplateKey,
+  ): Promise<NotificationTemplate[]>;
   findByTriggerEventAndChannel(
     tenantId: string,
     triggerEvent: NotificationTemplateKey,

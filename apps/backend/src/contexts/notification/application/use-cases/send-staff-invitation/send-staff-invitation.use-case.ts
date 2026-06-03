@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
@@ -25,10 +26,13 @@ import {
   INotificationTenantPort,
   NOTIFICATION_TENANT_PORT,
 } from '../../ports/notification-tenant.port';
-import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const CHANNEL = 'EMAIL';
+const TRIGGER = NotificationTemplateKey.STAFF_INVITATION;
 
 export interface SendStaffInvitationUseCaseResult {
   sent: boolean;
@@ -44,13 +48,20 @@ export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
     @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
     @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: INotificationTemplateRepository,
     private readonly config: ConfigService,
   ) {
     super(logRepo, processedEventRepo, dispatcher, txManager);
   }
 
   async execute(dto: SendStaffInvitationDto): Promise<SendStaffInvitationUseCaseResult> {
-    if (await this.isAlreadySent(dto.eventId, NotificationTemplateKey.STAFF_INVITATION, CHANNEL)) {
+    const templates = await this.templateRepo.findAllByTriggerEvent(dto.tenantId, TRIGGER);
+    if (templates.length === 0) {
+      this.logger.warn('No template found — skipping', {
+        tenantId: dto.tenantId,
+        triggerEvent: TRIGGER,
+      });
       return { sent: false };
     }
 
@@ -58,39 +69,15 @@ export class SendStaffInvitationUseCase extends BaseNotificationUseCase {
       this.staffPort.getStaffInfo(dto.staffId, dto.tenantId),
       this.tenantPort.getTenantInfo(dto.tenantId),
     ]);
-
     if (!staff || !tenant) return { sent: false };
 
-    try {
-      await this.dispatcher.dispatch({
-        tenantId: dto.tenantId,
-        to: staff.email,
-        subject: `Você foi convidado para a equipe ${tenant.name}`,
-        templateKey: NotificationTemplateKey.STAFF_INVITATION,
-        data: {
-          staffName: staff.name ?? staff.email,
-          tenantName: tenant.name,
-          activationLink: `${this.config.getOrThrow<string>('FRONTEND_URL')}/${tenant.slug}/auth/staff`,
-        },
-      });
-      await this.saveLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.STAFF_INVITATION,
-        CHANNEL,
-        staff.email,
-      );
-      return { sent: true };
-    } catch (err: unknown) {
-      await this.saveFailedLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.STAFF_INVITATION,
-        CHANNEL,
-        staff.email,
-        String(err),
-      );
-      throw err;
-    }
+    const activationLink = `${this.config.getOrThrow<string>('FRONTEND_URL')}/${tenant.slug}/auth/staff`;
+
+    const sent = await this.dispatchTemplates(templates, dto, staff.email, {
+      staffName: staff.name ?? staff.email,
+      tenantName: tenant.name,
+      activationLink,
+    });
+    return { sent };
   }
 }

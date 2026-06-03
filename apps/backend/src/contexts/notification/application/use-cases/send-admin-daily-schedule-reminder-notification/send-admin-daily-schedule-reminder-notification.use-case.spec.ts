@@ -3,8 +3,11 @@ import { InMemoryNotificationLogRepository } from '../../../../../test/repositor
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendAdminDailyScheduleReminderNotificationDtoBuilder } from '../../../../../test/builders/notification/send-admin-daily-schedule-reminder-notification-dto.builder';
+import { NotificationTemplate } from '../../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendAdminDailyScheduleReminderNotificationUseCase } from './send-admin-daily-schedule-reminder-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0003-4000-8000-000000000001';
@@ -21,6 +24,7 @@ describe('SendAdminDailyScheduleReminderNotificationUseCase', () => {
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let staffPort: InMemoryNotificationStaffPort;
   let tenantPort: InMemoryNotificationTenantPort;
+  let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendAdminDailyScheduleReminderNotificationUseCase;
 
   beforeEach(() => {
@@ -29,6 +33,7 @@ describe('SendAdminDailyScheduleReminderNotificationUseCase', () => {
     processedEventRepo = new InMemoryNotificationProcessedEventRepository();
     staffPort = new InMemoryNotificationStaffPort();
     tenantPort = new InMemoryNotificationTenantPort();
+    templateRepo = new InMemoryNotificationTemplateRepository();
 
     tenantPort.setTenantInfo(TENANT_ID, {
       id: TENANT_ID,
@@ -38,6 +43,15 @@ describe('SendAdminDailyScheduleReminderNotificationUseCase', () => {
       fromEmail: null,
     });
     staffPort.setManagerEmails(TENANT_ID, ['manager1@lavacar.com', 'manager2@lavacar.com']);
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.ADMIN_DAILY_SCHEDULE_REMINDER,
+        channel: 'EMAIL',
+        subject: 'Agenda do dia — {{localDate}}',
+        body: '<p>Total: {{totalBookingsToday}} — {{bookingsHtml}}</p>',
+      }),
+    );
 
     useCase = new SendAdminDailyScheduleReminderNotificationUseCase(
       logRepo,
@@ -46,12 +60,13 @@ describe('SendAdminDailyScheduleReminderNotificationUseCase', () => {
       staffPort,
       tenantPort,
       new InMemoryTransactionManager(),
+      templateRepo,
     );
   });
 
   afterEach(() => jest.resetAllMocks());
 
-  it('dispatches one email per manager with correct subject and template key', async () => {
+  it('dispatches one email per manager with correct subject and body', async () => {
     const result = await useCase.execute(dto);
 
     expect(result.emailSent).toBe(true);
@@ -61,16 +76,7 @@ describe('SendAdminDailyScheduleReminderNotificationUseCase', () => {
     expect(dispatcher.dispatched[0].to).toBe('manager1@lavacar.com');
     expect(dispatcher.dispatched[1].to).toBe('manager2@lavacar.com');
     expect(dispatcher.dispatched[0].subject).toBe('Agenda do dia — 2026-07-02');
-    expect(dispatcher.dispatched[0].templateKey).toBe('admin-daily-schedule-reminder');
-  });
-
-  it('includes localDate and totalBookingsToday in dispatched data', async () => {
-    await useCase.execute(dto);
-
-    const data = dispatcher.dispatched[0].data;
-    expect(data['localDate']).toBe('2026-07-02');
-    expect(data['totalBookingsToday']).toBe(1);
-    expect(typeof data['bookingsHtml']).toBe('string');
+    expect(dispatcher.dispatched[0].body).toContain('1');
   });
 
   it('sets bookingsHtml to empty message when totalBookingsToday is 0', async () => {
@@ -82,8 +88,7 @@ describe('SendAdminDailyScheduleReminderNotificationUseCase', () => {
 
     await useCase.execute(emptyDto);
 
-    const data = dispatcher.dispatched[0].data;
-    expect(data['bookingsHtml']).toContain('Nenhum agendamento para hoje');
+    expect(dispatcher.dispatched[0].body).toContain('Nenhum agendamento para hoje');
   });
 
   it('dispatches nothing and returns emailSent=false when no managers', async () => {

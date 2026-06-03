@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { formatBRL } from '../../../../../shared/utils/money-format';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
-import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingRequestedNotificationDto } from '../../dtos/send-booking-requested-notification.dto';
 import {
   INotificationDispatcher,
@@ -26,9 +26,11 @@ import {
   INotificationTenantPort,
   NOTIFICATION_TENANT_PORT,
 } from '../../ports/notification-tenant.port';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
-
-const CHANNEL = 'EMAIL';
 
 export interface SendBookingRequestedNotificationUseCaseResult {
   adminEmailSent: boolean;
@@ -45,6 +47,8 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
     @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
     @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: INotificationTemplateRepository,
   ) {
     super(logRepo, processedEventRepo, dispatcher, txManager);
   }
@@ -52,96 +56,42 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
   async execute(
     dto: SendBookingRequestedNotificationDto,
   ): Promise<SendBookingRequestedNotificationUseCaseResult> {
-    const [adminSent, customerSent] = await Promise.all([
-      this.isAlreadySent(dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_ADMIN, CHANNEL),
-      this.isAlreadySent(dto.eventId, NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER, CHANNEL),
-    ]);
-
     const serviceNames = dto.lines.map((l) => l.serviceNameAtBooking).join(', ');
     const formattedPrice = formatBRL(dto.totalPrice.amount);
 
-    let adminEmailSent = false;
-    let customerEmailSent = false;
+    const [adminTemplates, customerTemplates, managerEmails, tenantInfo] = await Promise.all([
+      this.templateRepo.findAllByTriggerEvent(
+        dto.tenantId,
+        NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
+      ),
+      this.templateRepo.findAllByTriggerEvent(
+        dto.tenantId,
+        NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
+      ),
+      this.staffPort.getManagerEmails(dto.tenantId),
+      this.tenantPort.getTenantInfo(dto.tenantId),
+    ]);
 
-    if (!adminSent) {
-      const managerEmails = await this.staffPort.getManagerEmails(dto.tenantId);
-      if (managerEmails.length > 0) {
-        try {
-          await Promise.all(
-            managerEmails.map((email) =>
-              this.dispatcher.dispatch({
-                tenantId: dto.tenantId,
-                to: email,
-                subject: `Nova solicitação de agendamento — ${serviceNames}`,
-                templateKey: NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
-                data: {
-                  guestName: dto.guestName,
-                  scheduledAt: dto.scheduledAt,
-                  serviceNames,
-                  totalPrice: formattedPrice,
-                  pickupAddress: dto.pickupAddress,
-                },
-              }),
-            ),
-          );
-          await this.saveLog(
-            dto.tenantId,
-            dto.eventId,
-            NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
-            CHANNEL,
-            managerEmails[0],
-          );
-          adminEmailSent = true;
-        } catch (err: unknown) {
-          await this.saveFailedLog(
-            dto.tenantId,
-            dto.eventId,
-            NotificationTemplateKey.BOOKING_REQUESTED_ADMIN,
-            CHANNEL,
-            managerEmails[0],
-            String(err),
-          );
-          throw err;
-        }
-      }
-    }
+    const variables: Record<string, string> = {
+      guestName: dto.guestName,
+      scheduledAt: dto.scheduledAt,
+      serviceNames,
+      totalPrice: formattedPrice,
+      pickupAddress: dto.pickupAddress ? JSON.stringify(dto.pickupAddress) : '',
+      tenantName: tenantInfo?.name ?? '',
+    };
 
-    if (!customerSent) {
-      const tenantInfo = await this.tenantPort.getTenantInfo(dto.tenantId);
-      try {
-        await this.dispatcher.dispatch({
-          tenantId: dto.tenantId,
-          to: dto.guestEmail,
-          subject: 'Seu agendamento foi recebido',
-          templateKey: NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
-          data: {
-            guestName: dto.guestName,
-            scheduledAt: dto.scheduledAt,
-            serviceNames,
-            totalPrice: formattedPrice,
-            tenantName: tenantInfo?.name ?? '',
-          },
-        });
-        await this.saveLog(
-          dto.tenantId,
-          dto.eventId,
-          NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
-          CHANNEL,
-          dto.guestEmail,
-        );
-        customerEmailSent = true;
-      } catch (err: unknown) {
-        await this.saveFailedLog(
-          dto.tenantId,
-          dto.eventId,
-          NotificationTemplateKey.BOOKING_REQUESTED_CUSTOMER,
-          CHANNEL,
-          dto.guestEmail,
-          String(err),
-        );
-        throw err;
-      }
-    }
+    const adminEmailSent =
+      managerEmails.length > 0
+        ? await this.dispatchTemplatesToMany(adminTemplates, dto, managerEmails, variables)
+        : false;
+
+    const customerEmailSent = await this.dispatchTemplates(
+      customerTemplates,
+      dto,
+      dto.guestEmail,
+      variables,
+    );
 
     return { adminEmailSent, customerEmailSent };
   }

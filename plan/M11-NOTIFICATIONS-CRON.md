@@ -600,18 +600,21 @@ async dispatch(message: OutboundMessage): Promise<void> {
 }
 ```
 
-**`SmtpEmailAdapter` — pure transport, no `render()` method:**
+**`EmailDeliveryChannelAdapter` — pure transport after refactor, no `render()` method:**
 ```typescript
 async send(message: OutboundMessage): Promise<void> {
-  await this.transporter.sendMail({
-    from: this.config.get('SMTP_FROM'),
+  const tenantInfo = await this.tenantPort.getTenantInfo(message.tenantId);
+  const from = tenantInfo?.fromEmail ?? this.config.get<string>('EMAIL_FROM', 'noreply@beloauto.com.br');
+  await this.emailSender.send({
     to: message.to,
+    from,
     subject: message.subject,
     html: message.body,   // already rendered upstream by the use case
   });
 }
 ```
-The entire `private render(message)` switch block is deleted in this story.
+The entire `private render(message)` switch block is deleted from `EmailDeliveryChannelAdapter` in this story.
+`MailhogEmailAdapter` and `SendGridEmailAdapter` (pure `IEmailSender` transports) are unchanged — they already receive a pre-rendered `html` string.
 
 **Use case pattern per handler (replaces all hardcoded subjects + templateKey strings):**
 ```typescript
@@ -653,19 +656,21 @@ No use case changes needed.
 1. Redesign `OutboundMessage` — add `body: string`, `channel: NotificationChannel`; remove `templateKey`, `data`
 2. Add `findAllByTriggerEvent()` to `INotificationTemplateRepository` port + `TypeOrmNotificationTemplateRepository` + `InMemoryNotificationTemplateRepository`
 3. Update `NotificationDispatcherAdapter` — route by `message.channel` instead of broadcasting
-4. Delete `SmtpEmailAdapter.render()` private method; `send()` uses `message.subject` + `message.body` directly
+4. Delete `EmailDeliveryChannelAdapter`'s `private render()` method; `send()` uses `message.subject` + `message.body` directly (see updated snippet above)
 5. Update every use case (9 handlers from M04–M10 + 3 new reminder handlers from M11-S05 + 1 from M11-S06) to:
    - Inject `INotificationTemplateRepository`
    - Call `findAllByTriggerEvent()` + `template.render(variables)`
    - Pass rendered `{ subject, body, channel }` to dispatcher
-6. Update all use case specs that assert `dispatcher.dispatched[x].templateKey` → assert `subject` and `body` instead
-7. Update `SmtpEmailAdapter` spec — remove template-key-based describe blocks; assert only transport behaviour (`sendMail` called with correct `to`, `subject`, `html`)
+   - For `BaseBookingReminderNotificationUseCase`: drop the `abstract reminderSubject` property; inject `INotificationTemplateRepository` at the base level alongside `INotificationTenantPort`; call `findAllByTriggerEvent(tenantId, this.reminderTemplateKey)` from base `execute()`; concrete subclasses provide only `reminderTemplateKey`
+6. Update all use case unit specs that assert `dispatcher.dispatched[x].templateKey` → assert `subject` and `body` instead; seed a template row in `beforeEach` via `InMemoryNotificationTemplateRepository.seed(NotificationTemplate.create({ tenantId, triggerEvent: NotificationTemplateKey.XYZ, channel: 'EMAIL', subject: 'expected subject', body: 'expected body' }))` so `findAllByTriggerEvent()` returns a result
+7. Update `email-delivery-channel.adapter.spec.ts` — remove template-key-based describe blocks; assert only transport behaviour (`emailSender.send` called with correct `to`, `from`, `subject`, `html: message.body`)
 
 **Acceptance criteria:**
 - [ ] `OutboundMessage` has `body: string` and `channel: NotificationChannel`; `templateKey` and `data` are removed
 - [ ] `NotificationDispatcherAdapter` routes to the single adapter matching `message.channel`; skips with log when no adapter found
-- [ ] `SmtpEmailAdapter.send()` uses `message.subject` + `message.body`; no `render()` method exists
-- [ ] All 9 existing use cases load templates from DB via `findAllByTriggerEvent()`; no hardcoded `subject` strings or `templateKey` values remain
+- [ ] `EmailDeliveryChannelAdapter.send()` uses `message.subject` + `message.body`; no `private render()` method exists
+- [ ] All 13 use cases (9 from M04–M10 + 3 reminder from M11-S05 + 1 from M11-S06) load templates from DB via `findAllByTriggerEvent()`; no hardcoded `subject` strings or `templateKey` values remain
+- [ ] `BaseBookingReminderNotificationUseCase` has no `abstract reminderSubject`; `INotificationTemplateRepository` injected at base level; concrete subclasses provide only `reminderTemplateKey`
 - [ ] If no template found for `(tenantId, triggerEvent)` → log warning + return without throwing
 - [ ] Every email attempt produces a `notification_logs` row (via `NotificationLog` from M11-S02)
 - [ ] `processed_events` prevents duplicate handling across all handlers

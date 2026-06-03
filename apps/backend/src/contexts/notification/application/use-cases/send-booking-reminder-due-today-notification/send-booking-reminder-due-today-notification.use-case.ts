@@ -20,6 +20,10 @@ import {
   INotificationTenantPort,
   NOTIFICATION_TENANT_PORT,
 } from '../../ports/notification-tenant.port';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseBookingReminderNotificationUseCase } from '../base-booking-reminder-notification.use-case';
 
 export { BookingReminderNotificationUseCaseResult as SendBookingReminderDueTodayNotificationUseCaseResult } from '../base-booking-reminder-notification.use-case';
@@ -27,7 +31,6 @@ export { BookingReminderNotificationUseCaseResult as SendBookingReminderDueToday
 @Injectable()
 export class SendBookingReminderDueTodayNotificationUseCase extends BaseBookingReminderNotificationUseCase {
   protected readonly reminderTemplateKey = NotificationTemplateKey.BOOKING_REMINDER_DUE_TODAY;
-  protected readonly reminderSubject = 'Lembrete: seu agendamento é hoje!';
 
   constructor(
     @Inject(NOTIFICATION_LOG_REPOSITORY) logRepo: INotificationLogRepository,
@@ -36,7 +39,8 @@ export class SendBookingReminderDueTodayNotificationUseCase extends BaseBookingR
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_TENANT_PORT) tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY) templateRepo: INotificationTemplateRepository,
   ) {
-    super(logRepo, processedEventRepo, dispatcher, tenantPort, txManager);
+    super(logRepo, processedEventRepo, dispatcher, tenantPort, txManager, templateRepo);
   }
 }

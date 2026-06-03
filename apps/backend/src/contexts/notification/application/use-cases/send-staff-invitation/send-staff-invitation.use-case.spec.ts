@@ -1,11 +1,14 @@
 import { ConfigService } from '@nestjs/config';
-import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
+import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendStaffInvitationDtoBuilder } from '../../../../../test/builders/notification/index';
+import { NotificationTemplate } from '../../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendStaffInvitationUseCase } from './send-staff-invitation.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -30,6 +33,7 @@ describe('SendStaffInvitationUseCase', () => {
   let dispatcher: InMemoryNotificationDispatcher;
   let staffPort: InMemoryNotificationStaffPort;
   let tenantPort: InMemoryNotificationTenantPort;
+  let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendStaffInvitationUseCase;
 
   beforeEach(() => {
@@ -46,6 +50,16 @@ describe('SendStaffInvitationUseCase', () => {
       timezone: 'America/Sao_Paulo',
       fromEmail: null,
     });
+    templateRepo = new InMemoryNotificationTemplateRepository();
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.STAFF_INVITATION,
+        channel: 'EMAIL',
+        subject: 'Você foi convidado para a equipe {{tenantName}}',
+        body: '<p>Olá, {{staffName}}! <a href="{{activationLink}}">Acessar</a></p>',
+      }),
+    );
     useCase = new SendStaffInvitationUseCase(
       logRepo,
       processedEventRepo,
@@ -53,6 +67,7 @@ describe('SendStaffInvitationUseCase', () => {
       staffPort,
       tenantPort,
       new InMemoryTransactionManager(),
+      templateRepo,
       configService,
     );
   });
@@ -66,9 +81,8 @@ describe('SendStaffInvitationUseCase', () => {
     const msg = dispatcher.dispatched[0];
     expect(msg.to).toBe('maria@lavacar.com.br');
     expect(msg.subject).toContain('Lava Car');
-    expect(msg.templateKey).toBe('staff-invitation');
-    expect(msg.data['tenantName']).toBe('Lava Car');
-    expect(msg.data['activationLink']).toContain('lavacar');
+    expect(msg.body).toContain('Maria');
+    expect(msg.body).toContain('lavacar/auth/staff');
 
     const logs = logRepo.all;
     expect(logs).toHaveLength(1);
@@ -113,7 +127,6 @@ describe('SendStaffInvitationUseCase', () => {
 
   it('tenant isolation: log is scoped to the correct tenantId', async () => {
     await useCase.execute(dto);
-
     expect(logRepo.all[0].tenantId).toBe(TENANT_ID);
   });
 });

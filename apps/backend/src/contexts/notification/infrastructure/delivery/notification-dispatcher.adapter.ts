@@ -16,17 +16,14 @@ export class NotificationDispatcherAdapter implements INotificationDispatcher {
   ) {}
 
   async dispatch(message: OutboundMessage): Promise<void> {
-    await Promise.all(
-      this.channels.map((channel) =>
-        channel.send(message).catch((err: unknown) => {
-          this.logger.error(
-            `Delivery channel ${channel.channelType} failed`,
-            err instanceof Error ? err.stack : String(err),
-            { tenantId: message.tenantId, to: message.to },
-          );
-          throw err;
-        }),
-      ),
-    );
+    const adapter = this.channels.find((c) => c.channelType === message.channel);
+    if (!adapter) {
+      this.logger.warn(`No adapter for channel ${message.channel} — skipping`, {
+        tenantId: message.tenantId,
+        to: message.to,
+      });
+      return;
+    }
+    await adapter.send(message);
   }
 }

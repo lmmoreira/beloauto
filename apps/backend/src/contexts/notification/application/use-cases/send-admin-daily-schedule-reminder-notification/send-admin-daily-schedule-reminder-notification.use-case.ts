@@ -27,9 +27,13 @@ import {
   INotificationTenantPort,
   NOTIFICATION_TENANT_PORT,
 } from '../../ports/notification-tenant.port';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const CHANNEL = 'EMAIL';
+const TRIGGER = NotificationTemplateKey.ADMIN_DAILY_SCHEDULE_REMINDER;
 
 export interface SendAdminDailyScheduleReminderNotificationUseCaseResult {
   emailSent: boolean;
@@ -46,6 +50,8 @@ export class SendAdminDailyScheduleReminderNotificationUseCase extends BaseNotif
     @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
     @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: INotificationTemplateRepository,
   ) {
     super(logRepo, processedEventRepo, dispatcher, txManager);
   }
@@ -53,13 +59,12 @@ export class SendAdminDailyScheduleReminderNotificationUseCase extends BaseNotif
   async execute(
     dto: SendAdminDailyScheduleReminderNotificationDto,
   ): Promise<SendAdminDailyScheduleReminderNotificationUseCaseResult> {
-    if (
-      await this.isAlreadySent(
-        dto.eventId,
-        NotificationTemplateKey.ADMIN_DAILY_SCHEDULE_REMINDER,
-        CHANNEL,
-      )
-    ) {
+    const templates = await this.templateRepo.findAllByTriggerEvent(dto.tenantId, TRIGGER);
+    if (templates.length === 0) {
+      this.logger.warn('No template found — skipping', {
+        tenantId: dto.tenantId,
+        triggerEvent: TRIGGER,
+      });
       return { emailSent: false, recipientCount: 0 };
     }
 
@@ -70,45 +75,14 @@ export class SendAdminDailyScheduleReminderNotificationUseCase extends BaseNotif
 
     const tenantInfo = await this.tenantPort.getTenantInfo(dto.tenantId);
     const timezone = tenantInfo?.timezone ?? 'America/Sao_Paulo';
-
     const bookingsHtml = this.buildBookingsHtml(dto.bookingsToday, timezone);
-    const subject = `Agenda do dia — ${dto.localDate}`;
 
-    try {
-      await Promise.all(
-        managerEmails.map((email) =>
-          this.dispatcher.dispatch({
-            tenantId: dto.tenantId,
-            to: email,
-            subject,
-            templateKey: NotificationTemplateKey.ADMIN_DAILY_SCHEDULE_REMINDER,
-            data: {
-              localDate: dto.localDate,
-              totalBookingsToday: dto.totalBookingsToday,
-              bookingsHtml,
-            },
-          }),
-        ),
-      );
-      await this.saveLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.ADMIN_DAILY_SCHEDULE_REMINDER,
-        CHANNEL,
-        managerEmails[0],
-      );
-      return { emailSent: true, recipientCount: managerEmails.length };
-    } catch (err: unknown) {
-      await this.saveFailedLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.ADMIN_DAILY_SCHEDULE_REMINDER,
-        CHANNEL,
-        managerEmails[0],
-        String(err),
-      );
-      throw err;
-    }
+    const emailSent = await this.dispatchTemplatesToMany(templates, dto, managerEmails, {
+      localDate: dto.localDate,
+      totalBookingsToday: String(dto.totalBookingsToday),
+      bookingsHtml,
+    });
+    return { emailSent, recipientCount: emailSent ? managerEmails.length : 0 };
   }
 
   private buildBookingsHtml(

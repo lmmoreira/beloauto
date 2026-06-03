@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
   TRANSACTION_MANAGER,
 } from '../../../../../shared/ports/transaction-manager.port';
-import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingInfoSubmittedNotificationDto } from '../../dtos/send-booking-info-submitted-notification.dto';
 import {
   INotificationDispatcher,
@@ -22,9 +22,13 @@ import {
   INotificationStaffPort,
   NOTIFICATION_STAFF_PORT,
 } from '../../ports/notification-staff.port';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const CHANNEL = 'EMAIL';
+const TRIGGER = NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN;
 
 export interface SendBookingInfoSubmittedNotificationUseCaseResult {
   emailSent: boolean;
@@ -39,6 +43,8 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: INotificationTemplateRepository,
     private readonly config: ConfigService,
   ) {
     super(logRepo, processedEventRepo, dispatcher, txManager);
@@ -47,13 +53,12 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
   async execute(
     dto: SendBookingInfoSubmittedNotificationDto,
   ): Promise<SendBookingInfoSubmittedNotificationUseCaseResult> {
-    if (
-      await this.isAlreadySent(
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
-        CHANNEL,
-      )
-    ) {
+    const templates = await this.templateRepo.findAllByTriggerEvent(dto.tenantId, TRIGGER);
+    if (templates.length === 0) {
+      this.logger.warn('No template found — skipping', {
+        tenantId: dto.tenantId,
+        triggerEvent: TRIGGER,
+      });
       return { emailSent: false };
     }
 
@@ -65,41 +70,12 @@ export class SendBookingInfoSubmittedNotificationUseCase extends BaseNotificatio
     const customerResponse =
       typeof dto.infoPayload['notes'] === 'string' ? dto.infoPayload['notes'] : '';
 
-    try {
-      await Promise.all(
-        managerEmails.map((email) =>
-          this.dispatcher.dispatch({
-            tenantId: dto.tenantId,
-            to: email,
-            subject: 'Cliente respondeu à solicitação de informações',
-            templateKey: NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
-            data: {
-              submittedByEmail: dto.submittedByEmail,
-              bookingId: dto.bookingId,
-              customerResponse,
-              bookingLink,
-            },
-          }),
-        ),
-      );
-      await this.saveLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
-        CHANNEL,
-        managerEmails[0],
-      );
-      return { emailSent: true };
-    } catch (err: unknown) {
-      await this.saveFailedLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_INFO_SUBMITTED_ADMIN,
-        CHANNEL,
-        managerEmails[0],
-        String(err),
-      );
-      throw err;
-    }
+    const emailSent = await this.dispatchTemplatesToMany(templates, dto, managerEmails, {
+      submittedByEmail: dto.submittedByEmail,
+      bookingId: dto.bookingId,
+      customerResponse,
+      bookingLink,
+    });
+    return { emailSent };
   }
 }

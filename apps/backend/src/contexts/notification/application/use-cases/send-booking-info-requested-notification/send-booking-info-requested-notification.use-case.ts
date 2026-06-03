@@ -19,10 +19,14 @@ import {
   INotificationProcessedEventRepository,
   NOTIFICATION_PROCESSED_EVENT_REPOSITORY,
 } from '../../ports/processed-event-repository.port';
+import {
+  INotificationTemplateRepository,
+  NOTIFICATION_TEMPLATE_REPOSITORY,
+} from '../../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from '../base-notification.use-case';
 
-const CHANNEL = 'EMAIL';
-const GUEST_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const TRIGGER = NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER;
+const GUEST_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 export interface SendBookingInfoRequestedNotificationUseCaseResult {
   emailSent: boolean;
@@ -36,6 +40,8 @@ export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificatio
     processedEventRepo: INotificationProcessedEventRepository,
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
+    @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
+    private readonly templateRepo: INotificationTemplateRepository,
     private readonly config: ConfigService,
   ) {
     super(logRepo, processedEventRepo, dispatcher, txManager);
@@ -44,49 +50,23 @@ export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificatio
   async execute(
     dto: SendBookingInfoRequestedNotificationDto,
   ): Promise<SendBookingInfoRequestedNotificationUseCaseResult> {
-    if (
-      await this.isAlreadySent(
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
-        CHANNEL,
-      )
-    ) {
+    const templates = await this.templateRepo.findAllByTriggerEvent(dto.tenantId, TRIGGER);
+    if (templates.length === 0) {
+      this.logger.warn('No template found — skipping', {
+        tenantId: dto.tenantId,
+        triggerEvent: TRIGGER,
+      });
       return { emailSent: false };
     }
 
     const respondLink = this.buildRespondLink(dto);
 
-    try {
-      await this.dispatcher.dispatch({
-        tenantId: dto.tenantId,
-        to: dto.guestEmail,
-        subject: 'Precisamos de mais informações sobre seu agendamento',
-        templateKey: NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
-        data: {
-          guestName: dto.guestName,
-          informationNeeded: dto.informationNeeded,
-          respondLink,
-        },
-      });
-      await this.saveLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
-        CHANNEL,
-        dto.guestEmail,
-      );
-      return { emailSent: true };
-    } catch (err: unknown) {
-      await this.saveFailedLog(
-        dto.tenantId,
-        dto.eventId,
-        NotificationTemplateKey.BOOKING_INFO_REQUESTED_CUSTOMER,
-        CHANNEL,
-        dto.guestEmail,
-        String(err),
-      );
-      throw err;
-    }
+    const emailSent = await this.dispatchTemplates(templates, dto, dto.guestEmail, {
+      guestName: dto.guestName,
+      informationNeeded: dto.informationNeeded,
+      respondLink,
+    });
+    return { emailSent };
   }
 
   private buildRespondLink(dto: SendBookingInfoRequestedNotificationDto): string {
@@ -97,13 +77,11 @@ export class SendBookingInfoRequestedNotificationUseCase extends BaseNotificatio
     }
 
     const secret = this.config.getOrThrow<string>('JWT_SECRET');
-
     const token = jwt.sign(
       { bookingId: dto.bookingId, tenantId: dto.tenantId, guestEmail: dto.guestEmail },
       secret,
       { expiresIn: GUEST_TOKEN_TTL_SECONDS },
     );
-
     return `${frontendUrl}/bookings/${dto.bookingId}/responder?token=${token}`;
   }
 }

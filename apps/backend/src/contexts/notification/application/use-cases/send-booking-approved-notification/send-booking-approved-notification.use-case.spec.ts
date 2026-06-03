@@ -2,8 +2,11 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingApprovedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
+import { NotificationTemplate } from '../../../domain/notification-template.aggregate';
+import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import { SendBookingApprovedNotificationUseCase } from './send-booking-approved-notification.use-case';
 
 const TENANT_ID = 'aaaaaaaa-0001-4000-8000-000000000001';
@@ -19,6 +22,7 @@ describe('SendBookingApprovedNotificationUseCase', () => {
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let dispatcher: InMemoryNotificationDispatcher;
   let tenantPort: InMemoryNotificationTenantPort;
+  let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendBookingApprovedNotificationUseCase;
 
   beforeEach(() => {
@@ -26,6 +30,8 @@ describe('SendBookingApprovedNotificationUseCase', () => {
     processedEventRepo = new InMemoryNotificationProcessedEventRepository();
     dispatcher = new InMemoryNotificationDispatcher();
     tenantPort = new InMemoryNotificationTenantPort();
+    templateRepo = new InMemoryNotificationTemplateRepository();
+
     tenantPort.setTenantInfo(TENANT_ID, {
       id: TENANT_ID,
       name: 'Lava Car',
@@ -33,12 +39,23 @@ describe('SendBookingApprovedNotificationUseCase', () => {
       timezone: 'America/Sao_Paulo',
       fromEmail: null,
     });
+    templateRepo.seed(
+      NotificationTemplate.create({
+        tenantId: TENANT_ID,
+        triggerEvent: NotificationTemplateKey.BOOKING_APPROVED_CUSTOMER,
+        channel: 'EMAIL',
+        subject: 'Seu agendamento foi confirmado!',
+        body: '<p>Olá, {{guestName}}! Data: {{localDate}} Horário: {{localTime}}</p>',
+      }),
+    );
+
     useCase = new SendBookingApprovedNotificationUseCase(
       logRepo,
       processedEventRepo,
       dispatcher,
       tenantPort,
       new InMemoryTransactionManager(),
+      templateRepo,
     );
   });
 
@@ -50,13 +67,11 @@ describe('SendBookingApprovedNotificationUseCase', () => {
 
     const msg = dispatcher.dispatched[0];
     expect(msg.to).toBe('joao@example.com');
-    expect(msg.subject).toBe('Seu agendamento foi confirmado! ✓');
-    expect(msg.templateKey).toBe('booking-approved-customer');
+    expect(msg.subject).toBe('Seu agendamento foi confirmado!');
+    expect(msg.channel).toBe('EMAIL');
     // 2026-06-15T16:00:00Z in America/Sao_Paulo (UTC-3) = 13:00
-    expect(msg.data['localTime']).toBe('13:00');
-    expect(msg.data['localDate']).toBe('2026-06-15');
-    expect(msg.data['serviceNames']).toBe('Lavagem Completa, Polimento');
-    expect(msg.data['totalPrice']).toContain('150');
+    expect(msg.body).toContain('13:00');
+    expect(msg.body).toContain('2026-06-15');
 
     const logs = logRepo.all;
     expect(logs).toHaveLength(1);
@@ -72,10 +87,28 @@ describe('SendBookingApprovedNotificationUseCase', () => {
       dispatcher,
       emptyTenantPort,
       new InMemoryTransactionManager(),
+      templateRepo,
     );
     const result = await uc.execute(dto);
     expect(result.emailSent).toBe(true);
-    expect(dispatcher.dispatched[0].data['localTime']).toBeDefined();
+    expect(dispatcher.dispatched[0].body).toBeDefined();
+  });
+
+  it('returns emailSent=false and logs warning when no template found', async () => {
+    const emptyTemplateRepo = new InMemoryNotificationTemplateRepository();
+    const uc = new SendBookingApprovedNotificationUseCase(
+      logRepo,
+      processedEventRepo,
+      dispatcher,
+      tenantPort,
+      new InMemoryTransactionManager(),
+      emptyTemplateRepo,
+    );
+
+    const result = await uc.execute(dto);
+
+    expect(result.emailSent).toBe(false);
+    expect(dispatcher.dispatched).toHaveLength(0);
   });
 
   it('is idempotent: second call with same eventId sends no email', async () => {

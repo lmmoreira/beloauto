@@ -1,137 +1,174 @@
 import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import { DataSource } from 'typeorm';
 import { uuidv7 } from '../../../../shared/domain/uuid-v7';
 import { IEventBus } from '../../../../shared/ports/event-bus.port';
-import { NOTIFICATION_CUSTOMER_PORT } from '../../application/ports/notification-customer.port';
-import { NOTIFICATION_STAFF_PORT } from '../../application/ports/notification-staff.port';
-import { NOTIFICATION_TENANT_PORT } from '../../application/ports/notification-tenant.port';
-import { NOTIFICATION_SERVICE_PORT } from '../../application/ports/notification-service.port';
-import { NOTIFICATION_LOG_REPOSITORY } from '../../application/ports/notification-log-repository.port';
-import { NOTIFICATION_PROCESSED_EVENT_REPOSITORY } from '../../application/ports/processed-event-repository.port';
 import { PointsExpiringSoon } from '../../../loyalty/domain/events/points-expiring-soon.event';
-import { InMemoryNotificationCustomerPort } from '../../../../test/infrastructure/in-memory-notification-customer.port';
-import { InMemoryNotificationStaffPort } from '../../../../test/infrastructure/in-memory-notification-staff.port';
-import { InMemoryNotificationTenantPort } from '../../../../test/infrastructure/in-memory-notification-tenant.port';
-import { InMemoryNotificationServicePort } from '../../../../test/infrastructure/in-memory-notification-service.port';
-import { InMemoryNotificationLogRepository } from '../../../../test/repositories/notification/in-memory-notification-log.repository';
-import { InMemoryNotificationProcessedEventRepository } from '../../../../test/repositories/notification/in-memory-processed-event.repository';
+import { NotificationLogEntity } from '../entities/notification-log.entity';
+import { CustomerEntity } from '../../../customer/infrastructure/entities/customer.entity';
+import { CustomerEntityBuilder } from '../../../../test/builders/customer/customer-entity.builder';
 import { InMemoryNotificationDispatcher } from '../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { createNotificationIntegrationApp } from '../../../../test/utils/notification-integration-app';
 import { waitFor } from '../../../../test/utils/wait-for';
 
-const TENANT_A = 'aaaaaaaa-1600-4000-8000-000000000001';
-const TENANT_B = 'bbbbbbbb-1600-4000-8000-000000000001';
-const CUSTOMER_A = 'cccccccc-1600-4000-8000-000000000001';
+const PLATFORM_KEY = 'pts-expiring-integration-test-key-xxxxxx';
 
-describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → dispatcher) integration', () => {
+describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → real DB) integration', () => {
   let app: INestApplication;
+  let ds: DataSource;
   let dispatcher: InMemoryNotificationDispatcher;
-  let customerPort: InMemoryNotificationCustomerPort;
-  let logRepo: InMemoryNotificationLogRepository;
-  let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let eventBus: IEventBus;
+  let tenantId: string;
+  let customerId: string;
+  let customerEmail: string;
 
   beforeAll(async () => {
+    process.env['PLATFORM_ADMIN_KEY'] = PLATFORM_KEY;
     process.env['PUBSUB_SUBSCRIPTION_SUFFIX'] = `-expiring-soon-${Date.now()}`;
+    process.env['JWT_SECRET'] = 'pts-expiring-integration-test-secret-32c';
 
     dispatcher = new InMemoryNotificationDispatcher();
-    customerPort = new InMemoryNotificationCustomerPort();
-    logRepo = new InMemoryNotificationLogRepository();
-    processedEventRepo = new InMemoryNotificationProcessedEventRepository();
+    ({ app, ds, eventBus } = await createNotificationIntegrationApp({
+      dispatcher,
+      extraEntities: [CustomerEntity],
+      withTenantInterceptor: true,
+    }));
 
-    customerPort.setCustomer(TENANT_A, CUSTOMER_A, {
-      email: 'joao@example.com',
-      name: 'João Silva',
+    const slug = `pts-expiring-${Date.now()}`;
+    const adminEmail = `admin-pts-${Date.now()}@lavacar.com.br`;
+
+    const { body } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${PLATFORM_KEY}`)
+      .send({
+        name: 'Points Expiring Integration',
+        slug,
+        adminEmail,
+        timezone: 'America/Sao_Paulo',
+      })
+      .expect(201);
+
+    tenantId = body.tenantId as string;
+
+    await waitFor(async () => {
+      const log = await ds.getRepository(NotificationLogEntity).findOne({
+        where: { tenantId, notificationType: 'staff-invitation' },
+      });
+      return log !== null;
     });
 
-    // Use InMemory log and processed-event repos so this spec never writes to the real DB.
-    // This prevents cross-spec Pub/Sub fan-out from contaminating notification_logs counts
-    // in other parallel specs (e.g. booking-full-workflow.handler.integration.spec.ts).
-    ({ app, eventBus } = await createNotificationIntegrationApp({
-      dispatcher,
-      configure: (builder) =>
-        builder
-          .overrideProvider(NOTIFICATION_CUSTOMER_PORT)
-          .useValue(customerPort)
-          .overrideProvider(NOTIFICATION_STAFF_PORT)
-          .useValue(new InMemoryNotificationStaffPort())
-          .overrideProvider(NOTIFICATION_TENANT_PORT)
-          .useValue(new InMemoryNotificationTenantPort())
-          .overrideProvider(NOTIFICATION_SERVICE_PORT)
-          .useValue(new InMemoryNotificationServicePort())
-          .overrideProvider(NOTIFICATION_LOG_REPOSITORY)
-          .useValue(logRepo)
-          .overrideProvider(NOTIFICATION_PROCESSED_EVENT_REPOSITORY)
-          .useValue(processedEventRepo),
-    }));
+    customerId = uuidv7();
+    customerEmail = `customer-pts-${Date.now()}@example.com`;
+    await ds
+      .getRepository(CustomerEntity)
+      .save(
+        new CustomerEntityBuilder()
+          .withId(customerId)
+          .withTenantId(tenantId)
+          .withEmail(customerEmail)
+          .build(),
+      );
   });
 
   afterAll(async () => {
     await app.close();
+    delete process.env['PLATFORM_ADMIN_KEY'];
     delete process.env['PUBSUB_SUBSCRIPTION_SUFFIX'];
+    delete process.env['JWT_SECRET'];
   });
 
-  afterEach(() => {
-    dispatcher.clear();
-    processedEventRepo.clear();
-  });
+  afterEach(() => dispatcher.clear());
 
-  it('PointsExpiringSoon → dispatches warning email to customer', async () => {
-    const event = new PointsExpiringSoon(TENANT_A, uuidv7(), {
-      customerId: CUSTOMER_A,
+  it('PointsExpiringSoon → writes log and dispatches warning email to customer', async () => {
+    const event = new PointsExpiringSoon(tenantId, uuidv7(), {
+      customerId,
       pointsExpiringSoon: 30,
       earliestExpiresAt: '2026-06-09T00:00:00.000Z',
     });
 
     await eventBus.publish(event);
 
-    await waitFor(async () => dispatcher.dispatched.some((m) => m.to === 'joao@example.com'));
+    await waitFor(async () => {
+      const log = await ds.getRepository(NotificationLogEntity).findOne({
+        where: { tenantId, eventId: event.eventId, notificationType: 'points-expiring-soon' },
+      });
+      return log !== null;
+    });
 
-    const msg = dispatcher.dispatched.find((m) => m.to === 'joao@example.com')!;
-    expect(msg.subject).toBe('Seus pontos de fidelidade estão prestes a expirar!');
-    expect(msg.data['pointsExpiringSoon']).toBe(30);
+    const msg = dispatcher.dispatched.find((m) => m.to === customerEmail);
+    expect(msg).toBeDefined();
+    expect(msg!.subject).toContain('expirar');
   });
 
-  it('is idempotent — publishing same event twice writes only one notification log', async () => {
-    const event = new PointsExpiringSoon(TENANT_A, uuidv7(), {
-      customerId: CUSTOMER_A,
+  it('is idempotent — replaying same event produces only one notification log', async () => {
+    const event = new PointsExpiringSoon(tenantId, uuidv7(), {
+      customerId,
       pointsExpiringSoon: 10,
       earliestExpiresAt: '2026-06-09T00:00:00.000Z',
     });
 
     await eventBus.publish(event);
-    await waitFor(async () =>
-      logRepo.all.some(
-        (l) => l.eventId === event.eventId && l.notificationType === 'points-expiring-soon',
-      ),
-    );
+    await waitFor(async () => {
+      const log = await ds.getRepository(NotificationLogEntity).findOne({
+        where: { tenantId, eventId: event.eventId, notificationType: 'points-expiring-soon' },
+      });
+      return log !== null;
+    });
 
     await eventBus.publish(event);
+    await new Promise((r) => setTimeout(r, 400));
 
-    await new Promise((resolve) => setTimeout(resolve, 400));
-
-    const logs = logRepo.all.filter(
-      (l) => l.eventId === event.eventId && l.notificationType === 'points-expiring-soon',
-    );
+    const logs = await ds.getRepository(NotificationLogEntity).find({
+      where: { tenantId, eventId: event.eventId, notificationType: 'points-expiring-soon' },
+    });
     expect(logs).toHaveLength(1);
   });
 
-  it('tenant isolation: Tenant A event does not dispatch to Tenant B customer', async () => {
-    customerPort.setCustomer(TENANT_B, CUSTOMER_A, {
-      email: 'tenantb@example.com',
-      name: 'Tenant B Customer',
+  it('tenant isolation: PointsExpiringSoon for Tenant A does not notify Tenant B customer', async () => {
+    const tenantBSlug = `pts-expiring-b-${Date.now()}`;
+    const tenantBAdminEmail = `admin-pts-b-${Date.now()}@lavacar.com.br`;
+    const { body: bodyB } = await request(app.getHttpServer())
+      .post('/internal/tenants')
+      .set('Authorization', `Bearer ${PLATFORM_KEY}`)
+      .send({
+        name: 'Points Expiring B',
+        slug: tenantBSlug,
+        adminEmail: tenantBAdminEmail,
+        timezone: 'America/Sao_Paulo',
+      })
+      .expect(201);
+    const tenantBId = bodyB.tenantId as string;
+
+    await waitFor(async () => {
+      const log = await ds.getRepository(NotificationLogEntity).findOne({
+        where: { tenantId: tenantBId, notificationType: 'staff-invitation' },
+      });
+      return log !== null;
     });
 
-    const event = new PointsExpiringSoon(TENANT_A, uuidv7(), {
-      customerId: CUSTOMER_A,
+    const tenantBCustomerEmail = `customer-pts-b-${Date.now()}@example.com`;
+    await ds
+      .getRepository(CustomerEntity)
+      .save(
+        new CustomerEntityBuilder()
+          .withId(uuidv7())
+          .withTenantId(tenantBId)
+          .withEmail(tenantBCustomerEmail)
+          .build(),
+      );
+
+    dispatcher.clear();
+
+    const event = new PointsExpiringSoon(tenantId, uuidv7(), {
+      customerId,
       pointsExpiringSoon: 25,
       earliestExpiresAt: '2026-06-09T00:00:00.000Z',
     });
 
     await eventBus.publish(event);
+    await waitFor(async () => dispatcher.dispatched.some((m) => m.to === customerEmail));
 
-    await waitFor(async () => dispatcher.dispatched.some((m) => m.to === 'joao@example.com'));
-
-    expect(dispatcher.dispatched.some((m) => m.to === 'tenantb@example.com')).toBe(false);
-    expect(dispatcher.dispatched.some((m) => m.to === 'joao@example.com')).toBe(true);
+    expect(dispatcher.dispatched.some((m) => m.to === tenantBCustomerEmail)).toBe(false);
+    expect(dispatcher.dispatched.some((m) => m.to === customerEmail)).toBe(true);
   });
 });

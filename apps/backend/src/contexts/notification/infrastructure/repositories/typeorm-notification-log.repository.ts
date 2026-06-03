@@ -17,9 +17,21 @@ export class TypeOrmNotificationLogRepository implements INotificationLogReposit
     const manager = getActiveEntityManager();
     const entity = this.toEntity(log);
     if (manager) {
-      await manager.save(NotificationLogEntity, entity);
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into(NotificationLogEntity)
+        .values(entity)
+        .orIgnore()
+        .execute();
     } else {
-      await this.repo.save(entity);
+      await this.repo
+        .createQueryBuilder()
+        .insert()
+        .into(NotificationLogEntity)
+        .values(entity)
+        .orIgnore()
+        .execute();
     }
   }
 
