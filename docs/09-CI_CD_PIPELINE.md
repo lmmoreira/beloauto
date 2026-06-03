@@ -1335,6 +1335,83 @@ export class HealthController {
 
 ---
 
+## Event Reliability
+
+### ACK / NACK contract
+
+Handlers **never** call `message.ack()` or `message.nack()` directly. `GcpPubSubEventBusAdapter.dispatch()` owns the full ACK/NACK lifecycle:
+
+| Outcome | Adapter action | Effect |
+|---|---|---|
+| Handler completes without throwing | `message.ack()` | Message removed from subscription — success |
+| Handler throws (any error) below threshold | `message.nack()` | Pub/Sub redelivers with backoff |
+| Handler throws at `PUBSUB_MAX_DELIVERY_ATTEMPTS` | `publishToDlq()` + `message.ack()` | Routed to dead-letter topic; no further retry |
+| Message data is unparseable JSON | Log raw bytes at ERROR + `message.ack()` | Silently removed — retry cannot fix a malformed payload |
+
+Handlers signal failure by **throwing**. The adapter translates that into a nack or a DLQ route transparently.
+
+---
+
+### Dead-letter queue (DLQ)
+
+**Topic:** `beloauto-dead-letter`  
+**Subscription:** `beloauto-dead-letter-monitor`  
+**Threshold:** `PUBSUB_MAX_DELIVERY_ATTEMPTS` env var (default `5`)
+
+**Routing is programmatic, not infrastructure-native.**  
+`GcpPubSubEventBusAdapter.dispatch()` tracks `message.deliveryAttempt`. When it reaches the threshold it publishes the original message bytes to `beloauto-dead-letter` (preserving all original attributes plus `originalEventName`, `deadLetterReason`, `deliveryAttempt`) and ACKs the original message. This works identically on the local emulator and in production.
+
+```
+Handler nacks (attempt 1–4)
+  → Pub/Sub redelivers with exponential backoff
+
+Handler nacks (attempt 5 = PUBSUB_MAX_DELIVERY_ATTEMPTS)
+  → Adapter publishes to beloauto-dead-letter
+  → Adapter ACKs original message
+  → DeadLetterHandler receives it, logs at ERROR, ACKs
+```
+
+**Why no `NotificationLog` row for DLQ messages:**  
+Each failed delivery attempt creates a `NotificationLog(status=FAILED)` row via `BaseNotificationUseCase.saveFailedLog()`. By the time a message reaches the DLQ, those FAILED rows already exist. The DLQ signal is an observability concern — ERROR-level structured logs (routed to Loki → Grafana alert) are the correct instrument.
+
+---
+
+### Pub/Sub resource ownership by environment
+
+| Environment | Who creates topics / subscriptions |
+|---|---|
+| Local dev (emulator) | `GcpPubSubEventBusAdapter` — auto-creates on `onApplicationBootstrap()` |
+| CI (emulator via Testcontainers or PUBSUB_EMULATOR_HOST) | `GcpPubSubEventBusAdapter` — auto-creates |
+| Staging | **Terraform** (`infrastructure/terraform/pubsub.tf`) — app must NOT create |
+| Production | **Terraform** (`infrastructure/terraform/pubsub.tf`) — app must NOT create |
+
+Set `PUBSUB_AUTO_CREATE=false` in staging and production. With this flag the adapter skips `ensureTopicOnce()` and `ensureSubscription()` entirely — Terraform pre-creates all resources before the app starts.
+
+> **Known gap:** a future story should enforce that `PUBSUB_AUTO_CREATE=false` is set via the Cloud Run deploy step in `deploy-backend.yml` so it cannot be accidentally omitted.
+
+**Terraform resources (`infrastructure/terraform/pubsub.tf`):**
+
+```
+google_pubsub_topic.dead_letter          → beloauto-dead-letter
+google_pubsub_subscription.loyalty_consumer      → beloauto-loyalty-consumer (filter: BookingCompleted)
+google_pubsub_subscription.notification_consumer → beloauto-notification-consumer (all events)
+google_pubsub_subscription.dead_letter_monitor   → beloauto-dead-letter-monitor
+```
+
+All subscriptions in staging/prod have `dead_letter_policy { max_delivery_attempts = 5 }` pointing to `beloauto-dead-letter`. In practice the app's programmatic routing fires first (same threshold), so native Pub/Sub dead-lettering acts as a safety net for cases where the adapter itself crashes before routing.
+
+---
+
+### Testing DLQ behaviour
+
+The Pub/Sub emulator **does not support** native dead-letter policies. Test DLQ routing by:
+
+1. **Adapter unit test** — mock `message.deliveryAttempt = PUBSUB_MAX_DELIVERY_ATTEMPTS`, assert `publishToDlq` called and `message.ack()` called (not `nack()`).
+2. **Handler unit test** — call `deadLetterHandler.handle(event)` directly, assert `logger.error` called and no throw.
+3. **Do not** attempt to trigger DLQ routing through the emulator subscription flow in integration tests — it is not supported.
+
+---
+
 ## Quality Gates — Per Pipeline Summary
 
 | Pipeline | Static | Tests | Security | Sonar | Gate |
