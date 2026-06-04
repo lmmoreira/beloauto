@@ -9,7 +9,6 @@ import { CustomerEntityBuilder } from '../../../../test/builders/customer/index'
 import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { futureDate } from '../../../../test/utils/date-helpers';
 import { createBookingIntegrationApp } from '../../../../test/utils/booking-integration-app';
-import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
 import { PlatformModule } from '../../../platform/platform.module';
 import { CustomerEntity } from '../../../customer/infrastructure/entities/customer.entity';
 import { ServiceEntity } from '../entities/service.entity';
@@ -37,8 +36,7 @@ describe('BookingController (integration)', () => {
   beforeAll(async () => {
     process.env['PLATFORM_ADMIN_KEY'] = TEST_KEY;
     ({ app, ds } = await createBookingIntegrationApp({
-      extraModules: [EventBusModule, PlatformModule],
-      overrideEventBus: true,
+      extraModules: [PlatformModule],
     }));
 
     // Seed tenants via the canonical API — no direct DB access to the platform context.
