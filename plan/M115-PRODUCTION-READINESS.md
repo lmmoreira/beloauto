@@ -184,7 +184,7 @@ Also update the inline header objects in `BackendHttpService.getForPublic()` and
 
 ---
 
-### M115-S04 — Rename `guest*` → `contact*` on Booking aggregate, events, and DB columns (tech debt)
+### M115-S04 — Rename `guest*` → `contact*` on Booking aggregate, events, and DB columns (tech debt) ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts`  
 **Complexity:** M  
