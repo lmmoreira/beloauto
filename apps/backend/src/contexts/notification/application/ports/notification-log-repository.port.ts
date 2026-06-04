@@ -1,4 +1,4 @@
-import { NotificationLog } from '../../domain/notification-log.entity';
+import { NotificationLog } from '../../domain/notification-log.aggregate';
 
 export const NOTIFICATION_LOG_REPOSITORY = Symbol('INotificationLogRepository');
 

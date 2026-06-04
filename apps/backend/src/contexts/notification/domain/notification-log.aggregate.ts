@@ -1,3 +1,4 @@
+import { AggregateRoot } from '../../../shared/domain/aggregate-root';
 import { uuidv7 } from '../../../shared/domain/uuid-v7';
 
 export type NotificationStatus = 'PENDING' | 'SENT' | 'FAILED';
@@ -16,7 +17,7 @@ export interface NotificationLogProps {
   createdAt: Date;
 }
 
-export class NotificationLog {
+export class NotificationLog extends AggregateRoot {
   readonly id: string;
   readonly tenantId: string;
   readonly eventId: string;
@@ -30,6 +31,7 @@ export class NotificationLog {
   readonly createdAt: Date;
 
   private constructor(props: NotificationLogProps) {
+    super();
     this.id = props.id;
     this.tenantId = props.tenantId;
     this.eventId = props.eventId;

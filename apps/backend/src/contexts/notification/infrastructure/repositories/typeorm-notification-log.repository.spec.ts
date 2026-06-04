@@ -2,7 +2,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as transactionContext from '../../../../shared/infrastructure/transaction-context';
-import { NotificationLog } from '../../domain/notification-log.entity';
+import { NotificationLog } from '../../domain/notification-log.aggregate';
 import { NotificationLogEntity } from '../entities/notification-log.entity';
 import { TypeOrmNotificationLogRepository } from './typeorm-notification-log.repository';
 

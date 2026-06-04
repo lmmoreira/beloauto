@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { getActiveEntityManager } from '../../../../shared/infrastructure/transaction-context';
 import { INotificationLogRepository } from '../../application/ports/notification-log-repository.port';
-import { NotificationLog } from '../../domain/notification-log.entity';
+import { NotificationLog } from '../../domain/notification-log.aggregate';
 import { NotificationLogEntity } from '../entities/notification-log.entity';
 
 const UPSERT_SQL = `
