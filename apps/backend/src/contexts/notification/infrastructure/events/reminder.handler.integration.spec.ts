@@ -162,6 +162,36 @@ describe('Reminder handlers (Pub/Sub → handler → use case → real DB templa
     ).toBe(true);
   });
 
+  it('BookingReminderDue dispatch failure → handler rethrows; retry delivers email', async () => {
+    const event = new BookingReminderDue(tenantId, uuidv7(), {
+      bookingId: uuidv7(),
+      customerId: uuidv7(),
+      recipientEmail: 'fail-test@example.com',
+      customerName: 'Fail Test',
+      scheduledAt: '2026-07-05T10:00:00.000Z',
+      appointmentSlot: {
+        startTime: '2026-07-05T10:00:00.000Z',
+        endTime: '2026-07-05T11:00:00.000Z',
+      },
+      lines: [{ serviceId: uuidv7(), serviceName: 'Lavagem' }],
+    });
+
+    dispatcher.failNext(new Error('SMTP connection refused'));
+    await eventBus.publish(event);
+
+    // After the failure the handler nacks, Pub/Sub retries, and the retry dispatches the email.
+    // Waiting for SENT (stable) avoids the race: the FAILED state is transient and
+    // processedEventRepo is cleared by afterEach making failNext vulnerable to re-deliveries.
+    await waitFor(async () =>
+      logRepo.all.some((l) => l.eventId === event.eventId && l.status === 'SENT'),
+    );
+
+    const sentLog = logRepo.all.find((l) => l.eventId === event.eventId && l.status === 'SENT');
+    expect(sentLog).toBeDefined();
+    expect(sentLog!.notificationType).toBe('booking-reminder-due');
+    expect(dispatcher.dispatched.some((m) => m.to === 'fail-test@example.com')).toBe(true);
+  });
+
   it('tenant isolation: BookingReminderDue for Tenant A does not write log for Tenant B', async () => {
     const tenantBSlug = `reminder-b-${Date.now()}`;
     const tenantBAdminEmail = `admin-reminder-b-${Date.now()}@lavacar.com.br`;

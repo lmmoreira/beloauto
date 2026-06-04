@@ -1,5 +1,5 @@
 import { INotificationLogRepository } from '../../../contexts/notification/application/ports/notification-log-repository.port';
-import { NotificationLog } from '../../../contexts/notification/domain/notification-log.entity';
+import { NotificationLog } from '../../../contexts/notification/domain/notification-log.aggregate';
 
 export class InMemoryNotificationLogRepository implements INotificationLogRepository {
   private readonly store: NotificationLog[] = [];

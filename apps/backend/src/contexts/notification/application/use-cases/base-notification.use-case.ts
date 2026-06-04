@@ -1,6 +1,6 @@
 import { AppLogger } from '../../../../shared/observability/app-logger';
 import { ITransactionManager } from '../../../../shared/ports/transaction-manager.port';
-import { NotificationLog } from '../../domain/notification-log.entity';
+import { NotificationLog } from '../../domain/notification-log.aggregate';
 import { NotificationTemplate } from '../../domain/notification-template.aggregate';
 import { INotificationDispatcher } from '../ports/notification-dispatcher.port';
 import { INotificationLogRepository } from '../ports/notification-log-repository.port';

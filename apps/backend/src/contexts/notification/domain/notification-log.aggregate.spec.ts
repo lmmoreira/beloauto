@@ -1,4 +1,4 @@
-import { NotificationLog } from './notification-log.entity';
+import { NotificationLog } from './notification-log.aggregate';
 
 const BASE_PROPS = {
   tenantId: 'aaaaaaaa-0000-4000-8000-000000000001',

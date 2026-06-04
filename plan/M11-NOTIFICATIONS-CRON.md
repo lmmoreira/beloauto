@@ -551,7 +551,7 @@ Implement the weekly loyalty expiry warning: GCP Cloud Scheduler fires `POST /cr
 
 ---
 
-### M11-S07 — Refactor all notification handlers to use full template + log system
+### M11-S07 — Refactor all notification handlers to use full template + log system ✅ Done
 
 **Agent:** `backend-ts`  
 **Complexity:** M  
@@ -686,19 +686,147 @@ No use case changes needed.
 
 **Agent:** `backend-ts`  
 **Complexity:** S  
-**Docs to load:** `docs/05-BOUNDED_CONTEXTS.md` § event bus, `docs/09-CI_CD_PIPELINE.md` § event reliability
+**Docs to load:** `docs/05-BOUNDED_CONTEXTS.md` § Communication Patterns, `docs/09-CI_CD_PIPELINE.md` § Event Reliability
 
 **Description:**  
-Implement the dead-letter queue (DLQ) handler for Pub/Sub. When a message fails processing more than 5 times (configurable), Pub/Sub delivers it to the DLQ subscription. A handler logs these failed messages as CRITICAL alerts so they can be investigated without being silently lost.
+Implement dead-letter queue (DLQ) handling for Pub/Sub. After `PUBSUB_MAX_DELIVERY_ATTEMPTS` failed nacks (default 5), the `GcpPubSubEventBusAdapter` programmatically routes the original message to the `beloauto-dead-letter` topic and ACKs it, preventing Pub/Sub from retrying indefinitely. `DeadLetterHandler` subscribes to that topic and logs the event at ERROR level so ops can investigate without silent data loss.
 
-**What to create:**
-- `DeadLetterHandler` — subscribes to the `beloauto-events-dead-letter` subscription
-- Logs each DLQ message at ERROR level with full context: `eventId`, `eventName`, `tenantId`, `deliveryAttempt`
-- Persists a `NotificationLog` record with `status=FAILED`, `errorMessage=<dlq reason>`
-- Does NOT retry — DLQ messages require human investigation
+**Why programmatic routing (not native Pub/Sub dead-letter policy):**  
+The Pub/Sub emulator does not support native dead-letter policies, so integration tests cannot trigger DLQ routing via infrastructure config. Routing in the adapter (`GcpPubSubEventBusAdapter.dispatch()`) works identically in local dev, CI, and production. In staging/production Terraform (`infrastructure/terraform/pubsub.tf`) creates the `beloauto-dead-letter` topic and the `beloauto-dead-letter-monitor` subscription — the adapter creates them on the emulator only (auto-creation is suppressed in staging/prod via the `PUBSUB_AUTO_CREATE` guard introduced in this story).
+
+**Why no new `NotificationLog` row for DLQ:**  
+Each failed delivery attempt already creates a `NotificationLog` row with `status=FAILED` via `BaseNotificationUseCase.saveFailedLog()`. By the time a message reaches the DLQ, 5 FAILED rows are already present for that `eventId`. Adding a 6th DLQ row with `channel='UNKNOWN'` adds noise without actionable data. DLQ detection is an observability concern — ERROR-level structured logs routed to Loki/Grafana are the correct signal.
+
+**Changes to `GcpPubSubEventBusAdapter`:**
+
+Add `PUBSUB_MAX_DELIVERY_ATTEMPTS` (default 5) and `PUBSUB_AUTO_CREATE` (default `true`) to `env.validation.ts`. In `dispatch()`:
+
+```typescript
+private async dispatch(message, eventName, handler): Promise<void> {
+  try {
+    const event = JSON.parse(message.data.toString()) as DomainEvent;
+    await handler(event);
+    message.ack();
+  } catch (err) {
+    const attempt = message.deliveryAttempt ?? 1;
+    const max = this.config.get<number>('PUBSUB_MAX_DELIVERY_ATTEMPTS', 5);
+    if (attempt >= max) {
+      await this.publishToDlq(message, eventName, err);
+      message.ack();   // stop retrying — permanently routed to DLQ
+    } else {
+      message.nack();  // normal retry
+    }
+  }
+}
+
+private async publishToDlq(message: Message, eventName: string, err: unknown): Promise<void> {
+  const dlqTopic = 'beloauto-dead-letter';
+  await this.ensureTopicOnce(dlqTopic);
+  const enrichedData = {
+    ...(JSON.parse(message.data.toString()) as Record<string, unknown>),
+    deadLetterReason: err instanceof Error ? err.message : String(err),
+    deliveryAttempt: message.deliveryAttempt ?? 1,
+  };
+  await this.pubsub.topic(dlqTopic).publishMessage({
+    data: Buffer.from(JSON.stringify(enrichedData)),
+    attributes: {
+      ...message.attributes,
+      originalEventName: eventName,
+    },
+  });
+}
+```
+
+Guard auto-creation in `ensureTopicOnce()` and `ensureSubscription()` behind `PUBSUB_AUTO_CREATE`:
+
+```typescript
+private async ensureTopicOnce(topicName: string): Promise<void> {
+  if (!this.config.get<boolean>('PUBSUB_AUTO_CREATE', true)) return;
+  // ... existing logic
+}
+```
+
+**`DeadLetterHandler`** (`notification/infrastructure/events/dead-letter.handler.ts`):
+
+```typescript
+@Injectable()
+export class DeadLetterHandler implements OnModuleInit {
+  private readonly logger = new AppLogger(DeadLetterHandler.name);
+
+  constructor(@Inject(EVENT_BUS) private readonly eventBus: IEventBus) {}
+
+  onModuleInit(): void {
+    this.eventBus.subscribe<DomainEvent>(
+      'dead-letter',
+      (event) => this.handle(event),
+      'monitor',
+    );
+  }
+
+  async handle(event: DomainEvent): Promise<void> {
+    this.logger.error('Dead-letter message received — requires human investigation', undefined, {
+      eventId: event.eventId,
+      eventName: event.eventName,
+      tenantId: event.tenantId,
+      deliveryAttempt: (event as Record<string, unknown>)['deliveryAttempt'],
+      deadLetterReason: (event as Record<string, unknown>)['deadLetterReason'],
+    });
+    // Does NOT throw — adapter must ACK to prevent infinite DLQ redelivery
+  }
+}
+```
+
+Subscription created by the adapter: `beloauto-dead-letter-monitor` (matches `pubsub.tf`).
+
+**Unparseable messages (JSON.parse fails in `dispatch()`):**  
+Catch the parse error separately, log raw bytes at ERROR level, and ACK. No handler invoked. A malformed payload cannot be retried meaningfully.
+
+```typescript
+// in dispatch(), before calling handler:
+let event: DomainEvent;
+try {
+  event = JSON.parse(message.data.toString()) as DomainEvent;
+} catch {
+  this.logger.error('[pubsub] unparseable message — ACKing to prevent retry loop', undefined, {
+    eventName,
+    rawBytes: message.data.toString().slice(0, 200),
+  });
+  message.ack();
+  return;
+}
+```
+
+**Environment variables (add to `env.validation.ts` and `.env.example`):**
+
+| Var | Validation | Default | Notes |
+|---|---|---|---|
+| `PUBSUB_MAX_DELIVERY_ATTEMPTS` | `z.coerce.number().int().min(1).default(5)` | `5` | After this many nacks, adapter routes to DLQ |
+| `PUBSUB_AUTO_CREATE` | `z.coerce.boolean().default(true)` | `true` | Default `true` (local dev only). Set `false` in staging/prod — Terraform owns all Pub/Sub resources there |
+
+**Files to create / edit:**
+
+| Action | Path |
+|---|---|
+| EDIT | `src/shared/infrastructure/gcp-pubsub-event-bus.adapter.ts` |
+| EDIT | `src/shared/infrastructure/gcp-pubsub-event-bus.adapter.spec.ts` |
+| NEW | `src/contexts/notification/infrastructure/events/dead-letter.handler.ts` |
+| NEW | `src/contexts/notification/infrastructure/events/dead-letter.handler.spec.ts` |
+| EDIT | `src/contexts/notification/notification.module.ts` |
+| EDIT | `apps/backend/src/config/env.validation.ts` |
+| EDIT | `apps/backend/.env.example` |
 
 **Acceptance criteria:**
-- [ ] A message that fails 5 times is routed to the DLQ subscription (configured in Pub/Sub emulator)
-- [ ] `DeadLetterHandler` logs the event at ERROR level with all required context fields
-- [ ] A `NotificationLog` row with `status=FAILED` is created for DLQ messages
-- [ ] DLQ messages are ACKed after logging (to prevent infinite DLQ redelivery)
+- [ ] `GcpPubSubEventBusAdapter.dispatch()` routes to `beloauto-dead-letter` topic and ACKs after `PUBSUB_MAX_DELIVERY_ATTEMPTS` failed nacks; unit test asserts `publishToDlq` called and `message.ack()` called (not `nack()`) on the Nth failure
+- [ ] `GcpPubSubEventBusAdapter.dispatch()` calls `message.nack()` (not ACK) on attempts below the threshold; unit test asserts retry behaviour
+- [ ] Unparseable message (invalid JSON): adapter logs at ERROR with raw bytes (truncated to 200 chars), calls `message.ack()`, does not invoke handler; unit test asserts this path
+- [ ] `PUBSUB_AUTO_CREATE=false`: `ensureTopicOnce()` and `ensureSubscription()` are no-ops — topics/subscriptions are not created; unit test asserts
+- [ ] `DeadLetterHandler` subscribes to `'dead-letter'` with consumer name `'monitor'` → subscription `beloauto-dead-letter-monitor`
+- [ ] `DeadLetterHandler.handle()` logs at ERROR level with `eventId`, `eventName`, `tenantId`, `deliveryAttempt`, `deadLetterReason`
+- [ ] `DeadLetterHandler.handle()` does NOT throw — adapter always ACKs DLQ messages
+- [ ] `DeadLetterHandler` registered in `NotificationModule`
+- [ ] `PUBSUB_MAX_DELIVERY_ATTEMPTS` and `PUBSUB_AUTO_CREATE` documented in `.env.example` with note: "Set PUBSUB_AUTO_CREATE=false in staging/prod — Terraform owns all Pub/Sub resources"
+- [ ] Unit test: `DeadLetterHandler.handle(event)` → asserts `logger.error` called with all required context fields
+- [ ] Integration test: call `deadLetterHandler.handle(event)` directly (no emulator DLQ routing needed) → assert no throw
+- [ ] No tenant-isolation test required — `DeadLetterHandler` is infrastructure-only and does not query tenant data; logging only
+
+**Dependencies:** M11-S02, M11-S07
