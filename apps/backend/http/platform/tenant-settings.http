@@ -1,16 +1,18 @@
 # Platform — Tenant Settings
 # UC-026: Admin edits tenant settings
+# Guarded by ManagerRoleGuard — requires X-Actor-Role: MANAGER on every request.
 #
 # Prerequisites:
-#   1. pnpm infra:up           (start PostgreSQL + Pub/Sub emulator)
+#   1. pnpm infra:up
 #   2. pnpm --filter @beloauto/backend run migration:run
-#   3. pnpm --filter @beloauto/backend run dev
-#   4. Provision a tenant first (see internal-tenants.http) and copy the tenantId below
+#   3. pnpm --filter @beloauto/backend run seed
+#   4. pnpm --filter @beloauto/backend run dev
 #
-# Switch environment (bottom-right VS Code status bar): select "local"
+# REST Client environment: select "local" in VS Code status bar
 
 @baseUrl   = {{backendUrl}}
 @tenantId  = {{tenantId}}
+@actorId   = {{actorId}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH
@@ -19,6 +21,9 @@
 ### Partial loyalty update (only expiry_days changes; other loyalty fields preserved)
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
 Content-Type: application/json
 
 {
@@ -34,6 +39,9 @@ Content-Type: application/json
 ### Partial booking update (only cancellation window; nothing else changes)
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
 Content-Type: application/json
 
 {
@@ -49,6 +57,9 @@ Content-Type: application/json
 ### Update timezone and close Sunday
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
 Content-Type: application/json
 
 {
@@ -65,6 +76,9 @@ Content-Type: application/json
 ### Update tenant name only
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
 Content-Type: application/json
 
 {
@@ -76,6 +90,9 @@ Content-Type: application/json
 ### Full settings + name update
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
 Content-Type: application/json
 
 {
@@ -124,6 +141,9 @@ Content-Type: application/json
 ### 400 — cancellation_window_hours out of range (negative)
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
 Content-Type: application/json
 
 {
@@ -137,6 +157,9 @@ Content-Type: application/json
 ### 400 — Invalid IANA timezone
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
 Content-Type: application/json
 
 {
@@ -150,6 +173,9 @@ Content-Type: application/json
 ### 400 — slot_granularity_minutes not in [15, 30, 60]
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
 Content-Type: application/json
 
 {
@@ -163,6 +189,9 @@ Content-Type: application/json
 ### 400 — Empty body (neither name nor settings provided)
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
 Content-Type: application/json
 
 {}
@@ -173,6 +202,23 @@ Content-Type: application/json
 # Replace with the ID of a deactivated tenant to test this case
 PATCH {{baseUrl}}/tenants/settings
 X-Tenant-ID: 00000000-0000-4000-8000-000000009999
+X-Actor-ID: {{actorId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "settings": { "loyalty": { "expiry_days": 90 } }
+}
+
+###
+
+### 403 — CUSTOMER role not allowed (ManagerRoleGuard rejects)
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
 Content-Type: application/json
 
 {
