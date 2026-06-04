@@ -1,133 +1,118 @@
-# BFF — Schedule Closure endpoints
-# UC-010a (create), UC-010b (remove), list
-# JWT required. Role: MANAGER or STAFF.
+# BFF — Dev Login (M115-S02)
+# Quick token acquisition for local development — bypasses Google OAuth.
 #
 # Prerequisites:
 #   1. pnpm infra:up
 #   2. pnpm --filter @beloauto/backend run migration:run
-#   3. pnpm --filter @beloauto/backend run dev
-#   4. pnpm --filter @beloauto/bff run dev
+#   3. pnpm --filter @beloauto/backend run dev   (port 3001)
+#   4. pnpm --filter @beloauto/bff run dev       (port 3002)
 #   5. ENABLE_DEV_AUTH=true in apps/bff/.env.local
 #
-# REST Client environment: select "local" in VS Code status bar
+# Usage: run the login request for the persona you need, then use the
+# captured {{xxxLogin.response.body.accessToken}} in subsequent requests
+# within this file, or copy the token to another file's variable.
+#
+# Guard: returns 403 if ENABLE_DEV_AUTH != "true" or NODE_ENV == "production".
 
 @bffUrl = {{bffUrl}}
 @tenantSlug = lavacar-bh
+@managerEmail = admin@lavacar.com.br
+@staffEmail = staff@lavacar.com.br
+@customerEmail = joao@gmail.com
 
-# ── DEV AUTH — run each login once per session, then use the captured token ──
+# ─────────────────────────────────────────────────────────────────────────────
+# Login as Manager (STAFF table, role=MANAGER)
+# ─────────────────────────────────────────────────────────────────────────────
 
 ###
 # @name managerLogin
 POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
 
-{ "email": "admin@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
+{
+  "email": "{{managerEmail}}",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "staff"
+}
 
 @managerToken = {{managerLogin.response.body.accessToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Login as Staff (STAFF table, role=STAFF)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+# @name staffLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{
+  "email": "{{staffEmail}}",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "staff"
+}
+
+@staffToken = {{staffLogin.response.body.accessToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Login as Customer (find-or-create; idempotent)
+# ─────────────────────────────────────────────────────────────────────────────
 
 ###
 # @name customerLogin
 POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
 
-{ "email": "joao@gmail.com", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
+{
+  "email": "{{customerEmail}}",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "customer"
+}
 
 @customerToken = {{customerLogin.response.body.accessToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HAPPY PATH — list closures
+# Sanity check — token accepted by a real endpoint
 # ─────────────────────────────────────────────────────────────────────────────
 
 ###
-
-### List closures in December 2026
-GET {{bffUrl}}/v1/schedule/closures?from=2026-12-01&to=2026-12-31
+GET {{bffUrl}}/v1/services
 Authorization: Bearer {{managerToken}}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# HAPPY PATH — create full-day closure (UC-010a)
-# ─────────────────────────────────────────────────────────────────────────────
-
-###
-
-### Create a full-day holiday closure
-POST {{bffUrl}}/v1/schedule/closures
-Content-Type: application/json
-Authorization: Bearer {{managerToken}}
-
-{
-  "date": "2026-12-25",
-  "reason": "HOLIDAY",
-  "notes": "Natal"
-}
-
-###
-
-### Create a partial closure (maintenance 10:00–12:00)
-POST {{bffUrl}}/v1/schedule/closures
-Content-Type: application/json
-Authorization: Bearer {{managerToken}}
-
-{
-  "date": "2026-12-26",
-  "reason": "MAINTENANCE",
-  "startTime": "10:00",
-  "endTime": "12:00",
-  "notes": "Manutenção preventiva"
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# HAPPY PATH — remove closure (UC-010b)
-# ─────────────────────────────────────────────────────────────────────────────
-
-###
-
-### Remove a closure
-DELETE {{bffUrl}}/v1/schedule/closures/{{closureId}}
-Authorization: Bearer {{managerToken}}
+X-Tenant-Slug: {{tenantSlug}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ERROR CASES
 # ─────────────────────────────────────────────────────────────────────────────
 
 ###
-
-### 422 — Past date
-POST {{bffUrl}}/v1/schedule/closures
+# 403 — ENABLE_DEV_AUTH not set or false
+POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
-Authorization: Bearer {{managerToken}}
 
 {
-  "date": "2020-01-01",
-  "reason": "HOLIDAY"
+  "email": "{{managerEmail}}",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "staff"
 }
 
 ###
-
-### 409 — Overlapping closure
-POST {{bffUrl}}/v1/schedule/closures
+# 400 — invalid email
+POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
-Authorization: Bearer {{managerToken}}
 
 {
-  "date": "2026-12-25",
-  "reason": "MAINTENANCE"
+  "email": "not-an-email",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "staff"
 }
 
 ###
-
-### 403 — Customer token
-POST {{bffUrl}}/v1/schedule/closures
+# 400 — invalid type
+POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
-Authorization: Bearer {{customerToken}}
 
 {
-  "date": "2026-12-28",
-  "reason": "HOLIDAY"
+  "email": "{{managerEmail}}",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "admin"
 }
-
-###
-
-### 404 — Closure not found
-DELETE {{bffUrl}}/v1/schedule/closures/00000000-0000-4000-8000-000000000099
-Authorization: Bearer {{managerToken}}

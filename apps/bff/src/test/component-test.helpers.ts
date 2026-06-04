@@ -56,6 +56,8 @@ export async function createTestApp(): Promise<{
     'GOOGLE_CALLBACK_URL',
     'ALLOWED_ORIGINS',
     'CRON_SECRET',
+    'ENABLE_DEV_AUTH',
+    'NODE_ENV',
   ] as const;
 
   const originalEnv = Object.fromEntries(TEST_ENV_KEYS.map((k) => [k, process.env[k]]));

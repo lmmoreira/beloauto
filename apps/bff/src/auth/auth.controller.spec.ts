@@ -5,6 +5,7 @@ import { Request, Response } from 'express';
 import { CurrentUserPayload } from '../shared/decorators/current-user.decorator';
 import { makeBackendHttp } from '../test/backend-http.mock';
 import { AuthController } from './auth.controller';
+import { DevLoginDto } from './dtos/dev-login.dto';
 import { IssueTokenDto } from './dtos/issue-token.dto';
 import { SwitchTenantDto } from './dtos/switch-tenant.dto';
 import { JwtIssuerService } from './jwt-issuer.service';
@@ -29,6 +30,7 @@ function makeConfigService(): ConfigService {
       if (key === 'JWT_EXPIRES_IN') return '7d';
       return undefined;
     }),
+    get: jest.fn(),
   } as unknown as ConfigService;
 }
 
@@ -725,6 +727,118 @@ describe('AuthController', () => {
       expect(decoded['sub']).toBe(customerId);
       expect(decoded['role']).toBe('CUSTOMER');
       expect(decoded['tenantSlug']).toBe('lavacar-bh');
+    });
+  });
+
+  describe('devLogin()', () => {
+    const tenantInfo = { id: TENANT_ID_A, slug: 'lavacar-bh', name: 'Lavacar BH' };
+    const makeRes = (): jest.Mocked<Response> =>
+      ({ cookie: jest.fn() }) as unknown as jest.Mocked<Response>;
+
+    beforeEach(() => {
+      process.env['ENABLE_DEV_AUTH'] = 'true';
+      process.env['NODE_ENV'] = 'development';
+    });
+
+    afterEach(() => {
+      delete process.env['ENABLE_DEV_AUTH'];
+      process.env['NODE_ENV'] = 'test';
+    });
+
+    it('throws ForbiddenException when ENABLE_DEV_AUTH is not set', async () => {
+      delete process.env['ENABLE_DEV_AUTH'];
+      const controller = new AuthController(
+        jwtIssuer,
+        selectionTokenService,
+        makeBackendHttp(),
+        configService,
+      );
+      const dto: DevLoginDto = { email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
+      await expect(controller.devLogin(dto, makeRes())).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws ForbiddenException when NODE_ENV is production', async () => {
+      process.env['NODE_ENV'] = 'production';
+      const controller = new AuthController(
+        jwtIssuer,
+        selectionTokenService,
+        makeBackendHttp(),
+        configService,
+      );
+      const dto: DevLoginDto = { email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
+      await expect(controller.devLogin(dto, makeRes())).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('staff path: returns accessToken + user with correct role and sets cookie', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn()
+          .mockResolvedValueOnce(tenantInfo)
+          .mockResolvedValueOnce({ staffId: STAFF_ID_A, role: 'MANAGER', isActive: true }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const res = makeRes();
+      const dto: DevLoginDto = { email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
+
+      const result = await controller.devLogin(dto, res);
+
+      expect(result.accessToken).toBeTruthy();
+      expect(result.user.role).toBe('MANAGER');
+      expect(result.user.sub).toBe(STAFF_ID_A);
+      expect(result.user.tenantId).toBe(TENANT_ID_A);
+      expect(result.user.tenantSlug).toBe('lavacar-bh');
+      expect(res.cookie).toHaveBeenCalledWith(
+        'access_token',
+        result.accessToken,
+        expect.objectContaining({ httpOnly: true }),
+      );
+    });
+
+    it('staff path: JWT payload has sub=staffId and role from DB', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn()
+          .mockResolvedValueOnce(tenantInfo)
+          .mockResolvedValueOnce({ staffId: STAFF_ID_A, role: 'STAFF', isActive: true }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const dto: DevLoginDto = { email: 'staff@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
+
+      const result = await controller.devLogin(dto, makeRes());
+
+      const decoded = jwtService.decode(result.accessToken) as Record<string, unknown>;
+      expect(decoded['sub']).toBe(STAFF_ID_A);
+      expect(decoded['role']).toBe('STAFF');
+    });
+
+    it('customer path: returns role=CUSTOMER and calls find-or-create with dev:: prefix', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValueOnce(tenantInfo),
+        post: jest.fn().mockResolvedValueOnce({ customerId: CUSTOMER_ID_A, created: false }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const dto: DevLoginDto = { email: 'joao@gmail.com', tenantSlug: 'lavacar-bh', type: 'customer' };
+
+      const result = await controller.devLogin(dto, makeRes());
+
+      expect(result.user.role).toBe('CUSTOMER');
+      expect(result.user.sub).toBe(CUSTOMER_ID_A);
+      expect(backendHttp.post).toHaveBeenCalledWith(
+        '/internal/customers',
+        expect.objectContaining({ googleOAuthId: 'dev::joao@gmail.com' }),
+      );
+    });
+
+    it('customer path: repeated calls with same email return same customerId (find-or-create)', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValue(tenantInfo),
+        post: jest.fn().mockResolvedValue({ customerId: CUSTOMER_ID_A, created: false }),
+      });
+      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const dto: DevLoginDto = { email: 'joao@gmail.com', tenantSlug: 'lavacar-bh', type: 'customer' };
+
+      const r1 = await controller.devLogin(dto, makeRes());
+      const r2 = await controller.devLogin(dto, makeRes());
+
+      expect(r1.user.sub).toBe(r2.user.sub);
     });
   });
 });

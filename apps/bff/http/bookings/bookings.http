@@ -6,12 +6,33 @@
 #   2. pnpm --filter @beloauto/backend run migration:run
 #   3. pnpm --filter @beloauto/backend run dev
 #   4. pnpm --filter @beloauto/bff run dev
+#   5. ENABLE_DEV_AUTH=true in apps/bff/.env.local
 #
 # REST Client environment: select "local" in VS Code status bar
 
 @bffUrl = {{bffUrl}}
 @tenantSlug = lavacar-bh
 @serviceId = 30000000-0000-4000-8000-000000000001
+
+# ── DEV AUTH — run each login once per session, then use the captured token ──
+
+###
+# @name managerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "admin@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
+
+@managerToken = {{managerLogin.response.body.accessToken}}
+
+###
+# @name customerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "joao@gmail.com", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
+
+@customerToken = {{customerLogin.response.body.accessToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — guest booking (public, no JWT)

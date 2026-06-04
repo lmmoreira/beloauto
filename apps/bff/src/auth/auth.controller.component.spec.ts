@@ -4,6 +4,7 @@ import { SelectionTokenService } from './selection-token.service';
 import {
   CUSTOMER_ID,
   GOOGLE_OAUTH_ID,
+  STAFF_ID,
   TENANT_ID,
   TENANT_ID_2,
   MockBackendHttpService,
@@ -179,6 +180,95 @@ describe('AuthController (component) — non-OAuth routes', () => {
       expect(decoded['tenantId']).toBe(TENANT_ID_2);
       expect(decoded['tenantSlug']).toBe('lavacar-sp');
       expect(decoded['role']).toBe('CUSTOMER');
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // POST /auth/dev-login  (public — dev-only token endpoint)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  describe('POST /v1/auth/dev-login', () => {
+    beforeEach(() => {
+      process.env['ENABLE_DEV_AUTH'] = 'true';
+      process.env['NODE_ENV'] = 'development';
+    });
+
+    afterEach(() => {
+      delete process.env['ENABLE_DEV_AUTH'];
+      process.env['NODE_ENV'] = 'test';
+      jest.resetAllMocks();
+    });
+
+    it('403 when ENABLE_DEV_AUTH is not set', async () => {
+      delete process.env['ENABLE_DEV_AUTH'];
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/dev-login')
+        .send({ email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' });
+      expect(res.status).toBe(403);
+    });
+
+    it('403 when NODE_ENV is production', async () => {
+      process.env['NODE_ENV'] = 'production';
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/dev-login')
+        .send({ email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' });
+      expect(res.status).toBe(403);
+    });
+
+    it('400 when email is invalid', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/dev-login')
+        .send({ email: 'not-an-email', tenantSlug: 'lavacar-bh', type: 'staff' });
+      expect(res.status).toBe(400);
+    });
+
+    it('400 when type is not staff or customer', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/dev-login')
+        .send({ email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'admin' });
+      expect(res.status).toBe(400);
+    });
+
+    it('200 — staff path: returns { accessToken, user } with correct role and sets cookie', async () => {
+      backendHttpService.get
+        .mockResolvedValueOnce({ id: TENANT_ID, slug: 'lavacar-bh', name: 'Lavacar BH' })
+        .mockResolvedValueOnce({ staffId: STAFF_ID, role: 'MANAGER', isActive: true });
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/dev-login')
+        .send({ email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.accessToken).toBeDefined();
+      expect(res.body.user.role).toBe('MANAGER');
+      expect(res.body.user.sub).toBe(STAFF_ID);
+      expect(res.headers['set-cookie']).toBeDefined();
+
+      const decoded = jwtService.verify(res.body.accessToken as string) as Record<string, unknown>;
+      expect(decoded['sub']).toBe(STAFF_ID);
+      expect(decoded['tenantId']).toBe(TENANT_ID);
+      expect(decoded['role']).toBe('MANAGER');
+    });
+
+    it('200 — customer path: returns role=CUSTOMER and calls find-or-create with dev:: prefix', async () => {
+      backendHttpService.get.mockResolvedValueOnce({
+        id: TENANT_ID,
+        slug: 'lavacar-bh',
+        name: 'Lavacar BH',
+      });
+      backendHttpService.post.mockResolvedValueOnce({ customerId: CUSTOMER_ID, created: false });
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/dev-login')
+        .send({ email: 'joao@gmail.com', tenantSlug: 'lavacar-bh', type: 'customer' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user.role).toBe('CUSTOMER');
+      expect(res.body.user.sub).toBe(CUSTOMER_ID);
+      expect(backendHttpService.post).toHaveBeenCalledWith(
+        '/internal/customers',
+        expect.objectContaining({ googleOAuthId: 'dev::joao@gmail.com' }),
+      );
     });
   });
 });
