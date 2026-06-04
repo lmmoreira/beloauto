@@ -174,14 +174,14 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
       .expect(200);
 
     // 5. Guest creates a second booking (for rejection flow)
-    const guestEmail = `guest-bfw-${Date.now()}@example.com`;
+    const contactEmail = `guest-bfw-${Date.now()}@example.com`;
     const { body: b2 } = await request(app.getHttpServer())
       .post('/bookings')
       .set('X-Tenant-ID', tenantId)
       .send({
-        guestEmail,
-        guestName: 'Ana Costa',
-        guestPhone: '31998765432',
+        contactEmail,
+        contactName: 'Ana Costa',
+        contactPhone: '31998765432',
         scheduledAt: '2026-07-02T14:00:00.000Z',
         serviceIds: [serviceId],
       })
@@ -215,9 +215,9 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
       .post('/bookings')
       .set('X-Tenant-ID', tenantId)
       .send({
-        guestEmail: booking3GuestEmail,
-        guestName: 'Pedro Santos',
-        guestPhone: '31997654321',
+        contactEmail: booking3GuestEmail,
+        contactName: 'Pedro Santos',
+        contactPhone: '31997654321',
         scheduledAt: '2026-07-03T10:00:00.000Z',
         serviceIds: [serviceId],
       })
@@ -379,11 +379,11 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
 
     const rejectedMsg = dispatcher.dispatched.find(
       (m) =>
-        m.to === guestEmail &&
+        m.to === contactEmail &&
         (m.subject.includes('não confirmado') || m.subject.includes('pedido')),
     );
     expect(rejectedMsg).toBeDefined();
-    expect(rejectedMsg!.to).toBe(guestEmail);
+    expect(rejectedMsg!.to).toBe(contactEmail);
 
     const cancelledCustomerMsg = dispatcher.dispatched.find(
       (m) => m.to === customerEmail && m.subject.includes('cancelado'),

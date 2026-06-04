@@ -85,9 +85,9 @@ describe('BookingController (integration)', () => {
   });
 
   const validBody = () => ({
-    guestEmail: 'joao@example.com',
-    guestName: 'João Silva',
-    guestPhone: '31999999999',
+    contactEmail: 'joao@example.com',
+    contactName: 'João Silva',
+    contactPhone: '31999999999',
     scheduledAt,
     serviceIds: [serviceId],
   });
@@ -113,7 +113,7 @@ describe('BookingController (integration)', () => {
       expect(row).not.toBeNull();
       expect(row!.status).toBe('PENDING');
       expect(row!.type).toBe('GUEST');
-      expect(row!.guestEmail).toBe('joao@example.com');
+      expect(row!.contactEmail).toBe('joao@example.com');
 
       const lines = await ds
         .getRepository(BookingLineEntity)
@@ -175,11 +175,11 @@ describe('BookingController (integration)', () => {
       expect(body.status).toBe(400);
     });
 
-    it('returns 400 when guestPhone is invalid (too short)', async () => {
+    it('returns 400 when contactPhone is invalid (too short)', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/bookings')
         .set(guestHeaders(tenantAId))
-        .send({ ...validBody(), guestPhone: 'abc' })
+        .send({ ...validBody(), contactPhone: 'abc' })
         .expect(400);
 
       expect(body.status).toBe(400);
@@ -189,7 +189,12 @@ describe('BookingController (integration)', () => {
       const { body } = await request(app.getHttpServer())
         .post('/bookings')
         .set(guestHeaders(tenantAId))
-        .send({ guestEmail: 'x@x.com', guestName: 'X', guestPhone: '31999999999', scheduledAt })
+        .send({
+          contactEmail: 'x@x.com',
+          contactName: 'X',
+          contactPhone: '31999999999',
+          scheduledAt,
+        })
         .expect(400);
 
       expect(body.status).toBe(400);
@@ -686,8 +691,8 @@ describe('BookingController (integration)', () => {
       expect(row).not.toBeNull();
       expect(row!.type).toBe('CUSTOMER');
       expect(row!.customerId).toBe(customerId);
-      expect(row!.guestEmail).toBe('cliente@auth-booking.test');
-      expect(row!.guestName).toBe('Cliente Auth');
+      expect(row!.contactEmail).toBe('cliente@auth-booking.test');
+      expect(row!.contactName).toBe('Cliente Auth');
     });
 
     it('returns 422 when customer has no phone', async () => {
@@ -869,7 +874,7 @@ describe('BookingController (integration)', () => {
   });
 
   describe('PATCH /bookings/:id/submit-info/guest', () => {
-    const guestEmail = 'joao@example.com';
+    const contactEmail = 'joao@example.com';
     const validResponse = 'Aqui estão as informações solicitadas';
     const infoMessage = 'Por favor envie mais fotos do veículo antes do serviço';
 
@@ -877,7 +882,7 @@ describe('BookingController (integration)', () => {
       const { body: created } = await request(app.getHttpServer())
         .post('/bookings')
         .set(guestHeaders(tenantAId))
-        .send({ ...validBody(), guestEmail, scheduledAt: `${futureDate(7)}T10:00:00.000Z` })
+        .send({ ...validBody(), contactEmail, scheduledAt: `${futureDate(7)}T10:00:00.000Z` })
         .expect(201);
 
       await request(app.getHttpServer())
@@ -889,7 +894,7 @@ describe('BookingController (integration)', () => {
       const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/submit-info/guest`)
         .set(guestHeaders(tenantAId))
-        .send({ guestEmail, response: validResponse })
+        .send({ contactEmail, response: validResponse })
         .expect(200);
 
       expect(body.status).toBe('PENDING');
@@ -927,7 +932,7 @@ describe('BookingController (integration)', () => {
       const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/submit-info/guest`)
         .set(guestHeaders(tenantAId))
-        .send({ guestEmail: customer.email, response: validResponse })
+        .send({ contactEmail: customer.email, response: validResponse })
         .expect(403);
 
       expect(body.status).toBe(403);
@@ -937,13 +942,13 @@ describe('BookingController (integration)', () => {
       const { body: created } = await request(app.getHttpServer())
         .post('/bookings')
         .set(guestHeaders(tenantAId))
-        .send({ ...validBody(), guestEmail, scheduledAt: `${futureDate(7)}T12:00:00.000Z` })
+        .send({ ...validBody(), contactEmail, scheduledAt: `${futureDate(7)}T12:00:00.000Z` })
         .expect(201);
 
       const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/submit-info/guest`)
         .set(guestHeaders(tenantAId))
-        .send({ guestEmail, response: validResponse })
+        .send({ contactEmail, response: validResponse })
         .expect(422);
 
       expect(body.status).toBe(422);
@@ -953,7 +958,7 @@ describe('BookingController (integration)', () => {
       const { body } = await request(app.getHttpServer())
         .patch('/bookings/00000000-0000-4000-8000-000000009999/submit-info/guest')
         .set(guestHeaders(tenantAId))
-        .send({ guestEmail, response: validResponse })
+        .send({ contactEmail, response: validResponse })
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -974,7 +979,7 @@ describe('BookingController (integration)', () => {
         .set(guestHeaders(tenantBId))
         .send({
           ...validBody(),
-          guestEmail,
+          contactEmail,
           serviceIds: [svcB2.id],
           scheduledAt: `${futureDate(8)}T10:00:00.000Z`,
         })
@@ -989,7 +994,7 @@ describe('BookingController (integration)', () => {
       const { body } = await request(app.getHttpServer())
         .patch(`/bookings/${created.bookingId}/submit-info/guest`)
         .set(guestHeaders(tenantAId))
-        .send({ guestEmail, response: validResponse })
+        .send({ contactEmail, response: validResponse })
         .expect(404);
 
       expect(body.status).toBe(404);

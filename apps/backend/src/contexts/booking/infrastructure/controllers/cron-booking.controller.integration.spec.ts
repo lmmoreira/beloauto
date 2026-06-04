@@ -96,8 +96,8 @@ describe('CronBookingController (integration)', () => {
       .withTenantId(TENANT_IN)
       .withStatus('APPROVED')
       .withScheduledAt(TOMORROW)
-      .withGuestEmail('cron-test@example.com')
-      .withGuestName('Cron Test User')
+      .withContactEmail('cron-test@example.com')
+      .withContactName('Cron Test User')
       .build();
     await ds.getRepository(BookingEntity).save(bookingEntity);
 
