@@ -11,7 +11,7 @@
 # REST Client environment: select "local" in VS Code status bar.
 
 @bffUrl = {{bffUrl}}
-@tenantSlug = lavacar-bh
+@tenantSlug = lavacar-beloauto
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
 
@@ -29,7 +29,7 @@ Content-Type: application/json
 POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
 
-{ "email": "staff@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
+{ "email": "funcionario@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
 
 @staffToken = {{staffLogin.response.body.accessToken}}
 

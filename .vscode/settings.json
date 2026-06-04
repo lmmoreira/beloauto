@@ -99,7 +99,13 @@
     "local": {
       "backendUrl": "http://localhost:3001",
       "bffUrl": "http://localhost:3002",
-      "tenantId": "replace-with-a-real-tenant-uuid"
+      "tenantSlug": "lavacar-beloauto",
+      "tenantId": "00000000-0000-7000-8000-000000000001",
+      "managerId": "00000000-0000-7000-8001-000000000001",
+      "customerId": "00000000-0000-7000-8002-000000000001",
+      "managerToken": "",
+      "staffToken": "",
+      "customerToken": ""
     }
   },
 

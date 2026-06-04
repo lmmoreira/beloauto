@@ -11,7 +11,7 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @bffUrl = {{bffUrl}}
-@tenantSlug = lavacar-bh
+@tenantSlug = lavacar-beloauto
 @serviceId = 10000000-0000-4000-8000-000000000001
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
@@ -30,7 +30,7 @@ Content-Type: application/json
 POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
 
-{ "email": "staff@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
+{ "email": "funcionario@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
 
 @staffToken = {{staffLogin.response.body.accessToken}}
 
@@ -39,7 +39,7 @@ Content-Type: application/json
 POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
 
-{ "email": "joao@gmail.com", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
+{ "email": "cliente@email.com.br", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
 
 @customerToken = {{customerLogin.response.body.accessToken}}
 
@@ -51,7 +51,7 @@ Content-Type: application/json
 
 ### List active services for a tenant by slug (no auth required)
 GET {{bffUrl}}/v1/services
-X-Tenant-Slug: lavacar-bh
+X-Tenant-Slug: {{tenantSlug}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — create service (UC-012)
