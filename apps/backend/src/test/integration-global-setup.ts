@@ -1,4 +1,6 @@
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { BookingLineEntity } from '../contexts/booking/infrastructure/entities/booking-line.entity';
@@ -98,37 +100,16 @@ export default async function globalSetup(): Promise<void> {
     migrationsRun: false,
   });
 
+  // Run docker/init-db.sh inside the container — same script used by docker-compose
+  // and production CI. The container already has bash + psql and the POSTGRES_USER /
+  // POSTGRES_DB env vars set; the script falls back to safe defaults for passwords.
+  const initScript = readFileSync(join(__dirname, '../../../../docker/init-db.sh'), 'utf8');
+  const { exitCode, output } = await pgContainer.exec(['bash', '-c', initScript]);
+  if (exitCode !== 0) {
+    throw new Error(`docker/init-db.sh failed (exit ${exitCode}):\n${output}`);
+  }
+
   await ds.initialize();
-
-  // Provision the two application roles so the BootstrapSchemas migration can
-  // set up DEFAULT PRIVILEGES for beloauto_app.  Passwords do not matter for
-  // tests — the test suite always connects via the Testcontainers superuser URL.
-  const migratorPw = (process.env['DB_MIGRATOR_PASSWORD'] ?? 'beloauto_migrator').replace(
-    /'/g,
-    "''",
-  );
-  const appPw = (process.env['DB_APP_PASSWORD'] ?? 'beloauto_app').replace(/'/g, "''");
-
-  await ds.query(`
-    DO $$ BEGIN
-      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'beloauto_migrator') THEN
-        CREATE USER beloauto_migrator WITH PASSWORD '${migratorPw}';
-      END IF;
-    END $$;
-  `);
-  await ds.query(`
-    DO $$ BEGIN
-      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'beloauto_app') THEN
-        CREATE USER beloauto_app WITH PASSWORD '${appPw}';
-      END IF;
-    END $$;
-  `);
-  await ds.query(`
-    DO $$ BEGIN
-      EXECUTE format('GRANT CREATE ON DATABASE %I TO beloauto_migrator', current_database());
-    END $$;
-  `);
-
   await ds.runMigrations();
   await ds.destroy();
 }
