@@ -12,7 +12,7 @@
 
 @bffUrl = {{bffUrl}}
 @tenantSlug = lavacar-beloauto
-@serviceId = 30000000-0000-4000-8000-000000000001
+@serviceId = {{serviceId}}
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
 

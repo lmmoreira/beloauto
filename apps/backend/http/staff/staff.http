@@ -10,9 +10,9 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl = {{backendUrl}}
-@tenantId = 10000000-0000-4000-8000-000000000001
-@actorId  = 20000000-0000-4000-8000-000000000001
-@staffId  = 30000000-0000-4000-8000-000000000001
+@tenantId = {{tenantId}}
+@actorId  = {{actorId}}
+@staffId  = {{staffWorkerId}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list staff
@@ -110,7 +110,7 @@ GET {{baseUrl}}/staff
 ###
 
 ### 404 — Staff id not found
-GET {{baseUrl}}/staff/10000000-0000-4000-8000-000000000099
+GET {{baseUrl}}/staff/00000000-0000-4000-8000-000000009999
 X-Tenant-ID: {{tenantId}}
 X-Actor-ID: {{actorId}}
 X-Actor-Type: STAFF

@@ -5,14 +5,16 @@
 # Prerequisites:
 #   1. pnpm infra:up
 #   2. pnpm --filter @beloauto/backend run migration:run
-#   3. pnpm --filter @beloauto/backend run dev
+#   3. pnpm --filter @beloauto/backend run seed
+   4. pnpm --filter @beloauto/backend run dev
 
 @baseUrl = {{backendUrl}}
-@tenantId = 10000000-0000-4000-8000-000000000001
-@serviceId = 30000000-0000-4000-8000-000000000001
-@customerId = 20000000-0000-4000-8000-000000000001
-@staffId = 20000000-0000-4000-8000-000000000002
+@tenantId = {{tenantId}}
+@serviceId = {{serviceId}}
+@customerId = {{customerId}}
+@staffId = {{actorId}}
 @bookingId = {{bookingId}}
+@lineId = {{bookingLineId}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list all bookings for tenant (staff view)

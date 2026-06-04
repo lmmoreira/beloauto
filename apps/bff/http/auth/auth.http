@@ -100,7 +100,7 @@ POST {{bffUrl}}/v1/auth/token
 Content-Type: application/json
 
 {
-  "tenantId": "10000000-0000-4000-8000-000000000001"
+  "tenantId": "{{tenantId}}"
 }
 
 ###
@@ -122,7 +122,7 @@ Content-Type: application/json
 
 {
   "selectionToken": "invalid.token.signature",
-  "tenantId": "10000000-0000-4000-8000-000000000001"
+  "tenantId": "{{tenantId}}"
 }
 
 ###
@@ -134,5 +134,5 @@ Content-Type: application/json
 
 {
   "selectionToken": "paste-valid-selection-token-here",
-  "tenantId": "10000000-0000-4000-8000-000000000099"
+  "tenantId": "00000000-0000-4000-8000-000000009999"
 }

@@ -10,7 +10,7 @@
 # Switch environment (bottom-right VS Code status bar): select "local"
 
 @baseUrl   = {{backendUrl}}
-@tenantId  = REPLACE-WITH-TENANT-ID
+@tenantId  = {{tenantId}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH
@@ -172,7 +172,7 @@ Content-Type: application/json
 ### 409 — Tenant is inactive (deactivated tenants cannot be modified)
 # Replace with the ID of a deactivated tenant to test this case
 PATCH {{baseUrl}}/tenants/settings
-X-Tenant-ID: REPLACE-WITH-INACTIVE-TENANT-ID
+X-Tenant-ID: 00000000-0000-4000-8000-000000009999
 Content-Type: application/json
 
 {

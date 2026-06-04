@@ -10,9 +10,9 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl = {{backendUrl}}
-@tenantId = 10000000-0000-4000-8000-000000000001
-@actorId  = 20000000-0000-4000-8000-000000000001
-@serviceId = 30000000-0000-4000-8000-000000000001
+@tenantId = {{tenantId}}
+@actorId  = {{actorId}}
+@serviceId = {{serviceId}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list services (public — no actor required)

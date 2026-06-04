@@ -9,7 +9,7 @@
 #   2. pnpm --filter @beloauto/backend run migration:run
 #   3. pnpm --filter @beloauto/backend run dev
 
-@baseUrl = http://localhost:3001
+@baseUrl = {{backendUrl}}
 
 ### POST /cron/reminders — trigger reminder jobs
 POST {{baseUrl}}/cron/reminders

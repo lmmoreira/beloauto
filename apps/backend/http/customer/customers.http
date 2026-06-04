@@ -1,6 +1,6 @@
-@baseUrl = http://localhost:3001
-@tenantId = 10000000-0000-4000-8000-000000000001
-@customerId = 20000000-0000-4000-8000-000000000001
+@baseUrl = {{backendUrl}}
+@tenantId = {{tenantId}}
+@customerId = {{customerId}}
 
 ### GET /customers/me — get authenticated customer profile
 GET {{baseUrl}}/customers/me

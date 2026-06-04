@@ -10,9 +10,9 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl    = {{backendUrl}}
-@tenantId   = 10000000-0000-4000-8000-000000000001
-@actorId    = 20000000-0000-4000-8000-000000000001
-@closureId  = 30000000-0000-4000-8000-000000000001
+@tenantId   = {{tenantId}}
+@actorId    = {{actorId}}
+@closureId  = {{createClosure.response.body.id}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list closures
@@ -34,6 +34,7 @@ X-Actor-Role: MANAGER
 ###
 
 ### Create a full-day holiday closure
+# @name createClosure
 POST {{baseUrl}}/schedule/closures
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}

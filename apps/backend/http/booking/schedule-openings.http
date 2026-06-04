@@ -10,9 +10,9 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl    = {{backendUrl}}
-@tenantId   = 10000000-0000-4000-8000-000000000001
-@actorId    = 20000000-0000-4000-8000-000000000001
-@openingId  = 30000000-0000-4000-8000-000000000002
+@tenantId   = {{tenantId}}
+@actorId    = {{actorId}}
+@openingId  = {{createOpening.response.body.id}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list openings in range
@@ -29,6 +29,7 @@ X-Actor-Role: MANAGER
 # ─────────────────────────────────────────────────────────────────────────────
 
 ### POST /schedule/openings — 201
+# @name createOpening
 POST {{baseUrl}}/schedule/openings
 X-Tenant-ID: {{tenantId}}
 X-Actor-ID: {{actorId}}

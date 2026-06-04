@@ -54,7 +54,7 @@ Authorization: Bearer {{managerToken}}
 ###
 
 ### Get a specific staff member by id
-GET {{bffUrl}}/v1/staff/10000000-0000-4000-8000-000000000099
+GET {{bffUrl}}/v1/staff/{{staffWorkerId}}
 Authorization: Bearer {{managerToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,5 +75,5 @@ Authorization: Bearer {{staffToken}}
 ###
 
 ### 404 — Staff id not found in tenant
-GET {{bffUrl}}/v1/staff/10000000-0000-4000-8000-000000000000
+GET {{bffUrl}}/v1/staff/00000000-0000-4000-8000-000000009999
 Authorization: Bearer {{managerToken}}
