@@ -746,7 +746,11 @@ describe('AuthController', () => {
         makeBackendHttp(),
         makeConfigService({ enableDevAuth: 'false' }),
       );
-      const dto: DevLoginDto = { email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
+      const dto: DevLoginDto = {
+        email: 'admin@lavacar.com.br',
+        tenantSlug: 'lavacar-bh',
+        type: 'staff',
+      };
       await expect(ctrl.devLogin(dto, makeRes())).rejects.toBeInstanceOf(ForbiddenException);
     });
 
@@ -757,19 +761,28 @@ describe('AuthController', () => {
         makeBackendHttp(),
         makeConfigService({ nodeEnv: 'production' }),
       );
-      const dto: DevLoginDto = { email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
+      const dto: DevLoginDto = {
+        email: 'admin@lavacar.com.br',
+        tenantSlug: 'lavacar-bh',
+        type: 'staff',
+      };
       await expect(ctrl.devLogin(dto, makeRes())).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('staff path: returns accessToken + user with correct role and sets cookie', async () => {
       const backendHttp = makeBackendHttp({
-        get: jest.fn()
+        get: jest
+          .fn()
           .mockResolvedValueOnce(tenantInfo)
           .mockResolvedValueOnce({ staffId: STAFF_ID_A, role: 'MANAGER', isActive: true }),
       });
       const ctrl = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
-      const dto: DevLoginDto = { email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
+      const dto: DevLoginDto = {
+        email: 'admin@lavacar.com.br',
+        tenantSlug: 'lavacar-bh',
+        type: 'staff',
+      };
 
       const result = await ctrl.devLogin(dto, res);
 
@@ -787,12 +800,17 @@ describe('AuthController', () => {
 
     it('staff path: JWT payload has sub=staffId and role from DB', async () => {
       const backendHttp = makeBackendHttp({
-        get: jest.fn()
+        get: jest
+          .fn()
           .mockResolvedValueOnce(tenantInfo)
           .mockResolvedValueOnce({ staffId: STAFF_ID_A, role: 'STAFF', isActive: true }),
       });
       const ctrl = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
-      const dto: DevLoginDto = { email: 'staff@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
+      const dto: DevLoginDto = {
+        email: 'staff@lavacar.com.br',
+        tenantSlug: 'lavacar-bh',
+        type: 'staff',
+      };
 
       const result = await ctrl.devLogin(dto, makeRes());
 
@@ -807,7 +825,11 @@ describe('AuthController', () => {
         post: jest.fn().mockResolvedValueOnce({ customerId: CUSTOMER_ID_A, created: false }),
       });
       const ctrl = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
-      const dto: DevLoginDto = { email: 'joao@gmail.com', tenantSlug: 'lavacar-bh', type: 'customer' };
+      const dto: DevLoginDto = {
+        email: 'joao@gmail.com',
+        tenantSlug: 'lavacar-bh',
+        type: 'customer',
+      };
 
       const result = await ctrl.devLogin(dto, makeRes());
 
@@ -825,7 +847,11 @@ describe('AuthController', () => {
         post: jest.fn().mockResolvedValue({ customerId: CUSTOMER_ID_A, created: false }),
       });
       const ctrl = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
-      const dto: DevLoginDto = { email: 'joao@gmail.com', tenantSlug: 'lavacar-bh', type: 'customer' };
+      const dto: DevLoginDto = {
+        email: 'joao@gmail.com',
+        tenantSlug: 'lavacar-bh',
+        type: 'customer',
+      };
 
       const r1 = await ctrl.devLogin(dto, makeRes());
       const r2 = await ctrl.devLogin(dto, makeRes());
