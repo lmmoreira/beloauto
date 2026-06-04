@@ -137,12 +137,13 @@ describe('PointsExpiringSoonHandler (Pub/Sub → handler → use case → real D
     // The FAILED state is transient (Pub/Sub retries within ~100 ms and updates the row to SENT).
     // Polling for FAILED would be a race; instead wait for the stable final state.
     // retryCount=1 is the key proof: orIgnore() would have reset it to 0 on the SENT upsert.
+    // Extended timeout: under full-suite load the emulator re-delivery can take several seconds.
     await waitFor(async () => {
       const log = await ds.getRepository(NotificationLogEntity).findOne({
         where: { tenantId, eventId: event.eventId, notificationType: 'points-expiring-soon' },
       });
       return log !== null && log.status === 'SENT' && log.retryCount >= 1;
-    });
+    }, 15000);
 
     const log = await ds.getRepository(NotificationLogEntity).findOne({
       where: { tenantId, eventId: event.eventId, notificationType: 'points-expiring-soon' },

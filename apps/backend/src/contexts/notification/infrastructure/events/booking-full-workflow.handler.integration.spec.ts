@@ -132,6 +132,7 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
   });
 
   it('full booking lifecycle: STAFF_INVITED + all 6 booking notification types + SERVICE_POINTS_EARNED dispatched', async () => {
+    jest.setTimeout(120000);
     // 1. Authenticated customer creates booking
     const { body: b1 } = await request(app.getHttpServer())
       .post('/bookings/authenticated')
@@ -316,10 +317,13 @@ describe('Story: full booking lifecycle → Pub/Sub → all notification emails 
       // a FAILED log from a first-attempt retry would satisfy the type check while the
       // message is still absent from dispatcher.dispatched under full-suite load.
       return (
+        dispatcher.dispatched.some(
+          (m) => m.to === customerEmail && m.subject.includes('informações'),
+        ) &&
         dispatcher.dispatched.some((m) => m.to === adminEmail && m.subject.includes('respondeu')) &&
         dispatcher.dispatched.some((m) => m.to === customerEmail && m.subject.includes('cancelado'))
       );
-    }, 20000);
+    }, 25000);
 
     // Assert all notification types present in DB
     const logs = await ds.getRepository(NotificationLogEntity).find({ where: { tenantId } });
