@@ -2,7 +2,6 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateCustomerCustomers1716600000001 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`CREATE SCHEMA IF NOT EXISTS "customer"`);
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "customer"."customers" (
         "id"              UUID         NOT NULL DEFAULT gen_random_uuid(),
@@ -29,6 +28,5 @@ export class CreateCustomerCustomers1716600000001 implements MigrationInterface 
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "customer"."customers"`);
-    await queryRunner.query(`DROP SCHEMA IF EXISTS "customer"`);
   }
 }

@@ -31,6 +31,7 @@ import { CreateNotificationProcessedEvents1748200000020 } from '../contexts/noti
 import { AddNotificationLogUniqueConstraint1748300000010 } from '../contexts/notification/infrastructure/migrations/1748300000010-AddNotificationLogUniqueConstraint';
 import { HotsiteConfigEntity } from '../contexts/platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../contexts/platform/infrastructure/entities/tenant.entity';
+import { BootstrapSchemas1700000000000 } from '../contexts/platform/infrastructure/migrations/1700000000000-BootstrapSchemas';
 import { CreatePlatformTenants1716500000001 } from '../contexts/platform/infrastructure/migrations/1716500000001-CreatePlatformTenants';
 import { CreatePlatformHotsiteConfigs1716500000002 } from '../contexts/platform/infrastructure/migrations/1716500000002-CreatePlatformHotsiteConfigs';
 import { StaffEntity } from '../contexts/staff/infrastructure/entities/staff.entity';
@@ -71,6 +72,7 @@ export default async function globalSetup(): Promise<void> {
       ProcessedEventEntity,
     ],
     migrations: [
+      BootstrapSchemas1700000000000,
       CreatePlatformTenants1716500000001,
       CreatePlatformHotsiteConfigs1716500000002,
       CreateCustomerCustomers1716600000001,
@@ -97,7 +99,36 @@ export default async function globalSetup(): Promise<void> {
   });
 
   await ds.initialize();
-  await ds.query(`CREATE SCHEMA IF NOT EXISTS "platform"`);
+
+  // Provision the two application roles so the BootstrapSchemas migration can
+  // set up DEFAULT PRIVILEGES for beloauto_app.  Passwords do not matter for
+  // tests — the test suite always connects via the Testcontainers superuser URL.
+  const migratorPw = (process.env['DB_MIGRATOR_PASSWORD'] ?? 'beloauto_migrator').replace(
+    /'/g,
+    "''",
+  );
+  const appPw = (process.env['DB_APP_PASSWORD'] ?? 'beloauto_app').replace(/'/g, "''");
+
+  await ds.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'beloauto_migrator') THEN
+        CREATE USER beloauto_migrator WITH PASSWORD '${migratorPw}';
+      END IF;
+    END $$;
+  `);
+  await ds.query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'beloauto_app') THEN
+        CREATE USER beloauto_app WITH PASSWORD '${appPw}';
+      END IF;
+    END $$;
+  `);
+  await ds.query(`
+    DO $$ BEGIN
+      EXECUTE format('GRANT CREATE ON DATABASE %I TO beloauto_migrator', current_database());
+    END $$;
+  `);
+
   await ds.runMigrations();
   await ds.destroy();
 }

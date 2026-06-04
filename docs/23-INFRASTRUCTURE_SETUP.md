@@ -326,8 +326,12 @@ Run **after** Terraform has created the Secret Manager resources (first `terrafo
 
 ```bash
 # Staging
-gcloud secrets versions add database-url --data-file=- --project=beloauto-staging <<< \
-  "postgresql://beloauto:<password>@10.0.1.x/beloauto?host=/cloudsql/beloauto-staging:us-central1:beloauto-postgres"
+# DB passwords for the two provisioned roles (used by init-db.sh in the migration pipeline)
+gcloud secrets versions add db-migrator-password --data-file=- --project=beloauto-staging <<< \
+  "$(openssl rand -hex 16)"
+gcloud secrets versions add db-app-password --data-file=- --project=beloauto-staging <<< \
+  "$(openssl rand -hex 16)"
+
 gcloud secrets versions add jwt-secret --data-file=- --project=beloauto-staging <<< \
   "$(openssl rand -base64 64)"
 # google-oauth-client-id and google-oauth-client-secret were added in Step 9
@@ -338,6 +342,8 @@ gcloud secrets versions add email-api-key --data-file=- --project=beloauto-stagi
 ```
 
 **JWT secret requirements:** Must be at least 64 characters of random data. The `openssl rand -base64 64` command above generates a cryptographically secure value. Store it nowhere else — Secret Manager is the single source of truth.
+
+**DB secrets:** `db-migrator-password` is used only by the migration pipeline (CI step 1 runs `docker/init-db.sh` then `pnpm db:migrate`). `db-app-password` is injected into Cloud Run as an env var (`DB_PASSWORD`). Neither is the same as the Postgres superuser password managed by Cloud SQL internally.
 
 ---
 
@@ -1195,18 +1201,20 @@ cd beloauto
 # 2. Install dependencies
 pnpm install
 
-# 3. Copy environment template
-cp .env.example .env.local
+# 3. Copy environment templates
+cp .env.example .env                          # root — docker-compose DB passwords
+cp apps/backend/.env.example apps/backend/.env
+cp apps/bff/.env.example apps/bff/.env
 
-# 4. Edit .env.local — fill in Google OAuth credentials (see below)
+# 4. Fill in Google OAuth credentials in apps/bff/.env (see Day 0 §9)
 # All other values work as-is for local dev
 
 # 5. Start infrastructure services (DB + Pub/Sub + storage + email)
+# On first start, docker creates beloauto_migrator + beloauto_app via init-db.sh
 pnpm infra:up
 
-# 6. Run database schema initialization + migrations
-pnpm db:init      # creates the 6 schemas in local PostgreSQL
-pnpm db:migrate   # runs all context migrations
+# 6. Run all migrations (creates schemas + tables, grants DML to beloauto_app)
+pnpm db:migrate
 
 # 7. Start all services in development mode
 pnpm dev
@@ -1226,9 +1234,9 @@ pnpm dev
     "obs:up":             "docker-compose -f docker/docker-compose.observability.yml up -d",
     "obs:down":           "docker-compose -f docker/docker-compose.observability.yml down",
     "obs:logs":           "docker-compose -f docker/docker-compose.observability.yml logs -f",
-    "db:init":            "pnpm --filter backend db:init-schemas",
-    "db:migrate":         "pnpm --filter backend migration:run:all",
-    "db:reset":           "pnpm infra:down && docker volume rm beloauto_postgres-data && pnpm infra:up && pnpm db:init && pnpm db:migrate",
+    "db:migrate":         "pnpm --filter backend migration:run",
+    "db:revert":          "pnpm --filter backend migration:revert",
+    "db:reset":           "pnpm infra:down && docker volume rm beloauto_postgres_data && pnpm infra:up && pnpm db:migrate",
     "test":               "pnpm -r run test",
     "lint":               "pnpm -r run lint",
     "type-check":         "pnpm -r run type-check"
@@ -1241,8 +1249,6 @@ pnpm dev
 **File:** `docker/docker-compose.yml`
 
 ```yaml
-version: '3.9'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -1251,13 +1257,15 @@ services:
       - "5432:5432"
     environment:
       POSTGRES_DB: beloauto
-      POSTGRES_USER: beloauto
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: postgres       # superuser used only to run initdb.d scripts
+      POSTGRES_PASSWORD: postgres
+      DB_MIGRATOR_PASSWORD: ${DB_MIGRATOR_PASSWORD:-beloauto_migrator}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:-beloauto_app}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./init-schemas.sql:/docker-entrypoint-initdb.d/01-schemas.sql:ro
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro  # creates beloauto_migrator + beloauto_app
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U beloauto -d beloauto"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d beloauto"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -1293,27 +1301,29 @@ volumes:
   storage-data:
 ```
 
-### Schema Initialisation Script
+### Database Users
 
-**File:** `docker/init-schemas.sql`
+BeloAuto uses two PostgreSQL roles with different privilege levels:
 
-```sql
--- Creates the 6 bounded context schemas on first start
-CREATE SCHEMA IF NOT EXISTS platform;
-CREATE SCHEMA IF NOT EXISTS customer;
-CREATE SCHEMA IF NOT EXISTS staff;
-CREATE SCHEMA IF NOT EXISTS booking;
-CREATE SCHEMA IF NOT EXISTS loyalty;
-CREATE SCHEMA IF NOT EXISTS notification;
+| Role | Privileges | Used by |
+|---|---|---|
+| `beloauto_migrator` | `CREATE`/`ALTER`/`DROP` (DDL) | `pnpm db:migrate` · CI pipeline · `docker/init-db.sh` |
+| `beloauto_app` | `SELECT`/`INSERT`/`UPDATE`/`DELETE` (DML) | Running backend service |
 
--- Grant all privileges to the local dev user
-GRANT ALL PRIVILEGES ON SCHEMA platform     TO beloauto;
-GRANT ALL PRIVILEGES ON SCHEMA customer     TO beloauto;
-GRANT ALL PRIVILEGES ON SCHEMA staff        TO beloauto;
-GRANT ALL PRIVILEGES ON SCHEMA booking      TO beloauto;
-GRANT ALL PRIVILEGES ON SCHEMA loyalty      TO beloauto;
-GRANT ALL PRIVILEGES ON SCHEMA notification TO beloauto;
+This separation ensures a compromised app process cannot alter or drop the schema.
+
+**Provisioning script:** `docker/init-db.sh` — creates both roles with passwords from environment variables. Run once before the first migration.
+
+- **docker-compose:** the script is mounted in `initdb.d` and runs automatically on the first container start.
+- **Tests:** `integration-global-setup.ts` issues the same SQL via `process.env` before running migrations.
+- **Production/CI:** execute `docker/init-db.sh` (or equivalent SQL) as step 1 of the migration pipeline.
+
+```bash
+# docker/init-db.sh — passwords come from DB_MIGRATOR_PASSWORD / DB_APP_PASSWORD env vars
+# Safe local defaults ('beloauto_migrator' / 'beloauto_app') are used when vars are not set.
 ```
+
+**Schema creation and DML grants** are handled by the first TypeORM migration (`BootstrapSchemas1700000000000`), which runs as `beloauto_migrator`. It creates all 6 schemas and sets up `ALTER DEFAULT PRIVILEGES` so every future table automatically grants DML to `beloauto_app`.
 
 ---
 
@@ -1390,56 +1400,41 @@ echo "Pub/Sub emulator initialised."
 
 ### Environment Variables
 
-**File:** `.env.example` (committed to git — safe defaults for local dev)
+**File:** `.env.example` (root — read by docker-compose)
 
 ```bash
-# ── Application ───────────────────────────────────────────────────────────────
+# DB role passwords — passed into the postgres container by docker-compose.
+# These must match the values in apps/backend/.env.
+DB_MIGRATOR_PASSWORD=beloauto_migrator
+DB_APP_PASSWORD=beloauto_app
+
+# (other root-level vars — see .env.example for full list)
+```
+
+**File:** `apps/backend/.env.example`
+
+```bash
 NODE_ENV=development
-SERVICE_NAME=beloauto-backend
 PORT=3001
 
-# ── Database (local docker-compose) ──────────────────────────────────────────
-DATABASE_URL=postgresql://beloauto:password@localhost:5432/beloauto
+# PostgreSQL — app runtime user (DML only: SELECT/INSERT/UPDATE/DELETE)
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=beloauto_app
+DB_PASSWORD=beloauto_app
+DB_NAME=beloauto
 
-# ── Pub/Sub Emulator ──────────────────────────────────────────────────────────
-PUBSUB_EMULATOR_HOST=localhost:8085
-PUBSUB_PROJECT_ID=beloauto-local
-PUBSUB_TOPIC_DOMAIN_EVENTS=beloauto-domain-events
-PUBSUB_SUB_LOYALTY=beloauto-loyalty-consumer
-PUBSUB_SUB_NOTIFICATION=beloauto-notification-consumer
+# PostgreSQL — migration user (DDL; used only by pnpm db:migrate, not app startup)
+DB_MIGRATOR_USER=beloauto_migrator
+DB_MIGRATOR_PASSWORD=beloauto_migrator
 
-# ── File Storage (local emulator) ─────────────────────────────────────────────
-STORAGE_EMULATOR_HOST=http://localhost:4443
-STORAGE_BUCKET=beloauto-media-local
+# JWT — must be at least 32 characters
+JWT_SECRET=change-me-to-a-random-64-char-string-in-production-environments
 
-# ── Auth (Google OAuth) ───────────────────────────────────────────────────────
-# Get from: console.cloud.google.com → APIs & Services → Credentials
-# Add http://localhost:3002/auth/google/callback as authorised redirect URI
-GOOGLE_CLIENT_ID=your-oauth-client-id
-GOOGLE_CLIENT_SECRET=your-oauth-client-secret
-GOOGLE_CALLBACK_URL=http://localhost:3002/auth/google/callback
-
-# ── JWT ───────────────────────────────────────────────────────────────────────
-# Must be at least 32 characters
-JWT_SECRET=local-dev-jwt-secret-replace-with-at-least-32-chars
-JWT_EXPIRES_IN=7d
-
-# ── Email (local MailHog — view at http://localhost:8025) ─────────────────────
-EMAIL_PROVIDER=smtp
-SMTP_HOST=localhost
-SMTP_PORT=1025
-SMTP_SECURE=false
-EMAIL_FROM=noreply@beloauto.local
-
-# ── Observability (only needed when running pnpm obs:up) ──────────────────────
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
-OTEL_TRACES_SAMPLER=always_on
+# ... (see apps/backend/.env.example for full list)
 ```
 
-**File:** `.env.local` (gitignored — developer creates from `.env.example`)
-```bash
-# Copy from .env.example and fill in your actual Google OAuth credentials
-```
+**File:** `.env` (gitignored — developer creates from `.env.example`)
 
 ### Local Service Ports
 
@@ -1500,11 +1495,12 @@ Cloud Run deploys reference this GAR path. No GHCR authentication needed at runt
 ```
 [ ] Install: docker, docker-compose, node >= 20, pnpm >= 9
 [ ] Clone repo: git clone ...
-[ ] Copy env: cp .env.example .env.local
+[ ] Copy env: cp .env.example .env && cp apps/backend/.env.example apps/backend/.env && cp apps/bff/.env.example apps/bff/.env
 [ ] Get Google OAuth credentials (see Day 0 §9 — reuse staging client for local dev)
-[ ] Fill in .env.local: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (from Google Console), JWT_SECRET (any 64-char random string locally)
-[ ] Start infra: pnpm infra:up   (starts PostgreSQL, Pub/Sub emulator, GCS emulator, MailHog — and auto-inits Pub/Sub topics)
-[ ] Init DB: pnpm db:init && pnpm db:migrate
+[ ] Fill in apps/bff/.env: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (from Google Console), JWT_SECRET (any 64-char random string locally)
+[ ] Start infra: pnpm infra:up   (starts PostgreSQL, Pub/Sub emulator, GCS emulator, MailHog)
+      → On first start, postgres auto-runs docker/init-db.sh which creates beloauto_migrator + beloauto_app roles
+[ ] Run migrations: pnpm db:migrate   (creates all schemas, tables, and DML grants)
 [ ] Start apps: pnpm dev
 [ ] Open browser: http://localhost:3000 (hotsite / dashboard)
 [ ] Test OAuth: click "Login with Google" — should redirect to Google and back

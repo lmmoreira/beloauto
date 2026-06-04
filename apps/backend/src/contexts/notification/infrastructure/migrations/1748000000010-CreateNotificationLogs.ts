@@ -2,7 +2,6 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateNotificationLogs1748000000010 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`CREATE SCHEMA IF NOT EXISTS "notification"`);
     await queryRunner.query(`
       CREATE TABLE "notification"."notification_logs" (
         "id"                  UUID         NOT NULL DEFAULT gen_random_uuid(),
@@ -24,6 +23,5 @@ export class CreateNotificationLogs1748000000010 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "notification"."notification_logs"`);
-    await queryRunner.query(`DROP SCHEMA IF EXISTS "notification"`);
   }
 }

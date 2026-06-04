@@ -69,8 +69,14 @@ Configure at: `GitHub repo → Settings → Environments`
 | `SNYK_TOKEN` | Repository | Snyk API token |
 | `GCP_SA_KEY_PROD` | **Repository** | GCP service account JSON — prod project. Repository-scoped (not environment-scoped) because the image build job pushes to the prod GAR registry and does not run inside a GitHub Environment. |
 | `GCP_SA_KEY_STAGING` | Env: `*-staging` | GCP service account JSON — staging project (deploy steps only) |
-| `DATABASE_URL_STAGING` | Env: `migrations-staging` | Migration connection string (staging) |
-| `DATABASE_URL_PROD` | Env: `migrations-production` | Migration connection string (prod) |
+| `DB_HOST_STAGING` | Env: `migrations-staging` | Cloud SQL private IP (staging) |
+| `DB_HOST_PROD` | Env: `migrations-production` | Cloud SQL private IP (prod) |
+| `DB_NAME` | Repository | Database name (`beloauto`) — same for all envs |
+| `DB_MIGRATOR_USER` | Repository | Migration role username (`beloauto_migrator`) |
+| `DB_MIGRATOR_PASSWORD_STAGING` | Env: `migrations-staging` | Migration role password (staging) — from Secret Manager `db-migrator-password` |
+| `DB_MIGRATOR_PASSWORD_PROD` | Env: `migrations-production` | Migration role password (prod) — from Secret Manager `db-migrator-password` |
+| `DB_APP_PASSWORD_STAGING` | Env: `migrations-staging` | App runtime role password (staging) — injected into Cloud Run `DB_PASSWORD` |
+| `DB_APP_PASSWORD_PROD` | Env: `migrations-production` | App runtime role password (prod) — injected into Cloud Run `DB_PASSWORD` |
 | `OBSERVABILITY_VM_IP` | Env: `observability` | Public IP of the GCE observability VM |
 | `OBSERVABILITY_SSH_KEY` | Env: `observability` | SSH private key for GCE VM access |
 | `TF_STATE_BUCKET` | Repository | GCS bucket name for Terraform state |
@@ -95,7 +101,7 @@ Each CI workflow runs only when its service files change, keeping PRs fast.
 | `deploy-bff.yml` | push to `main` with `apps/bff/**` changes |
 | `deploy-frontend.yml` | push to `main` with `apps/web/**` changes |
 | `deploy-infra.yml` | push to `main` with `infrastructure/terraform/**` changes + `workflow_dispatch` |
-| `deploy-migrations.yml` | `workflow_call` (from deploy-backend) + `workflow_dispatch` |
+| `deploy-migrations.yml` | `workflow_call` (from deploy-backend) + `workflow_dispatch` — **step 1: run `docker/init-db.sh` to provision DB roles; step 2: `pnpm db:migrate`** |
 | `deploy-observability.yml` | push to `main` with `infrastructure/observability/**` + `workflow_dispatch` |
 
 ---
