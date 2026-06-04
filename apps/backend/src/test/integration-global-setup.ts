@@ -1,4 +1,6 @@
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { BookingLineEntity } from '../contexts/booking/infrastructure/entities/booking-line.entity';
@@ -31,6 +33,7 @@ import { CreateNotificationProcessedEvents1748200000020 } from '../contexts/noti
 import { AddNotificationLogUniqueConstraint1748300000010 } from '../contexts/notification/infrastructure/migrations/1748300000010-AddNotificationLogUniqueConstraint';
 import { HotsiteConfigEntity } from '../contexts/platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../contexts/platform/infrastructure/entities/tenant.entity';
+import { BootstrapSchemas1700000000000 } from '../contexts/platform/infrastructure/migrations/1700000000000-BootstrapSchemas';
 import { CreatePlatformTenants1716500000001 } from '../contexts/platform/infrastructure/migrations/1716500000001-CreatePlatformTenants';
 import { CreatePlatformHotsiteConfigs1716500000002 } from '../contexts/platform/infrastructure/migrations/1716500000002-CreatePlatformHotsiteConfigs';
 import { StaffEntity } from '../contexts/staff/infrastructure/entities/staff.entity';
@@ -71,6 +74,7 @@ export default async function globalSetup(): Promise<void> {
       ProcessedEventEntity,
     ],
     migrations: [
+      BootstrapSchemas1700000000000,
       CreatePlatformTenants1716500000001,
       CreatePlatformHotsiteConfigs1716500000002,
       CreateCustomerCustomers1716600000001,
@@ -96,8 +100,16 @@ export default async function globalSetup(): Promise<void> {
     migrationsRun: false,
   });
 
+  // Run docker/init-db.sh inside the container — same script used by docker-compose
+  // and production CI. The container already has bash + psql and the POSTGRES_USER /
+  // POSTGRES_DB env vars set; the script falls back to safe defaults for passwords.
+  const initScript = readFileSync(join(__dirname, '../../../../docker/init-db.sh'), 'utf8');
+  const { exitCode, output } = await pgContainer.exec(['bash', '-c', initScript]);
+  if (exitCode !== 0) {
+    throw new Error(`docker/init-db.sh failed (exit ${exitCode}):\n${output}`);
+  }
+
   await ds.initialize();
-  await ds.query(`CREATE SCHEMA IF NOT EXISTS "platform"`);
   await ds.runMigrations();
   await ds.destroy();
 }
