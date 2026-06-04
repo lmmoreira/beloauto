@@ -18,6 +18,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 ### Provision a new tenant (minimal — timezone defaults to America/Sao_Paulo)
+# @name provisionTenant
 POST {{baseUrl}}/internal/tenants
 Authorization: {{authHeader}}
 Content-Type: application/json
@@ -126,8 +127,8 @@ Content-Type: application/json
 # READ — Tenant lookup by ID (BFF-internal, no auth guard)
 # ─────────────────────────────────────────────────────────────────────────────
 
-### Happy path — get tenant info by ID (use a provisioned tenant ID)
-@tenantId = paste-a-tenant-uuid-here
+### Happy path — get tenant info by ID (run provisionTenant above first)
+@tenantId = {{provisionTenant.response.body.tenantId}}
 GET {{baseUrl}}/internal/tenants/{{tenantId}}
 
 ###

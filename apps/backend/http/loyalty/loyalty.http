@@ -1,8 +1,16 @@
-### Variables
-@baseUrl = http://localhost:3001
-@tenantId = {{$dotenv TENANT_ID}}
-@customerId = {{$dotenv CUSTOMER_ID}}
-@staffId = {{$dotenv STAFF_ID}}
+# Loyalty — Balance, entries, redemptions (UC-016)
+#
+# Prerequisites:
+#   1. pnpm infra:up
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run dev
+#
+# REST Client environment: select "local" in VS Code status bar
+
+@baseUrl = {{backendUrl}}
+@tenantId = 10000000-0000-4000-8000-000000000001
+@customerId = 20000000-0000-4000-8000-000000000001
+@staffId = 30000000-0000-4000-8000-000000000001
 @correlationId = test-corr-id
 
 ### GET /loyalty/balance — customer views own balance
