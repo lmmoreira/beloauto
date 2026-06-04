@@ -1202,7 +1202,6 @@ cd beloauto
 pnpm install
 
 # 3. Copy environment templates
-cp .env.example .env                          # root — docker-compose DB passwords
 cp apps/backend/.env.example apps/backend/.env
 cp apps/bff/.env.example apps/bff/.env
 
@@ -1319,8 +1318,9 @@ This separation ensures a compromised app process cannot alter or drop the schem
 - **Production/CI:** execute `docker/init-db.sh` (or equivalent SQL) as step 1 of the migration pipeline.
 
 ```bash
-# docker/init-db.sh — passwords come from DB_MIGRATOR_PASSWORD / DB_APP_PASSWORD env vars
-# Safe local defaults ('beloauto_migrator' / 'beloauto_app') are used when vars are not set.
+# docker/init-db.sh — reads DB_MIGRATOR_PASSWORD / DB_APP_PASSWORD from the environment.
+# Falls back to 'beloauto_migrator' / 'beloauto_app' when not set (always the case locally).
+# Production CI passes real secrets as env vars before running the script.
 ```
 
 **Schema creation and DML grants** are handled by the first TypeORM migration (`BootstrapSchemas1700000000000`), which runs as `beloauto_migrator`. It creates all 6 schemas and sets up `ALTER DEFAULT PRIVILEGES` so every future table automatically grants DML to `beloauto_app`.
@@ -1400,17 +1400,6 @@ echo "Pub/Sub emulator initialised."
 
 ### Environment Variables
 
-**File:** `.env.example` (root — read by docker-compose)
-
-```bash
-# DB role passwords — passed into the postgres container by docker-compose.
-# These must match the values in apps/backend/.env.
-DB_MIGRATOR_PASSWORD=beloauto_migrator
-DB_APP_PASSWORD=beloauto_app
-
-# (other root-level vars — see .env.example for full list)
-```
-
 **File:** `apps/backend/.env.example`
 
 ```bash
@@ -1434,7 +1423,7 @@ JWT_SECRET=change-me-to-a-random-64-char-string-in-production-environments
 # ... (see apps/backend/.env.example for full list)
 ```
 
-**File:** `.env` (gitignored — developer creates from `.env.example`)
+**File:** `apps/backend/.env` / `apps/bff/.env` (gitignored — developer creates from each app's `.env.example`)
 
 ### Local Service Ports
 
@@ -1495,7 +1484,7 @@ Cloud Run deploys reference this GAR path. No GHCR authentication needed at runt
 ```
 [ ] Install: docker, docker-compose, node >= 20, pnpm >= 9
 [ ] Clone repo: git clone ...
-[ ] Copy env: cp .env.example .env && cp apps/backend/.env.example apps/backend/.env && cp apps/bff/.env.example apps/bff/.env
+[ ] Copy env: cp apps/backend/.env.example apps/backend/.env && cp apps/bff/.env.example apps/bff/.env
 [ ] Get Google OAuth credentials (see Day 0 §9 — reuse staging client for local dev)
 [ ] Fill in apps/bff/.env: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (from Google Console), JWT_SECRET (any 64-char random string locally)
 [ ] Start infra: pnpm infra:up   (starts PostgreSQL, Pub/Sub emulator, GCS emulator, MailHog)
