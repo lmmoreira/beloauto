@@ -154,7 +154,7 @@ export class AuthController {
     @Body(new ZodValidationPipe(DevLoginSchema)) dto: DevLoginDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<DevLoginResponse> {
-    if (process.env['ENABLE_DEV_AUTH'] !== 'true') {
+    if (this.config.get<string>('ENABLE_DEV_AUTH') !== 'true') {
       throw new ForbiddenException({
         type: 'about:blank',
         title: 'Forbidden',
@@ -162,7 +162,7 @@ export class AuthController {
         detail: 'Dev auth is not enabled',
       });
     }
-    if (process.env['NODE_ENV'] === 'production') {
+    if (this.config.get<string>('NODE_ENV') === 'production') {
       throw new ForbiddenException({
         type: 'about:blank',
         title: 'Forbidden',

@@ -188,32 +188,7 @@ describe('AuthController (component) — non-OAuth routes', () => {
   // ─────────────────────────────────────────────────────────────────────────────
 
   describe('POST /v1/auth/dev-login', () => {
-    beforeEach(() => {
-      process.env['ENABLE_DEV_AUTH'] = 'true';
-      process.env['NODE_ENV'] = 'development';
-    });
-
-    afterEach(() => {
-      delete process.env['ENABLE_DEV_AUTH'];
-      process.env['NODE_ENV'] = 'test';
-      jest.resetAllMocks();
-    });
-
-    it('403 when ENABLE_DEV_AUTH is not set', async () => {
-      delete process.env['ENABLE_DEV_AUTH'];
-      const res = await request(app.getHttpServer())
-        .post('/v1/auth/dev-login')
-        .send({ email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' });
-      expect(res.status).toBe(403);
-    });
-
-    it('403 when NODE_ENV is production', async () => {
-      process.env['NODE_ENV'] = 'production';
-      const res = await request(app.getHttpServer())
-        .post('/v1/auth/dev-login')
-        .send({ email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' });
-      expect(res.status).toBe(403);
-    });
+    afterEach(() => jest.resetAllMocks());
 
     it('400 when email is invalid', async () => {
       const res = await request(app.getHttpServer())

@@ -23,14 +23,18 @@ const STAFF_ID_A = '30000000-0000-4000-8000-000000000001';
 const makeRes = (): jest.Mocked<Response> =>
   ({ redirect: jest.fn(), cookie: jest.fn() }) as unknown as jest.Mocked<Response>;
 
-function makeConfigService(): ConfigService {
+function makeConfigService(opts?: { enableDevAuth?: string; nodeEnv?: string }): ConfigService {
   return {
     getOrThrow: jest.fn().mockImplementation((key: string) => {
       if (key === 'FRONTEND_URL') return 'http://localhost:3000';
       if (key === 'JWT_EXPIRES_IN') return '7d';
       return undefined;
     }),
-    get: jest.fn(),
+    get: jest.fn().mockImplementation((key: string) => {
+      if (key === 'ENABLE_DEV_AUTH') return opts?.enableDevAuth ?? 'true';
+      if (key === 'NODE_ENV') return opts?.nodeEnv ?? 'development';
+      return undefined;
+    }),
   } as unknown as ConfigService;
 }
 
@@ -735,38 +739,26 @@ describe('AuthController', () => {
     const makeRes = (): jest.Mocked<Response> =>
       ({ cookie: jest.fn() }) as unknown as jest.Mocked<Response>;
 
-    beforeEach(() => {
-      process.env['ENABLE_DEV_AUTH'] = 'true';
-      process.env['NODE_ENV'] = 'development';
-    });
-
-    afterEach(() => {
-      delete process.env['ENABLE_DEV_AUTH'];
-      process.env['NODE_ENV'] = 'test';
-    });
-
-    it('throws ForbiddenException when ENABLE_DEV_AUTH is not set', async () => {
-      delete process.env['ENABLE_DEV_AUTH'];
-      const controller = new AuthController(
+    it('throws ForbiddenException when ENABLE_DEV_AUTH is not "true"', async () => {
+      const ctrl = new AuthController(
         jwtIssuer,
         selectionTokenService,
         makeBackendHttp(),
-        configService,
+        makeConfigService({ enableDevAuth: 'false' }),
       );
       const dto: DevLoginDto = { email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
-      await expect(controller.devLogin(dto, makeRes())).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(ctrl.devLogin(dto, makeRes())).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('throws ForbiddenException when NODE_ENV is production', async () => {
-      process.env['NODE_ENV'] = 'production';
-      const controller = new AuthController(
+      const ctrl = new AuthController(
         jwtIssuer,
         selectionTokenService,
         makeBackendHttp(),
-        configService,
+        makeConfigService({ nodeEnv: 'production' }),
       );
       const dto: DevLoginDto = { email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
-      await expect(controller.devLogin(dto, makeRes())).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(ctrl.devLogin(dto, makeRes())).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('staff path: returns accessToken + user with correct role and sets cookie', async () => {
@@ -775,11 +767,11 @@ describe('AuthController', () => {
           .mockResolvedValueOnce(tenantInfo)
           .mockResolvedValueOnce({ staffId: STAFF_ID_A, role: 'MANAGER', isActive: true }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const ctrl = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const res = makeRes();
       const dto: DevLoginDto = { email: 'admin@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
 
-      const result = await controller.devLogin(dto, res);
+      const result = await ctrl.devLogin(dto, res);
 
       expect(result.accessToken).toBeTruthy();
       expect(result.user.role).toBe('MANAGER');
@@ -799,10 +791,10 @@ describe('AuthController', () => {
           .mockResolvedValueOnce(tenantInfo)
           .mockResolvedValueOnce({ staffId: STAFF_ID_A, role: 'STAFF', isActive: true }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const ctrl = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const dto: DevLoginDto = { email: 'staff@lavacar.com.br', tenantSlug: 'lavacar-bh', type: 'staff' };
 
-      const result = await controller.devLogin(dto, makeRes());
+      const result = await ctrl.devLogin(dto, makeRes());
 
       const decoded = jwtService.decode(result.accessToken) as Record<string, unknown>;
       expect(decoded['sub']).toBe(STAFF_ID_A);
@@ -814,10 +806,10 @@ describe('AuthController', () => {
         get: jest.fn().mockResolvedValueOnce(tenantInfo),
         post: jest.fn().mockResolvedValueOnce({ customerId: CUSTOMER_ID_A, created: false }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const ctrl = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const dto: DevLoginDto = { email: 'joao@gmail.com', tenantSlug: 'lavacar-bh', type: 'customer' };
 
-      const result = await controller.devLogin(dto, makeRes());
+      const result = await ctrl.devLogin(dto, makeRes());
 
       expect(result.user.role).toBe('CUSTOMER');
       expect(result.user.sub).toBe(CUSTOMER_ID_A);
@@ -832,11 +824,11 @@ describe('AuthController', () => {
         get: jest.fn().mockResolvedValue(tenantInfo),
         post: jest.fn().mockResolvedValue({ customerId: CUSTOMER_ID_A, created: false }),
       });
-      const controller = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const ctrl = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
       const dto: DevLoginDto = { email: 'joao@gmail.com', tenantSlug: 'lavacar-bh', type: 'customer' };
 
-      const r1 = await controller.devLogin(dto, makeRes());
-      const r2 = await controller.devLogin(dto, makeRes());
+      const r1 = await ctrl.devLogin(dto, makeRes());
+      const r2 = await ctrl.devLogin(dto, makeRes());
 
       expect(r1.user.sub).toBe(r2.user.sub);
     });
