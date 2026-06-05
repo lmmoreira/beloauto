@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { STORAGE_SERVICE } from '../ports/storage.service.port';
-import { GcsSignedUrlService } from './gcs-signed-url.service';
+import { GcsSignedUrlAdapter } from './gcs-signed-url.adapter';
 
 @Module({
-  providers: [GcsSignedUrlService, { provide: STORAGE_SERVICE, useExisting: GcsSignedUrlService }],
+  providers: [GcsSignedUrlAdapter, { provide: STORAGE_SERVICE, useExisting: GcsSignedUrlAdapter }],
   exports: [STORAGE_SERVICE],
 })
 export class StorageModule {}

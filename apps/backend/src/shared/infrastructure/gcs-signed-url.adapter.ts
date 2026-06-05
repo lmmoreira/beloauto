@@ -6,7 +6,7 @@ import { IStorageService, GenerateSignedUrlResult } from '../ports/storage.servi
 const SIGNED_URL_TTL_MS = 15 * 60 * 1000;
 
 @Injectable()
-export class GcsSignedUrlService implements IStorageService, OnApplicationBootstrap {
+export class GcsSignedUrlAdapter implements IStorageService, OnApplicationBootstrap {
   private readonly storage: Storage;
   private readonly bucketName: string;
   private readonly emulatorHost: string | undefined;

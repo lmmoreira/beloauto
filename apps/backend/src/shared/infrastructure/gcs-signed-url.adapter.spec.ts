@@ -1,12 +1,12 @@
 import { ConfigService } from '@nestjs/config';
 import { Storage } from '@google-cloud/storage';
-import { GcsSignedUrlService } from './gcs-signed-url.service';
+import { GcsSignedUrlAdapter } from './gcs-signed-url.adapter';
 
 jest.mock('@google-cloud/storage');
 
 const MockStorage = Storage as jest.MockedClass<typeof Storage>;
 
-describe('GcsSignedUrlService', () => {
+describe('GcsSignedUrlAdapter', () => {
   let mockGetSignedUrl: jest.Mock;
   let mockBucketExists: jest.Mock;
   let mockCreateBucket: jest.Mock;
@@ -19,8 +19,8 @@ describe('GcsSignedUrlService', () => {
     } as unknown as ConfigService;
   }
 
-  function makeService(configValues: Record<string, string | undefined> = {}): GcsSignedUrlService {
-    return new GcsSignedUrlService(makeConfig(configValues));
+  function makeService(configValues: Record<string, string | undefined> = {}): GcsSignedUrlAdapter {
+    return new GcsSignedUrlAdapter(makeConfig(configValues));
   }
 
   beforeEach(() => {
