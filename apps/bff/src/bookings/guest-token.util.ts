@@ -36,9 +36,8 @@ export function tryVerifyGuestToken(token: string, secret: string): GuestTokenPa
 }
 
 /**
- * Verifies a guest JWT and returns its payload.
- * Returns null when the token is absent or structurally invalid.
- * Returns false when the token is present but fails verification (expired / bad signature).
+ * Verifies a guest JWT and returns its typed payload, or false on any failure
+ * (invalid signature, expired, missing required fields).
  */
 export function verifyGuestToken(token: string, secret: string): GuestTokenPayload | false {
   let raw: unknown;

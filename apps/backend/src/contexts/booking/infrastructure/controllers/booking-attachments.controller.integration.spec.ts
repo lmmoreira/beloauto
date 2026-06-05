@@ -113,11 +113,12 @@ describe('BookingAttachmentsController (integration)', () => {
     });
 
     it('returns 404 when bookingId belongs to a different tenant (tenant isolation)', async () => {
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .post('/bookings/attachments/signed-url')
         .set(actorHeaders(tenantBId, STAFF_ID, 'MANAGER'))
         .send({ fileName: 'after.jpg', contentType: 'image/jpeg', bookingId })
         .expect(404);
+      expect(body.status).toBe(404);
     });
   });
 });

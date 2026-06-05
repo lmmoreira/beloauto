@@ -10,12 +10,10 @@ export class GcsSignedUrlService implements IStorageService, OnApplicationBootst
   private readonly storage: Storage;
   private readonly bucketName: string;
   private readonly emulatorHost: string | undefined;
-  private readonly maxUploadBytes: number;
 
   constructor(config: ConfigService) {
     this.emulatorHost = config.get<string>('GCS_EMULATOR_HOST');
     this.bucketName = config.get<string>('GCS_BUCKET_NAME') ?? 'beloauto-local';
-    this.maxUploadBytes = config.get<number>('GCS_MAX_UPLOAD_BYTES') ?? 10_485_760;
 
     const storageOptions: Record<string, unknown> = {};
     if (this.emulatorHost) {
@@ -52,12 +50,6 @@ export class GcsSignedUrlService implements IStorageService, OnApplicationBootst
       action: 'write',
       expires: expiresAt,
       contentType,
-      // content-length-range is embedded as a required extension header.
-      // The client must include x-goog-content-length-range in the PUT request;
-      // GCS enforces the upper bound against Content-Length in production.
-      extensionHeaders: {
-        'x-goog-content-length-range': `0,${this.maxUploadBytes}`,
-      },
     });
 
     return { signedUrl, expiresAt };

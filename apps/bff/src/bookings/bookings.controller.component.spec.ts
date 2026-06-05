@@ -1072,9 +1072,9 @@ describe('BookingsController (component)', () => {
       expiresAt: '2026-06-15T10:15:00.000Z',
     };
 
-    it('scenario 1 — valid CUSTOMER JWT, no bookingId: calls post and returns 201', async () => {
+    it('scenario 1 — valid CUSTOMER JWT, no bookingId: calls postForPublic with tenantId and returns 201', async () => {
       const token = makeCustomerJwt(jwtService);
-      backendHttpService.post.mockResolvedValueOnce(mockSignedUrlResponse);
+      backendHttpService.postForPublic.mockResolvedValueOnce(mockSignedUrlResponse);
 
       const res = await request(app.getHttpServer())
         .post('/v1/bookings/attachments/signed-url')
@@ -1084,16 +1084,17 @@ describe('BookingsController (component)', () => {
       expect(res.status).toBe(201);
       expect(res.body.signedUrl).toBeDefined();
       expect(res.body.filePath).toBeDefined();
-      expect(backendHttpService.post).toHaveBeenCalledWith(
+      expect(backendHttpService.postForPublic).toHaveBeenCalledWith(
         '/bookings/attachments/signed-url',
         expect.objectContaining({ fileName: 'car.jpg', contentType: 'image/jpeg' }),
+        TENANT_ID,
       );
     });
 
-    it('scenario 4 — valid MANAGER JWT + bookingId: calls post with bookingId', async () => {
+    it('scenario 4 — valid MANAGER JWT + bookingId: calls postForPublic with tenantId and bookingId', async () => {
       const token = makeManagerJwt(jwtService);
       setupActiveGuardMock(httpService);
-      backendHttpService.post.mockResolvedValueOnce(mockSignedUrlResponse);
+      backendHttpService.postForPublic.mockResolvedValueOnce(mockSignedUrlResponse);
 
       const res = await request(app.getHttpServer())
         .post('/v1/bookings/attachments/signed-url')
@@ -1101,9 +1102,10 @@ describe('BookingsController (component)', () => {
         .send({ fileName: 'after.jpg', contentType: 'image/jpeg', bookingId: BOOKING_ID_ATTACH });
 
       expect(res.status).toBe(201);
-      expect(backendHttpService.post).toHaveBeenCalledWith(
+      expect(backendHttpService.postForPublic).toHaveBeenCalledWith(
         '/bookings/attachments/signed-url',
         expect.objectContaining({ bookingId: BOOKING_ID_ATTACH }),
+        TENANT_ID,
       );
     });
 

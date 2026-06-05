@@ -183,15 +183,18 @@ export class BookingsController {
   ): Promise<AttachmentSignedUrlResponse> {
     const user = this.tryDecodeUserJwt(authHeader);
 
-    // Scenario 1 (CUSTOMER, no bookingId) or Scenario 4 (STAFF/MANAGER, bookingId present)
+    // Scenario 1 (CUSTOMER, no bookingId) or Scenario 4 (STAFF/MANAGER, bookingId present).
+    // Must use postForPublic because this route is @Public() — JwtAuthGuard does not run,
+    // so req.user is unset and post() would send an empty X-Tenant-ID header.
     if (user) {
-      return this.backendHttp.post<AttachmentSignedUrlResponse>(
+      return this.backendHttp.postForPublic<AttachmentSignedUrlResponse>(
         '/bookings/attachments/signed-url',
         {
           fileName: body.fileName,
           contentType: body.contentType,
           bookingId: body.bookingId,
         },
+        user.tenantId,
       );
     }
 

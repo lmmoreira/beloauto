@@ -188,9 +188,3 @@ export class CompleteBookingLinesIncompleteError extends BookingDomainError {
   }
 }
 
-export class AfterServicePhotoUrlInvalidError extends BookingDomainError {
-  constructor() {
-    super('afterServicePhotoUrls must follow the pattern tenants/<id>/bookings/<id>/<file>');
-    this.name = 'AfterServicePhotoUrlInvalidError';
-  }
-}

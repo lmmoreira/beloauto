@@ -793,9 +793,9 @@ describe('BookingsController', () => {
       expiresAt: '2026-06-15T10:15:00.000Z',
     };
 
-    it('scenario 1 — valid CUSTOMER JWT, no bookingId: calls post /bookings/attachments/signed-url', async () => {
+    it('scenario 1 — valid CUSTOMER JWT, no bookingId: calls postForPublic with tenantId', async () => {
       const backendHttp = makeBackendHttp({
-        post: jest.fn().mockResolvedValue(mockSignedUrlResponse),
+        postForPublic: jest.fn().mockResolvedValue(mockSignedUrlResponse),
       });
       const token = jwt.sign(
         { sub: 'cust-id', tenantId: TENANT_ID, tenantSlug: TENANT_SLUG, role: 'CUSTOMER' },
@@ -808,11 +808,11 @@ describe('BookingsController', () => {
         contentType: 'image/jpeg',
       });
 
-      expect(backendHttp.post).toHaveBeenCalledWith('/bookings/attachments/signed-url', {
-        fileName: 'car.jpg',
-        contentType: 'image/jpeg',
-        bookingId: undefined,
-      });
+      expect(backendHttp.postForPublic).toHaveBeenCalledWith(
+        '/bookings/attachments/signed-url',
+        { fileName: 'car.jpg', contentType: 'image/jpeg', bookingId: undefined },
+        TENANT_ID,
+      );
       expect(result).toBe(mockSignedUrlResponse);
     });
 
