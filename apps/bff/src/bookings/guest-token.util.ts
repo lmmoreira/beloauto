@@ -22,20 +22,6 @@ export function tryDecodeRawJwt(token: string, secret: string): unknown {
 }
 
 /**
- * Verifies a guest JWT and returns its payload, or null if invalid/expired.
- * Does NOT throw — use verifyGuestTokenOrThrow for that.
- */
-export function tryVerifyGuestToken(token: string, secret: string): GuestTokenPayload | null {
-  try {
-    const raw = jwt.verify(token, secret, { algorithms: ['HS256'] });
-    const parsed = GuestTokenPayloadSchema.safeParse(raw);
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Verifies a guest JWT and returns its typed payload, or false on any failure
  * (invalid signature, expired, missing required fields).
  */

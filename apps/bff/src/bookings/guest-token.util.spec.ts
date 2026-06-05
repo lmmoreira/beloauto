@@ -1,5 +1,5 @@
 import * as jwt from 'jsonwebtoken';
-import { tryVerifyGuestToken, verifyGuestToken } from './guest-token.util';
+import { verifyGuestToken } from './guest-token.util';
 
 const SECRET = 'test-secret-must-be-at-least-64-chars-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 const BOOKING_ID = '40000000-0000-4000-8000-000000000001';
@@ -13,45 +13,6 @@ function makeToken(overrides: Record<string, unknown> = {}): string {
   );
 }
 
-describe('tryVerifyGuestToken()', () => {
-  it('returns payload for a valid token', () => {
-    const token = makeToken();
-    const result = tryVerifyGuestToken(token, SECRET);
-    expect(result).toMatchObject({
-      bookingId: BOOKING_ID,
-      tenantId: TENANT_ID,
-      contactEmail: CONTACT_EMAIL,
-    });
-  });
-
-  it('returns null for an invalid signature', () => {
-    const token = makeToken();
-    expect(
-      tryVerifyGuestToken(
-        token,
-        'wrong-secret-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-      ),
-    ).toBeNull();
-  });
-
-  it('returns null for a malformed token string', () => {
-    expect(tryVerifyGuestToken('not-a-jwt', SECRET)).toBeNull();
-  });
-
-  it('returns null when required field is missing (no contactEmail)', () => {
-    const token = jwt.sign({ bookingId: BOOKING_ID, tenantId: TENANT_ID }, SECRET);
-    expect(tryVerifyGuestToken(token, SECRET)).toBeNull();
-  });
-
-  it('returns null for an expired token', () => {
-    const token = jwt.sign(
-      { bookingId: BOOKING_ID, tenantId: TENANT_ID, contactEmail: CONTACT_EMAIL },
-      SECRET,
-      { expiresIn: -1 },
-    );
-    expect(tryVerifyGuestToken(token, SECRET)).toBeNull();
-  });
-});
 
 describe('verifyGuestToken()', () => {
   it('returns payload for a valid token', () => {
