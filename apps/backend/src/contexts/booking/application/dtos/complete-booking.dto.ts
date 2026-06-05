@@ -9,7 +9,10 @@ export const CompleteBookingBodySchema = z.object({
       }),
     )
     .min(1),
-  afterServicePhotoUrls: z.array(z.string()).optional().default([]),
+  afterServicePhotoUrls: z
+    .array(z.string().regex(/^tenants\/[^/]+\/bookings\/[^/]+\/.+$/))
+    .optional()
+    .default([]),
   adminNotes: z.string().optional(),
 });
 

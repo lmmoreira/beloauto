@@ -1,0 +1,99 @@
+# BFF — Booking Attachment Signed URL
+# M115-S01: GCS pre-signed upload URLs for before/after photos
+#
+# Prerequisites:
+#   1. pnpm infra:up        (starts GCS emulator at http://localhost:4443)
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run seed
+#   4. pnpm --filter @beloauto/backend run dev
+#   5. pnpm --filter @beloauto/bff run dev
+#   6. ENABLE_DEV_AUTH=true in apps/bff/.env.local
+#
+# REST Client environment: select "local" in VS Code status bar
+
+@managerToken  = {{managerLogin.response.body.accessToken}}
+@customerToken = {{customerLogin.response.body.accessToken}}
+
+# ── DEV AUTH ──────────────────────────────────────────────────────────────────
+
+###
+# @name managerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "admin@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
+
+###
+# @name customerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "cliente@email.com.br", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
+
+# ── Scenario 1 — Authenticated customer, no bookingId (before-photos) ─────────
+
+###
+POST {{bffUrl}}/v1/bookings/attachments/signed-url
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "fileName": "car-front.jpg",
+  "contentType": "image/jpeg"
+}
+
+# ── Scenario 2 — Guest (anonymous), tenantSlug in body (before-photos) ────────
+
+###
+POST {{bffUrl}}/v1/bookings/attachments/signed-url
+Content-Type: application/json
+
+{
+  "fileName": "car-side.jpg",
+  "contentType": "image/jpeg",
+  "tenantSlug": "{{tenantSlug}}"
+}
+
+# ── Scenario 4 — Staff/Manager, bookingId present (after-photos) ──────────────
+
+###
+POST {{bffUrl}}/v1/bookings/attachments/signed-url
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "fileName": "after-wash.jpg",
+  "contentType": "image/jpeg",
+  "bookingId": "{{bookingId}}"
+}
+
+# ── ERROR cases ───────────────────────────────────────────────────────────────
+
+### 400 — fileName with path traversal
+POST {{bffUrl}}/v1/bookings/attachments/signed-url
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "fileName": "../etc/passwd",
+  "contentType": "image/jpeg"
+}
+
+### 400 — unsupported content type
+POST {{bffUrl}}/v1/bookings/attachments/signed-url
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "fileName": "photo.gif",
+  "contentType": "image/gif"
+}
+
+### 400 — guest with no tenantSlug and no token
+POST {{bffUrl}}/v1/bookings/attachments/signed-url
+Content-Type: application/json
+
+{
+  "fileName": "car.jpg",
+  "contentType": "image/jpeg"
+}

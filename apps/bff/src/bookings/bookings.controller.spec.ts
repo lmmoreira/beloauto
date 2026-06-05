@@ -1,11 +1,12 @@
-import { HttpException } from '@nestjs/common';
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { makeBackendHttp } from '../test/backend-http.mock';
 import { BookingsController } from './bookings.controller';
-import { BookingResponse } from './bookings.types';
+import { AttachmentSignedUrlResponse, BookingResponse } from './bookings.types';
 
-const makeConfigService = (secret = 'test-secret-32-chars-for-bff-spec') =>
+const JWT_SECRET = 'test-secret-32-chars-for-bff-spec';
+const makeConfigService = (secret = JWT_SECRET) =>
   ({ getOrThrow: () => secret }) as unknown as ConfigService;
 
 const TENANT_SLUG = 'lavacar-bh';
@@ -782,6 +783,151 @@ describe('BookingsController', () => {
       const err = await controller.createAuthenticated(authBody).catch((e: unknown) => e);
       expect(err).toBeInstanceOf(HttpException);
       expect((err as HttpException).getStatus()).toBe(422);
+    });
+  });
+
+  describe('generateAttachmentSignedUrl()', () => {
+    const mockSignedUrlResponse: AttachmentSignedUrlResponse = {
+      signedUrl: 'http://localhost:4443/bucket/path?X-Goog-Signature=abc',
+      filePath: `tenants/${TENANT_ID}/uploads/uuid/car.jpg`,
+      expiresAt: '2026-06-15T10:15:00.000Z',
+    };
+
+    it('scenario 1 — valid CUSTOMER JWT, no bookingId: calls postForPublic with tenantId', async () => {
+      const backendHttp = makeBackendHttp({
+        postForPublic: jest.fn().mockResolvedValue(mockSignedUrlResponse),
+      });
+      const token = jwt.sign(
+        { sub: 'cust-id', tenantId: TENANT_ID, tenantSlug: TENANT_SLUG, role: 'CUSTOMER' },
+        JWT_SECRET,
+      );
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const result = await controller.generateAttachmentSignedUrl(`Bearer ${token}`, {
+        fileName: 'car.jpg',
+        contentType: 'image/jpeg',
+      });
+
+      expect(backendHttp.postForPublic).toHaveBeenCalledWith(
+        '/bookings/attachments/signed-url',
+        { fileName: 'car.jpg', contentType: 'image/jpeg', bookingId: undefined },
+        TENANT_ID,
+      );
+      expect(result).toBe(mockSignedUrlResponse);
+    });
+
+    it('scenario 2 — no JWT, tenantSlug in body: resolves tenant then calls postForPublic', async () => {
+      const tenantInfo = { id: TENANT_ID, slug: TENANT_SLUG };
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValue(tenantInfo),
+        postForPublic: jest.fn().mockResolvedValue(mockSignedUrlResponse),
+      });
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const result = await controller.generateAttachmentSignedUrl(undefined, {
+        fileName: 'car.jpg',
+        contentType: 'image/jpeg',
+        tenantSlug: TENANT_SLUG,
+      });
+
+      expect(backendHttp.get).toHaveBeenCalledWith(`/internal/tenants/by-slug/${TENANT_SLUG}`);
+      expect(backendHttp.postForPublic).toHaveBeenCalledWith(
+        '/bookings/attachments/signed-url',
+        { fileName: 'car.jpg', contentType: 'image/jpeg' },
+        TENANT_ID,
+      );
+      expect(result).toBe(mockSignedUrlResponse);
+    });
+
+    it('scenario 3 — valid guestToken: verifies token then calls postForPublic', async () => {
+      const guestToken = jwt.sign(
+        { bookingId: BOOKING_ID, tenantId: TENANT_ID, contactEmail: 'g@test.com' },
+        JWT_SECRET,
+      );
+      const backendHttp = makeBackendHttp({
+        postForPublic: jest.fn().mockResolvedValue(mockSignedUrlResponse),
+      });
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const result = await controller.generateAttachmentSignedUrl(undefined, {
+        fileName: 'info.jpg',
+        contentType: 'image/jpeg',
+        guestToken,
+        bookingId: BOOKING_ID,
+      });
+
+      expect(backendHttp.postForPublic).toHaveBeenCalledWith(
+        '/bookings/attachments/signed-url',
+        { fileName: 'info.jpg', contentType: 'image/jpeg', bookingId: BOOKING_ID },
+        TENANT_ID,
+      );
+      expect(result).toBe(mockSignedUrlResponse);
+    });
+
+    it('scenario 3 — invalid guestToken: returns 401', async () => {
+      const backendHttp = makeBackendHttp({});
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const err = await controller
+        .generateAttachmentSignedUrl(undefined, {
+          fileName: 'info.jpg',
+          contentType: 'image/jpeg',
+          guestToken: 'not-a-valid-jwt',
+        })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.UNAUTHORIZED);
+    });
+
+    it('scenario 2 — no JWT, no tenantSlug, no guestToken: returns 400', async () => {
+      const backendHttp = makeBackendHttp({});
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const err = await controller
+        .generateAttachmentSignedUrl(undefined, {
+          fileName: 'car.jpg',
+          contentType: 'image/jpeg',
+        })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    });
+
+    it('Bearer with valid signature but wrong schema is treated as no-JWT (falls through to slug/guest branch)', async () => {
+      const backendHttp = makeBackendHttp({});
+      const controller = new BookingsController(backendHttp, makeConfigService());
+      // Guest token has correct signature but lacks sub/tenantSlug/role — parsed.success is false
+      const guestShapedToken = jwt.sign(
+        { bookingId: BOOKING_ID, tenantId: TENANT_ID, contactEmail: 'g@test.com' },
+        JWT_SECRET,
+      );
+
+      const err = await controller
+        .generateAttachmentSignedUrl(`Bearer ${guestShapedToken}`, {
+          fileName: 'car.jpg',
+          contentType: 'image/jpeg',
+        })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    });
+
+    it('invalid Bearer token is treated as no-JWT (falls through to slug/guest branch)', async () => {
+      const backendHttp = makeBackendHttp({});
+      const controller = new BookingsController(backendHttp, makeConfigService());
+
+      const err = await controller
+        .generateAttachmentSignedUrl('Bearer not-a-jwt', {
+          fileName: 'car.jpg',
+          contentType: 'image/jpeg',
+        })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
     });
   });
 });

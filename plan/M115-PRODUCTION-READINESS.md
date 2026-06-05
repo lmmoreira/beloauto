@@ -16,48 +16,130 @@
 > Moved from M10-S02. M10-S01 accepts `afterServicePhotoUrls` as plain strings (good enough for backend logic); this story wires the actual upload mechanism the frontend needs.
 
 **Agent:** `backend-ts` + `bff-ts`  
-**Complexity:** S  
+**Complexity:** M  
 **Docs to load:** `docs/14-API_CONTRACTS.md` § media endpoints, `docs/23-INFRASTRUCTURE_SETUP.md` § GCS emulator
 
 **Description:**  
-Photos (before-service from customer, after-service from staff) are uploaded directly from the browser to GCS using a pre-signed URL, avoiding routing large files through the backend. Locally, the service points to the GCS emulator (`http://localhost:4443`).
+Photos (before-service from customer/guest, after-service from staff) are uploaded directly from the browser to GCS using a pre-signed URL, avoiding routing large files through the backend. Locally, the service points to the GCS emulator (`http://localhost:4443`).
+
+Four upload scenarios are covered by one endpoint:
+
+| # | Who | Auth | `bookingId`? | Path generated |
+|---|---|---|---|---|
+| 1 | Authenticated customer | CUSTOMER JWT | ❌ | `tenants/<tenantId>/uploads/<uuid>/<fileName>` |
+| 2 | Guest (initial booking) | None — `tenantSlug` in body | ❌ | `tenants/<tenantId>/uploads/<uuid>/<fileName>` |
+| 3 | Guest (submit-info) | Guest token in body (`@Public()`) | ✅ | `tenants/<tenantId>/bookings/<bookingId>/<fileName>` |
+| 4 | Staff / Manager | STAFF/MANAGER JWT | ✅ | `tenants/<tenantId>/bookings/<bookingId>/<fileName>` |
+
+Hotsite image uploads (logo, hero background, gallery — UC-027/M12-S02) reuse `IStorageService` but the BFF endpoint for that is a separate story in M12.
+
+**Infrastructure — new package + docker changes:**
+- Add `@google-cloud/storage` to `apps/backend/package.json`
+- `docker/docker-compose.yml` — add `-external-url http://localhost:4443` to the `gcs-emulator` command so the emulator embeds its own address in signed URLs
+- Add `docker/fake-service-account.json` — a valid-structure (but fake) service account key used only with the emulator; committed to the repo
+- Add `GCS_KEY_FILE=docker/fake-service-account.json` to `.env.example` and backend `env.validation.ts` as `z.string().optional()`
 
 **Backend — `IStorageService` port + `GcsSignedUrlService` adapter:**
 ```
 src/shared/ports/storage.service.port.ts
 src/shared/infrastructure/gcs-signed-url.service.ts
 ```
-- `generateSignedUrl(tenantId, bookingId, fileName, operation: 'write'): Promise<string>`
-- Builds GCS path: `tenants/<tenant_id>/bookings/<booking_id>/<fileName>`
+- Port method (generic — path construction is the caller's responsibility):
+  ```ts
+  generateSignedUrl(storagePath: string, contentType: string, operation: 'write'): Promise<string>
+  ```
+- `GcsSignedUrlService` constructor: reads `GCS_EMULATOR_HOST`, `GCS_BUCKET_NAME`, `GCS_KEY_FILE` from config; when `GCS_EMULATOR_HOST` is set passes it as `apiEndpoint` to the `Storage` constructor
+- `onApplicationBootstrap()`: if `GCS_EMULATOR_HOST` is set, auto-creates the `GCS_BUCKET_NAME` bucket (idempotent — skips if already exists)
 - Returns signed URL valid for 15 minutes
-- Rejects `fileName` containing `..` or `/`
-- Content type restricted to `image/jpeg` | `image/png`
+- **Security — content-type lock:** passes `contentType` as the `Content-Type` condition in the GCS V4 signed URL options so GCS itself rejects any `PUT` where the browser sends a mismatched `Content-Type` header
+- **Security — file size cap:** embeds a `content-length-range` condition (0 – 10 MB) in the signed URL so GCS rejects uploads exceeding 10 MB at the infrastructure level, independent of the backend
+
+**Backend — REST controller:**
+```
+src/contexts/booking/infrastructure/controllers/booking-attachments.controller.ts
+```
+- `POST /v1/bookings/attachments/signed-url`
+- Accepts `TenantContext` (from `TenantInterceptor`)
+- Validates `fileName` (no `..` or `/`), `contentType` (`image/jpeg` | `image/png`)
+- Path construction:
+  - `bookingId` present → verify booking belongs to `tenantId` (+ `actorId` if STAFF/MANAGER) → path = `tenants/<tenantId>/bookings/<bookingId>/<fileName>`
+  - `bookingId` absent → path = `tenants/<tenantId>/uploads/<uuidv7>/<fileName>`
+- Calls `IStorageService.generateSignedUrl(storagePath, contentType, 'write')`
+- Returns `{ signedUrl, filePath, expiresAt }`
 
 **BFF endpoint:** `POST /v1/bookings/attachments/signed-url`
-- JWT required (`CUSTOMER` for before-photos, `STAFF|MANAGER` for after-photos)
-- Body: `{ bookingId: uuid, fileName: string, contentType: 'image/jpeg' | 'image/png' }`
+
+Single endpoint, four auth paths:
+
+```
+// Scenario 1 — authenticated customer (before-photos, no booking yet)
+JWT (CUSTOMER role) present, bookingId absent
+→ tenantId from JWT; path = uploads/<uuid>/
+
+// Scenario 2 — guest (before-photos, initial booking, no JWT)
+No JWT; tenantSlug in body
+→ BFF resolves tenantId via GET /internal/tenants/by-slug/:slug
+→ path = uploads/<uuid>/
+
+// Scenario 3 — guest (submit-info photos, booking exists)
+@Public(); guestToken in body; bookingId in body
+→ BFF verifies guestToken (same pattern as PATCH /:id/submit-info/guest)
+→ path = bookings/<bookingId>/
+
+// Scenario 4 — staff / manager (after-photos, booking exists)
+JWT (STAFF|MANAGER role) present, bookingId in body
+→ tenantId + actorId from JWT; backend verifies ownership
+→ path = bookings/<bookingId>/
+```
+
+- Body:
+  ```ts
+  {
+    fileName: string                            // required
+    contentType: 'image/jpeg' | 'image/png'    // required
+    bookingId?: uuid                            // scenarios 3 + 4
+    tenantSlug?: string                         // scenario 2 only
+    guestToken?: string                         // scenario 3 only
+  }
+  ```
 - Returns: `{ signedUrl, filePath, expiresAt }`
+- **Security — rate limiting:** `@Throttle({ default: { limit: 10, ttl: 60_000 } })` on this endpoint (10 requests/minute per IP). Tighter than the project default because scenario 2 is fully public — anyone who knows a `tenantSlug` can call it without a JWT.
 
 **Photo upload handoff (3-step frontend contract):**
 1. `POST /v1/bookings/attachments/signed-url` → receive `{ signedUrl, filePath }`
 2. Browser uploads file directly: `PUT <signedUrl>` (no backend involved)
-3. Include `filePath` (not `signedUrl`) in the booking request body (e.g. `afterServicePhotoUrls: [filePath]`)
+3. Include `filePath` (not `signedUrl`) in the booking request body
 
-`filePath` format: `tenants/<tenant_id>/bookings/<booking_id>/<fileName>`. The backend stores and returns this path only — fresh read-signed URLs are generated at display time, never stored.
+`filePath` is what the backend stores — fresh read-signed URLs are generated at display time, never stored.
+
+**`CompleteBookingUseCase` + BFF — enforce `filePath` format:**
+- `complete-booking.dto.ts`: `afterServicePhotoUrls` tightened from `z.string()` to:
+  ```ts
+  z.string().regex(/^tenants\/[^/]+\/bookings\/[^/]+\/.+$/)
+  ```
+- BFF `CompleteBookingBodySchema`: same regex applied to `afterServicePhotoUrls`
 
 **Acceptance criteria:**
 - [ ] Endpoint returns `{ signedUrl, filePath, expiresAt }` — `expiresAt` is 15 minutes from now
 - [ ] `fileName` containing `../` or `/` is rejected with `400`
 - [ ] Content type other than `image/jpeg` / `image/png` returns `400`
-- [ ] Customer can only generate signed URLs for bookings they own
-- [ ] Integration test: call endpoint → `PUT` file to signed URL on GCS emulator → assert upload succeeds (HTTP 200 from emulator)
-- [ ] `filePath` (not `signedUrl`) is what the completion endpoint stores in `after_service_photo_urls[]`
+- [ ] Scenario 1 (authenticated customer, no bookingId): path is `tenants/<tenantId>/uploads/<uuid>/<fileName>`
+- [ ] Scenario 2 (guest, tenantSlug in body, no JWT): same path shape; `tenantSlug` resolves correctly to `tenantId`
+- [ ] Scenario 3 (guest with guestToken + bookingId): path is `tenants/<tenantId>/bookings/<bookingId>/<fileName>`; invalid or expired guestToken returns `401`
+- [ ] Scenario 4 (STAFF/MANAGER + bookingId): path is `tenants/<tenantId>/bookings/<bookingId>/<fileName>`; bookingId belonging to a different tenant returns `404`
+- [ ] Integration test: call endpoint (scenario 4) → `PUT` file to signed URL on GCS emulator → assert upload succeeds (HTTP 200 from emulator)
+- [ ] `afterServicePhotoUrls` on `CompleteBookingUseCase` rejects values not matching the `tenants/.../bookings/.../` format with `400`
+- [ ] GCS emulator bucket `beloauto-local` is auto-created on `onApplicationBootstrap()` when `GCS_EMULATOR_HOST` is set
+- [ ] `docker-compose` signed URLs point to `http://localhost:4443` (not `storage.googleapis.com`)
+- [ ] Rate limit: 11th request within 60 s from same IP returns `429`
+- [ ] Signed URL embeds `content-length-range` (0–10 MB) — GCS emulator rejects a `PUT` with body exceeding 10 MB
+- [ ] Signed URL is locked to the requested `contentType` — GCS emulator rejects a `PUT` with a mismatched `Content-Type` header
 
 **Dependencies:** M10-S01, M03-S05, M00-S06
 
 ---
 
-### M115-S02 — Dev Login BFF endpoint
+### M115-S02 — Dev Login BFF endpoint ✅ Done
 
 **Agent:** `bff-ts`  
 **Complexity:** S  

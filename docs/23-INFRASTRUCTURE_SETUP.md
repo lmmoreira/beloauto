@@ -1281,10 +1281,10 @@ services:
 
   storage-emulator:
     image: fsouza/fake-gcs-server:latest
-    container_name: beloauto-storage
+    container_name: beloauto-gcs
     ports:
       - "4443:4443"
-    command: -scheme http -port 4443
+    command: -scheme http -port 4443 -backend memory -external-url http://localhost:4443
     volumes:
       - storage-data:/data
 

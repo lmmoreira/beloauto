@@ -82,6 +82,12 @@ export interface CompleteBookingResponse {
   totalActualPrice: { amount: number; currency: string };
 }
 
+export interface AttachmentSignedUrlResponse {
+  signedUrl: string;
+  filePath: string;
+  expiresAt: string;
+}
+
 export interface BookingDetailResponse {
   id: string;
   status: string;

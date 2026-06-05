@@ -192,62 +192,101 @@ Used by the React app to fetch branding and layout for a slug.
 
 ## 3. Booking Lifecycle
 
-### **Media Upload (UC-001, UC-009)**
-Used before creating a booking (UC-001) or marking it complete (UC-009).
+### **Media Upload (UC-001, UC-002, UC-005b, UC-009)**
+Used to upload photos before creating a booking (UC-001/UC-002), when submitting more info as a guest (UC-005b), or when marking a booking complete (UC-009).
 
-- `POST /bookings/attachments/signed-url`
-- **Body:**
+**BFF:** `POST /v1/bookings/attachments/signed-url`
+
+Single endpoint covering four authentication scenarios:
+
+| Scenario | Who | Auth | `bookingId` |
+|---|---|---|---|
+| 1 | Authenticated customer — before-photos | CUSTOMER JWT | absent |
+| 2 | Guest — before-photos (initial booking) | None; `tenantSlug` in body | absent |
+| 3 | Guest — submit-info photos | `guestToken` in body (`@Public`) | present |
+| 4 | Staff / Manager — after-photos | STAFF/MANAGER JWT | present |
+
+- **Request body:**
   ```json
   {
-    "fileName": "car.jpg",
-    "contentType": "image/jpeg"
+    "fileName":    "car-front.jpg",
+    "contentType": "image/jpeg",
+    "bookingId":   "uuid",        // optional — scenarios 3 + 4
+    "tenantSlug":  "lavacar-bh",  // optional — scenario 2 only
+    "guestToken":  "eyJ..."       // optional — scenario 3 only
   }
   ```
-- **Query Parameters:** (optional)
-  - `type=before` (default) — uploading car photos before booking
-  - `type=after` — uploading after-service photos on completion
 
 - **Response (201 Created):**
   ```json
   {
-    "uploadUrl": "https://storage.googleapis.com/...",
-    "fileUrl": "https://storage.beloauto.com/tenants/{tenantId}/bookings/{bookingId}/...",
+    "signedUrl": "http://localhost:4443/beloauto-local/tenants/.../car-front.jpg?X-Goog-Signature=...",
+    "filePath":  "tenants/<tenantId>/bookings/<bookingId>/car-front.jpg",
     "expiresAt": "2026-05-12T00:08:44Z"
   }
   ```
 
+**Storage path rules:**
+- `bookingId` present → `tenants/<tenantId>/bookings/<bookingId>/<fileName>`
+- `bookingId` absent  → `tenants/<tenantId>/uploads/<uuid>/<fileName>`
+
+`filePath` is what the backend stores and returns. Fresh read-signed URLs are generated at display time — `signedUrl` is never stored.
+
+**Signed URL expiration:** 15 minutes.
+
 #### **Upload Constraints (MVP):**
 | Constraint | Value | Notes |
-|------------|-------|-------|
-| Max file size | 10 MB | Per file, enforced by API validation |
-| Max files per session | 5 | Customer can upload max 5 car photos, 5 after-service photos |
-| Accepted MIME types | image/jpeg, image/png | Others return `400 unsupported-media-type` |
-| Upload URL expiration | 1 hour | URL valid for 60 minutes after issuance |
-| Storage path template | `tenants/{tenantId}/bookings/{bookingId}/{type}/{fileName}` | Tenant-prefixed, type=before or after |
-
-#### **Validation Rules:**
-- `fileName` must be 1–255 characters, safe for filesystem (no path separators)
-- `contentType` must be exactly `image/jpeg` or `image/png`
-- File must be uploaded to `uploadUrl` within 1 hour (time-limited)
-- Multiple files allowed: call endpoint 5 times, get 5 signed URLs
+|---|---|---|
+| Accepted MIME types | `image/jpeg`, `image/png` | Others return `400`; also enforced by GCS at `PUT` time |
+| Max file size | 10 MB | Enforced by GCS via `content-length-range` condition embedded in the signed URL — backend never sees the upload |
+| `fileName` | 1–255 chars, no path separators | `../` or `/` returns `400` |
+| URL expiration | 15 minutes | `signedUrl` expires 15 min after issuance |
+| Rate limit | 10 requests / minute per IP | `429` on the 11th request — protects the public guest path |
 
 #### **Error Responses:**
-- `400 invalid-file-name` — fileName invalid or too long
-- `400 unsupported-media-type` — contentType not in [image/jpeg, image/png]
-- `413 file-too-large` — actual upload exceeds 10 MB
-- `429 too-many-files` — attempted to upload more than 5 files in this session
-- `410 upload-url-expired` — signed URL expired after 1 hour
+- `400 invalid-file-name` — `fileName` contains `../` or `/`, or is empty
+- `400 unsupported-media-type` — `contentType` not `image/jpeg` or `image/png`
+- `400 missing-tenant` — scenario 2 called without `tenantSlug`
+- `401 invalid-guest-token` — scenario 3: `guestToken` missing, expired, or invalid
+- `404` — `bookingId` does not belong to the caller's tenant
+- `429 too-many-requests` — rate limit exceeded
 
-#### **Example Flow (UC-001):**
+#### **3-step upload contract (frontend):**
 ```
-1. Customer selects car photos (5 files, up to 10 MB each)
-2. Frontend calls POST /bookings/attachments/signed-url (5 times)
-   Request: { "fileName": "car-front.jpg", "contentType": "image/jpeg" }
-   Response: { "uploadUrl": "https://...", "fileUrl": "https://...", "expiresAt": "..." }
-3. Frontend uploads directly to uploadUrl (S3/GCS)
-4. Frontend collects all fileUrls
-5. Frontend submits POST /bookings with beforeServicePhotoUrls: [fileUrl1, fileUrl2, ...]
-6. System validates URLs and creates booking
+1. POST /v1/bookings/attachments/signed-url
+   → receive { signedUrl, filePath, expiresAt }
+
+2. PUT <signedUrl>                         (browser → GCS directly, no backend involved)
+   Content-Type: image/jpeg
+   Body: <binary file>
+
+3. Include filePath (not signedUrl) in the booking body:
+   beforeServicePhotoUrls: ["tenants/.../uploads/<uuid>/car-front.jpg"]
+   afterServicePhotoUrls:  ["tenants/.../bookings/<bookingId>/after.jpg"]
+```
+
+#### **Example flows:**
+
+**UC-001 / UC-002 — before-photos (guest or authenticated customer):**
+```
+// Authenticated customer
+POST /v1/bookings/attachments/signed-url
+Authorization: Bearer <customerJwt>
+{ "fileName": "car-front.jpg", "contentType": "image/jpeg" }
+→ { signedUrl, filePath: "tenants/<tid>/uploads/<uuid>/car-front.jpg", expiresAt }
+
+// Guest (no JWT)
+POST /v1/bookings/attachments/signed-url
+{ "fileName": "car-front.jpg", "contentType": "image/jpeg", "tenantSlug": "lavacar-bh" }
+→ { signedUrl, filePath: "tenants/<tid>/uploads/<uuid>/car-front.jpg", expiresAt }
+```
+
+**UC-009 — after-photos (staff):**
+```
+POST /v1/bookings/attachments/signed-url
+Authorization: Bearer <staffJwt>
+{ "fileName": "after.jpg", "contentType": "image/jpeg", "bookingId": "<bookingId>" }
+→ { signedUrl, filePath: "tenants/<tid>/bookings/<bookingId>/after.jpg", expiresAt }
 ```
 
 ### **Booking Requests**
