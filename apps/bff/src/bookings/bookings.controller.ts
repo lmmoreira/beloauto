@@ -170,7 +170,7 @@ export class BookingsController {
     const parsed = z
       .object({ sub: z.string(), tenantId: z.string(), tenantSlug: z.string(), role: z.string() })
       .safeParse(raw);
-    return parsed.success ? (parsed.data as CurrentUserPayload) : null;
+    return parsed.success ? parsed.data : null;
   }
 
   @Post('attachments/signed-url')

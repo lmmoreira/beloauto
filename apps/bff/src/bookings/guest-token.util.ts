@@ -13,7 +13,7 @@ export type GuestTokenPayload = z.infer<typeof GuestTokenPayloadSchema>;
  * Verifies a JWT signature and returns the raw decoded payload, or null if invalid/expired.
  * Schema-agnostic — use the typed helpers below for guest tokens.
  */
-export function tryDecodeRawJwt(token: string, secret: string): unknown | null {
+export function tryDecodeRawJwt(token: string, secret: string): unknown {
   try {
     return jwt.verify(token, secret, { algorithms: ['HS256'] });
   } catch {
