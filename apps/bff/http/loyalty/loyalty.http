@@ -71,3 +71,80 @@ Authorization: Bearer {{managerToken}}
 ### GET /v1/customers/:customerId/loyalty/redemptions — admin views customer redemption history
 GET {{bffUrl}}/v1/customers/{{customerId}}/loyalty/redemptions?page=1&limit=20
 Authorization: Bearer {{managerToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin redeems points on behalf of a customer
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — redeem points (no booking or notes)
+POST {{bffUrl}}/v1/loyalty/redeem
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "customerId": "{{customerId}}",
+  "pointsToRedeem": 100
+}
+
+###
+
+### HAPPY PATH — redeem points linked to a booking with notes
+POST {{bffUrl}}/v1/loyalty/redeem
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "customerId": "{{customerId}}",
+  "pointsToRedeem": 50,
+  "bookingId": "{{completedBookingId}}",
+  "notes": "Desconto aplicado no serviço de hoje"
+}
+
+###
+
+### ERROR — pointsToRedeem less than 1 → 400
+POST {{bffUrl}}/v1/loyalty/redeem
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "customerId": "{{customerId}}",
+  "pointsToRedeem": 0
+}
+
+###
+
+### ERROR — insufficient balance → 422
+POST {{bffUrl}}/v1/loyalty/redeem
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "customerId": "{{customerId}}",
+  "pointsToRedeem": 999999
+}
+
+###
+
+### ERROR — no JWT → 401
+POST {{bffUrl}}/v1/loyalty/redeem
+Content-Type: application/json
+
+{
+  "customerId": "{{customerId}}",
+  "pointsToRedeem": 100
+}
+
+###
+
+### ERROR — customer JWT (wrong role) → 403
+POST {{bffUrl}}/v1/loyalty/redeem
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "customerId": "{{customerId}}",
+  "pointsToRedeem": 100
+}

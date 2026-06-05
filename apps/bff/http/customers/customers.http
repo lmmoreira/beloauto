@@ -1,0 +1,138 @@
+# BFF — Customer profile endpoints
+# UC: customer views and updates their own profile
+#
+# Prerequisites:
+#   1. pnpm infra:up
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run seed
+#   4. pnpm --filter @beloauto/backend run dev
+#   5. pnpm --filter @beloauto/bff run dev
+#   6. ENABLE_DEV_AUTH=true in apps/bff/.env.local
+#
+# Note: seed customer (cliente@email.com.br) has phone=NULL and no defaultAddress.
+# Run the PATCH /v1/customers/me happy path once before using
+# POST /v1/bookings/authenticated — authenticated booking requires phone to be set.
+#
+# REST Client environment: select "local" in VS Code status bar
+
+# ── File-level response captures (updated automatically when login request runs) ──
+@customerToken = {{customerLogin.response.body.accessToken}}
+
+# ── DEV AUTH — run once per session ──
+
+###
+# @name customerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "cliente@email.com.br", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/customers/me — view own profile
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — customer views own profile
+GET {{bffUrl}}/v1/customers/me
+Authorization: Bearer {{customerToken}}
+
+###
+
+### ERROR — no JWT → 401
+GET {{bffUrl}}/v1/customers/me
+
+###
+
+### ERROR — manager JWT (wrong role) → 403
+GET {{bffUrl}}/v1/customers/me
+Authorization: Bearer {{managerToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/customers/me — update own profile
+# All fields are optional — send only what you want to change.
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — set phone (required before authenticated booking)
+PATCH {{bffUrl}}/v1/customers/me
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "phone": "31999999999"
+}
+
+###
+
+### HAPPY PATH — update name and default address
+PATCH {{bffUrl}}/v1/customers/me
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "name": "Cliente Atualizado",
+  "defaultAddress": {
+    "street": "Rua das Acácias",
+    "number": "45",
+    "neighborhood": "Jardim América",
+    "city": "Belo Horizonte",
+    "state": "MG",
+    "zipCode": "30130020"
+  }
+}
+
+###
+
+### HAPPY PATH — clear default address (set to null)
+PATCH {{bffUrl}}/v1/customers/me
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "defaultAddress": null
+}
+
+###
+
+### HAPPY PATH — clear phone (set to null)
+PATCH {{bffUrl}}/v1/customers/me
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "phone": null
+}
+
+###
+
+### ERROR — invalid phone format → 400
+PATCH {{bffUrl}}/v1/customers/me
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "phone": "123"
+}
+
+###
+
+### ERROR — no JWT → 401
+PATCH {{bffUrl}}/v1/customers/me
+Content-Type: application/json
+
+{
+  "phone": "31999999999"
+}
+
+###
+
+### ERROR — manager JWT (wrong role) → 403
+PATCH {{bffUrl}}/v1/customers/me
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "phone": "31999999999"
+}

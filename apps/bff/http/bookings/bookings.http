@@ -75,6 +75,10 @@ Authorization: Bearer {{managerToken}}
 GET {{bffUrl}}/v1/bookings/{{bookingId}}
 Authorization: Bearer {{customerToken}}
 
+### CUSTOMER views own bookings
+GET {{bffUrl}}/v1/bookings/
+Authorization: Bearer {{customerToken}}
+
 ###
 
 ### 404 — booking not found
@@ -174,6 +178,224 @@ X-Tenant-Slug: {{tenantSlug}}
   "contactPhone": "31999999999",
   "scheduledAt": "2026-06-15T10:00:00.000Z",
   "serviceIds": ["{{serviceId}}"]
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /v1/bookings/authenticated — authenticated customer booking  UC-002
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — customer books (no pickup service)
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "scheduledAt": "2026-06-15T13:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+### HAPPY PATH — customer books with pickup address
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "scheduledAt": "2026-06-15T14:00:00.000Z",
+  "serviceIds": ["{{service3Id}}"],
+  "pickupAddress": {
+    "street": "Rua das Flores",
+    "number": "123",
+    "complement": "Apto 4B",
+    "neighborhood": "Centro",
+    "city": "Belo Horizonte",
+    "state": "MG",
+    "zipCode": "30130010"
+  }
+}
+
+###
+
+### ERROR — no JWT → 401
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+
+{
+  "scheduledAt": "2026-06-15T13:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+### ERROR — manager JWT (wrong role) → 403
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "scheduledAt": "2026-06-15T13:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+### ERROR — invalid serviceId (not a UUID) → 400
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "scheduledAt": "2026-06-15T13:00:00.000Z",
+  "serviceIds": ["not-a-uuid"]
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/request-info — admin requests more info (UC-005a)
+# Requires PENDING or INFO_REQUESTED state → use bookingId from seed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — manager requests more info
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "message": "Please provide photos of the vehicle exterior and current mileage before we proceed."
+}
+
+###
+
+### ERROR — message too short (min 20 chars) → 400
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "message": "Too short"
+}
+
+###
+
+### ERROR — no JWT → 401
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+
+{
+  "message": "Should return 401 because no authorization header is present here."
+}
+
+###
+
+### ERROR — customer JWT (wrong role) → 403
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "message": "Customer trying to request info — should return 403 forbidden role."
+}
+
+###
+
+### ERROR — terminal state (COMPLETED) → 422
+PATCH {{bffUrl}}/v1/bookings/{{completedBookingId}}/request-info
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "message": "Trying to request info on a completed booking — should return 422 unprocessable."
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/approve — admin approves booking (UC-003)
+# Requires PENDING or INFO_REQUESTED state → use bookingId from seed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — manager approves a PENDING booking
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/approve
+Authorization: Bearer {{managerToken}}
+
+###
+
+### ERROR — no JWT → 401
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/approve
+
+###
+
+### ERROR — customer JWT (wrong role) → 403
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/approve
+Authorization: Bearer {{customerToken}}
+
+###
+
+### ERROR — terminal state (COMPLETED) → 422
+PATCH {{bffUrl}}/v1/bookings/{{completedBookingId}}/approve
+Authorization: Bearer {{managerToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/reject — admin rejects booking (UC-004)
+# Requires PENDING or INFO_REQUESTED state → use bookingId from seed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — manager rejects with reason
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "reason": "No availability for the requested time slot."
+}
+
+###
+
+### ERROR — reason too short (min 10 chars) → 400
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "reason": "Too short"
+}
+
+###
+
+### ERROR — no JWT → 401
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reject
+Content-Type: application/json
+
+{
+  "reason": "No authorization header — should return 401."
+}
+
+###
+
+### ERROR — customer JWT (wrong role) → 403
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "reason": "Customer trying to reject a booking — should return 403."
+}
+
+###
+
+### ERROR — terminal state (COMPLETED) → 422
+PATCH {{bffUrl}}/v1/bookings/{{completedBookingId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "reason": "Trying to reject an already completed booking — should return 422."
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
