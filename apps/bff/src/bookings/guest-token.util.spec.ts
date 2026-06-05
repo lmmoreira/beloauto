@@ -13,7 +13,6 @@ function makeToken(overrides: Record<string, unknown> = {}): string {
   );
 }
 
-
 describe('verifyGuestToken()', () => {
   it('returns payload for a valid token', () => {
     const token = makeToken();
