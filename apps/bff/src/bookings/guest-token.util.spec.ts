@@ -75,4 +75,9 @@ describe('verifyGuestToken()', () => {
     );
     expect(verifyGuestToken(token, SECRET)).toBe(false);
   });
+
+  it('returns false when token is valid but payload does not match guest schema', () => {
+    const token = jwt.sign({ sub: 'user-id', tenantId: TENANT_ID, role: 'CUSTOMER' }, SECRET);
+    expect(verifyGuestToken(token, SECRET)).toBe(false);
+  });
 });

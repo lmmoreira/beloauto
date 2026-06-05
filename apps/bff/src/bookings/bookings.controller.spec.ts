@@ -895,6 +895,26 @@ describe('BookingsController', () => {
       expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
     });
 
+    it('Bearer with valid signature but wrong schema is treated as no-JWT (falls through to slug/guest branch)', async () => {
+      const backendHttp = makeBackendHttp({});
+      const controller = new BookingsController(backendHttp, makeConfigService());
+      // Guest token has correct signature but lacks sub/tenantSlug/role — parsed.success is false
+      const guestShapedToken = jwt.sign(
+        { bookingId: BOOKING_ID, tenantId: TENANT_ID, contactEmail: 'g@test.com' },
+        JWT_SECRET,
+      );
+
+      const err = await controller
+        .generateAttachmentSignedUrl(`Bearer ${guestShapedToken}`, {
+          fileName: 'car.jpg',
+          contentType: 'image/jpeg',
+        })
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(HttpException);
+      expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    });
+
     it('invalid Bearer token is treated as no-JWT (falls through to slug/guest branch)', async () => {
       const backendHttp = makeBackendHttp({});
       const controller = new BookingsController(backendHttp, makeConfigService());

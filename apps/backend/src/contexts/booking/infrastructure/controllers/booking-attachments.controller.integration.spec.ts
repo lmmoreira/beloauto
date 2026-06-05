@@ -112,6 +112,15 @@ describe('BookingAttachmentsController (integration)', () => {
       expect(body.filePath).toMatch(/^tenants\/[^/]+\/uploads\/[^/]+\/before\.jpg$/);
     });
 
+    it('returns 400 when fileName contains ".." without "/"', async () => {
+      const { body } = await request(app.getHttpServer())
+        .post('/bookings/attachments/signed-url')
+        .set(actorHeaders(tenantId, STAFF_ID, 'MANAGER'))
+        .send({ fileName: 'bad..file.jpg', contentType: 'image/jpeg' })
+        .expect(400);
+      expect(body.status).toBe(400);
+    });
+
     it('returns 404 when bookingId belongs to a different tenant (tenant isolation)', async () => {
       const { body } = await request(app.getHttpServer())
         .post('/bookings/attachments/signed-url')
