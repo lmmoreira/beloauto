@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 export const DevLoginSchema = z.object({
   email: z.email(),
-  tenantSlug: z.string().regex(/^[a-z0-9-]+$/, 'slug must contain only lowercase letters, numbers and hyphens'),
+  tenantSlug: z
+    .string()
+    .regex(/^[a-z0-9-]+$/, 'slug must contain only lowercase letters, numbers and hyphens'),
   type: z.enum(['staff', 'customer']),
 });
 

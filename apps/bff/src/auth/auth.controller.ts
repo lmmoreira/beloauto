@@ -189,7 +189,11 @@ export class AuthController {
       const googleOAuthId = `dev::${dto.email}`;
       if (googleOAuthId.length > 255) {
         throw new HttpException(
-          { title: 'Bad Request', status: HttpStatus.BAD_REQUEST, detail: 'Email too long for dev auth' },
+          {
+            title: 'Bad Request',
+            status: HttpStatus.BAD_REQUEST,
+            detail: 'Email too long for dev auth',
+          },
           HttpStatus.BAD_REQUEST,
         );
       }
