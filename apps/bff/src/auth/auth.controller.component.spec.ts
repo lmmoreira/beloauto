@@ -204,6 +204,27 @@ describe('AuthController (component) — non-OAuth routes', () => {
       expect(res.status).toBe(400);
     });
 
+    it('400 when tenantSlug contains invalid characters', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/dev-login')
+        .send({ email: 'admin@lavacar.com.br', tenantSlug: 'Lavacar BH!', type: 'staff' });
+      expect(res.status).toBe(400);
+    });
+
+    it('400 when email is too long for dev:: prefix (>255 chars total)', async () => {
+      backendHttpService.get.mockResolvedValueOnce({
+        id: TENANT_ID,
+        slug: 'lavacar-bh',
+        name: 'Lavacar BH',
+      });
+      const longEmail = `${'a'.repeat(245)}@x.com`;
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/dev-login')
+        .send({ email: longEmail, tenantSlug: 'lavacar-bh', type: 'customer' });
+      expect(res.status).toBe(400);
+      expect(backendHttpService.post).not.toHaveBeenCalled();
+    });
+
     it('200 — staff path: returns { accessToken, user } with correct role and sets cookie', async () => {
       backendHttpService.get
         .mockResolvedValueOnce({ id: TENANT_ID, slug: 'lavacar-bh', name: 'Lavacar BH' })

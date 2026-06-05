@@ -841,6 +841,18 @@ describe('AuthController', () => {
       );
     });
 
+    it('customer path: throws 400 when dev:: + email exceeds 255 chars', async () => {
+      const longEmail = `${'a'.repeat(245)}@x.com`; // dev:: + this = 256 chars
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValueOnce(tenantInfo),
+      });
+      const ctrl = new AuthController(jwtIssuer, selectionTokenService, backendHttp, configService);
+      const dto: DevLoginDto = { email: longEmail, tenantSlug: 'lavacar-bh', type: 'customer' };
+
+      await expect(ctrl.devLogin(dto, makeRes())).rejects.toMatchObject({ status: 400 });
+      expect(backendHttp.post).not.toHaveBeenCalled();
+    });
+
     it('customer path: repeated calls with same email return same customerId (find-or-create)', async () => {
       const backendHttp = makeBackendHttp({
         get: jest.fn().mockResolvedValue(tenantInfo),

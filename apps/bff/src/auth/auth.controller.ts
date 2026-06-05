@@ -172,7 +172,7 @@ export class AuthController {
     }
 
     const tenantInfo = await this.backendHttp.get<TenantInfoResponse>(
-      `/internal/tenants/by-slug/${dto.tenantSlug}`,
+      `/internal/tenants/by-slug/${encodeURIComponent(dto.tenantSlug)}`,
     );
 
     let actorId: string;
@@ -186,13 +186,20 @@ export class AuthController {
       actorId = staff.staffId;
       role = staff.role;
     } else {
+      const googleOAuthId = `dev::${dto.email}`;
+      if (googleOAuthId.length > 255) {
+        throw new HttpException(
+          { title: 'Bad Request', status: HttpStatus.BAD_REQUEST, detail: 'Email too long for dev auth' },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       const customer = await this.backendHttp.post<FindOrCreateCustomerResponse>(
         '/internal/customers',
         {
           tenantId: tenantInfo.id,
           email: dto.email,
           name: 'Dev User',
-          googleOAuthId: `dev::${dto.email}`,
+          googleOAuthId,
         },
       );
       actorId = customer.customerId;
