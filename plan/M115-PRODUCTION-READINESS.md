@@ -57,7 +57,7 @@ src/shared/infrastructure/gcs-signed-url.service.ts
 
 ---
 
-### M115-S02 — Dev Login BFF endpoint
+### M115-S02 — Dev Login BFF endpoint ✅ Done
 
 **Agent:** `bff-ts`  
 **Complexity:** S  
