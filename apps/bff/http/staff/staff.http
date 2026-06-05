@@ -10,7 +10,9 @@
 #
 # REST Client environment: select "local" in VS Code status bar.
 
-# (all variables resolved directly from the "local" env — no file aliases needed)
+# ── File-level response captures (updated automatically when login request runs) ──
+@managerToken = {{managerLogin.response.body.accessToken}}
+@staffToken   = {{staffLogin.response.body.accessToken}}
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
 
@@ -21,16 +23,12 @@ Content-Type: application/json
 
 { "email": "admin@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
 
-@managerToken = {{managerLogin.response.body.accessToken}}
-
 ###
 # @name staffLogin
 POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
 
 { "email": "funcionario@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
-
-@staffToken = {{staffLogin.response.body.accessToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list staff

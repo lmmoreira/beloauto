@@ -17,7 +17,9 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-# (all variables resolved directly from the "local" env — no file aliases needed)
+# ── File-level response captures (updated automatically when login request runs) ──
+@managerToken  = {{managerLogin.response.body.accessToken}}
+@customerToken = {{customerLogin.response.body.accessToken}}
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
 
@@ -28,16 +30,12 @@ Content-Type: application/json
 
 { "email": "admin@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
 
-@managerToken = {{managerLogin.response.body.accessToken}}
-
 ###
 # @name customerLogin
 POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
 
 { "email": "cliente@email.com.br", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
-
-@customerToken = {{customerLogin.response.body.accessToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GET /v1/bookings — list bookings

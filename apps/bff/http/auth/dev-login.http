@@ -10,22 +10,20 @@
 #   6. ENABLE_DEV_AUTH=true in apps/bff/.env.local
 #
 # ── WORKFLOW ─────────────────────────────────────────────────────────────────
-# Option A — self-contained (per-session, per-file):
-#   Run the login requests below. Captured tokens work within this file only.
-#
-# Option B — shared tokens (recommended for daily use):
-#   1. Run each login request below
-#   2. Copy the three accessToken values into .vscode/settings.json:
-#      "managerToken": "<paste accessToken from managerLogin response>",
-#      "staffToken":   "<paste accessToken from staffLogin response>",
-#      "customerToken":"<paste accessToken from customerLogin response>",
-#   3. All other BFF HTTP files will use the env tokens automatically.
-#   Tokens last 7 days — refresh weekly.
+# 1. Run each login request below (managerLogin / staffLogin / customerLogin).
+# 2. The tokens are captured in the file-level variables below and are usable
+#    in the sanity-check requests at the bottom of this file.
+# 3. For use across OTHER .http files: paste each accessToken into
+#    .vscode/settings.json → managerToken / staffToken / customerToken.
+#    Tokens last 7 days — refresh weekly.
 #
 # REST Client environment: select "local" in VS Code status bar.
 # Seed data: src/shared/database/seed.ts
 
-# (all variables resolved directly from the "local" env — no file aliases needed)
+# ── File-level response captures (updated automatically when request runs) ──
+@managerToken  = {{managerLogin.response.body.accessToken}}
+@staffToken    = {{staffLogin.response.body.accessToken}}
+@customerToken = {{customerLogin.response.body.accessToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Login as Manager (admin@lavacar.com.br — MANAGER on lavacar-beloauto)
@@ -42,8 +40,6 @@ Content-Type: application/json
   "type": "staff"
 }
 
-@managerToken = {{managerLogin.response.body.accessToken}}
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Login as Staff (funcionario@lavacar.com.br — STAFF on lavacar-beloauto)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -59,8 +55,6 @@ Content-Type: application/json
   "type": "staff"
 }
 
-@staffToken = {{staffLogin.response.body.accessToken}}
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Login as Customer (cliente@email.com.br — find-or-create on lavacar-beloauto)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,8 +69,6 @@ Content-Type: application/json
   "tenantSlug": "{{tenantSlug}}",
   "type": "customer"
 }
-
-@customerToken = {{customerLogin.response.body.accessToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Sanity checks — confirm tokens work against real endpoints

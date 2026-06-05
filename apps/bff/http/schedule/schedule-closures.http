@@ -11,7 +11,10 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@closureId = {{createClosure.response.body.id}}
+# ── File-level response captures (updated automatically when login request runs) ──
+@managerToken  = {{managerLogin.response.body.accessToken}}
+@customerToken = {{customerLogin.response.body.accessToken}}
+@closureId     = {{createClosure.response.body.id}}
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
 
@@ -22,16 +25,12 @@ Content-Type: application/json
 
 { "email": "admin@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
 
-@managerToken = {{managerLogin.response.body.accessToken}}
-
 ###
 # @name customerLogin
 POST {{bffUrl}}/v1/auth/dev-login
 Content-Type: application/json
 
 { "email": "cliente@email.com.br", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
-
-@customerToken = {{customerLogin.response.body.accessToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list closures
