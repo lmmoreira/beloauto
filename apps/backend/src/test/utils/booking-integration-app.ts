@@ -23,16 +23,17 @@ import { RoutingInMemoryEventBus } from '../infrastructure/routing-in-memory-eve
 
 export interface BookingIntegrationAppOptions {
   extraModules?: NonNullable<ModuleMetadata['imports']>;
+  overrideProviders?: Array<{ provide: symbol | string; useValue: unknown }>;
 }
 
 export async function createBookingIntegrationApp(
   options: BookingIntegrationAppOptions = {},
 ): Promise<{ app: INestApplication; ds: DataSource; eventBus: RoutingInMemoryEventBus }> {
-  const { extraModules = [] } = options;
+  const { extraModules = [], overrideProviders = [] } = options;
 
   const routingBus = new RoutingInMemoryEventBus();
 
-  const builder: TestingModuleBuilder = Test.createTestingModule({
+  let builder: TestingModuleBuilder = Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({ isGlobal: true }),
       TypeOrmModule.forRoot({
@@ -60,6 +61,10 @@ export async function createBookingIntegrationApp(
   })
     .overrideProvider(EVENT_BUS)
     .useValue(routingBus);
+
+  for (const { provide, useValue } of overrideProviders) {
+    builder = builder.overrideProvider(provide).useValue(useValue);
+  }
 
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication();

@@ -1,0 +1,43 @@
+# Booking Attachments — Signed URL generation
+# M115-S01: GCS signed URL for photo uploads
+# TenantContext is populated from X-Tenant-ID header (set by BFF).
+#
+# Prerequisites:
+#   1. pnpm infra:up        (starts GCS emulator at http://localhost:4443)
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run seed
+#   4. pnpm --filter @beloauto/backend run dev
+
+@backendUrl = http://localhost:3001
+@tenantId = {{$dotenv SEED_TENANT_ID}}
+@bookingId = {{$dotenv SEED_BOOKING_ID}}
+@staffId = {{$dotenv SEED_STAFF_ID}}
+
+### Scenario 1/2 — No bookingId (pre-upload, uploads/ path)
+POST {{backendUrl}}/bookings/attachments/signed-url
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: manual-test-corr-id
+Content-Type: application/json
+
+{
+  "fileName": "car-front.jpg",
+  "contentType": "image/jpeg"
+}
+
+### Scenario 4 — Staff with bookingId (bookings/ path)
+POST {{backendUrl}}/bookings/attachments/signed-url
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: manual-test-corr-id
+Content-Type: application/json
+
+{
+  "fileName": "after-wash.jpg",
+  "contentType": "image/jpeg",
+  "bookingId": "{{bookingId}}"
+}

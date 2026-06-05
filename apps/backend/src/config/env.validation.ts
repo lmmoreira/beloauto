@@ -21,6 +21,8 @@ const schema = z
     PUBSUB_AUTO_CREATE: z.coerce.boolean().default(true),
     GCS_EMULATOR_HOST: z.string().optional(),
     GCS_BUCKET_NAME: z.string().default('beloauto-local'),
+    GCS_KEY_FILE: z.string().optional(),
+    GCS_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(10_485_760),
     SMTP_HOST: z.string().default('localhost'),
     SMTP_PORT: z.coerce.number().default(1025),
     EMAIL_ADAPTER: z.enum(['sendgrid', 'mailhog']).default('mailhog'),

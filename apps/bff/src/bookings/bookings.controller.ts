@@ -12,8 +12,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, CurrentUserPayload } from '../shared/decorators/current-user.decorator';
-import * as jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { ConfigService } from '@nestjs/config';
 import { Public } from '../shared/decorators/public.decorator';
@@ -22,6 +22,7 @@ import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
 import { BackendHttpService } from '../shared/http/backend-http.service';
 import { TenantInfoResponse } from '../shared/types/backend-responses';
 import {
+  AttachmentSignedUrlResponse,
   BookingResponse,
   BookingListResponse,
   BookingDetailResponse,
@@ -29,6 +30,7 @@ import {
   CompleteBookingResponse,
   RescheduleBookingResponse,
 } from './bookings.types';
+import { tryDecodeRawJwt, verifyGuestToken } from './guest-token.util';
 
 const AddressSchema = z.object({
   street: z.string().min(1),
@@ -85,7 +87,10 @@ export const CompleteBookingBodySchema = z.object({
       }),
     )
     .min(1),
-  afterServicePhotoUrls: z.array(z.string()).optional().default([]),
+  afterServicePhotoUrls: z
+    .array(z.string().regex(/^tenants\/[^/]+\/bookings\/[^/]+\/.+$/))
+    .optional()
+    .default([]),
   adminNotes: z.string().trim().min(1).max(500).optional(),
 });
 
@@ -126,11 +131,21 @@ const ListBookingsQuerySchema = z.object({
 
 type ListBookingsQuery = z.infer<typeof ListBookingsQuerySchema>;
 
-const GuestTokenPayloadSchema = z.object({
-  bookingId: z.string(),
-  tenantId: z.string(),
-  contactEmail: z.email(),
+export const AttachmentSignedUrlBodySchema = z.object({
+  fileName: z
+    .string()
+    .min(1)
+    .max(255)
+    .refine((v) => !v.includes('/') && !v.includes('..'), {
+      message: 'fileName must not contain path separators or ".."',
+    }),
+  contentType: z.enum(['image/jpeg', 'image/png']),
+  bookingId: z.uuid().optional(),
+  tenantSlug: z.string().optional(),
+  guestToken: z.string().optional(),
 });
+
+type AttachmentSignedUrlBody = z.infer<typeof AttachmentSignedUrlBodySchema>;
 
 type RequestBookingBody = z.infer<typeof RequestBookingBodySchema>;
 type AuthenticatedBookingBody = z.infer<typeof AuthenticatedBookingBodySchema>;
@@ -145,6 +160,88 @@ export class BookingsController {
     private readonly backendHttp: BackendHttpService,
     private readonly config: ConfigService,
   ) {}
+
+  private tryDecodeUserJwt(authHeader: string | undefined): CurrentUserPayload | null {
+    if (!authHeader?.startsWith('Bearer ')) return null;
+    const token = authHeader.slice(7);
+    const secret = this.config.getOrThrow<string>('JWT_SECRET');
+    const raw = tryDecodeRawJwt(token, secret);
+    if (!raw) return null;
+    const parsed = z
+      .object({ sub: z.string(), tenantId: z.string(), tenantSlug: z.string(), role: z.string() })
+      .safeParse(raw);
+    return parsed.success ? (parsed.data as CurrentUserPayload) : null;
+  }
+
+  @Post('attachments/signed-url')
+  @HttpCode(HttpStatus.CREATED)
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async generateAttachmentSignedUrl(
+    @Headers('authorization') authHeader: string | undefined,
+    @Body(new ZodValidationPipe(AttachmentSignedUrlBodySchema)) body: AttachmentSignedUrlBody,
+  ): Promise<AttachmentSignedUrlResponse> {
+    const user = this.tryDecodeUserJwt(authHeader);
+
+    // Scenario 1 (CUSTOMER, no bookingId) or Scenario 4 (STAFF/MANAGER, bookingId present)
+    if (user) {
+      return this.backendHttp.post<AttachmentSignedUrlResponse>(
+        '/bookings/attachments/signed-url',
+        {
+          fileName: body.fileName,
+          contentType: body.contentType,
+          bookingId: body.bookingId,
+        },
+      );
+    }
+
+    // Scenario 3 — guest with guestToken + bookingId
+    if (body.guestToken) {
+      const secret = this.config.getOrThrow<string>('JWT_SECRET');
+      const tokenPayload = verifyGuestToken(body.guestToken, secret);
+      if (!tokenPayload) {
+        throw new HttpException(
+          {
+            type: 'about:blank',
+            title: 'Unauthorized',
+            status: 401,
+            detail: 'Invalid or expired guest token',
+          },
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+      return this.backendHttp.postForPublic<AttachmentSignedUrlResponse>(
+        '/bookings/attachments/signed-url',
+        {
+          fileName: body.fileName,
+          contentType: body.contentType,
+          bookingId: tokenPayload.bookingId,
+        },
+        tokenPayload.tenantId,
+      );
+    }
+
+    // Scenario 2 — anonymous guest, tenantSlug in body
+    if (!body.tenantSlug) {
+      throw new HttpException(
+        {
+          type: 'about:blank',
+          title: 'Bad Request',
+          status: 400,
+          detail: 'tenantSlug is required for guest uploads',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const tenant = await this.backendHttp.get<TenantInfoResponse>(
+      `/internal/tenants/by-slug/${body.tenantSlug}`,
+    );
+    return this.backendHttp.postForPublic<AttachmentSignedUrlResponse>(
+      '/bookings/attachments/signed-url',
+      { fileName: body.fileName, contentType: body.contentType },
+      tenant.id,
+    );
+  }
 
   @Get()
   @Roles('CUSTOMER', 'MANAGER', 'STAFF')
@@ -289,11 +386,8 @@ export class BookingsController {
     }
 
     const secret = this.config.getOrThrow<string>('JWT_SECRET');
-
-    let rawPayload: unknown;
-    try {
-      rawPayload = jwt.verify(token, secret, { algorithms: ['HS256'] });
-    } catch {
+    const payload = verifyGuestToken(token, secret);
+    if (!payload) {
       throw new HttpException(
         {
           type: 'about:blank',
@@ -304,21 +398,6 @@ export class BookingsController {
         HttpStatus.UNAUTHORIZED,
       );
     }
-
-    const payloadResult = GuestTokenPayloadSchema.safeParse(rawPayload);
-    if (!payloadResult.success) {
-      throw new HttpException(
-        {
-          type: 'about:blank',
-          title: 'Bad Request',
-          status: HttpStatus.BAD_REQUEST,
-          detail: 'Guest token payload is malformed',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const payload = payloadResult.data;
 
     if (payload.bookingId !== id) {
       throw new HttpException(

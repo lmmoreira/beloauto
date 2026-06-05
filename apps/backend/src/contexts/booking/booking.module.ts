@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventBusModule } from '../../shared/infrastructure/event-bus.module';
 import { TenantModule } from '../../shared/tenant/tenant.module';
 import { TransactionManagerModule } from '../../shared/infrastructure/transaction-manager.module';
+import { StorageModule } from '../../shared/infrastructure/storage.module';
 import { CustomerModule } from '../customer/customer.module';
 import { PlatformSettingsModule } from '../platform/platform-settings.module';
 import { BOOKING_AVAILABILITY_PORT } from './application/ports/booking-availability.port';
@@ -40,6 +41,8 @@ import { CancelBookingAsCustomerUseCase } from './application/use-cases/cancel-b
 import { CancelBookingAsAdminUseCase } from './application/use-cases/cancel-booking-as-admin.use-case';
 import { RescheduleBookingUseCase } from './application/use-cases/reschedule-booking.use-case';
 import { CompleteBookingUseCase } from './application/use-cases/complete-booking.use-case';
+import { GenerateAttachmentSignedUrlUseCase } from './application/use-cases/generate-attachment-signed-url.use-case';
+import { BookingAttachmentsController } from './infrastructure/controllers/booking-attachments.controller';
 import { BookingSlotConflictService } from './application/services/booking-slot-conflict.service';
 import { BookingEntity } from './infrastructure/entities/booking.entity';
 import { BookingLineEntity } from './infrastructure/entities/booking-line.entity';
@@ -75,10 +78,12 @@ import { AvailabilityService } from './domain/services/availability.service';
     EventBusModule,
     TenantModule,
     TransactionManagerModule,
+    StorageModule,
     CustomerModule,
     PlatformSettingsModule,
   ],
   controllers: [
+    BookingAttachmentsController,
     BookingController,
     ServiceController,
     ScheduleClosureController,
@@ -125,6 +130,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     CancelBookingAsAdminUseCase,
     RescheduleBookingUseCase,
     CompleteBookingUseCase,
+    GenerateAttachmentSignedUrlUseCase,
   ],
 })
 export class BookingModule {}
