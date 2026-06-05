@@ -10,9 +10,6 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl = {{backendUrl}}
-@tenantId = 10000000-0000-4000-8000-000000000001
-@actorId  = 20000000-0000-4000-8000-000000000001
-@serviceId = 30000000-0000-4000-8000-000000000001
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list services (public — no actor required)
@@ -34,7 +31,7 @@ X-Tenant-ID: {{tenantId}}
 POST {{baseUrl}}/services
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -53,7 +50,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/services
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: STAFF
 
@@ -75,7 +72,7 @@ X-Actor-Role: STAFF
 PATCH {{baseUrl}}/services/{{serviceId}}
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -90,7 +87,7 @@ X-Actor-Role: MANAGER
 PATCH {{baseUrl}}/services/{{serviceId}}
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -107,7 +104,7 @@ X-Actor-Role: MANAGER
 ### Deactivate a service (logical delete — row is preserved)
 DELETE {{baseUrl}}/services/{{serviceId}}
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -121,7 +118,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/services
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: CUSTOMER
 X-Actor-Role: CUSTOMER
 
@@ -138,7 +135,7 @@ X-Actor-Role: CUSTOMER
 POST {{baseUrl}}/services
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -155,7 +152,7 @@ X-Actor-Role: MANAGER
 PATCH {{baseUrl}}/services/00000000-0000-4000-8000-000000000099
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -169,7 +166,7 @@ X-Actor-Role: MANAGER
 PATCH {{baseUrl}}/services/{{serviceId}}
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 

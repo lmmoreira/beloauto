@@ -12,9 +12,8 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl = {{backendUrl}}
-@sub = google-sub-example-staff-123
-@tenantId = 10000000-0000-4000-8000-000000000001
-@staffId = 10000000-0000-4000-8000-000000000099
+@sub     = google-sub-admin-a
+@staffId = {{managerId}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — by-oauth (UC-022)

@@ -113,6 +113,7 @@ async function seed(): Promise<void> {
     await seedCustomers(q);
     await seedServices(q);
     await seedBookings(q);
+    await seedNotificationTemplates(q);
 
     await q.commitTransaction();
     printSummary();
@@ -184,7 +185,7 @@ async function seedCustomers(q: ReturnType<DataSource['createQueryRunner']>): Pr
 async function seedServices(q: ReturnType<DataSource['createQueryRunner']>): Promise<void> {
   await q.query(
     `INSERT INTO booking.services
-      (id, tenant_id, name, price_amount, duration_minutes, loyalty_points, requires_pickup_address) VALUES
+      (id, tenant_id, name, price_amount, duration_minutes, loyalty_points_value, requires_pickup_address) VALUES
       ($1, $5, 'Lavagem Simples',       80.00,  30,  5,  false),
       ($2, $5, 'Lavagem Completa',     150.00,  60,  10, false),
       ($3, $5, 'Polimento',            350.00, 120,  25, true),
@@ -215,10 +216,15 @@ async function seedBookings(q: ReturnType<DataSource['createQueryRunner']>): Pro
 
   await q.query(
     `INSERT INTO booking.bookings
-      (id, tenant_id, customer_id, type, status, scheduled_at, vehicle_plate) VALUES
-      ($1, $4, $7, 'CUSTOMER', 'PENDING',   NOW() + INTERVAL '2 days', 'ABC-1234'),
-      ($2, $4, $7, 'CUSTOMER', 'APPROVED',  $5,                         'DEF-5678'),
-      ($3, $4, $7, 'CUSTOMER', 'COMPLETED', $6,                         'GHI-9012')
+      (id, tenant_id, customer_id, type, status, scheduled_at,
+       contact_email, contact_name, contact_phone,
+       total_duration_mins, total_price_amount) VALUES
+      ($1, $4, $7, 'CUSTOMER', 'PENDING',   NOW() + INTERVAL '2 days',
+       'cliente@email.com.br', 'Cliente BeloAuto', '31999999999', 30, 80.00),
+      ($2, $4, $7, 'CUSTOMER', 'APPROVED',  $5,
+       'cliente@email.com.br', 'Cliente BeloAuto', '31999999999', 60, 150.00),
+      ($3, $4, $7, 'CUSTOMER', 'COMPLETED', $6,
+       'cliente@email.com.br', 'Cliente BeloAuto', '31999999999', 60, 150.00)
     ON CONFLICT (id) DO NOTHING`,
     [
       IDS.bookingPending,
@@ -233,16 +239,18 @@ async function seedBookings(q: ReturnType<DataSource['createQueryRunner']>): Pro
 
   await q.query(
     `INSERT INTO booking.booking_lines
-      (id, tenant_id, booking_id, service_id, price_amount, loyalty_points_earned) VALUES
-      ($1, $2, $3, $4, 150.00, 10)
-    ON CONFLICT (id) DO NOTHING`,
+      (line_id, tenant_id, booking_id, service_id,
+       service_name_at_booking, price_at_booking_amount,
+       duration_mins_at_booking, points_value_at_booking) VALUES
+      ($1, $2, $3, $4, 'Lavagem Completa', 150.00, 60, 10)
+    ON CONFLICT (line_id) DO NOTHING`,
     [IDS.lineCompleted, IDS.tenantA, IDS.bookingCompleted, IDS.serviceCompleta],
   );
 
   await q.query(
     `INSERT INTO loyalty.loyalty_entries
-      (id, tenant_id, customer_id, booking_id, booking_line_id, points, expires_at) VALUES
-      ($1, $2, $3, $4, $5, 10, $6)
+      (id, tenant_id, customer_id, booking_id, booking_line_id, service_id, points, expires_at) VALUES
+      ($1, $2, $3, $4, $5, $6, 10, $7)
     ON CONFLICT (id) DO NOTHING`,
     [
       IDS.loyaltyEntry,
@@ -250,9 +258,28 @@ async function seedBookings(q: ReturnType<DataSource['createQueryRunner']>): Pro
       IDS.customerA1,
       IDS.bookingCompleted,
       IDS.lineCompleted,
+      IDS.serviceCompleta,
       expiresAt.toISOString(),
     ],
   );
+}
+
+async function seedNotificationTemplates(
+  q: ReturnType<DataSource['createQueryRunner']>,
+): Promise<void> {
+  // Mirrors TenantProvisionedHandler → copyGlobalDefaultsForTenant
+  // Copies all global templates (tenant_id IS NULL) to each seed tenant.
+  for (const tenantId of [IDS.tenantA, IDS.tenantB]) {
+    await q.query(
+      `INSERT INTO notification.notification_templates
+         (id, tenant_id, trigger_event, channel, subject, body, created_at, updated_at)
+       SELECT gen_random_uuid(), $1::uuid, trigger_event, channel, subject, body, now(), now()
+       FROM notification.notification_templates
+       WHERE tenant_id IS NULL
+       ON CONFLICT DO NOTHING`,
+      [tenantId],
+    );
+  }
 }
 
 // ── Summary ──────────────────────────────────────────────────────────────────
@@ -279,6 +306,8 @@ function printSummary(): void {
     '╠══════════════════════════════════════════════════════════════╣',
     '║  Bookings  │ 1 PENDING, 1 APPROVED (tomorrow), 1 COMPLETED   ║',
     '║            │ Loyalty: 10 pts earned on COMPLETED booking      ║',
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  Notifs    │ Global templates copied to both tenants          ║',
     '╚══════════════════════════════════════════════════════════════╝',
     '',
   ];

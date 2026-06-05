@@ -9,7 +9,7 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl = {{backendUrl}}
-@sub = google-sub-example-123
+@sub = google-sub-customer-a
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH
@@ -38,9 +38,9 @@ GET {{baseUrl}}/internal/customers/tenants
 ###
 
 ### 400 — Missing tenantId query parameter for by-id tenants lookup
-GET {{baseUrl}}/internal/customers/10000000-0000-4000-8000-000000000001/tenants
+GET {{baseUrl}}/internal/customers/{{customerId}}/tenants
 
 ###
 
 ### 404 — Customer not found for given customerId + tenantId
-GET {{baseUrl}}/internal/customers/10000000-0000-4000-8000-000000000099/tenants?tenantId=10000000-0000-4000-8000-000000000001
+GET {{baseUrl}}/internal/customers/00000000-0000-4000-8000-000000009999/tenants?tenantId={{tenantId}}

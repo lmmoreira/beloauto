@@ -10,9 +10,7 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl = {{backendUrl}}
-@tenantId = 10000000-0000-4000-8000-000000000001
-@actorId  = 20000000-0000-4000-8000-000000000001
-@staffId  = 30000000-0000-4000-8000-000000000001
+@staffId = {{staffWorkerId}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list staff
@@ -21,7 +19,7 @@
 ### List all staff for the tenant (default limit=50, offset=0)
 GET {{baseUrl}}/staff
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -30,7 +28,7 @@ X-Actor-Role: MANAGER
 ### List staff with explicit pagination
 GET {{baseUrl}}/staff?limit=10&offset=0
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -43,7 +41,7 @@ X-Actor-Role: MANAGER
 ### Get a specific staff member by id
 GET {{baseUrl}}/staff/{{staffId}}
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -57,7 +55,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/staff/invite
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -74,7 +72,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/staff/invite
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -94,7 +92,7 @@ X-Actor-Role: MANAGER
 ### Deactivate a STAFF member
 PATCH {{baseUrl}}/staff/{{staffId}}/deactivate
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -110,9 +108,9 @@ GET {{baseUrl}}/staff
 ###
 
 ### 404 — Staff id not found
-GET {{baseUrl}}/staff/10000000-0000-4000-8000-000000000099
+GET {{baseUrl}}/staff/00000000-0000-4000-8000-000000009999
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -122,7 +120,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/staff/invite
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -136,16 +134,16 @@ X-Actor-Role: MANAGER
 ###
 
 ### 403 — Self-deactivation attempt
-PATCH {{baseUrl}}/staff/{{actorId}}/deactivate
+PATCH {{baseUrl}}/staff/{{managerId}}/deactivate
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
 ###
 
 ### 409 — Last active manager
-PATCH {{baseUrl}}/staff/{{actorId}}/deactivate
+PATCH {{baseUrl}}/staff/{{managerId}}/deactivate
 X-Tenant-ID: {{tenantId}}
 X-Actor-ID: 99999999-0000-4000-8000-000000000001
 X-Actor-Type: STAFF

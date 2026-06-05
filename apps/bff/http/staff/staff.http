@@ -6,12 +6,29 @@
 #   2. pnpm --filter @beloauto/backend run migration:run
 #   3. pnpm --filter @beloauto/backend run dev  (port 3001)
 #   4. pnpm --filter @beloauto/bff run dev      (port 3002)
-#   5. Obtain a MANAGER JWT by logging in via /v1/auth/google (see auth.http)
+#   5. ENABLE_DEV_AUTH=true in apps/bff/.env.local
 #
 # REST Client environment: select "local" in VS Code status bar.
 
-@bffUrl = {{bffUrl}}
-@managerToken = <paste-your-manager-jwt-here>
+# ── File-level response captures (updated automatically when login request runs) ──
+@managerToken = {{managerLogin.response.body.accessToken}}
+@staffToken   = {{staffLogin.response.body.accessToken}}
+
+# ── DEV AUTH — run each login once per session, then use the captured token ──
+
+###
+# @name managerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "admin@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
+
+###
+# @name staffLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "funcionario@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list staff
@@ -34,7 +51,7 @@ Authorization: Bearer {{managerToken}}
 ###
 
 ### Get a specific staff member by id
-GET {{bffUrl}}/v1/staff/10000000-0000-4000-8000-000000000099
+GET {{bffUrl}}/v1/staff/{{staffWorkerId}}
 Authorization: Bearer {{managerToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -49,12 +66,11 @@ GET {{bffUrl}}/v1/staff
 ###
 
 ### 403 — STAFF role (non-manager) attempts to list
-# Use a JWT with role=STAFF
 GET {{bffUrl}}/v1/staff
-Authorization: Bearer <staff-role-token>
+Authorization: Bearer {{staffToken}}
 
 ###
 
 ### 404 — Staff id not found in tenant
-GET {{bffUrl}}/v1/staff/10000000-0000-4000-8000-000000000000
+GET {{bffUrl}}/v1/staff/00000000-0000-4000-8000-000000009999
 Authorization: Bearer {{managerToken}}

@@ -34,4 +34,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-S
   DO \$\$ BEGIN
     EXECUTE format('GRANT CREATE ON DATABASE %I TO beloauto_migrator', current_database());
   END \$\$;
+
+  -- PostgreSQL 15+ revokes CREATE on public schema by default — restore it for our roles
+  GRANT CREATE ON SCHEMA public TO beloauto_migrator;
+  GRANT USAGE  ON SCHEMA public TO beloauto_migrator, beloauto_app;
 SQL

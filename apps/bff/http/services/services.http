@@ -6,11 +6,37 @@
 #   2. pnpm --filter @beloauto/backend run migration:run
 #   3. pnpm --filter @beloauto/backend run dev
 #   4. pnpm --filter @beloauto/bff run dev
+#   5. ENABLE_DEV_AUTH=true in apps/bff/.env.local
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@bffUrl = {{bffUrl}}
-@serviceId = 10000000-0000-4000-8000-000000000001
+# ── File-level response captures (updated automatically when login request runs) ──
+@managerToken  = {{managerLogin.response.body.accessToken}}
+@staffToken    = {{staffLogin.response.body.accessToken}}
+@customerToken = {{customerLogin.response.body.accessToken}}
+
+# ── DEV AUTH — run each login once per session, then use the captured token ──
+
+###
+# @name managerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "admin@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
+
+###
+# @name staffLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "funcionario@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
+
+###
+# @name customerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "cliente@email.com.br", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list active services (public — no JWT required)
@@ -20,7 +46,7 @@
 
 ### List active services for a tenant by slug (no auth required)
 GET {{bffUrl}}/v1/services
-X-Tenant-Slug: lavacar-bh
+X-Tenant-Slug: {{tenantSlug}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — create service (UC-012)
@@ -31,7 +57,7 @@ X-Tenant-Slug: lavacar-bh
 ### Create a new service (MANAGER JWT required)
 POST {{bffUrl}}/v1/services
 Content-Type: application/json
-Authorization: Bearer {{managerJwt}}
+Authorization: Bearer {{managerToken}}
 
 {
   "name": "Lavagem Completa",
@@ -47,7 +73,7 @@ Authorization: Bearer {{managerJwt}}
 ### Create a service using STAFF role JWT
 POST {{bffUrl}}/v1/services
 Content-Type: application/json
-Authorization: Bearer {{staffJwt}}
+Authorization: Bearer {{staffToken}}
 
 {
   "name": "Lavagem Domiciliar",
@@ -66,7 +92,7 @@ Authorization: Bearer {{staffJwt}}
 ### Update service name and price (partial update)
 PATCH {{bffUrl}}/v1/services/{{serviceId}}
 Content-Type: application/json
-Authorization: Bearer {{managerJwt}}
+Authorization: Bearer {{managerToken}}
 
 {
   "name": "Lavagem Completa Premium",
@@ -78,7 +104,7 @@ Authorization: Bearer {{managerJwt}}
 ### Clear description (set to null)
 PATCH {{bffUrl}}/v1/services/{{serviceId}}
 Content-Type: application/json
-Authorization: Bearer {{managerJwt}}
+Authorization: Bearer {{managerToken}}
 
 {
   "description": null
@@ -92,7 +118,7 @@ Authorization: Bearer {{managerJwt}}
 
 ### Deactivate a service (logical delete)
 DELETE {{bffUrl}}/v1/services/{{serviceId}}
-Authorization: Bearer {{managerJwt}}
+Authorization: Bearer {{managerToken}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ERROR CASES
@@ -108,7 +134,7 @@ GET {{bffUrl}}/v1/services
 ### 400 — Negative priceAmount (Zod validation at BFF)
 POST {{bffUrl}}/v1/services
 Content-Type: application/json
-Authorization: Bearer {{managerJwt}}
+Authorization: Bearer {{managerToken}}
 
 {
   "name": "Lavagem Simples",
@@ -122,7 +148,7 @@ Authorization: Bearer {{managerJwt}}
 ### 403 — CUSTOMER JWT not allowed
 POST {{bffUrl}}/v1/services
 Content-Type: application/json
-Authorization: Bearer {{customerJwt}}
+Authorization: Bearer {{customerToken}}
 
 {
   "name": "Lavagem Simples",
@@ -136,7 +162,7 @@ Authorization: Bearer {{customerJwt}}
 ### 409 — PATCH on deactivated service
 PATCH {{bffUrl}}/v1/services/{{serviceId}}
 Content-Type: application/json
-Authorization: Bearer {{managerJwt}}
+Authorization: Bearer {{managerToken}}
 
 {
   "name": "Tentativa após desativação"

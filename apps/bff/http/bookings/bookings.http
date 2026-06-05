@@ -1,22 +1,97 @@
-# BFF — Booking request endpoints
-# UC-001 (guest), UC-002 (authenticated customer — M07-S05)
+# BFF — Booking endpoints
+# UC-001 (guest request), UC-002 (authenticated customer request),
+# UC-003/004/005/007/008/009 (admin & customer operations)
 #
 # Prerequisites:
 #   1. pnpm infra:up
 #   2. pnpm --filter @beloauto/backend run migration:run
-#   3. pnpm --filter @beloauto/backend run dev
-#   4. pnpm --filter @beloauto/bff run dev
+#   3. pnpm --filter @beloauto/backend run seed
+#   4. pnpm --filter @beloauto/backend run dev
+#   5. pnpm --filter @beloauto/bff run dev
+#   6. ENABLE_DEV_AUTH=true in apps/bff/.env.local
+#
+# Seed booking states:
+#   bookingId          → PENDING   (approve / reject / request-info / customer-cancel)
+#   approvedBookingId  → APPROVED  (reschedule / complete / admin-cancel)
+#   completedBookingId → COMPLETED (error cases — already terminal)
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@bffUrl = {{bffUrl}}
-@tenantSlug = lavacar-bh
-@serviceId = 30000000-0000-4000-8000-000000000001
+# ── File-level response captures (updated automatically when login request runs) ──
+@managerToken  = {{managerLogin.response.body.accessToken}}
+@customerToken = {{customerLogin.response.body.accessToken}}
+
+# ── DEV AUTH — run each login once per session, then use the captured token ──
+
+###
+# @name managerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "admin@lavacar.com.br", "tenantSlug": "{{tenantSlug}}", "type": "staff" }
+
+###
+# @name customerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{ "email": "cliente@email.com.br", "tenantSlug": "{{tenantSlug}}", "type": "customer" }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HAPPY PATH — guest booking (public, no JWT)
+# GET /v1/bookings — list bookings
 # ─────────────────────────────────────────────────────────────────────────────
 
+###
+
+### MANAGER lists all bookings
+GET {{bffUrl}}/v1/bookings
+Authorization: Bearer {{managerToken}}
+
+###
+
+### MANAGER filters by status
+GET {{bffUrl}}/v1/bookings?status=PENDING&limit=25&offset=0
+Authorization: Bearer {{managerToken}}
+
+###
+
+### CUSTOMER lists own bookings
+GET {{bffUrl}}/v1/bookings
+Authorization: Bearer {{customerToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GET /v1/bookings/:id — booking detail
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### MANAGER views booking detail
+GET {{bffUrl}}/v1/bookings/{{bookingId}}
+Authorization: Bearer {{managerToken}}
+
+###
+
+### CUSTOMER views own booking detail
+GET {{bffUrl}}/v1/bookings/{{bookingId}}
+Authorization: Bearer {{customerToken}}
+
+### CUSTOMER views own bookings
+GET {{bffUrl}}/v1/bookings/
+Authorization: Bearer {{customerToken}}
+
+###
+
+### 404 — booking not found
+GET {{bffUrl}}/v1/bookings/00000000-0000-4000-8000-000000009999
+Authorization: Bearer {{managerToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /v1/bookings — guest booking (public, no JWT)  UC-001
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — guest booking (no pickup service)
 POST {{bffUrl}}/v1/bookings
 Content-Type: application/json
 X-Tenant-Slug: {{tenantSlug}}
@@ -39,10 +114,7 @@ X-Tenant-Slug: {{tenantSlug}}
 
 ###
 
-# ─────────────────────────────────────────────────────────────────────────────
-# HAPPY PATH — guest booking with pickup service
-# ─────────────────────────────────────────────────────────────────────────────
-
+### HAPPY PATH — guest booking with pickup service (requiresPickupAddress=true)
 POST {{bffUrl}}/v1/bookings
 Content-Type: application/json
 X-Tenant-Slug: {{tenantSlug}}
@@ -52,7 +124,7 @@ X-Tenant-Slug: {{tenantSlug}}
   "contactName": "João Silva",
   "contactPhone": "31999999999",
   "scheduledAt": "2026-06-15T14:00:00.000Z",
-  "serviceIds": ["{{serviceId}}"],
+  "serviceIds": ["{{service3Id}}"],
   "pickupAddress": {
     "street": "Rua das Flores",
     "number": "123",
@@ -66,10 +138,7 @@ X-Tenant-Slug: {{tenantSlug}}
 
 ###
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ERROR — missing X-Tenant-Slug → 400
-# ─────────────────────────────────────────────────────────────────────────────
-
+### ERROR — missing X-Tenant-Slug → 400
 POST {{bffUrl}}/v1/bookings
 Content-Type: application/json
 
@@ -83,10 +152,7 @@ Content-Type: application/json
 
 ###
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ERROR — invalid email → 400 (Zod validation)
-# ─────────────────────────────────────────────────────────────────────────────
-
+### ERROR — invalid email → 400 (Zod validation)
 POST {{bffUrl}}/v1/bookings
 Content-Type: application/json
 X-Tenant-Slug: {{tenantSlug}}
@@ -101,10 +167,7 @@ X-Tenant-Slug: {{tenantSlug}}
 
 ###
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ERROR — slot unavailable → 409 (propagated from backend)
-# ─────────────────────────────────────────────────────────────────────────────
-
+### ERROR — slot unavailable → 409
 POST {{bffUrl}}/v1/bookings
 Content-Type: application/json
 X-Tenant-Slug: {{tenantSlug}}
@@ -117,12 +180,231 @@ X-Tenant-Slug: {{tenantSlug}}
   "serviceIds": ["{{serviceId}}"]
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# POST /v1/bookings/authenticated — authenticated customer booking  UC-002
+# ─────────────────────────────────────────────────────────────────────────────
+
 ###
 
+### HAPPY PATH — customer books (no pickup service)
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "scheduledAt": "2026-06-15T13:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+### HAPPY PATH — customer books with pickup address
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "scheduledAt": "2026-06-15T14:00:00.000Z",
+  "serviceIds": ["{{service3Id}}"],
+  "pickupAddress": {
+    "street": "Rua das Flores",
+    "number": "123",
+    "complement": "Apto 4B",
+    "neighborhood": "Centro",
+    "city": "Belo Horizonte",
+    "state": "MG",
+    "zipCode": "30130010"
+  }
+}
+
+###
+
+### ERROR — no JWT → 401
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+
+{
+  "scheduledAt": "2026-06-15T13:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+### ERROR — manager JWT (wrong role) → 403
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "scheduledAt": "2026-06-15T13:00:00.000Z",
+  "serviceIds": ["{{serviceId}}"]
+}
+
+###
+
+### ERROR — invalid serviceId (not a UUID) → 400
+POST {{bffUrl}}/v1/bookings/authenticated
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "scheduledAt": "2026-06-15T13:00:00.000Z",
+  "serviceIds": ["not-a-uuid"]
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
-# HAPPY PATH — customer submits requested info (UC-005b)
+# PATCH /v1/bookings/:id/request-info — admin requests more info (UC-005a)
+# Requires PENDING or INFO_REQUESTED state → use bookingId from seed.
 # ─────────────────────────────────────────────────────────────────────────────
 
+###
+
+### HAPPY PATH — manager requests more info
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "message": "Please provide photos of the vehicle exterior and current mileage before we proceed."
+}
+
+###
+
+### ERROR — message too short (min 20 chars) → 400
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "message": "Too short"
+}
+
+###
+
+### ERROR — no JWT → 401
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+
+{
+  "message": "Should return 401 because no authorization header is present here."
+}
+
+###
+
+### ERROR — customer JWT (wrong role) → 403
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/request-info
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "message": "Customer trying to request info — should return 403 forbidden role."
+}
+
+###
+
+### ERROR — terminal state (COMPLETED) → 422
+PATCH {{bffUrl}}/v1/bookings/{{completedBookingId}}/request-info
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "message": "Trying to request info on a completed booking — should return 422 unprocessable."
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/approve — admin approves booking (UC-003)
+# Requires PENDING or INFO_REQUESTED state → use bookingId from seed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — manager approves a PENDING booking
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/approve
+Authorization: Bearer {{managerToken}}
+
+###
+
+### ERROR — no JWT → 401
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/approve
+
+###
+
+### ERROR — customer JWT (wrong role) → 403
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/approve
+Authorization: Bearer {{customerToken}}
+
+###
+
+### ERROR — terminal state (COMPLETED) → 422
+PATCH {{bffUrl}}/v1/bookings/{{completedBookingId}}/approve
+Authorization: Bearer {{managerToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/reject — admin rejects booking (UC-004)
+# Requires PENDING or INFO_REQUESTED state → use bookingId from seed.
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — manager rejects with reason
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "reason": "No availability for the requested time slot."
+}
+
+###
+
+### ERROR — reason too short (min 10 chars) → 400
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "reason": "Too short"
+}
+
+###
+
+### ERROR — no JWT → 401
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reject
+Content-Type: application/json
+
+{
+  "reason": "No authorization header — should return 401."
+}
+
+###
+
+### ERROR — customer JWT (wrong role) → 403
+PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{customerToken}}
+
+{
+  "reason": "Customer trying to reject a booking — should return 403."
+}
+
+###
+
+### ERROR — terminal state (COMPLETED) → 422
+PATCH {{bffUrl}}/v1/bookings/{{completedBookingId}}/reject
+Content-Type: application/json
+Authorization: Bearer {{managerToken}}
+
+{
+  "reason": "Trying to reject an already completed booking — should return 422."
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/submit-info — customer submits requested info (UC-005b)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+
+### HAPPY PATH — authenticated customer submits info
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info
 Content-Type: application/json
 Authorization: Bearer {{customerToken}}
@@ -134,10 +416,7 @@ Authorization: Bearer {{customerToken}}
 
 ###
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ERROR — missing JWT → 401
-# ─────────────────────────────────────────────────────────────────────────────
-
+### ERROR — missing JWT → 401
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info
 Content-Type: application/json
 
@@ -147,10 +426,7 @@ Content-Type: application/json
 
 ###
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ERROR — MANAGER JWT (wrong role) → 403
-# ─────────────────────────────────────────────────────────────────────────────
-
+### ERROR — MANAGER JWT (wrong role) → 403
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
@@ -159,23 +435,26 @@ Authorization: Bearer {{managerToken}}
   "response": "Manager trying to submit info — should return 403"
 }
 
-###
-
 # ─────────────────────────────────────────────────────────────────────────────
-# PATCH /v1/bookings/:id/submit-info/guest — Guest submits info via tokenised link (public)
+# PATCH /v1/bookings/:id/submit-info/guest — guest submits info via tokenised link (public)
+# The ?token= value is included in the info-request notification email sent to the guest.
+# To test: trigger a request-info on a guest booking, capture the token from MailHog
+# (http://localhost:8025) and paste it below.
 # ─────────────────────────────────────────────────────────────────────────────
-
-# SUCCESS — valid guest token with matching bookingId
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info/guest?token={{guestToken}}
-Content-Type: application/json
-
-{
-  "response": "Here are the additional photos of the vehicle you requested"
-}
 
 ###
 
-# ERROR — missing token → 400
+### HAPPY PATH — guest submits info with valid JWT token (paste token from MailHog email link)
+# PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info/guest?token=<paste-token-from-email>
+# Content-Type: application/json
+#
+# {
+#   "response": "Here are the additional photos of the vehicle you requested"
+# }
+
+###
+
+### ERROR — missing token → 400
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info/guest
 Content-Type: application/json
 
@@ -185,7 +464,7 @@ Content-Type: application/json
 
 ###
 
-# ERROR — invalid token → 401
+### ERROR — invalid token → 401
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info/guest?token=invalid.token.string
 Content-Type: application/json
 
@@ -193,45 +472,37 @@ Content-Type: application/json
   "response": "Invalid token — should return 401"
 }
 
-###
-
-# ERROR — token bookingId mismatch → 400
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/submit-info/guest?token={{otherBookingGuestToken}}
-Content-Type: application/json
-
-{
-  "response": "Token for different booking — should return 400"
-}
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/cancel — customer cancels own booking (UC-007)
+# Works on PENDING (bookingId from seed). APPROVED within 48h also works.
+# ─────────────────────────────────────────────────────────────────────────────
 
 ###
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PATCH /v1/bookings/:id/cancel — Customer cancels own booking (UC-007)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# HAPPY PATH — customer cancels a PENDING booking
+### HAPPY PATH — customer cancels a PENDING booking
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/cancel
 Authorization: Bearer {{customerToken}}
 
 ###
 
-# ERROR — no JWT → 401
+### ERROR — no JWT → 401
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/cancel
 
 ###
 
-# ERROR — cancellation window expired → 422 (propagated from backend)
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/cancel
+### ERROR — cancellation window expired (APPROVED booking within 48 h) → 422
+PATCH {{bffUrl}}/v1/bookings/{{approvedBookingId}}/cancel
 Authorization: Bearer {{customerToken}}
 
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/cancel — admin cancels booking (UC-008a)
+# Seed: approvedBookingId is APPROVED — good for the admin cancel happy path.
+# ─────────────────────────────────────────────────────────────────────────────
+
 ###
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PATCH /v1/bookings/:id/cancel — Admin cancels booking (UC-008a)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# HAPPY PATH — admin cancels without reason
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/cancel
+### HAPPY PATH — admin cancels without reason
+PATCH {{bffUrl}}/v1/bookings/{{approvedBookingId}}/cancel
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
@@ -239,7 +510,7 @@ Authorization: Bearer {{managerToken}}
 
 ###
 
-# HAPPY PATH — admin cancels with optional reason
+### HAPPY PATH — admin cancels PENDING booking with optional reason
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/cancel
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
@@ -250,8 +521,8 @@ Authorization: Bearer {{managerToken}}
 
 ###
 
-# ERROR — terminal state (COMPLETED) → 422 (propagated from backend)
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/cancel
+### ERROR — terminal state (COMPLETED) → 422
+PATCH {{bffUrl}}/v1/bookings/{{completedBookingId}}/cancel
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
@@ -259,21 +530,22 @@ Authorization: Bearer {{managerToken}}
 
 ###
 
-# ERROR — booking not found → 404 (propagated from backend)
+### ERROR — booking not found → 404
 PATCH {{bffUrl}}/v1/bookings/00000000-0000-4000-8000-000000009999/cancel
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
 {}
 
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/reschedule — admin reschedules booking (UC-008b)
+# Requires APPROVED state → use approvedBookingId.
+# ─────────────────────────────────────────────────────────────────────────────
+
 ###
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PATCH /v1/bookings/:id/reschedule — Admin reschedules booking (UC-008b)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# HAPPY PATH — reschedule an APPROVED booking
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+### HAPPY PATH — reschedule an APPROVED booking
+PATCH {{bffUrl}}/v1/bookings/{{approvedBookingId}}/reschedule
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
@@ -283,8 +555,8 @@ Authorization: Bearer {{managerToken}}
 
 ###
 
-# HAPPY PATH — reschedule with optional adminNotes
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+### HAPPY PATH — reschedule with optional adminNotes
+PATCH {{bffUrl}}/v1/bookings/{{approvedBookingId}}/reschedule
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
@@ -295,8 +567,8 @@ Authorization: Bearer {{managerToken}}
 
 ###
 
-# ERROR — no JWT → 401
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+### ERROR — no JWT → 401
+PATCH {{bffUrl}}/v1/bookings/{{approvedBookingId}}/reschedule
 Content-Type: application/json
 
 {
@@ -305,18 +577,7 @@ Content-Type: application/json
 
 ###
 
-# ERROR — slot unavailable → 409 (propagated from backend)
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
-Content-Type: application/json
-Authorization: Bearer {{managerToken}}
-
-{
-  "scheduledAt": "2026-07-20T14:00:00.000Z"
-}
-
-###
-
-# ERROR — booking not APPROVED → 422 (propagated from backend)
+### ERROR — booking not APPROVED (PENDING) → 422
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
@@ -327,8 +588,8 @@ Authorization: Bearer {{managerToken}}
 
 ###
 
-# ERROR — past scheduledAt → 422 (propagated from backend)
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/reschedule
+### ERROR — past scheduledAt → 422
+PATCH {{bffUrl}}/v1/bookings/{{approvedBookingId}}/reschedule
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
@@ -336,41 +597,48 @@ Authorization: Bearer {{managerToken}}
   "scheduledAt": "2020-01-01T10:00:00.000Z"
 }
 
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PATCH /v1/bookings/:id/complete — mark booking complete (UC-009)
+# Requires APPROVED state → use approvedBookingId.
+# lineId: get the actual booking line IDs from GET /v1/bookings/:id response,
+# or use a freshly created+approved booking.
+# ─────────────────────────────────────────────────────────────────────────────
 
 ###
-# ── Mark Booking Complete (UC-009) ─────────────────────────────────────────────
 
-# SUCCESS — APPROVED → COMPLETED
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/complete
+### SUCCESS — APPROVED → COMPLETED
+PATCH {{bffUrl}}/v1/bookings/{{approvedBookingId}}/complete
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
 {
   "lines": [
-    { "lineId": "{{lineId}}", "actualPriceCharged": 80.00 }
+    { "lineId": "{{bookingLineId}}", "actualPriceCharged": 80.00 }
   ],
-  "afterServicePhotoUrls": ["tenants/{{tenantId}}/bookings/{{bookingId}}/after1.jpg"],
+  "afterServicePhotoUrls": ["tenants/{{tenantId}}/bookings/{{approvedBookingId}}/after1.jpg"],
   "adminNotes": "Extra shine applied"
 }
 
 ###
 
-# ERROR — booking not APPROVED → 422 (propagated from backend)
+### ERROR — booking not APPROVED (PENDING) → 422
 PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/complete
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
 {
   "lines": [
-    { "lineId": "{{lineId}}", "actualPriceCharged": 100.00 }
+    { "lineId": "{{bookingLineId}}", "actualPriceCharged": 100.00 }
   ],
   "afterServicePhotoUrls": []
 }
 
 ###
 
-# ERROR — missing line in request → 400 (propagated from backend)
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/complete
+### ERROR — missing line in request → 400
+PATCH {{bffUrl}}/v1/bookings/{{approvedBookingId}}/complete
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
 
@@ -381,14 +649,14 @@ Authorization: Bearer {{managerToken}}
 
 ###
 
-# ERROR — no staff role → 403
-PATCH {{bffUrl}}/v1/bookings/{{bookingId}}/complete
+### ERROR — no staff role → 403
+PATCH {{bffUrl}}/v1/bookings/{{approvedBookingId}}/complete
 Content-Type: application/json
 Authorization: Bearer {{customerToken}}
 
 {
   "lines": [
-    { "lineId": "{{lineId}}", "actualPriceCharged": 100.00 }
+    { "lineId": "{{bookingLineId}}", "actualPriceCharged": 100.00 }
   ],
   "afterServicePhotoUrls": []
 }

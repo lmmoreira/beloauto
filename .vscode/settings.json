@@ -89,8 +89,29 @@
   },
 
   // ─── REST Client (HTTP files) ────────────────────────────────────────────
-  // Reads PLATFORM_ADMIN_KEY and DATABASE_URL from the gitignored backend .env
-  // Install extension: humao.rest-client
+  // Reads PLATFORM_ADMIN_KEY from the gitignored apps/backend/.env automatically.
+  // Install extension: humao.rest-client  →  select "local" in the VS Code status bar.
+  //
+  // QUICK-START WORKFLOW (run once per dev session):
+  //   1. pnpm infra:up
+  //   2. pnpm --filter @beloauto/backend run migration:run
+  //   3. pnpm --filter @beloauto/backend run seed
+  //   4. pnpm --filter @beloauto/backend run dev      (port 3001)
+  //   5. pnpm --filter @beloauto/bff run dev          (port 3002)  +  ENABLE_DEV_AUTH=true in apps/bff/.env.local
+  //   6. Open apps/bff/http/auth/dev-login.http
+  //      Run the 3 login requests (managerLogin / staffLogin / customerLogin).
+  //      Paste each accessToken below into managerToken / staffToken / customerToken.
+  //      Tokens last 7 days — refresh weekly.
+  //
+  // SEED DATA REFERENCE (src/shared/database/seed.ts — all idempotent UUIDs):
+  //   Tenant A  →  lavacar-beloauto   (tenantId)
+  //   Tenant B  →  autospa-premium    (tenantBId)
+  //   Manager   →  admin@lavacar.com.br        (managerId)
+  //   Staff     →  funcionario@lavacar.com.br  (staffWorkerId)
+  //   Customer  →  cliente@email.com.br        (customerId)
+  //   Services  →  Simples(serviceId) / Completa(service2Id) / Polimento(service3Id) / Higienizacao(service4Id)
+  //   Bookings  →  PENDING(bookingId) / APPROVED(approvedBookingId) / COMPLETED(completedBookingId)
+  //   Lines     →  completedBookingId line (bookingLineId) — 10 pts, Lavagem Completa
   "rest-client.dotenv.path": "${workspaceFolder}/apps/backend/.env",
   "rest-client.defaultHeaders": {
     "Content-Type": "application/json"
@@ -99,7 +120,31 @@
     "local": {
       "backendUrl": "http://localhost:3001",
       "bffUrl": "http://localhost:3002",
-      "tenantId": "replace-with-a-real-tenant-uuid"
+
+      "tenantSlug": "lavacar-beloauto",
+      "tenantId": "019e97fb-057c-7608-a287-41aac712e8c4",
+      "tenantBId": "00000000-0000-7000-8000-000000000002",
+
+      "managerId": "00000000-0000-7000-8001-000000000001",
+      "staffWorkerId": "00000000-0000-7000-8001-000000000002",
+
+      "customerId": "00000000-0000-7000-8002-000000000001",
+
+      "serviceId": "00000000-0000-7000-8003-000000000001",
+      "service2Id": "00000000-0000-7000-8003-000000000002",
+      "service3Id": "00000000-0000-7000-8003-000000000003",
+      "service4Id": "00000000-0000-7000-8003-000000000004",
+
+      "bookingId": "019e983c-7a7f-7f39-9b20-6f57def4385c",
+      "approvedBookingId": "00000000-0000-7000-8005-000000000002",
+      "completedBookingId": "00000000-0000-7000-8005-000000000003",
+      "bookingLineId": "00000000-0000-7000-8006-000000000001",
+
+      "loyaltyEntryId": "00000000-0000-7000-8007-000000000001",
+
+      "managerToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMDAwMDAwMC0wMDAwLTcwMDAtODAwMS0wMDAwMDAwMDAwMDEiLCJ0ZW5hbnRJZCI6IjAwMDAwMDAwLTAwMDAtNzAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInRlbmFudFNsdWciOiJsYXZhY2FyLWJlbG9hdXRvIiwicm9sZSI6Ik1BTkFHRVIiLCJpYXQiOjE3ODA2Njg0NTUsImV4cCI6MTc4MTI3MzI1NX0.s-d-TskopRwOIwSW8ETCjh8ELzVbogX5nk7nljKsj8E",
+      "staffToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMDAwMDAwMC0wMDAwLTcwMDAtODAwMS0wMDAwMDAwMDAwMDIiLCJ0ZW5hbnRJZCI6IjAwMDAwMDAwLTAwMDAtNzAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInRlbmFudFNsdWciOiJsYXZhY2FyLWJlbG9hdXRvIiwicm9sZSI6IlNUQUZGIiwiaWF0IjoxNzgwNjY4NTI4LCJleHAiOjE3ODEyNzMzMjh9.cTB9IxEsxi-Te_9V-swzAOk3eZPP595dmX732LWIkFA",
+      "customerToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMTllOTgxZC1jYTZiLTdjNDQtYWU4ZS03ODM0ODRkM2Y0MDUiLCJ0ZW5hbnRJZCI6IjAwMDAwMDAwLTAwMDAtNzAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInRlbmFudFNsdWciOiJsYXZhY2FyLWJlbG9hdXRvIiwicm9sZSI6IkNVU1RPTUVSIiwiaWF0IjoxNzgwNjY4NTQ5LCJleHAiOjE3ODEyNzMzNDl9.V4LdhdG5owpQ3icND4L67pm4-y_GZ8DUMC31H_v3aow"
     }
   },
 

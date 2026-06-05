@@ -1,6 +1,16 @@
-@baseUrl = http://localhost:3001
-@tenantId = 10000000-0000-4000-8000-000000000001
-@customerId = 20000000-0000-4000-8000-000000000001
+# Customer — Profile Endpoints
+# UC-006 (view profile), UC-021 (update profile)
+# TenantContext populated from X-Tenant-ID / X-Actor-ID headers (set by BFF).
+#
+# Prerequisites:
+#   1. pnpm infra:up
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run seed
+#   4. pnpm --filter @beloauto/backend run dev
+#
+# REST Client environment: select "local" in VS Code status bar
+
+@baseUrl = {{backendUrl}}
 
 ### GET /customers/me — get authenticated customer profile
 GET {{baseUrl}}/customers/me

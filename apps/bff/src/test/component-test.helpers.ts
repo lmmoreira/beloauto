@@ -56,6 +56,7 @@ export async function createTestApp(): Promise<{
     'GOOGLE_CALLBACK_URL',
     'ALLOWED_ORIGINS',
     'CRON_SECRET',
+    'ENABLE_DEV_AUTH',
   ] as const;
 
   const originalEnv = Object.fromEntries(TEST_ENV_KEYS.map((k) => [k, process.env[k]]));
@@ -69,6 +70,7 @@ export async function createTestApp(): Promise<{
   process.env['GOOGLE_CALLBACK_URL'] = 'http://localhost:3002/v1/auth/google/callback';
   process.env['ALLOWED_ORIGINS'] = 'http://localhost:3000';
   process.env['CRON_SECRET'] = 'test-cron-secret-must-be-at-least-32-chars!!';
+  process.env['ENABLE_DEV_AUTH'] = 'true';
 
   const httpService: MockHttpService = {
     get: jest.fn(),

@@ -1,84 +1,92 @@
-### Variables
-@baseUrl = http://localhost:3001
-@tenantId = {{$dotenv TENANT_ID}}
-@customerId = {{$dotenv CUSTOMER_ID}}
-@staffId = {{$dotenv STAFF_ID}}
+# Loyalty — Balance, entries, redemptions (UC-016)
+#
+# Prerequisites:
+#   1. pnpm infra:up
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run seed   ← populates the fixed UUIDs below
+#   4. pnpm --filter @beloauto/backend run dev
+#
+# IDs come from .vscode/settings.json "local" env (src/shared/database/seed.ts).
+# REST Client environment: select "local" in VS Code status bar
+
+@baseUrl       = {{backendUrl}}
+@staffId       = {{managerId}}
 @correlationId = test-corr-id
 
 ### GET /loyalty/balance — customer views own balance
 GET {{baseUrl}}/loyalty/balance
-x-tenant-id: {{tenantId}}
-x-actor-id: {{customerId}}
-x-actor-type: CUSTOMER
-x-actor-role: CUSTOMER
-x-correlation-id: {{correlationId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: {{correlationId}}
 
 ###
 
 ### GET /loyalty/entries — customer views earning history
 GET {{baseUrl}}/loyalty/entries?page=1&limit=20
-x-tenant-id: {{tenantId}}
-x-actor-id: {{customerId}}
-x-actor-type: CUSTOMER
-x-actor-role: CUSTOMER
-x-correlation-id: {{correlationId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: {{correlationId}}
 
 ###
 
 ### GET /loyalty/redemptions — customer views redemption history
 GET {{baseUrl}}/loyalty/redemptions?page=1&limit=20
-x-tenant-id: {{tenantId}}
-x-actor-id: {{customerId}}
-x-actor-type: CUSTOMER
-x-actor-role: CUSTOMER
-x-correlation-id: {{correlationId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: {{correlationId}}
 
 ###
 
 ### GET /customers/:customerId/loyalty/balance — admin views customer balance
 GET {{baseUrl}}/customers/{{customerId}}/loyalty/balance
-x-tenant-id: {{tenantId}}
-x-actor-id: {{staffId}}
-x-actor-type: STAFF
-x-actor-role: MANAGER
-x-correlation-id: {{correlationId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: {{correlationId}}
 
 ###
 
 ### GET /customers/:customerId/loyalty/entries — admin views customer earning history
 GET {{baseUrl}}/customers/{{customerId}}/loyalty/entries?page=1&limit=20
-x-tenant-id: {{tenantId}}
-x-actor-id: {{staffId}}
-x-actor-type: STAFF
-x-actor-role: MANAGER
-x-correlation-id: {{correlationId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: {{correlationId}}
 
 ###
 
 ### GET /customers/:customerId/loyalty/redemptions — admin views customer redemption history
 GET {{baseUrl}}/customers/{{customerId}}/loyalty/redemptions?page=1&limit=20
-x-tenant-id: {{tenantId}}
-x-actor-id: {{staffId}}
-x-actor-type: STAFF
-x-actor-role: MANAGER
-x-correlation-id: {{correlationId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: {{correlationId}}
 
 ###
 
 ### POST /loyalty/redeem — admin records a point redemption (MANAGER or STAFF role)
+# Seed balance = 10 pts (from the completed booking loyalty entry).
 POST {{baseUrl}}/loyalty/redeem
 Content-Type: application/json
-x-tenant-id: {{tenantId}}
-x-actor-id: {{staffId}}
-x-actor-type: STAFF
-x-actor-role: MANAGER
-x-correlation-id: {{correlationId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: {{correlationId}}
 
 {
   "customerId": "{{customerId}}",
-  "pointsToRedeem": 50,
-  "notes": "Free basic wash applied",
-  "bookingId": null
+  "pointsToRedeem": 5,
+  "notes": "Free basic wash applied"
 }
 
 ###
@@ -86,11 +94,11 @@ x-correlation-id: {{correlationId}}
 ### POST /loyalty/redeem — 422 insufficient points
 POST {{baseUrl}}/loyalty/redeem
 Content-Type: application/json
-x-tenant-id: {{tenantId}}
-x-actor-id: {{staffId}}
-x-actor-type: STAFF
-x-actor-role: MANAGER
-x-correlation-id: {{correlationId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: {{correlationId}}
 
 {
   "customerId": "{{customerId}}",
@@ -102,13 +110,13 @@ x-correlation-id: {{correlationId}}
 ### POST /loyalty/redeem — 403 CUSTOMER role not allowed
 POST {{baseUrl}}/loyalty/redeem
 Content-Type: application/json
-x-tenant-id: {{tenantId}}
-x-actor-id: {{customerId}}
-x-actor-type: CUSTOMER
-x-actor-role: CUSTOMER
-x-correlation-id: {{correlationId}}
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{customerId}}
+X-Actor-Type: CUSTOMER
+X-Actor-Role: CUSTOMER
+X-Correlation-ID: {{correlationId}}
 
 {
   "customerId": "{{customerId}}",
-  "pointsToRedeem": 10
+  "pointsToRedeem": 5
 }

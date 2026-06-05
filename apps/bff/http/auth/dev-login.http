@@ -1,0 +1,129 @@
+# BFF — Dev Login (M115-S02)
+# Bypasses Google OAuth to issue real JWT sessions for local development.
+#
+# Prerequisites:
+#   1. pnpm infra:up
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run seed     ← creates tenant + staff + customer
+#   4. pnpm --filter @beloauto/backend run dev      (port 3001)
+#   5. pnpm --filter @beloauto/bff run dev          (port 3002)
+#   6. ENABLE_DEV_AUTH=true in apps/bff/.env.local
+#
+# ── WORKFLOW ─────────────────────────────────────────────────────────────────
+# 1. Run each login request below (managerLogin / staffLogin / customerLogin).
+# 2. The tokens are captured in the file-level variables below and are usable
+#    in the sanity-check requests at the bottom of this file.
+# 3. For use across OTHER .http files: paste each accessToken into
+#    .vscode/settings.json → managerToken / staffToken / customerToken.
+#    Tokens last 7 days — refresh weekly.
+#
+# REST Client environment: select "local" in VS Code status bar.
+# Seed data: src/shared/database/seed.ts
+
+# ── File-level response captures (updated automatically when request runs) ──
+@managerToken  = {{managerLogin.response.body.accessToken}}
+@staffToken    = {{staffLogin.response.body.accessToken}}
+@customerToken = {{customerLogin.response.body.accessToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Login as Manager (admin@lavacar.com.br — MANAGER on lavacar-beloauto)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+# @name managerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{
+  "email": "admin@lavacar.com.br",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "staff"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Login as Staff (funcionario@lavacar.com.br — STAFF on lavacar-beloauto)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+# @name staffLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{
+  "email": "funcionario@lavacar.com.br",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "staff"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Login as Customer (cliente@email.com.br — find-or-create on lavacar-beloauto)
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+# @name customerLogin
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{
+  "email": "cliente@email.com.br",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "customer"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sanity checks — confirm tokens work against real endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+# Manager can list services
+GET {{bffUrl}}/v1/services
+Authorization: Bearer {{managerToken}}
+X-Tenant-Slug: {{tenantSlug}}
+
+###
+# Staff can list bookings
+GET {{bffUrl}}/v1/bookings
+Authorization: Bearer {{staffToken}}
+X-Tenant-Slug: {{tenantSlug}}
+
+###
+# Customer can view own loyalty balance
+GET {{bffUrl}}/v1/loyalty/balance
+Authorization: Bearer {{customerToken}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR CASES
+# ─────────────────────────────────────────────────────────────────────────────
+
+###
+# 403 — ENABLE_DEV_AUTH not set or false
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{
+  "email": "admin@lavacar.com.br",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "staff"
+}
+
+###
+# 400 — invalid email
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "staff"
+}
+
+###
+# 400 — invalid type
+POST {{bffUrl}}/v1/auth/dev-login
+Content-Type: application/json
+
+{
+  "email": "admin@lavacar.com.br",
+  "tenantSlug": "{{tenantSlug}}",
+  "type": "admin"
+}

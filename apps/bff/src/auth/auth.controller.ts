@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  HttpCode,
   HttpException,
   HttpStatus,
   Post,
@@ -20,6 +21,7 @@ import { Roles } from '../shared/decorators/roles.decorator';
 import { BackendHttpService } from '../shared/http/backend-http.service';
 import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
 import { JWT_COOKIE_OPTIONS } from './cookie-options';
+import { DevLoginDto, DevLoginResponse, DevLoginSchema } from './dtos/dev-login.dto';
 import { IssueTokenDto, IssueTokenSchema } from './dtos/issue-token.dto';
 import { SwitchTenantDto, SwitchTenantSchema } from './dtos/switch-tenant.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
@@ -143,6 +145,84 @@ export class AuthController {
     });
 
     return { accessToken, expiresIn: this.config.getOrThrow<string>('JWT_EXPIRES_IN') };
+  }
+
+  @Public()
+  @Post('dev-login')
+  @HttpCode(HttpStatus.OK)
+  async devLogin(
+    @Body(new ZodValidationPipe(DevLoginSchema)) dto: DevLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<DevLoginResponse> {
+    if (this.config.get<string>('ENABLE_DEV_AUTH') !== 'true') {
+      throw new ForbiddenException({
+        type: 'about:blank',
+        title: 'Forbidden',
+        status: HttpStatus.FORBIDDEN,
+        detail: 'Dev auth is not enabled',
+      });
+    }
+    if (this.config.get<string>('NODE_ENV') === 'production') {
+      throw new ForbiddenException({
+        type: 'about:blank',
+        title: 'Forbidden',
+        status: HttpStatus.FORBIDDEN,
+        detail: 'Dev auth is not available in production',
+      });
+    }
+
+    const tenantInfo = await this.backendHttp.get<TenantInfoResponse>(
+      `/internal/tenants/by-slug/${encodeURIComponent(dto.tenantSlug)}`,
+    );
+
+    let actorId: string;
+    let role: 'CUSTOMER' | 'STAFF' | 'MANAGER';
+
+    if (dto.type === 'staff') {
+      const staff = await this.backendHttp.get<StaffByEmailResponse>('/internal/staff/by-email', {
+        email: dto.email,
+        tenantId: tenantInfo.id,
+      });
+      actorId = staff.staffId;
+      role = staff.role;
+    } else {
+      const googleOAuthId = `dev::${dto.email}`;
+      if (googleOAuthId.length > 255) {
+        throw new HttpException(
+          {
+            title: 'Bad Request',
+            status: HttpStatus.BAD_REQUEST,
+            detail: 'Email too long for dev auth',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const customer = await this.backendHttp.post<FindOrCreateCustomerResponse>(
+        '/internal/customers',
+        {
+          tenantId: tenantInfo.id,
+          email: dto.email,
+          name: 'Dev User',
+          googleOAuthId,
+        },
+      );
+      actorId = customer.customerId;
+      role = 'CUSTOMER';
+    }
+
+    const accessToken = this.jwtIssuer.issueToken({
+      sub: actorId,
+      tenantId: tenantInfo.id,
+      tenantSlug: tenantInfo.slug,
+      role,
+    });
+
+    res.cookie('access_token', accessToken, JWT_COOKIE_OPTIONS);
+
+    return {
+      accessToken,
+      user: { sub: actorId, tenantId: tenantInfo.id, tenantSlug: tenantInfo.slug, role },
+    };
   }
 
   private async handleStaffFirstLogin(
