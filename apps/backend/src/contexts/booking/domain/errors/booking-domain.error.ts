@@ -187,4 +187,3 @@ export class CompleteBookingLinesIncompleteError extends BookingDomainError {
     this.name = 'CompleteBookingLinesIncompleteError';
   }
 }
-
