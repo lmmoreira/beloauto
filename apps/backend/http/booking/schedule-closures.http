@@ -11,7 +11,6 @@
 
 @baseUrl    = {{backendUrl}}
 @tenantId   = {{tenantId}}
-@actorId    = {{actorId}}
 @closureId  = {{createClosure.response.body.id}}
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -23,7 +22,7 @@
 ### List closures in December 2026
 GET {{baseUrl}}/schedule/closures?from=2026-12-01&to=2026-12-31
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -38,7 +37,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/schedule/closures
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -54,7 +53,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/schedule/closures
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -72,7 +71,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/schedule/closures
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: STAFF
 
@@ -90,7 +89,7 @@ X-Actor-Role: STAFF
 ### Remove a closure
 DELETE {{baseUrl}}/schedule/closures/{{closureId}}
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -104,7 +103,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/schedule/closures
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: CUSTOMER
 X-Actor-Role: CUSTOMER
 
@@ -119,7 +118,7 @@ X-Actor-Role: CUSTOMER
 POST {{baseUrl}}/schedule/closures
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -134,7 +133,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/schedule/closures
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -148,7 +147,7 @@ X-Actor-Role: MANAGER
 ### 404 — Closure not found
 DELETE {{baseUrl}}/schedule/closures/00000000-0000-4000-8000-000000000099
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
@@ -158,7 +157,7 @@ X-Actor-Role: MANAGER
 POST {{baseUrl}}/schedule/closures
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
 X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 

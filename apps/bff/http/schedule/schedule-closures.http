@@ -11,8 +11,9 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@bffUrl = {{bffUrl}}
-@tenantSlug = lavacar-beloauto
+@bffUrl     = {{bffUrl}}
+@tenantSlug = {{tenantSlug}}
+@closureId  = {{createClosure.response.body.id}}
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
 
@@ -51,6 +52,7 @@ Authorization: Bearer {{managerToken}}
 ###
 
 ### Create a full-day holiday closure
+# @name createClosure
 POST {{bffUrl}}/v1/schedule/closures
 Content-Type: application/json
 Authorization: Bearer {{managerToken}}
@@ -83,6 +85,7 @@ Authorization: Bearer {{managerToken}}
 ###
 
 ### Remove a closure
+# Run createClosure above first; @closureId is captured from its response.
 DELETE {{bffUrl}}/v1/schedule/closures/{{closureId}}
 Authorization: Bearer {{managerToken}}
 

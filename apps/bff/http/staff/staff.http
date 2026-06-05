@@ -10,8 +10,8 @@
 #
 # REST Client environment: select "local" in VS Code status bar.
 
-@bffUrl = {{bffUrl}}
-@tenantSlug = lavacar-beloauto
+@bffUrl     = {{bffUrl}}
+@tenantSlug = {{tenantSlug}}
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
 

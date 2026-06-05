@@ -89,8 +89,29 @@
   },
 
   // ─── REST Client (HTTP files) ────────────────────────────────────────────
-  // Reads PLATFORM_ADMIN_KEY and DATABASE_URL from the gitignored backend .env
-  // Install extension: humao.rest-client
+  // Reads PLATFORM_ADMIN_KEY from the gitignored apps/backend/.env automatically.
+  // Install extension: humao.rest-client  →  select "local" in the VS Code status bar.
+  //
+  // QUICK-START WORKFLOW (run once per dev session):
+  //   1. pnpm infra:up
+  //   2. pnpm --filter @beloauto/backend run migration:run
+  //   3. pnpm --filter @beloauto/backend run seed
+  //   4. pnpm --filter @beloauto/backend run dev      (port 3001)
+  //   5. pnpm --filter @beloauto/bff run dev          (port 3002)  +  ENABLE_DEV_AUTH=true in apps/bff/.env.local
+  //   6. Open apps/bff/http/auth/dev-login.http
+  //      Run the 3 login requests (managerLogin / staffLogin / customerLogin).
+  //      Paste each accessToken below into managerToken / staffToken / customerToken.
+  //      Tokens last 7 days — refresh weekly.
+  //
+  // SEED DATA REFERENCE (src/shared/database/seed.ts — all idempotent UUIDs):
+  //   Tenant A  →  lavacar-beloauto   (tenantId)
+  //   Tenant B  →  autospa-premium    (tenantBId)
+  //   Manager   →  admin@lavacar.com.br        (managerId)
+  //   Staff     →  funcionario@lavacar.com.br  (staffWorkerId)
+  //   Customer  →  cliente@email.com.br        (customerId)
+  //   Services  →  Simples(serviceId) / Completa(service2Id) / Polimento(service3Id) / Higienizacao(service4Id)
+  //   Bookings  →  PENDING(bookingId) / APPROVED(approvedBookingId) / COMPLETED(completedBookingId)
+  //   Lines     →  completedBookingId line (bookingLineId) — 10 pts, Lavagem Completa
   "rest-client.dotenv.path": "${workspaceFolder}/apps/backend/.env",
   "rest-client.defaultHeaders": {
     "Content-Type": "application/json"
@@ -99,15 +120,28 @@
     "local": {
       "backendUrl": "http://localhost:3001",
       "bffUrl": "http://localhost:3002",
+
       "tenantSlug": "lavacar-beloauto",
       "tenantId": "00000000-0000-7000-8000-000000000001",
+      "tenantBId": "00000000-0000-7000-8000-000000000002",
+
       "managerId": "00000000-0000-7000-8001-000000000001",
-      "actorId": "00000000-0000-7000-8001-000000000001",
       "staffWorkerId": "00000000-0000-7000-8001-000000000002",
+
       "customerId": "00000000-0000-7000-8002-000000000001",
+
       "serviceId": "00000000-0000-7000-8003-000000000001",
+      "service2Id": "00000000-0000-7000-8003-000000000002",
+      "service3Id": "00000000-0000-7000-8003-000000000003",
+      "service4Id": "00000000-0000-7000-8003-000000000004",
+
       "bookingId": "00000000-0000-7000-8005-000000000001",
+      "approvedBookingId": "00000000-0000-7000-8005-000000000002",
+      "completedBookingId": "00000000-0000-7000-8005-000000000003",
       "bookingLineId": "00000000-0000-7000-8006-000000000001",
+
+      "loyaltyEntryId": "00000000-0000-7000-8007-000000000001",
+
       "managerToken": "",
       "staffToken": "",
       "customerToken": ""

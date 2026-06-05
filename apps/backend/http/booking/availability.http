@@ -9,9 +9,10 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@baseUrl   = {{backendUrl}}
-@tenantId  = {{tenantId}}
-@serviceId = {{serviceId}}
+@baseUrl    = {{backendUrl}}
+@tenantId   = {{tenantId}}
+@serviceId  = {{serviceId}}
+@service2Id = {{service2Id}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — open day, one service, no closures
@@ -26,7 +27,7 @@ X-Tenant-ID: {{tenantId}}
 # HAPPY PATH — multiple services
 # ─────────────────────────────────────────────────────────────────────────────
 
-GET {{baseUrl}}/schedule/availability?date=2026-06-01&serviceIds={{serviceId}},00000000-0000-7000-8003-000000000002
+GET {{baseUrl}}/schedule/availability?date=2026-06-01&serviceIds={{serviceId}},{{service2Id}}
 X-Tenant-ID: {{tenantId}}
 
 ###

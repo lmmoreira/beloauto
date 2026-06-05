@@ -6,15 +6,23 @@
 #   1. pnpm infra:up
 #   2. pnpm --filter @beloauto/backend run migration:run
 #   3. pnpm --filter @beloauto/backend run seed
-   4. pnpm --filter @beloauto/backend run dev
+#   4. pnpm --filter @beloauto/backend run dev
+#
+# Seed booking states:
+#   bookingId          → PENDING   (approve / reject / request-info / cancel-customer)
+#   approvedBookingId  → APPROVED  (reschedule / complete / cancel-admin)
+#   completedBookingId → COMPLETED (error cases — already terminal)
+# Note: state-changing operations consume the seed row; re-run seed to reset.
 
-@baseUrl = {{backendUrl}}
-@tenantId = {{tenantId}}
-@serviceId = {{serviceId}}
-@customerId = {{customerId}}
-@staffId = {{actorId}}
-@bookingId = {{bookingId}}
-@lineId = {{bookingLineId}}
+@baseUrl            = {{backendUrl}}
+@tenantId           = {{tenantId}}
+@serviceId          = {{serviceId}}
+@customerId         = {{customerId}}
+@staffId            = {{managerId}}
+@bookingId          = {{bookingId}}
+@approvedBookingId  = {{approvedBookingId}}
+@completedBookingId = {{completedBookingId}}
+@lineId             = {{bookingLineId}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list all bookings for tenant (staff view)
@@ -763,7 +771,7 @@ X-Correlation-ID: test-corr-cancel-admin-005
 # HAPPY PATH — admin reschedules an APPROVED booking (UC-008b)
 # ─────────────────────────────────────────────────────────────────────────────
 
-PATCH {{baseUrl}}/bookings/{{bookingId}}/reschedule
+PATCH {{baseUrl}}/bookings/{{approvedBookingId}}/reschedule
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
 X-Actor-ID: {{staffId}}
@@ -778,7 +786,7 @@ X-Correlation-ID: test-corr-reschedule-001
 ###
 
 # HAPPY PATH — reschedule with optional adminNotes
-PATCH {{baseUrl}}/bookings/{{bookingId}}/reschedule
+PATCH {{baseUrl}}/bookings/{{approvedBookingId}}/reschedule
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
 X-Actor-ID: {{staffId}}
@@ -819,6 +827,19 @@ X-Correlation-ID: test-corr-reschedule-004
 
 {
   "scheduledAt": "2026-07-22T10:00:00.000Z"
+}
+
+# ERROR — slot taken → 409 (reschedule approvedBookingId to a conflicting slot)
+PATCH {{baseUrl}}/bookings/{{approvedBookingId}}/reschedule
+Content-Type: application/json
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Correlation-ID: test-corr-reschedule-006b
+
+{
+  "scheduledAt": "2026-07-20T14:00:00.000Z"
 }
 
 ###
@@ -866,9 +887,12 @@ X-Correlation-ID: test-corr-reschedule-007
 
 ###
 # ── Mark Booking Complete (UC-009) ─────────────────────────────────────────────
+# Uses approvedBookingId (APPROVED state from seed).
+# Replace lineId with the actual booking line ID — query GET /bookings/:id first
+# or use a freshly created+approved booking with its own line IDs.
 
 # SUCCESS — APPROVED → COMPLETED
-PATCH {{baseUrl}}/bookings/{{bookingId}}/complete
+PATCH {{baseUrl}}/bookings/{{approvedBookingId}}/complete
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
 X-Actor-ID: {{staffId}}
@@ -880,13 +904,13 @@ X-Correlation-ID: test-corr-complete-001
   "lines": [
     { "lineId": "{{lineId}}", "actualPriceCharged": 80.00 }
   ],
-  "afterServicePhotoUrls": ["tenants/{{tenantId}}/bookings/{{bookingId}}/after1.jpg"],
+  "afterServicePhotoUrls": ["tenants/{{tenantId}}/bookings/{{approvedBookingId}}/after1.jpg"],
   "adminNotes": "Extra shine applied"
 }
 
 ###
 
-# ERROR — booking not APPROVED → 422
+# ERROR — booking not APPROVED (PENDING) → 422
 PATCH {{baseUrl}}/bookings/{{bookingId}}/complete
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
@@ -905,7 +929,7 @@ X-Correlation-ID: test-corr-complete-002
 ###
 
 # ERROR — missing line in request → 400
-PATCH {{baseUrl}}/bookings/{{bookingId}}/complete
+PATCH {{baseUrl}}/bookings/{{approvedBookingId}}/complete
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
 X-Actor-ID: {{staffId}}
@@ -921,7 +945,7 @@ X-Correlation-ID: test-corr-complete-003
 ###
 
 # ERROR — terminal state (COMPLETED) → 422
-PATCH {{baseUrl}}/bookings/{{bookingId}}/complete
+PATCH {{baseUrl}}/bookings/{{completedBookingId}}/complete
 Content-Type: application/json
 X-Tenant-ID: {{tenantId}}
 X-Actor-ID: {{staffId}}

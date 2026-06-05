@@ -11,7 +11,6 @@
 
 @baseUrl    = {{backendUrl}}
 @tenantId   = {{tenantId}}
-@actorId    = {{actorId}}
 @openingId  = {{createOpening.response.body.id}}
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -21,7 +20,8 @@
 ### List openings (2026-12-01 to 2026-12-31)
 GET {{baseUrl}}/schedule/openings?from=2026-12-01&to=2026-12-31
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -32,7 +32,8 @@ X-Actor-Role: MANAGER
 # @name createOpening
 POST {{baseUrl}}/schedule/openings
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 Content-Type: application/json
 
@@ -48,9 +49,11 @@ Content-Type: application/json
 # ─────────────────────────────────────────────────────────────────────────────
 
 ### DELETE /schedule/openings/:id — 204
+# Run createOpening above first; @openingId is captured from its response.
 DELETE {{baseUrl}}/schedule/openings/{{openingId}}
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -60,7 +63,8 @@ X-Actor-Role: MANAGER
 ### POST on past date — 422
 POST {{baseUrl}}/schedule/openings
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 Content-Type: application/json
 
@@ -77,7 +81,8 @@ Content-Type: application/json
 ### POST on a Monday (already open by default) — 422
 POST {{baseUrl}}/schedule/openings
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 Content-Type: application/json
 
@@ -94,7 +99,8 @@ Content-Type: application/json
 ### POST duplicate opening — 409 (run the 201 request above first)
 POST {{baseUrl}}/schedule/openings
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 Content-Type: application/json
 
@@ -111,7 +117,8 @@ Content-Type: application/json
 ### DELETE non-existent opening — 404
 DELETE {{baseUrl}}/schedule/openings/00000000-0000-4000-8000-000000000099
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -121,5 +128,6 @@ X-Actor-Role: MANAGER
 ### DELETE with non-UUID id — 400
 DELETE {{baseUrl}}/schedule/openings/not-a-uuid
 X-Tenant-ID: {{tenantId}}
-X-Actor-ID: {{actorId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
 X-Actor-Role: MANAGER
