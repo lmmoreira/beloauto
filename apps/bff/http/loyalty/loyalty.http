@@ -9,8 +9,7 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@bffUrl     = {{bffUrl}}
-@tenantSlug = {{tenantSlug}}
+# (all variables resolved directly from the "local" env — no file aliases needed)
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
 

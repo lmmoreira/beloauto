@@ -9,9 +9,8 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@baseUrl    = {{backendUrl}}
-@tenantId   = {{tenantId}}
-@closureId  = {{createClosure.response.body.id}}
+@baseUrl   = {{backendUrl}}
+@closureId = {{createClosure.response.body.id}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list closures

@@ -10,9 +10,7 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@baseUrl    = {{backendUrl}}
-@tenantId   = {{tenantId}}
-@customerId = {{customerId}}
+@baseUrl = {{backendUrl}}
 
 ### GET /customers/me — get authenticated customer profile
 GET {{baseUrl}}/customers/me

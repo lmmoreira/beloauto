@@ -14,15 +14,9 @@
 #   completedBookingId → COMPLETED (error cases — already terminal)
 # Note: state-changing operations consume the seed row; re-run seed to reset.
 
-@baseUrl            = {{backendUrl}}
-@tenantId           = {{tenantId}}
-@serviceId          = {{serviceId}}
-@customerId         = {{customerId}}
-@staffId            = {{managerId}}
-@bookingId          = {{bookingId}}
-@approvedBookingId  = {{approvedBookingId}}
-@completedBookingId = {{completedBookingId}}
-@lineId             = {{bookingLineId}}
+@baseUrl = {{backendUrl}}
+@staffId = {{managerId}}
+@lineId  = {{bookingLineId}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list all bookings for tenant (staff view)

@@ -9,9 +9,8 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@baseUrl    = {{backendUrl}}
-@tenantId   = {{tenantId}}
-@openingId  = {{createOpening.response.body.id}}
+@baseUrl   = {{backendUrl}}
+@openingId = {{createOpening.response.body.id}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — list openings in range

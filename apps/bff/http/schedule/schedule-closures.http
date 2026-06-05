@@ -11,9 +11,7 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@bffUrl     = {{bffUrl}}
-@tenantSlug = {{tenantSlug}}
-@closureId  = {{createClosure.response.body.id}}
+@closureId = {{createClosure.response.body.id}}
 
 # ── DEV AUTH — run each login once per session, then use the captured token ──
 

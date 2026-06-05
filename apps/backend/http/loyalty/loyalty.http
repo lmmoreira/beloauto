@@ -10,8 +10,6 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl       = {{backendUrl}}
-@tenantId      = {{tenantId}}
-@customerId    = {{customerId}}
 @staffId       = {{managerId}}
 @correlationId = test-corr-id
 

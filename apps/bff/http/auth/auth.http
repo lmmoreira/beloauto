@@ -13,7 +13,7 @@
 # The OAuth callback (step 2 of the flow) must be completed in a browser —
 # REST Client cannot follow Google's redirect chain.
 
-@bffUrl = {{bffUrl}}
+# (all variables resolved directly from the "local" env — no file aliases needed)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 1 — Open this URL in a browser (not REST Client)

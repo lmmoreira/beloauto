@@ -25,7 +25,7 @@
 # REST Client environment: select "local" in VS Code status bar.
 # Seed data: src/shared/database/seed.ts
 
-@bffUrl = {{bffUrl}}
+# (all variables resolved directly from the "local" env — no file aliases needed)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Login as Manager (admin@lavacar.com.br — MANAGER on lavacar-beloauto)

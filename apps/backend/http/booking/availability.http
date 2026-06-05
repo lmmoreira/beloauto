@@ -9,10 +9,7 @@
 #
 # REST Client environment: select "local" in VS Code status bar
 
-@baseUrl    = {{backendUrl}}
-@tenantId   = {{tenantId}}
-@serviceId  = {{serviceId}}
-@service2Id = {{service2Id}}
+@baseUrl = {{backendUrl}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH — open day, one service, no closures
