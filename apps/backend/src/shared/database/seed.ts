@@ -113,6 +113,7 @@ async function seed(): Promise<void> {
     await seedCustomers(q);
     await seedServices(q);
     await seedBookings(q);
+    await seedNotificationTemplates(q);
 
     await q.commitTransaction();
     printSummary();
@@ -263,6 +264,24 @@ async function seedBookings(q: ReturnType<DataSource['createQueryRunner']>): Pro
   );
 }
 
+async function seedNotificationTemplates(
+  q: ReturnType<DataSource['createQueryRunner']>,
+): Promise<void> {
+  // Mirrors TenantProvisionedHandler → copyGlobalDefaultsForTenant
+  // Copies all global templates (tenant_id IS NULL) to each seed tenant.
+  for (const tenantId of [IDS.tenantA, IDS.tenantB]) {
+    await q.query(
+      `INSERT INTO notification.notification_templates
+         (id, tenant_id, trigger_event, channel, subject, body, created_at, updated_at)
+       SELECT gen_random_uuid(), $1::uuid, trigger_event, channel, subject, body, now(), now()
+       FROM notification.notification_templates
+       WHERE tenant_id IS NULL
+       ON CONFLICT DO NOTHING`,
+      [tenantId],
+    );
+  }
+}
+
 // ── Summary ──────────────────────────────────────────────────────────────────
 
 function printSummary(): void {
@@ -287,6 +306,8 @@ function printSummary(): void {
     '╠══════════════════════════════════════════════════════════════╣',
     '║  Bookings  │ 1 PENDING, 1 APPROVED (tomorrow), 1 COMPLETED   ║',
     '║            │ Loyalty: 10 pts earned on COMPLETED booking      ║',
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  Notifs    │ Global templates copied to both tenants          ║',
     '╚══════════════════════════════════════════════════════════════╝',
     '',
   ];
