@@ -5,7 +5,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-06-06 (post-M115 doc audit — useExisting anti-pattern added to §8 + ANTI_PATTERNS.md; CI_TRAPS.md + 08-TESTING_STRATEGY.md updated with integration app helper rules)
+**Last updated:** 2026-06-06 (context.md optimised — §7/§8/§11 compressed; `docs/ENGINEERING_RULES.md` + `docs/REPOSITORY_STRUCTURE.md` created for dynamic loading)
 
 ---
 
@@ -21,6 +21,8 @@ Before writing or editing any **documentation or architecture file** (`.md`, `.t
 **Exception — code files within an approved story:** Once a story spec has been discussed and agreed, create all its `.ts` source and test files autonomously without asking per-file. The permission gate applies to `.md` docs, architecture docs, Terraform, and CI/CD config — not to code within an approved implementation.
 
 Exceptions always: read-only ops (`Read`, `grep`, `ls`, `git status`, memory files).
+
+**Commit & push gate (non-negotiable):** Before every `git commit` and every `git push`, stop and ask the user: *"Ready to commit [files]. Anything else to do first, or shall I commit and push?"* The pre-push hook runs `ci:fast` (~15 s) on every push — unnecessary pushes are expensive. Batch all changes, then ask once. Never commit or push autonomously.
 
 ---
 
@@ -166,6 +168,8 @@ CANCELLED      (terminal)
 
 ## 7. Engineering Rules
 
+→ Full detail on VOs, transactions, event handlers, and test patterns: `docs/ENGINEERING_RULES.md` (load when writing any code).
+
 ### Hexagonal layers (per context)
 ```
 src/contexts/<context>/
@@ -175,30 +179,9 @@ src/contexts/<context>/
 ```
 Shared cross-cutting code → `src/shared/` (logger, OTel, `IEventBus` port, tenant-context).
 
-### Shared utilities and value objects
-
-Utility functions used in more than one place → `src/shared/utils/`. Already there: `deepMerge`, `startOfDayUTC` / `endOfDayUTC` / `todayUTC` / `localDateTimeToUTCIso` / `utcDateToLocalDate` / `utcDateToLocalHHMM` / `getUtcWeekDayName`.
-
-Fields with their own validation → `src/shared/value-objects/` (never plain primitives):
-
-| Field | Value Object | File |
-|---|---|---|
-| Email address | `Email` | `email.vo.ts` |
-| Phone number | `PhoneNumber` | `phone-number.vo.ts` |
-| Physical address | `Address` | `address.ts` |
-| Money amount | `Money` | `money.vo.ts` (future) |
-| Hex colour | `HexColor` | `hex-color.vo.ts` |
-| IANA timezone | `Timezone` | `timezone.vo.ts` |
-| HH:MM time | `TimeOfDay` | `time-of-day.vo.ts` |
-| URL-safe slug | `Slug` | `slug.vo.ts` |
-
-Every VO must have a `.spec.ts` covering valid and invalid inputs. → PhoneNumber format and VO normalisation boundary rules: `docs/CODE_STANDARDS.md`.
-
-### Value-object-typed aggregate fields (mandatory — Option A)
-
-Aggregate props interfaces use VO types; getters return VOs; `create()` constructs VOs from raw strings; `reconstitute()` skips validation. JSONB columns require a double cast (`as unknown as XxxProps`).
-
-→ Code patterns, mapper examples, in-memory repo comparisons: `docs/VALUE_OBJECTS_REFERENCE.md`.
+### Value objects
+Domain-validated fields → `src/shared/value-objects/` (never plain primitives). Aggregate props use VO types (Option A): getters return VOs; `create()` constructs from raw strings; `reconstitute()` skips validation.
+→ Full VO catalogue + mapper patterns: `docs/ENGINEERING_RULES.md`.
 
 ### Code standards
 
@@ -226,68 +209,24 @@ When Context A needs data owned by Context B, choose the **first** option that a
 
 **Never** a direct SQL JOIN across contexts inside a repository. A repository queries its own schema only.
 
-### Transactions (every write — no exceptions)
+### Transactions
+Every `save()` must be wrapped in `ITransactionManager.run()` — single-aggregate writes too. Scope: reads/validations/mutations happen *before* `txManager.run()` opens; wrap only the `save()` call(s).
+→ Artifact locations, test wiring, multi-aggregate rules: `docs/ENGINEERING_RULES.md`.
 
-Every `save()` in every use case must be wrapped in `ITransactionManager.run()` — including single-aggregate writes. TypeORM's `save()` is a merge (internal SELECT + UPDATE/INSERT); without a transaction those two DB ops are not atomic.
-
-**Scope rule:** wrap only the `save()` call(s) — reads, validations, and domain mutations happen *before* `txManager.run()` opens.
-
-**Multi-aggregate writes:** wrap all saves together in a single `txManager.run()`.
-
-**Test wiring:** inject `new InMemoryTransactionManager()` in every unit/controller spec. For `Test.createTestingModule`: `{ provide: TRANSACTION_MANAGER, useValue: new InMemoryTransactionManager() }`. For integration: import `TransactionManagerModule`.
-
-**Repository transaction-awareness:** write methods check `getActiveEntityManager()` — use active `EntityManager` if present, else fall back to `this.repo`. Read methods do not need this.
-
-| Artifact | Location |
-|---|---|
-| Port | `src/shared/ports/transaction-manager.port.ts` |
-| Real adapter | `src/shared/infrastructure/typeorm-transaction-manager.ts` |
-| Global module | `src/shared/infrastructure/transaction-manager.module.ts` |
-| Test double | `src/test/infrastructure/in-memory-transaction-manager.ts` |
-| Context propagation | `src/shared/infrastructure/transaction-context.ts` |
-
-### Event handlers (Pub/Sub consumers)
-
-Handlers live in `<context>/infrastructure/events/`. They are **infrastructure**, not application layer.
-
-- **Thin by law:** `handle()` calls exactly one use case and rethrows any error. Zero domain logic inside a handler.
-- **Subscribe in `onModuleInit()`** via `eventBus.subscribe(eventName, handler, consumerName)`. `consumerName` determines the Pub/Sub subscription name — unique per consumer.
-- **Rethrow errors** — Pub/Sub nacks and retries. Never swallow errors.
-- **Idempotency in the use case** — DB check via `findByXxx`. No in-memory sets (lost on restart, not shared across pods).
-- **`correlationId` propagation** — pass `event.correlationId` into the use case DTO; never generate a new UUID in the handler.
-
-**Pub/Sub naming (one topic per event type):**
-
-| Thing | Pattern | Example |
-|---|---|---|
-| Topic | `beloauto-{eventName}` | `beloauto-StaffInvited` |
-| Subscription | `beloauto-{eventName}-{consumerName}` | `beloauto-StaffInvited-notification` |
-
-`GcpPubSubEventBusAdapter` auto-creates topics/subscriptions on `onApplicationBootstrap()`. Local dev: `PUBSUB_EMULATOR_HOST=localhost:8085`.
-
-**Test wiring for event handlers:**
-
-| Test type | Event bus | When to use |
-|---|---|---|
-| Handler unit spec | `InMemoryEventBus` + call `handler.handle(event)` directly | Handler → use case logic in isolation |
-| Story integration spec | Real `EventBusModule` (no override) + `waitFor()` | Full publish → Pub/Sub → handler → DB chain |
-| Controller integration spec | Override `EVENT_BUS` with `InMemoryEventBus` | HTTP layer — no Pub/Sub needed |
-
-`waitFor()` at `src/test/utils/wait-for.ts`. Use in story integration specs to poll async side effects.
+### Event handlers
+- **Thin by law:** `handle()` calls exactly one use case and rethrows. Zero domain logic.
+- **Idempotency in the use case** — DB check via `findByXxx`. No in-memory sets (lost on restart).
+- Pass `event.correlationId` into the DTO — never generate a new UUID in the handler.
+→ Pub/Sub naming, subscribe pattern, test wiring tables: `docs/ENGINEERING_RULES.md`.
 
 ### Testing
+Three layers: **Unit** (`.spec.ts`) · **Integration** (`.integration.spec.ts`) · **E2E** (Playwright). Full patterns → `docs/08-TESTING_STRATEGY.md` + `docs/ENGINEERING_RULES.md`.
 
-Three layers: **Unit** (`.spec.ts`, Jest) · **Integration** (`.integration.spec.ts`, Jest + Testcontainers) · **E2E** (Playwright, happy paths only). Full mandatory patterns → `docs/08-TESTING_STRATEGY.md §Mandatory Patterns`.
-
-- TDD for domain logic. Every UC: ≥1 unit + ≥1 integration + ≥1 tenant-isolation test (Tenant A data, Tenant B access → 404/403).
-- **Builders mandatory** for ALL test data — class with fluent `withXxx()` / `build()`. Never plain factory functions. `XxxEntityBuilder` (entities), `XxxBuilder` (aggregates), `TenantContextBuilder` (shared stubs).
-- **InMemory doubles over `jest.fn()`** — `InMemoryEventBus`, `InMemoryTransactionManager`, `InMemoryXxxRepository`. Cross-context ports: `InMemoryXxxPort` class in `src/test/infrastructure/`.
-- **BFF:** two test files per controller (`.spec.ts` + `.component.spec.ts`). Strict helper-file isolation: `component-test.helpers.ts` for component specs only; `backend-http.mock.ts` for unit specs only.
-- **SonarCloud ingests unit tests only** — every new controller/use case needs a `.spec.ts`.
-- No `.skip()`, `.only()`, `setTimeout` in tests.
-- **Integration DB isolation:** unique inline tenant UUID for any `it()` sensitive to aggregate counts. Never reuse `TENANT_A`/`TENANT_B` for count assertions.
-- **Notification specs:** use `createNotificationIntegrationApp()`; suppress unrelated handlers; drain provisioning noise before recording idempotency baseline. See `docs/08-TESTING_STRATEGY.md`.
-- **New migration/entity → register in global setup:** `src/test/integration-global-setup.ts` uses explicit import lists (no glob). Every new migration class and TypeORM entity must be added there (and to any context-specific helper like `notification-integration-app.ts`) in the **same commit** as the migration file. Skipping this causes silent failures — unit tests pass but integration tests error on the first DB query.
+- Every UC: ≥1 unit + ≥1 integration + ≥1 tenant-isolation test. SonarCloud ingests unit only — every controller/use case needs `.spec.ts`.
+- **Builders mandatory** — class + `withXxx()` / `build()`. Never factory functions. **InMemory doubles** over `jest.fn()`.
+- No `.skip()`, `.only()`, `setTimeout`. Integration DB isolation: unique inline tenant UUID for count assertions.
+- New migration/entity → register in `integration-global-setup.ts` in the **same commit**. Missing = silent integration test failure.
+- Integration app helpers must default-override network-calling adapters (e.g. `STORAGE_SERVICE`). Use `useClass` not `useExisting` in module providers.
 
 ### CI gates (block merge)
 - ESLint + Prettier — zero warnings
@@ -317,23 +256,17 @@ Three layers: **Unit** (`.spec.ts`, Jest) · **Integration** (`.integration.spec
 
 ## 8. Anti-Patterns (BLOCK MERGE)
 
-Full list in `docs/ANTI_PATTERNS.md` (checked by `/pre-pr`). Highest-severity patterns:
+Full list in `docs/ANTI_PATTERNS.md` (checked by `/pre-pr`). Silent-failure patterns — highest risk:
 
 | Pattern | Problem | Fix |
 |---|---|---|
 | `WHERE id = ?` without `tenant_id` | Cross-tenant data leak | Add `AND tenant_id = ?` |
 | Event missing `tenantId` in envelope | Can't isolate per tenant | Include in every event |
-| SQL JOIN into another context's schema inside a repository | Defeats schema independence | Repository queries its own schema only |
 | Throwing `HttpException` directly from a use case | Couples app layer to HTTP | Throw domain errors only; `mapXxxError` converts them |
 | Publishing events directly from a use case | Bypasses aggregate encapsulation; wrong `correlationId` | Record via `addDomainEvent()`; flush after `txManager.run()` |
 | Missing `Object.setPrototypeOf(this, new.target.prototype)` in domain error base class | `instanceof` fails silently — every error mapper falls through to 500 | Add immediately after `super()` in every `XxxDomainError extends Error` base class |
 | `TenantModule` missing from a module that injects `TenantContext` | NestJS DI fails — integration tests crash with `TypeError: Cannot read properties of undefined` | Every module with a controller injecting `TenantContext` must import `TenantModule` |
-| In-memory set for Pub/Sub handler idempotency (`private processedEventIds = new Set()`) | Set cleared on restart; not shared across pods | DB check in the use case (`findByXxx`) |
-| `@Public()` BFF endpoint calling `backendHttp.post()` or `.patch()` | `JwtAuthGuard` skips `@Public()` routes — `req.user` is `undefined`, `post()` sends `X-Tenant-ID: ''`, backend rejects with 400 | Decode JWT manually with `tryDecodeRawJwt`, then use `postForPublic(path, body, user.tenantId)` which sets the header explicitly |
-| Infrastructure port implementation named `XxxService` | Misleads readers — services hold business logic, adapters implement ports | Name it `XxxAdapter` in `xxx.adapter.ts`; examples: `GcpPubSubEventBusAdapter`, `GcsSignedUrlAdapter` |
-| Tenant-isolation test with only supertest `.expect(404)` and no Jest `expect()` | SonarCloud S2699 — test has zero assertions | Destructure `{ body }` and add `expect(body.status).toBe(404)` |
-| `@UseGuards(InternalApiGuard)` on individual controllers instead of `APP_GUARD` in `AppModule` | New controllers silently skip the guard | Register `{ provide: APP_GUARD, useClass: InternalApiGuard }` in `AppModule.providers` — every controller is automatically protected |
-| `useExisting` in a shared module: `providers: [GcsSignedUrlAdapter, { provide: STORAGE_SERVICE, useExisting: GcsSignedUrlAdapter }]` | `useExisting` is just an alias — the standalone class is still instantiated even when the token is overridden in tests; `onApplicationBootstrap` network calls run, causing `ECONNREFUSED` | Use `useClass`: `providers: [{ provide: STORAGE_SERVICE, useClass: GcsSignedUrlAdapter }]`; integration app helpers must also default-override the token with an in-memory stub |
+| `useExisting` registering adapter as standalone class: `providers: [GcsSignedUrlAdapter, { provide: STORAGE_SERVICE, useExisting: GcsSignedUrlAdapter }]` | Class instantiated even when token overridden in tests — `onApplicationBootstrap` network calls run → `ECONNREFUSED` | Use `useClass`: `providers: [{ provide: STORAGE_SERVICE, useClass: GcsSignedUrlAdapter }]`; integration app helpers must also default-override the token |
 
 ---
 
@@ -361,6 +294,8 @@ Write all files defined in the story spec. See §0 for permission rules.
 Run type-check, lint, and jest for the changed context — zero errors and warnings required.
 
 ### Step 4 — Commit with Conventional Commit
+> ⚠️ **ASK BEFORE COMMITTING.** Tell the user what files will be staged and ask: *"Anything else to add before I commit and push?"* Wait for explicit go-ahead. Never commit autonomously.
+
 Stage specific files only (never `git add -A` or `git add .`). Message format:
 ```
 feat(<context>): <description> (M0X-SYY)
@@ -369,6 +304,8 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 ```
 
 ### Step 5 — Push (pre-push hook runs `ci:fast` automatically)
+> ⚠️ **ASK BEFORE PUSHING** (if not already covered by the Step 4 ask). The pre-push hook runs `ci:fast` (lint + prettier + type-check + unit tests, ~15 s) — every unnecessary push costs time. Batch all commits first, then push once with user approval.
+
 `git push -u origin feat/M0X-SYY-<short-description>`
 
 `ci:fast` = lint + prettier + type-check + unit tests (~15 s). If it fails the push is blocked. Fix, re-commit, re-push.
@@ -401,7 +338,7 @@ Once all CI checks are green, ask: *"All checks are green on PR #N. Have you rev
 Run `/mark-done M0X-SYY`. The skill updates the plan file, commits to main, and alerts if all stories in the milestone are now done.
 
 ### Step 12 — Milestone complete? Create wrap-up docs
-If every story in the milestone is now `✅ Done`, see §15 item 7 for the two wrap-up files to create.
+If every story in the milestone is now `✅ Done`, see §15 item 9 for the two wrap-up files to create.
 
 ---
 
@@ -412,38 +349,39 @@ If every story in the milestone is now `✅ Done`, see §15 item 7 for the two w
 | Task | Docs to load | ~KB |
 |---|---|---|
 | Quick clarification | This file only | 0 |
-| Writing any code | `docs/CODE_STANDARDS.md` + `docs/AGENT_PATTERNS.md` | 6 |
+| Writing any code | `docs/CODE_STANDARDS.md` + `docs/AGENT_PATTERNS.md` + `docs/ENGINEERING_RULES.md` | 8 |
 | CI failure / pre-PR debugging | `docs/CI_TRAPS.md` | 1 |
 | Implement a UC | `docs/04-USE_CASES.md` (that UC's section) + `docs/02-DOMAIN_MODEL.md` (relevant aggregate) + `docs/03-DOMAIN_EVENTS.md` (relevant events) | 4–6 |
 | Database / migration | `docs/13-DATABASE_SCHEMA.md` + `docs/02-DOMAIN_MODEL.md` (relevant aggregate) | 4 |
 | API endpoint | `docs/14-API_CONTRACTS.md` + the cited UC | 3–5 |
-| Event handler | `docs/03-DOMAIN_EVENTS.md` (event) + `docs/05-BOUNDED_CONTEXTS.md` (context) | 3 |
+| Event handler | `docs/03-DOMAIN_EVENTS.md` (event) + `docs/05-BOUNDED_CONTEXTS.md` (context) + `docs/ENGINEERING_RULES.md` | 4 |
 | Hotsite / public frontend | `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` + `docs/14-API_CONTRACTS.md` (tenants section) + `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` (folder structure) | 4 |
 | Dashboard / admin frontend | `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` + `docs/14-API_CONTRACTS.md` | 3 |
 | BFF implementation | `docs/24-BFF_ARCHITECTURE.md` + `docs/14-API_CONTRACTS.md` | 4 |
-| Architecture question | `docs/11-ARCHITECTURE.md` + `docs/05-BOUNDED_CONTEXTS.md` | 5 |
+| Architecture question | `docs/11-ARCHITECTURE.md` + `docs/05-BOUNDED_CONTEXTS.md` + `docs/REPOSITORY_STRUCTURE.md` | 6 |
+| Repo layout / new file location | `docs/REPOSITORY_STRUCTURE.md` | 1 |
 | Multi-tenancy / isolation | `docs/06-TENANT_ISOLATION_STRATEGY.md` | 2 |
-| Testing patterns | `docs/08-TESTING_STRATEGY.md` | 3 |
-| Value objects / aggregate mappers | `docs/VALUE_OBJECTS_REFERENCE.md` | 1 |
+| Testing patterns | `docs/08-TESTING_STRATEGY.md` + `docs/ENGINEERING_RULES.md` | 4 |
+| Value objects / aggregate mappers | `docs/VALUE_OBJECTS_REFERENCE.md` + `docs/ENGINEERING_RULES.md` | 2 |
 | CI / pipelines | `docs/09-CI_CD_PIPELINE.md` + `docs/17-GITHUB_WORKFLOWS_GUIDELINES.md` | 4 |
 | Deployment / infra | `docs/12-DEPLOYMENT_STRATEGY.md` + `docs/22-TECH_STACK_DECISIONS.md` | 5 |
 | Observability | `docs/10-OBSERVABILITY_STRATEGY.md` | 2 |
 | Full feature (UC + API + DB + tests) | All of the above relevant rows | 12–18 |
-| Working on M01+ (any backend/BFF/web task) | `plan/M00-MONOREPO-FOUNDATION_IMPLEMENTATION_DETAILS_IA.md` — version gotchas, stubs, CJS/ESM decisions, seed UUIDs, testing setup | 3 |
-| Working on M02+ (any task touching CI, Dockerfiles, or deployment) | `plan/M01-CI-QUALITY-GATES_IMPLEMENTATION_DETAILS_IA.md` — workflow job map, Dockerfile gotchas (pnpm deploy, --ignore-scripts, npm removal, .next/.dist copy), Checkov path-filter, local vs CI gate coverage, required GitHub Secrets | 2 |
-| Working on M03+ (any task touching Platform context, TenantContext, TypeORM setup, settings, deepMerge, or REST Client HTTP files) | `plan/M02-PLATFORM-CONTEXT_IMPLEMENTATION_DETAILS_IA.md` — DB_* vars, forRootAsync timing, AsyncLocalStorage TenantContext, ManagerRoleGuard stub, deepMerge null/array behaviour, error mapper pattern, test builders | 3 |
-| Working on M04+ (any task touching auth, BFF guards, OAuth flow, customer/staff login, JWT, tenant switching, Zod validation, or BFF→backend internal calls) | `plan/M03-AUTHENTICATION_IMPLEMENTATION_DETAILS_IA.md` — OAuth state encoding (`__staff__` vs slug vs empty), `passReqToCallback` signature, `JWT_COOKIE_OPTIONS` location, `FindOrCreate` flow, switch-tenant 3-call pattern, `mapXxxError` + dedicated mapper spec, optional-chain SonarCloud S6582, `BackendHttpService` jest.fn() pattern, Zod v4 UUID format | 3 |
-| Working on M05+ (any task touching Staff aggregate, Notification context, staff invite/activate/deactivate flows, IDeliveryChannel strategy, notification_logs idempotency, SYSTEM_ACTOR_ID, or cross-context port+adapter pattern) | `plan/M04-STAFF-MANAGEMENT_IMPLEMENTATION_DETAILS_IA.md` — Staff VO-typed props, reinvite upsert, last-manager race fix, thin StaffInvited event, IDeliveryChannel[] strategy pattern, notification_logs DB idempotency, SMTP env vars, Pub/Sub subscription names, migration timestamps | 4 |
-| Working on M06+ (any task touching Service aggregate, booking.services table, Money VO price storage, PATCH partial-update pattern, StaffOrManagerRoleGuard, public BFF endpoints, or TenantContextBuilder) | `plan/M05-SERVICE-CATALOG_IMPLEMENTATION_DETAILS_IA.md` — price NUMERIC storage, booking schema migration, ServiceEntity in global setup, BookingModule no-export rule, guard-before-interceptor 403 behaviour, UpdateService positional merge, logical delete pattern, BFF slug→tenantId two-step, getForPublic(), TenantContextBuilder | 3 |
-| Working on M07+ (any task touching ScheduleClosure, ScheduleOpening, AvailabilityService, availability algorithm, `time` columns, `IBookingAvailabilityPort`, calendar-date utils, or integration test tenant seeding) | `plan/M06-CALENDAR-SCHEDULE_IMPLEMENTATION_DETAILS_IA.md` — PostgreSQL `time` → HH:MM:SS normalised by TimeOfDay VO, `getSchedulingSettings()` one-DB-trip rule, `utcDateToLocalDate` vs `utcDateToLocalHHMM`, `todayUTC()` boundary, booking availability stub, no UNIQUE on schedule_closures, opening precedence, half-open interval overlap, API-driven tenant seeding via `POST /internal/tenants`, three-layer resolution, M07 integration points | 4 |
-| Working on M08+ (any task touching Booking aggregate, BookingLine, booking state machine, RequestBookingUseCase, ICustomerProfilePort, BookingRequested notification, customer profile endpoints, postForPublic(), linesModified flag, or post-commit event flush) | `plan/M07-BOOKING-CREATION_IMPLEMENTATION_DETAILS_IA.md` — linesModified flag & delete-then-insert, post-commit event flush (not outbox), ICustomerProfilePort + CustomerProfileAdapter cross-context pattern, Money NUMERIC(10,2) as string, composite FK (tenant_id, booking_id), serviceNameAtBooking snapshot, postForPublic() headers, BFF phone validation, createBookingIntegrationApp() entities, notification dispatcher scoped to adminEmail, UpdateCustomerProfileUseCase partial-update pattern | 4 |
-| Working on M09+ (any task touching booking approval flow, BookingSlotConflictService, guest info-submission token, notification handlers for approval events, findAllByTenantPaginated, role-based list filtering, or FRONTEND_URL/JWT_SECRET env vars) | `plan/M08-BOOKING-APPROVAL_IMPLEMENTATION_DETAILS_IA.md` — slot conflict half-open interval, linesModified skip in state transitions, 404-not-403 for cross-customer access, N+1 avoidance in paginated repo, guest JWT token flow (sign in notification → verify in BFF → backend receives guestEmail), z.coerce.number() for BFF query params, notification idempotency via notification_logs, FRONTEND_URL + JWT_SECRET vars | 4 |
-| Working on M10+ (any task touching customer cancel, admin cancel, reschedule, cancellation window, BookingCancelled/Rescheduled events, BaseNotificationUseCase, or dual-notification partial-idempotency) | `plan/M09-CANCELLATION-RESCHEDULING_IMPLEMENTATION_DETAILS_IA.md` — single BFF endpoint branches on role, window only for APPROVED status, reschedule self-exclusion in slot conflict, previousSlot captured before mutation, event payload as full snapshot (lineSummaryPayload/totalPricePayload helpers), BaseNotificationUseCase + base DTOs, partial-idempotency pattern for dual-type notifications, getTenantInfo skipped on full-idempotent path | 4 |
-| Working on M11+ (any task touching LoyaltyEntry/LoyaltyBalance/LoyaltyRedemption aggregates, ServicePointsEarned event, booking completion loyalty flow, balance expiry HTTP trigger, IServiceCatalogPort, ILoyaltyTenantSettingsPort, or loyalty BFF endpoints) | `plan/M10-COMPLETION-LOYALTY_IMPLEMENTATION_DETAILS_IA.md` — LoyaltyBalance is running total (never SUM entries), expiry via HTTP trigger not @Cron (Cloud Run + multi-pod reasons), TenantContext unavailable in Pub/Sub handlers (use ILoyaltyTenantSettingsPort), post-commit event flush, balance_expiry_log idempotency, clamped decrement, DataSource injection for cross-context reads, createLoyaltyIntegrationApp() helper, balance_expiry_log cleanup needs QueryBuilder (no tenant_id column) | 5 |
-| Working on M12+ (any task touching NotificationTemplate/NotificationLog aggregates, Pub/Sub DLQ, email adapter chain, cron reminder jobs, notification idempotency via processed_events, BaseNotificationUseCase, or createNotificationIntegrationApp()) | `plan/M11-NOTIFICATIONS-CRON_IMPLEMENTATION_DETAILS_IA.md` — email adapter chain (IEmailSender vs IDeliveryChannel), processed_events dedup design, notification_logs upsert retry_count, DLQ programmatic routing (not native policy), PUBSUB_AUTO_CREATE flag, template lookup fallback, BaseBookingReminderNotificationUseCase abstract-property pattern, PUBSUB_SUBSCRIPTION_SUFFIX integration test isolation | 5 |
-| Working on M115 (GCS signed-URL photo upload, dev-login OAuth bypass, InternalApiGuard hardening for `/internal/*` routes, or `guest*` → `contact*` rename) | `plan/M115-PRODUCTION-READINESS_IMPLEMENTATION_DETAILS_IA.md` — 3-step upload contract, `StorageModule` useClass rule, default `STORAGE_SERVICE` override in integration app helpers, `dev::` OAuth ID prefix, `ENABLE_DEV_AUTH` guard pattern, `APP_GUARD` DI registration, `timingSafeEqual` guard, `X-Internal-Key` in `headers()` + `*ForPublic` methods, `contact*` rename map, migration-in-place DB approach | 3 |
+| Working on M01+ (any backend/BFF/web task) | `plan/M00-MONOREPO-FOUNDATION_IMPLEMENTATION_DETAILS_IA.md` | 3 |
+| Working on M02+ (CI, Dockerfiles, deployment) | `plan/M01-CI-QUALITY-GATES_IMPLEMENTATION_DETAILS_IA.md` | 2 |
+| Working on M03+ (Platform context, TenantContext, TypeORM setup, settings, deepMerge) | `plan/M02-PLATFORM-CONTEXT_IMPLEMENTATION_DETAILS_IA.md` | 3 |
+| Working on M04+ (auth, BFF guards, OAuth flow, JWT, tenant switching, Zod validation) | `plan/M03-AUTHENTICATION_IMPLEMENTATION_DETAILS_IA.md` | 3 |
+| Working on M05+ (Staff aggregate, Notification context, staff invite/deactivate, IDeliveryChannel) | `plan/M04-STAFF-MANAGEMENT_IMPLEMENTATION_DETAILS_IA.md` | 4 |
+| Working on M06+ (Service aggregate, PATCH partial-update, public BFF endpoints, TenantContextBuilder) | `plan/M05-SERVICE-CATALOG_IMPLEMENTATION_DETAILS_IA.md` | 3 |
+| Working on M07+ (ScheduleClosure, availability algorithm, `time` columns, calendar-date utils) | `plan/M06-CALENDAR-SCHEDULE_IMPLEMENTATION_DETAILS_IA.md` | 4 |
+| Working on M08+ (Booking aggregate, BookingLine, RequestBookingUseCase, postForPublic(), linesModified) | `plan/M07-BOOKING-CREATION_IMPLEMENTATION_DETAILS_IA.md` | 4 |
+| Working on M09+ (booking approval, slot conflict, guest info token, paginated list, role-based filtering) | `plan/M08-BOOKING-APPROVAL_IMPLEMENTATION_DETAILS_IA.md` | 4 |
+| Working on M10+ (customer/admin cancel, reschedule, BookingCancelled/Rescheduled events, BaseNotificationUseCase) | `plan/M09-CANCELLATION-RESCHEDULING_IMPLEMENTATION_DETAILS_IA.md` | 4 |
+| Working on M11+ (LoyaltyEntry/Balance/Redemption, balance expiry HTTP trigger, ILoyaltyTenantSettingsPort) | `plan/M10-COMPLETION-LOYALTY_IMPLEMENTATION_DETAILS_IA.md` | 5 |
+| Working on M12+ (NotificationTemplate/Log, Pub/Sub DLQ, cron reminders, processed_events) | `plan/M11-NOTIFICATIONS-CRON_IMPLEMENTATION_DETAILS_IA.md` | 5 |
+| Working on M115 (GCS signed-URL, dev-login, InternalApiGuard, `contact*` rename) | `plan/M115-PRODUCTION-READINESS_IMPLEMENTATION_DETAILS_IA.md` | 3 |
 
-**Anti-patterns reference:** `docs/ANTI_PATTERNS.md` — full 48-row table; loaded automatically by `/pre-pr`.
+**Anti-patterns reference:** `docs/ANTI_PATTERNS.md` — full table; loaded automatically by `/pre-pr`.
 
 **Never load:** anything under `docs/archive/` — superseded content.  
 **Never load:** `plan/*_DEVELOPER.md` files — written for the human developer, not for agents.
@@ -452,53 +390,14 @@ If every story in the milestone is now `✅ Done`, see §15 item 7 for the two w
 
 ## 11. Repository Layout
 
-### Monorepo (pnpm workspaces)
-```
-.
-├── apps/
-│   ├── backend/          # NestJS modular monolith
-│   │   └── src/contexts/ # booking/ customer/ staff/ loyalty/ notification/ platform/
-│   ├── bff/              # NestJS BFF (separate service, own container)
-│   └── web/              # Next.js 16 (hotsite + dashboard)
-├── packages/
-│   ├── types/            # shared TypeScript types / DTOs
-│   └── config/           # shared ESLint, tsconfig, Prettier configs
-├── infrastructure/
-│   └── terraform/        # GCP resources (Cloud Run, Cloud SQL, Pub/Sub, Secret Manager)
-├── .github/workflows/    # CI/CD pipeline YAML files
-├── docker/               # Dockerfiles + docker-compose.yml (local dev)
-├── .copilot/context.md   # THIS FILE
-├── claude.md             # → symlink to .copilot/context.md
-├── CLAUDE.md             # Claude Code project instructions
-└── docs/                 # source of truth documentation (see §10)
-```
+→ Full directory trees, context isolation rule, guard placement: `docs/REPOSITORY_STRUCTURE.md` (load when creating files in new locations or answering architecture questions).
 
-### Per-context structure (inside `apps/backend/src/contexts/<context>/`)
-```
-├── domain/           # entities, value objects, events, domain services (no framework)
-├── application/      # use cases, port interfaces, DTOs
-└── infrastructure/   # adapters: TypeORM repos, REST controllers, Pub/Sub publishers, HTTP clients
-    └── migrations/   # TypeORM migrations scoped to this context's schema
-```
-
-### Shared folder — cross-cutting concerns ONLY (`apps/backend/src/shared/`)
-```
-src/shared/
-├── ports/            # IEventBus, IRepository<T>
-├── domain/           # AggregateRoot, DomainEvent, ValueObject (base classes)
-├── value-objects/    # Money, Address (used by multiple contexts)
-├── tenant/           # TenantContext (request-scoped), TenantInterceptor
-├── observability/    # Logger, OTel tracer, structured log helpers
-├── http/             # Pagination DTOs, RFC 9457 ProblemDetail base type
-└── guards/           # Role guards used by more than one context (CustomerRoleGuard, ManagerRoleGuard, StaffOrManagerRoleGuard)
-```
-
-**Rule:** A context module MUST NOT import from another context's path. Only `src/shared/` is importable across contexts. Domain objects (entities, aggregates, use cases, repositories) are NEVER in shared.
-
-**Guard placement rule:**
-- `src/shared/guards/` — role guards that enforce the `X-Actor-Role` header contract and are applied across multiple contexts. Every role guard lives here with its own `.spec.ts`.
-- `src/contexts/<context>/infrastructure/guards/` — guards with domain-specific logic tied to one context (e.g. `PlatformAdminGuard` which injects `ConfigService` and guards a single `/internal` route). These stay local.
-- Never import a guard from another context's `infrastructure/guards/` path — that is a context-isolation violation.
+Key paths:
+- Backend contexts: `apps/backend/src/contexts/<context>/{domain,application,infrastructure}/`
+- Shared utilities: `apps/backend/src/shared/` — cross-cutting only, no domain objects
+- BFF: `apps/bff/` · Frontend: `apps/web/`
+- Migrations: per-context `infrastructure/migrations/`
+- Test helpers: `apps/backend/src/test/utils/` + `src/test/infrastructure/`
 
 ---
 
@@ -514,12 +413,13 @@ src/shared/
 
 1. Did I read this file at the start of the conversation? ✓
 2. Did I get permission before writing any doc/config file? ✓
-3. Does every query / event / log include `tenant_id`? ✓
-4. Is the change scoped to one UC cited in the PR? ✓
-5. Does the integration test include a tenant-isolation assertion? ✓
-6. Did I follow §9 workflow? (branch → implement → ci:fast → /pre-pr → PR → CI all-green → user approval → merge → /mark-done) ✓
-7. **Did I run `/pre-pr` AND wait for the user to paste passing integration test output BEFORE calling `gh pr create`?** If the answer is no — do not open the PR. Go back and run `/pre-pr` first. ✓
-8. Are ALL stories in this milestone now `✅ Done`? If yes — create `plan/MXX-<NAME>_IMPLEMENTATION_DETAILS_IA.md` + `_DEVELOPER.md`; add IA file to §10 of this file. ✓
+3. **Did I ask the user before every `git commit` and `git push`?** The pre-push hook runs `ci:fast` (~15 s) — never commit or push autonomously. ✓
+4. Does every query / event / log include `tenant_id`? ✓
+5. Is the change scoped to one UC cited in the PR? ✓
+6. Does the integration test include a tenant-isolation assertion? ✓
+7. Did I follow §9 workflow? (branch → implement → ci:fast → /pre-pr → PR → CI all-green → user approval → merge → /mark-done) ✓
+8. **Did I run `/pre-pr` AND wait for the user to paste passing integration test output BEFORE calling `gh pr create`?** If the answer is no — do not open the PR. Go back and run `/pre-pr` first. ✓
+9. Are ALL stories in this milestone now `✅ Done`? If yes — create `plan/MXX-<NAME>_IMPLEMENTATION_DETAILS_IA.md` + `_DEVELOPER.md`; add IA file to §10 of this file. ✓
 
 ---
 
