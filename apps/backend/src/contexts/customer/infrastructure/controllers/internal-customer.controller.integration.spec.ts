@@ -1,15 +1,11 @@
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import { APP_GUARD } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
-import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
 import { CustomerEntityBuilder } from '../../../../test/builders/customer';
 import { CustomerEntity } from '../entities/customer.entity';
-import { CustomerModule } from '../../customer.module';
 import { InternalApiGuard } from '../../../../shared/guards/internal-api.guard';
+import { createCustomerIntegrationApp } from '../../../../test/utils/customer-integration-app';
 
 const INTERNAL_KEY = 'integ-cust-key-integ-cust-key-xxx'; // 34 chars (≥32)
 
@@ -19,26 +15,9 @@ describe('InternalCustomerController (integration)', () => {
 
   beforeAll(async () => {
     process.env['INTERNAL_API_KEY'] = INTERNAL_KEY;
-
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
-        TypeOrmModule.forRoot({
-          type: 'postgres',
-          url: process.env['TEST_DATABASE_URL'],
-          entities: [CustomerEntity],
-          synchronize: false,
-        }),
-        TransactionManagerModule,
-        CustomerModule,
-      ],
-      providers: [{ provide: APP_GUARD, useClass: InternalApiGuard }],
-    }).compile();
-
-    app = moduleRef.createNestApplication();
-    await app.init();
-
-    ds = moduleRef.get(DataSource);
+    ({ app, ds } = await createCustomerIntegrationApp({
+      extraProviders: [{ provide: APP_GUARD, useClass: InternalApiGuard }],
+    }));
   });
 
   afterAll(async () => {

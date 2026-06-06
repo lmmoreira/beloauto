@@ -1,19 +1,11 @@
 import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import { APP_GUARD } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { TenantEntityBuilder } from '../../../../test/builders/platform';
-import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TenantEntity } from '../entities/tenant.entity';
-import { PlatformModule } from '../../platform.module';
-import { EventBusModule } from '../../../../shared/infrastructure/event-bus.module';
-import { TransactionManagerModule } from '../../../../shared/infrastructure/transaction-manager.module';
-import { RoutingInMemoryEventBus } from '../../../../test/infrastructure/routing-in-memory-event-bus';
-import { EVENT_BUS } from '../../../../shared/ports/event-bus.port';
 import { InternalApiGuard } from '../../../../shared/guards/internal-api.guard';
+import { createPlatformIntegrationApp } from '../../../../test/utils/platform-integration-app';
 
 const INTERNAL_KEY = 'integ-read-key-integ-read-key-xx'; // exactly 32 chars
 
@@ -22,37 +14,14 @@ describe('InternalTenantReadController (integration)', () => {
   let ds: DataSource;
 
   beforeAll(async () => {
-    process.env['PLATFORM_ADMIN_KEY'] = 'integ-read-key-integ-read-key-xx';
     process.env['INTERNAL_API_KEY'] = INTERNAL_KEY;
-
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({ isGlobal: true }),
-        TypeOrmModule.forRoot({
-          type: 'postgres',
-          url: process.env['TEST_DATABASE_URL'],
-          entities: [TenantEntity, HotsiteConfigEntity],
-          synchronize: false,
-        }),
-        EventBusModule,
-        TransactionManagerModule,
-        PlatformModule,
-      ],
-      providers: [{ provide: APP_GUARD, useClass: InternalApiGuard }],
-    })
-      .overrideProvider(EVENT_BUS)
-      .useValue(new RoutingInMemoryEventBus())
-      .compile();
-
-    app = moduleRef.createNestApplication();
-    await app.init();
-
-    ds = moduleRef.get(DataSource);
+    ({ app, ds } = await createPlatformIntegrationApp({
+      extraProviders: [{ provide: APP_GUARD, useClass: InternalApiGuard }],
+    }));
   });
 
   afterAll(async () => {
     await app.close();
-    delete process.env['PLATFORM_ADMIN_KEY'];
     delete process.env['INTERNAL_API_KEY'];
   });
 
