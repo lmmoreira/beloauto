@@ -1,5 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
@@ -7,14 +9,20 @@ import { TransactionManagerModule } from '../../../../shared/infrastructure/tran
 import { CustomerEntityBuilder } from '../../../../test/builders/customer';
 import { CustomerEntity } from '../entities/customer.entity';
 import { CustomerModule } from '../../customer.module';
+import { InternalApiGuard } from '../../../../shared/guards/internal-api.guard';
+
+const INTERNAL_KEY = 'integ-cust-key-integ-cust-key-xxx'; // 34 chars (≥32)
 
 describe('InternalCustomerController (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
 
   beforeAll(async () => {
+    process.env['INTERNAL_API_KEY'] = INTERNAL_KEY;
+
     const moduleRef = await Test.createTestingModule({
       imports: [
+        ConfigModule.forRoot({ isGlobal: true }),
         TypeOrmModule.forRoot({
           type: 'postgres',
           url: process.env['TEST_DATABASE_URL'],
@@ -24,6 +32,7 @@ describe('InternalCustomerController (integration)', () => {
         TransactionManagerModule,
         CustomerModule,
       ],
+      providers: [{ provide: APP_GUARD, useClass: InternalApiGuard }],
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -34,11 +43,22 @@ describe('InternalCustomerController (integration)', () => {
 
   afterAll(async () => {
     await app.close();
+    delete process.env['INTERNAL_API_KEY'];
+  });
+
+  it('returns 401 when X-Internal-Key header is absent', async () => {
+    const { body } = await request(app.getHttpServer())
+      .get('/internal/customers/tenants?googleOAuthId=any-sub')
+      .expect(401);
+
+    expect(body.status).toBe(401);
+    expect(body.type).toBe('about:blank');
   });
 
   it('returns 400 when googleOAuthId query param is absent', async () => {
     const { body } = await request(app.getHttpServer())
       .get('/internal/customers/tenants')
+      .set('X-Internal-Key', INTERNAL_KEY)
       .expect(400);
 
     expect(body.status).toBe(400);
@@ -48,6 +68,7 @@ describe('InternalCustomerController (integration)', () => {
   it('returns empty array when no customer records exist for the given googleOAuthId', async () => {
     const { body } = await request(app.getHttpServer())
       .get('/internal/customers/tenants?googleOAuthId=no-such-sub')
+      .set('X-Internal-Key', INTERNAL_KEY)
       .expect(200);
 
     expect(body).toEqual([]);
@@ -64,6 +85,7 @@ describe('InternalCustomerController (integration)', () => {
 
     const { body } = await request(app.getHttpServer())
       .get('/internal/customers/tenants?googleOAuthId=google-sub-m03s06-01')
+      .set('X-Internal-Key', INTERNAL_KEY)
       .expect(200);
 
     expect(body).toHaveLength(1);
@@ -86,6 +108,7 @@ describe('InternalCustomerController (integration)', () => {
 
     const { body } = await request(app.getHttpServer())
       .get('/internal/customers/tenants?googleOAuthId=google-sub-m03s06-alice')
+      .set('X-Internal-Key', INTERNAL_KEY)
       .expect(200);
 
     expect(body).toHaveLength(1);
@@ -96,6 +119,7 @@ describe('InternalCustomerController (integration)', () => {
     it('returns 400 when tenantId query param is absent', async () => {
       const { body } = await request(app.getHttpServer())
         .get('/internal/customers/10000000-0000-4000-8000-000000000001/tenants')
+        .set('X-Internal-Key', INTERNAL_KEY)
         .expect(400);
 
       expect(body.status).toBe(400);
@@ -107,6 +131,7 @@ describe('InternalCustomerController (integration)', () => {
         .get(
           '/internal/customers/10000000-0000-4000-8000-000000000099/tenants?tenantId=00000000-0000-0000-0000-000000000099',
         )
+        .set('X-Internal-Key', INTERNAL_KEY)
         .expect(404);
 
       expect(body.status).toBe(404);
@@ -131,6 +156,7 @@ describe('InternalCustomerController (integration)', () => {
 
       const { body } = await request(app.getHttpServer())
         .get(`/internal/customers/${entityA.id}/tenants?tenantId=${tenantA}`)
+        .set('X-Internal-Key', INTERNAL_KEY)
         .expect(200);
 
       expect(body).toHaveLength(2);
@@ -147,11 +173,14 @@ describe('InternalCustomerController (integration)', () => {
         .build();
       await ds.getRepository(CustomerEntity).save(entity);
 
-      await request(app.getHttpServer())
+      const { body } = await request(app.getHttpServer())
         .get(
           `/internal/customers/${entity.id}/tenants?tenantId=00000000-0000-0000-0000-000000000099`,
         )
+        .set('X-Internal-Key', INTERNAL_KEY)
         .expect(404);
+
+      expect(body.status).toBe(404);
     });
   });
 
@@ -171,6 +200,7 @@ describe('InternalCustomerController (integration)', () => {
 
     const { body } = await request(app.getHttpServer())
       .get(`/internal/customers/tenants?googleOAuthId=${sub}`)
+      .set('X-Internal-Key', INTERNAL_KEY)
       .expect(200);
 
     expect(body).toHaveLength(2);
