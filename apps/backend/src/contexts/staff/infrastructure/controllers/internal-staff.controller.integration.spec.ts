@@ -151,11 +151,10 @@ describe('InternalStaffController (integration) — auth-flow endpoints', () => 
     });
 
     it('returns 400 when tenantId is absent', async () => {
-      const { body } = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .get('/internal/staff/by-email?email=staff@lavacar.com.br')
-        .set('X-Internal-Key', INTERNAL_KEY)
-        .expect(400);
-      expect(body.status).toBe(400);
+        .set('X-Internal-Key', INTERNAL_KEY);
+      expect(response.status).toBe(400);
     });
 
     it('returns 404 when no staff found for given email + tenantId', async () => {
