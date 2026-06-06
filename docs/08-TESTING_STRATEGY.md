@@ -904,6 +904,35 @@ Integration tests share a live DB with no cleanup between tests in the same file
 
 Skipping any of these steps is a silent failure: unit tests pass (InMemory doubles never touch the DB), but integration tests will error on the first query that touches the new column/table.
 
+### Integration app helpers — mandatory default overrides for network-calling adapters
+
+Any module that imports an adapter whose `onApplicationBootstrap()` makes a network call (e.g. `StorageModule` → `GcsSignedUrlAdapter` connects to the GCS emulator) will cause **every** integration test using that module to fail with `ECONNREFUSED` when the external service is not running — even tests completely unrelated to that adapter.
+
+**Rule:** every integration app helper that imports such a module must default-override the adapter's token with an in-memory stub before callers can add their own overrides:
+
+```ts
+let builder = Test.createTestingModule({ imports: [..., BookingModule] })
+  .overrideProvider(EVENT_BUS)
+  .useValue(routingBus)
+  .overrideProvider(STORAGE_SERVICE)          // default — prevents GcsSignedUrlAdapter from being instantiated
+  .useValue(new InMemoryStorageService());
+
+for (const { provide, useValue } of overrideProviders) {
+  builder = builder.overrideProvider(provide).useValue(useValue);  // caller's override wins
+}
+```
+
+Currently affected helpers and their default overrides:
+
+| Helper | Token overridden by default |
+|---|---|
+| `createBookingIntegrationApp()` | `STORAGE_SERVICE` → `InMemoryStorageService` |
+| `createNotificationIntegrationApp()` | `STORAGE_SERVICE` → `InMemoryStorageService` (BookingModule pulled via `extraModules`) |
+
+**When adding a new shared module with a network-calling adapter:** update every integration app helper that imports that module (directly or via `extraModules`) to add a default override for the new token.
+
+**Root cause gotcha — `useExisting` vs `useClass`:** if the shared module uses `useExisting` to register the adapter (`providers: [Adapter, { provide: TOKEN, useExisting: Adapter }]`), overriding the token in tests only removes the alias — the standalone `Adapter` class is still instantiated. Always use `useClass` in shared module providers so that overriding the token is sufficient to suppress instantiation.
+
 ### Notification integration spec helper
 
 All notification story integration specs must use `createNotificationIntegrationApp()` from `src/test/utils/notification-integration-app.ts`.

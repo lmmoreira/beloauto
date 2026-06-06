@@ -39,16 +39,16 @@ Hotsite image uploads (logo, hero background, gallery — UC-027/M12-S02) reuse 
 - Add `docker/fake-service-account.json` — a valid-structure (but fake) service account key used only with the emulator; committed to the repo
 - Add `GCS_KEY_FILE=docker/fake-service-account.json` to `.env.example` and backend `env.validation.ts` as `z.string().optional()`
 
-**Backend — `IStorageService` port + `GcsSignedUrlService` adapter:**
+**Backend — `IStorageService` port + `GcsSignedUrlAdapter` adapter:**
 ```
 src/shared/ports/storage.service.port.ts
-src/shared/infrastructure/gcs-signed-url.service.ts
+src/shared/infrastructure/gcs-signed-url.adapter.ts
 ```
 - Port method (generic — path construction is the caller's responsibility):
   ```ts
   generateSignedUrl(storagePath: string, contentType: string, operation: 'write'): Promise<string>
   ```
-- `GcsSignedUrlService` constructor: reads `GCS_EMULATOR_HOST`, `GCS_BUCKET_NAME`, `GCS_KEY_FILE` from config; when `GCS_EMULATOR_HOST` is set passes it as `apiEndpoint` to the `Storage` constructor
+- `GcsSignedUrlAdapter` constructor: reads `GCS_EMULATOR_HOST`, `GCS_BUCKET_NAME`, `GCS_KEY_FILE` from config; when `GCS_EMULATOR_HOST` is set passes it as `apiEndpoint` to the `Storage` constructor
 - `onApplicationBootstrap()`: if `GCS_EMULATOR_HOST` is set, auto-creates the `GCS_BUCKET_NAME` bucket (idempotent — skips if already exists)
 - Returns signed URL valid for 15 minutes
 - **Security — content-type lock:** passes `contentType` as the `Content-Type` condition in the GCS V4 signed URL options so GCS itself rejects any `PUT` where the browser sends a mismatched `Content-Type` header

@@ -5,7 +5,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-06-06 (M115 complete — wrap-up docs added; §10 M115 entry updated to IA doc)
+**Last updated:** 2026-06-06 (post-M115 doc audit — useExisting anti-pattern added to §8 + ANTI_PATTERNS.md; CI_TRAPS.md + 08-TESTING_STRATEGY.md updated with integration app helper rules)
 
 ---
 
@@ -333,6 +333,7 @@ Full list in `docs/ANTI_PATTERNS.md` (checked by `/pre-pr`). Highest-severity pa
 | Infrastructure port implementation named `XxxService` | Misleads readers — services hold business logic, adapters implement ports | Name it `XxxAdapter` in `xxx.adapter.ts`; examples: `GcpPubSubEventBusAdapter`, `GcsSignedUrlAdapter` |
 | Tenant-isolation test with only supertest `.expect(404)` and no Jest `expect()` | SonarCloud S2699 — test has zero assertions | Destructure `{ body }` and add `expect(body.status).toBe(404)` |
 | `@UseGuards(InternalApiGuard)` on individual controllers instead of `APP_GUARD` in `AppModule` | New controllers silently skip the guard | Register `{ provide: APP_GUARD, useClass: InternalApiGuard }` in `AppModule.providers` — every controller is automatically protected |
+| `useExisting` in a shared module: `providers: [GcsSignedUrlAdapter, { provide: STORAGE_SERVICE, useExisting: GcsSignedUrlAdapter }]` | `useExisting` is just an alias — the standalone class is still instantiated even when the token is overridden in tests; `onApplicationBootstrap` network calls run, causing `ECONNREFUSED` | Use `useClass`: `providers: [{ provide: STORAGE_SERVICE, useClass: GcsSignedUrlAdapter }]`; integration app helpers must also default-override the token with an in-memory stub |
 
 ---
 
