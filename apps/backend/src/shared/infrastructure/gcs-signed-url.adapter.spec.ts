@@ -8,6 +8,7 @@ const MockStorage = Storage as jest.MockedClass<typeof Storage>;
 
 describe('GcsSignedUrlAdapter', () => {
   let mockGetSignedUrl: jest.Mock;
+  let mockFileExists: jest.Mock;
   let mockBucketExists: jest.Mock;
   let mockCreateBucket: jest.Mock;
   let mockFile: jest.Mock;
@@ -27,7 +28,10 @@ describe('GcsSignedUrlAdapter', () => {
     mockGetSignedUrl = jest
       .fn()
       .mockResolvedValue(['https://storage.googleapis.com/bucket/path?X-Goog-Signature=abc']);
-    mockFile = jest.fn().mockReturnValue({ getSignedUrl: mockGetSignedUrl });
+    mockFileExists = jest.fn().mockResolvedValue([true]);
+    mockFile = jest
+      .fn()
+      .mockReturnValue({ getSignedUrl: mockGetSignedUrl, exists: mockFileExists });
     mockBucketExists = jest.fn().mockResolvedValue([true]);
     mockCreateBucket = jest.fn().mockResolvedValue(undefined);
     mockBucket = jest.fn().mockReturnValue({ exists: mockBucketExists, file: mockFile });
@@ -141,6 +145,33 @@ describe('GcsSignedUrlAdapter', () => {
       const ttlMs = 15 * 60 * 1000;
       expect(expiresMs).toBeGreaterThanOrEqual(before + ttlMs - 100);
       expect(expiresMs).toBeLessThanOrEqual(after + ttlMs + 100);
+    });
+  });
+
+  describe('exists()', () => {
+    it('returns true when the file exists in the bucket', async () => {
+      mockFileExists.mockResolvedValue([true]);
+      const service = makeService({});
+      await expect(service.exists('tenants/t1/uploads/uuid/car.jpg')).resolves.toBe(true);
+    });
+
+    it('returns false when the file does not exist in the bucket', async () => {
+      mockFileExists.mockResolvedValue([false]);
+      const service = makeService({});
+      await expect(service.exists('tenants/t1/uploads/uuid/missing.jpg')).resolves.toBe(false);
+    });
+
+    it('passes the correct file path to the storage bucket', async () => {
+      const service = makeService({});
+      const path = 'tenants/abc/bookings/def/photo.jpg';
+      await service.exists(path);
+      expect(mockFile).toHaveBeenCalledWith(path);
+    });
+
+    it('uses custom bucket name from config', async () => {
+      const service = makeService({ GCS_BUCKET_NAME: 'my-prod-bucket' });
+      await service.exists('path/file.jpg');
+      expect(mockBucket).toHaveBeenCalledWith('my-prod-bucket');
     });
   });
 });

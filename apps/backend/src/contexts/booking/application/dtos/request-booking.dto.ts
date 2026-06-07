@@ -21,7 +21,9 @@ export const RequestBookingSchema = z.object({
   pickupAddress: AddressSchema.optional(),
   scheduledAt: z.iso.datetime(),
   serviceIds: z.array(z.uuid()).min(1),
-  beforeServicePhotoUrls: z.array(z.url()).optional(),
+  beforeServicePhotoUrls: z
+    .array(z.string().regex(/^tenants\/[^/]+\/(uploads|bookings)\/[^/]+\/.+$/))
+    .optional(),
 });
 
 export type RequestBookingDto = z.infer<typeof RequestBookingSchema>;

@@ -2,14 +2,19 @@ import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-even
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
 import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
 import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
+import { PhotoExistenceService } from '../services/photo-existence.service';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { testAddress } from '../../../../test/utils/address-helpers';
 import { futureDate } from '../../../../test/utils/date-helpers';
-import { BookingSlotUnavailableError } from '../../domain/errors/booking-domain.error';
+import {
+  BookingPhotoNotUploadedError,
+  BookingSlotUnavailableError,
+} from '../../domain/errors/booking-domain.error';
 import { BookingStatus } from '../../domain/booking.aggregate';
 import { RequestBookingUseCase } from './request-booking.use-case';
 
@@ -23,6 +28,7 @@ describe('RequestBookingUseCase', () => {
   let availabilityPort: InMemoryBookingAvailabilityPort;
   let bookingRepo: InMemoryBookingRepository;
   let eventBus: InMemoryEventBus;
+  let storageService: InMemoryStorageService;
   let useCase: RequestBookingUseCase;
   let serviceId: string;
 
@@ -31,6 +37,7 @@ describe('RequestBookingUseCase', () => {
     availabilityPort = new InMemoryBookingAvailabilityPort();
     bookingRepo = new InMemoryBookingRepository();
     eventBus = new InMemoryEventBus();
+    storageService = new InMemoryStorageService();
     const txManager = new InMemoryTransactionManager();
     const ctx = new TenantContextBuilder()
       .withTenantId(TENANT_A)
@@ -39,6 +46,7 @@ describe('RequestBookingUseCase', () => {
     useCase = new RequestBookingUseCase(
       serviceRepo,
       new BookingSlotConflictService(availabilityPort, new InMemoryScheduleTenantSettingsPort()),
+      new PhotoExistenceService(storageService),
       bookingRepo,
       txManager,
       eventBus,
@@ -83,12 +91,24 @@ describe('RequestBookingUseCase', () => {
   });
 
   it('stores beforeServicePhotoUrls on the booking', async () => {
+    const photoPath = `tenants/${TENANT_A}/uploads/upload-1/photo1.jpg`;
+    storageService.markAsUploaded(photoPath);
+
     const result = await useCase.execute({
       ...baseDto(),
-      beforeServicePhotoUrls: ['https://s3.example.com/photo1.jpg'],
+      beforeServicePhotoUrls: [photoPath],
     });
     const saved = await bookingRepo.findById(result.bookingId, TENANT_A);
-    expect(saved!.beforeServicePhotoUrls).toEqual(['https://s3.example.com/photo1.jpg']);
+    expect(saved!.beforeServicePhotoUrls).toEqual([photoPath]);
+  });
+
+  it('throws BookingPhotoNotUploadedError when a photo path does not exist in storage', async () => {
+    await expect(
+      useCase.execute({
+        ...baseDto(),
+        beforeServicePhotoUrls: [`tenants/${TENANT_A}/uploads/upload-1/missing.jpg`],
+      }),
+    ).rejects.toBeInstanceOf(BookingPhotoNotUploadedError);
   });
 
   it('stores optional contactAddress when provided', async () => {

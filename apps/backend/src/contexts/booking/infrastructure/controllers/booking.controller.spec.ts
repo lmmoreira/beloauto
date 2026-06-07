@@ -4,6 +4,7 @@ import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-m
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
 import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
 import { InMemoryCustomerProfilePort } from '../../../../test/infrastructure/in-memory-customer-profile.port';
+import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { BookingBuilder, ServiceBuilder } from '../../../../test/builders/booking/index';
@@ -24,6 +25,7 @@ import { CancelBookingAsAdminUseCase } from '../../application/use-cases/cancel-
 import { RescheduleBookingUseCase } from '../../application/use-cases/reschedule-booking.use-case';
 import { CompleteBookingUseCase } from '../../application/use-cases/complete-booking.use-case';
 import { BookingSlotConflictService } from '../../application/services/booking-slot-conflict.service';
+import { PhotoExistenceService } from '../../application/services/photo-existence.service';
 import { BookingStatus } from '../../domain/booking.aggregate';
 import { BookingLineBuilder } from '../../../../test/builders/booking/booking-line.builder';
 import { Money } from '../../../../shared/value-objects/money';
@@ -38,11 +40,13 @@ describe('BookingController', () => {
   let controller: BookingController;
   let serviceRepo: InMemoryServiceRepository;
   let bookingRepo: InMemoryBookingRepository;
+  let storageService: InMemoryStorageService;
   let serviceId: string;
 
   beforeEach(async () => {
     serviceRepo = new InMemoryServiceRepository();
     bookingRepo = new InMemoryBookingRepository();
+    storageService = new InMemoryStorageService();
     const guestCtx = new TenantContextBuilder()
       .withTenantId(TENANT_A)
       .withCorrelationId(CORRELATION_ID)
@@ -74,6 +78,7 @@ describe('BookingController', () => {
           new InMemoryBookingAvailabilityPort(),
           new InMemoryScheduleTenantSettingsPort(),
         ),
+        new PhotoExistenceService(storageService),
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -86,6 +91,7 @@ describe('BookingController', () => {
           new InMemoryBookingAvailabilityPort(),
           new InMemoryScheduleTenantSettingsPort(),
         ),
+        new PhotoExistenceService(storageService),
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -118,12 +124,14 @@ describe('BookingController', () => {
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
+        new PhotoExistenceService(storageService),
       ),
       new SubmitGuestBookingInfoUseCase(
         guestCtx,
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
+        new PhotoExistenceService(storageService),
       ),
       new ListBookingsUseCase(bookingRepo, staffCtx),
       new GetBookingUseCase(bookingRepo, staffCtx),
@@ -155,6 +163,7 @@ describe('BookingController', () => {
         bookingRepo,
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
+        new PhotoExistenceService(storageService),
       ),
     );
     const service = new ServiceBuilder().withTenantId(TENANT_A).build();
@@ -206,6 +215,7 @@ describe('BookingController', () => {
         new RequestBookingUseCase(
           serviceRepo,
           new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
+          new PhotoExistenceService(storageService),
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -218,6 +228,7 @@ describe('BookingController', () => {
             new InMemoryBookingAvailabilityPort(),
             new InMemoryScheduleTenantSettingsPort(),
           ),
+          new PhotoExistenceService(storageService),
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -250,12 +261,14 @@ describe('BookingController', () => {
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
+          new PhotoExistenceService(storageService),
         ),
         new SubmitGuestBookingInfoUseCase(
           ctx,
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
+          new PhotoExistenceService(storageService),
         ),
         new ListBookingsUseCase(repoB, ctx),
         new GetBookingUseCase(repoB, ctx),
@@ -287,6 +300,7 @@ describe('BookingController', () => {
           repoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
+          new PhotoExistenceService(storageService),
         ),
       );
       const err = await ctrl.create(validBody()).catch((e: unknown) => e);
@@ -362,6 +376,7 @@ describe('BookingController', () => {
             new InMemoryBookingAvailabilityPort(),
             new InMemoryScheduleTenantSettingsPort(),
           ),
+          new PhotoExistenceService(storageService),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -374,6 +389,7 @@ describe('BookingController', () => {
             new InMemoryBookingAvailabilityPort(),
             new InMemoryScheduleTenantSettingsPort(),
           ),
+          new PhotoExistenceService(storageService),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -403,12 +419,14 @@ describe('BookingController', () => {
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
+          new PhotoExistenceService(storageService),
         ),
         new SubmitGuestBookingInfoUseCase(
           new TenantContextBuilder().withTenantId(TENANT_A).build(),
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
+          new PhotoExistenceService(storageService),
         ),
         new ListBookingsUseCase(bookingRepoB, staffCtx),
         new GetBookingUseCase(bookingRepoB, staffCtx),
@@ -437,6 +455,7 @@ describe('BookingController', () => {
           bookingRepoB,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
+          new PhotoExistenceService(storageService),
         ),
       );
       const booking = new BookingBuilder()
@@ -803,6 +822,7 @@ describe('BookingController', () => {
             new InMemoryBookingAvailabilityPort(),
             new InMemoryScheduleTenantSettingsPort(),
           ),
+          new PhotoExistenceService(storageService),
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -815,6 +835,7 @@ describe('BookingController', () => {
             new InMemoryBookingAvailabilityPort(),
             new InMemoryScheduleTenantSettingsPort(),
           ),
+          new PhotoExistenceService(storageService),
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -847,12 +868,14 @@ describe('BookingController', () => {
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
+          new PhotoExistenceService(storageService),
         ),
         new SubmitGuestBookingInfoUseCase(
           ctx,
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
+          new PhotoExistenceService(storageService),
         ),
         new ListBookingsUseCase(repoC, ctx),
         new GetBookingUseCase(repoC, ctx),
@@ -884,6 +907,7 @@ describe('BookingController', () => {
           repoC,
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
+          new PhotoExistenceService(storageService),
         ),
       );
       const err = await ctrl.createAuthenticated(authBody()).catch((e: unknown) => e);

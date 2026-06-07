@@ -14,7 +14,9 @@ export const RequestAuthenticatedBookingSchema = z.object({
   scheduledAt: z.iso.datetime(),
   serviceIds: z.array(z.uuid()).min(1),
   pickupAddress: AddressSchema.optional(),
-  beforeServicePhotoUrls: z.array(z.url()).optional(),
+  beforeServicePhotoUrls: z
+    .array(z.string().regex(/^tenants\/[^/]+\/(uploads|bookings)\/[^/]+\/.+$/))
+    .optional(),
 });
 
 export type RequestAuthenticatedBookingDto = z.infer<typeof RequestAuthenticatedBookingSchema>;

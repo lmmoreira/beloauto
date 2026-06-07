@@ -53,14 +53,18 @@ export const RequestBookingBodySchema = z.object({
   pickupAddress: AddressSchema.optional(),
   scheduledAt: z.iso.datetime(),
   serviceIds: z.array(z.uuid()).min(1),
-  beforeServicePhotoUrls: z.array(z.url()).optional(),
+  beforeServicePhotoUrls: z
+    .array(z.string().regex(/^tenants\/[^/]+\/(uploads|bookings)\/[^/]+\/.+$/))
+    .optional(),
 });
 
 export const AuthenticatedBookingBodySchema = z.object({
   scheduledAt: z.iso.datetime(),
   serviceIds: z.array(z.uuid()).min(1),
   pickupAddress: AddressSchema.optional(),
-  beforeServicePhotoUrls: z.array(z.url()).optional(),
+  beforeServicePhotoUrls: z
+    .array(z.string().regex(/^tenants\/[^/]+\/(uploads|bookings)\/[^/]+\/.+$/))
+    .optional(),
 });
 
 export const RejectBookingBodySchema = z.object({
@@ -104,12 +108,16 @@ export const RequestMoreInfoBodySchema = z.object({
 
 export const SubmitBookingInfoBodySchema = z.object({
   response: z.string().trim().min(1),
-  photoUrls: z.array(z.url()).optional(),
+  photoUrls: z
+    .array(z.string().regex(/^tenants\/[^/]+\/(uploads|bookings)\/[^/]+\/.+$/))
+    .optional(),
 });
 
 export const SubmitGuestBookingInfoBodySchema = z.object({
   response: z.string().trim().min(1),
-  photoUrls: z.array(z.url()).optional(),
+  photoUrls: z
+    .array(z.string().regex(/^tenants\/[^/]+\/(uploads|bookings)\/[^/]+\/.+$/))
+    .optional(),
 });
 
 const BookingStatusEnum = z.enum([

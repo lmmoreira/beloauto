@@ -10,6 +10,7 @@ import {
   BookingNotFoundError,
 } from '../../domain/errors/booking-domain.error';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
+import { PhotoExistenceService } from '../services/photo-existence.service';
 import { SubmitBookingInfoDto } from '../dtos/submit-booking-info.dto';
 
 export interface SubmitBookingInfoUseCaseResult {
@@ -25,6 +26,7 @@ export class SubmitBookingInfoUseCase {
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
+    private readonly photoExistenceService: PhotoExistenceService,
   ) {}
 
   async execute(dto: SubmitBookingInfoDto): Promise<SubmitBookingInfoUseCaseResult> {
@@ -36,6 +38,8 @@ export class SubmitBookingInfoUseCase {
     if (!booking) throw new BookingNotFoundError(dto.bookingId);
 
     if (booking.customerId !== customerId) throw new BookingForbiddenError();
+
+    await this.photoExistenceService.assertPhotosUploaded(dto.photoUrls ?? []);
 
     booking.submitInformation(
       booking.contactEmail.address,

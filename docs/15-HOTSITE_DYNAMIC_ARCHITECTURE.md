@@ -192,7 +192,8 @@ interface GalleryModuleData {
 
 **Image sources (both available in the dashboard editor):**
 - **From bookings:** Admin browses completed bookings that have after-photos (UC-009) and selects which to feature.
-- **Custom upload:** Admin uploads their own images (e.g. Canva-edited before/after) via the GCS signed-URL flow (M115-S01).
+- **Custom upload:** Admin uploads their own images (e.g. Canva-edited before/after, logo, hero/CTA backgrounds, about photos) via `POST /v1/tenants/hotsite/images/signed-url` (M12-S02). This reuses the `IStorageService`/`GcsSignedUrlAdapter` built in M115-S01 — same 15-minute expiry, content-type lock, and 10 MB cap — behind a hotsite-specific endpoint and path convention: `tenants/<tenantId>/hotsite/<purpose>/<uuid>/<fileName>`, where `purpose` groups assets by what they're for (`branding | hero | gallery | about | booking-cta`).
+- **Existence check before persisting:** Pre-signed URLs let the browser upload straight to GCS, bypassing the backend — so nothing guarantees the `filePath` the admin later submits in `PATCH /v1/tenants/hotsite` actually exists (closed tab, failed `PUT`, hand-crafted request). `UpdateHotsiteContentUseCase` calls `IStorageService.exists()` on every non-empty image path (`branding.logoUrl`, module `backgroundImageUrl`/`imageUrl`/`avatarUrl`, `GALLERY` images with `source: 'upload'`) before persisting, rejecting unresolvable paths with `400 hotsite-image-not-uploaded`. The same gap exists — and is fixed the same way — for booking photo paths (M12-S02 also retrofits `IStorageService.exists()` into the four booking use cases that accept `photoUrls`/`*ServicePhotoUrls`).
 
 ### TESTIMONIALS
 
@@ -429,6 +430,7 @@ The manifest pattern is designed to grow without rework:
 | Drag-and-drop reorder | Admin UI change only — the ordered `layout` array already supports it |
 | Custom domain per tenant | Cloud Run domain mapping + middleware Host header lookup — no code change |
 | New business vertical | New module types + default layout presets per `businessType` — post-MVP |
+| CDN / edge caching | Manifest endpoint already sets `Cache-Control: public, max-age=300`; a CDN/edge layer can sit in front without changing the contract — post-MVP infra concern as hotsite traffic grows |
 
 ---
 

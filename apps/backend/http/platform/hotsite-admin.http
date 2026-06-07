@@ -1,0 +1,189 @@
+# Platform — Hotsite Admin
+# UC-027: Admin manages hotsite
+# Guarded by ManagerRoleGuard — requires X-Actor-Role: MANAGER on every request.
+#
+# Prerequisites:
+#   1. pnpm infra:up
+#   2. pnpm --filter @beloauto/backend run migration:run
+#   3. pnpm --filter @beloauto/backend run seed
+#   4. pnpm --filter @beloauto/backend run dev
+#
+# REST Client environment: select "local" in VS Code status bar
+
+@baseUrl = {{backendUrl}}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HAPPY PATH
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Get full hotsite content (includes unpublished state)
+GET {{baseUrl}}/tenants/hotsite
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+###
+
+### Generate signed URL for a branding logo upload
+POST {{baseUrl}}/tenants/hotsite/images/signed-url
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "fileName": "logo.png",
+  "contentType": "image/png",
+  "purpose": "branding"
+}
+
+###
+
+### Partial branding update (only colors changed)
+PATCH {{baseUrl}}/tenants/hotsite
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "branding": {
+    "primaryColor": "#f97316",
+    "secondaryColor": "#fff7ed"
+  }
+}
+
+###
+
+### Layout update — toggle a module's enabled flag
+PATCH {{baseUrl}}/tenants/hotsite
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "layout": [
+    { "type": "HERO", "enabled": true, "data": { "variant": "centered", "title": "Bem-vindo", "ctaLabel": "Agendar agora", "ctaTarget": "booking" } },
+    { "type": "SERVICE_LIST", "enabled": true, "data": { "showPrices": true, "showPoints": true, "layout": "grid" } },
+    { "type": "GALLERY", "enabled": false, "data": { "images": [], "layout": "grid", "maxVisible": 6 } }
+  ]
+}
+
+###
+
+### Publish hotsite (requires at least one enabled module)
+POST {{baseUrl}}/tenants/hotsite/publish
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+###
+
+### Unpublish hotsite
+POST {{baseUrl}}/tenants/hotsite/unpublish
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ERROR CASES
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 400 — Invalid hex color
+PATCH {{baseUrl}}/tenants/hotsite
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "branding": {
+    "primaryColor": "notacolor"
+  }
+}
+
+###
+
+### 400 — Unknown layout module type
+PATCH {{baseUrl}}/tenants/hotsite
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "layout": [
+    { "type": "UNKNOWN_MODULE", "enabled": true, "data": {} }
+  ]
+}
+
+###
+
+### 400 — hotsite-image-not-uploaded (logoUrl path not present in GCS)
+PATCH {{baseUrl}}/tenants/hotsite
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "branding": {
+    "logoUrl": "tenants/00000000-0000-4000-8000-000000000001/hotsite/branding/00000000-0000-7000-8000-000000000001/logo-not-uploaded.png"
+  }
+}
+
+###
+
+### 400 — Empty body (neither branding nor layout provided)
+PATCH {{baseUrl}}/tenants/hotsite
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{}
+
+###
+
+### 400 — signed-url with invalid purpose
+POST {{baseUrl}}/tenants/hotsite/images/signed-url
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "fileName": "banner.jpg",
+  "contentType": "image/jpeg",
+  "purpose": "invalid-purpose"
+}
+
+###
+
+### 422 — Publish with no enabled modules
+POST {{baseUrl}}/tenants/hotsite/publish
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+
+###
+
+### 403 — STAFF role not allowed (ManagerRoleGuard rejects)
+GET {{baseUrl}}/tenants/hotsite
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{staffId}}
+X-Actor-Type: STAFF
+X-Actor-Role: STAFF

@@ -1,0 +1,45 @@
+import { z } from 'zod';
+import { HexColor } from '../../../../shared/value-objects/hex-color.vo';
+
+const HEX_COLOR_MESSAGE = { message: 'must be a valid hex color (e.g. #FF5733)' };
+
+const HotsiteBrandingSchema = z
+  .object({
+    primaryColor: z.string().refine(HexColor.isValid, HEX_COLOR_MESSAGE),
+    secondaryColor: z.string().refine(HexColor.isValid, HEX_COLOR_MESSAGE),
+    backgroundColor: z.string().refine(HexColor.isValid, HEX_COLOR_MESSAGE),
+    textColor: z.string().refine(HexColor.isValid, HEX_COLOR_MESSAGE),
+    headingFontFamily: z.string().min(1),
+    bodyFontFamily: z.string().min(1),
+    logoUrl: z.string(),
+    borderRadius: z.enum(['sharp', 'rounded', 'pill']),
+    buttonStyle: z.enum(['filled', 'outline', 'ghost']),
+    spacing: z.enum(['compact', 'comfortable', 'spacious']),
+    shadowStyle: z.enum(['none', 'subtle', 'strong']),
+  })
+  .partial();
+
+const HotsiteModuleSchema = z.object({
+  type: z.enum([
+    'HERO',
+    'SERVICE_LIST',
+    'GALLERY',
+    'TESTIMONIALS',
+    'BOOKING_CTA',
+    'ABOUT',
+    'CONTACT',
+  ]),
+  enabled: z.boolean(),
+  data: z.record(z.string(), z.unknown()),
+});
+
+export const UpdateHotsiteContentSchema = z
+  .object({
+    branding: HotsiteBrandingSchema.optional(),
+    layout: z.array(HotsiteModuleSchema).optional(),
+  })
+  .refine((data) => data.branding !== undefined || data.layout !== undefined, {
+    message: 'at least one of branding or layout must be provided',
+  });
+
+export type UpdateHotsiteContentDto = z.infer<typeof UpdateHotsiteContentSchema>;

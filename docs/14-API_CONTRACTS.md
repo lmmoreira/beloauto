@@ -190,6 +190,48 @@ Used by the Next.js hotsite renderer to fetch full branding and layout for a ten
 - `404` — tenant slug not found
 - `404` — hotsite exists but `isPublished: false` (public cannot see unpublished hotsites)
 
+### **Hotsite Admin Management (Admin — UC-027, M12-S02)**
+Lets a `MANAGER` configure branding, layout modules, and publish status. Mirrors the public manifest's `branding`/`layout`/`isPublished` shape, but `GET` always returns the full state regardless of publish status (unlike the public endpoint, which `404`s when unpublished).
+
+- `GET /v1/tenants/hotsite` → `200 { branding, layout, isPublished, updatedAt }` — `MANAGER` only
+- `PATCH /v1/tenants/hotsite` → body `{ branding?, layout? }` (partial update — unspecified fields unchanged); `200` returns updated state
+  - Validation: hex colors must be `#rrggbb` · `borderRadius/buttonStyle/spacing/shadowStyle` must be known enum values · layout module `type` must be a known `HotsiteModuleType` — any violation → `400`
+  - Image existence check: every non-empty image path submitted (`branding.logoUrl`, module `backgroundImageUrl`/`imageUrl`/`avatarUrl`, `GALLERY` images with `source: 'upload'`) must resolve to a real object in GCS — verified via `IStorageService.exists()` before persisting; an unresolvable path returns `400 hotsite-image-not-uploaded`
+- `POST /v1/tenants/hotsite/publish` → `200 { isPublished: true }`; `422` if the layout has no `enabled: true` modules
+- `POST /v1/tenants/hotsite/unpublish` → `200 { isPublished: false }`
+- All four require JWT + `MANAGER` role — `STAFF` gets `403`
+
+### **Hotsite Image Upload (Admin — UC-027, M12-S02)**
+Generates a GCS signed upload URL for hotsite images (logo, hero/CTA backgrounds, gallery, about photos). Reuses the same `IStorageService`/`GcsSignedUrlAdapter` and constraints introduced for booking attachments in M115-S01 (15-minute expiry, content-type lock, 10 MB cap) — no new storage adapter.
+
+**BFF:** `POST /v1/tenants/hotsite/images/signed-url`
+- Requires JWT + `MANAGER` role
+
+- **Request body:**
+  ```json
+  {
+    "fileName":    "logo.png",
+    "contentType": "image/png",
+    "purpose":     "branding"
+  }
+  ```
+  `purpose`: one of `branding | hero | gallery | about | booking-cta` — groups uploaded assets by what they're for, mirroring how booking attachments are grouped by `bookingId`
+
+- **Response (201 Created):**
+  ```json
+  {
+    "signedUrl": "http://localhost:4443/beloauto-local/tenants/.../logo.png?X-Goog-Signature=...",
+    "filePath":  "tenants/<tenantId>/hotsite/<purpose>/<uuid>/logo.png",
+    "expiresAt": "2026-05-12T00:08:44Z"
+  }
+  ```
+
+**Storage path rule:** `tenants/<tenantId>/hotsite/<purpose>/<uuid>/<fileName>`
+
+`filePath` is what gets stored in `branding.logoUrl` / module `data.*Url` fields and returned by the admin/public hotsite endpoints. Fresh read-signed URLs are generated at display time — `signedUrl` is never stored.
+
+**Error responses:** same constraint set as booking attachments (`400 invalid-file-name`, `400 unsupported-media-type`, plus `400` for an unknown `purpose`) — see §3 Media Upload below for the shared validation table.
+
 ### **Service Management (Admin - UC-012, UC-013)**
 - `GET /services` -> List all services (Public/Admin). Each item includes:
   ```json
@@ -347,6 +389,7 @@ Public — requires only `X-Tenant-Slug` header. No authentication.
   - `400 invalid-services-inactive` — one or more service has `is_active = false`.
   - `400 missing-pickup-address` — one or more selected services require a pickup address but none was provided.
   - `400 invalid-pickup-address` — `pickupAddress` fields fail validation (e.g. `zipCode` not 8 digits, `state` not a valid UF).
+  - `400 photo-not-uploaded` — one or more `beforeServicePhotoUrls` paths were never confirmed as uploaded to GCS (the backend calls `IStorageService.exists()` on each path before persisting — a stale, never-uploaded, or hand-crafted path is rejected rather than stored).
   - `409 slot-unavailable` — the requested `scheduledAt + totalDurationMins` window overlaps another APPROVED booking or a `ScheduleClosure`.
 
 #### **Authenticated Customer Booking (UC-002) — `POST /bookings/authenticated`**
@@ -423,7 +466,7 @@ Requires JWT with `role: CUSTOMER`. Tenant resolved from JWT `tenantId` — no `
 - `PATCH /bookings/:id/request-info` → (UC-005a) Transition PENDING → INFO_REQUESTED. Body: `{ message: string }` (required, min 20 chars). Returns `200 { bookingId, status: 'INFO_REQUESTED' }`.
 
 **Customer info submission** (JWT + `CUSTOMER` role required; tokenised-link flow for guests TBD in M08-S04):
-- `PATCH /bookings/:id/submit-info` → (UC-005b) Transition INFO_REQUESTED → PENDING. Body: `{ response: string, photoUrls?: string[] }`. Returns `200 { bookingId, status: 'PENDING' }`. Any provided `photoUrls` are appended to `booking.beforeServicePhotoUrls`.
+- `PATCH /bookings/:id/submit-info` → (UC-005b) Transition INFO_REQUESTED → PENDING. Body: `{ response: string, photoUrls?: string[] }`. Returns `200 { bookingId, status: 'PENDING' }`. Any provided `photoUrls` are appended to `booking.beforeServicePhotoUrls`. Each path is verified via `IStorageService.exists()` before persisting — an unresolvable path returns `400 photo-not-uploaded`.
 
 - `PATCH /bookings/:id` → (UC-008) General update (e.g., **Reschedule** date/time). Lines cannot be edited after `APPROVED` (returns `409 booking-lines-frozen`).
 
@@ -480,6 +523,7 @@ See `PATCH /bookings/:id/submit-info` in the Booking Management section above.
 - **Errors:**
   - `400 invalid-line-id` — a `lineId` in `lineActualPrices` does not belong to this booking.
   - `400 invalid-actual-price` — `actualPriceCharged` is negative.
+  - `400 photo-not-uploaded` — one or more `photoUrls` paths were never confirmed as uploaded to GCS (verified via `IStorageService.exists()` before persisting).
 
 ---
 

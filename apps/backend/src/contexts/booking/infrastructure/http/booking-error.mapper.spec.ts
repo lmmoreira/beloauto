@@ -3,6 +3,7 @@ import {
   BookingDomainError,
   BookingForbiddenError,
   BookingNotFoundError,
+  BookingPhotoNotUploadedError,
   BookingRejectionReasonTooShortError,
   BookingSlotUnavailableError,
   ClosureDateInPastError,
@@ -80,6 +81,12 @@ describe('mapBookingError', () => {
 
   it('maps BookingRejectionReasonTooShortError to 400', () => {
     const err = call(new BookingRejectionReasonTooShortError());
+    expect(err).toBeInstanceOf(HttpException);
+    expect(err.getStatus()).toBe(HttpStatus.BAD_REQUEST);
+  });
+
+  it('maps BookingPhotoNotUploadedError to 400', () => {
+    const err = call(new BookingPhotoNotUploadedError('tenants/t1/bookings/b1/photo.jpg'));
     expect(err).toBeInstanceOf(HttpException);
     expect(err.getStatus()).toBe(HttpStatus.BAD_REQUEST);
   });

@@ -1,5 +1,6 @@
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
+import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { BookingBuilder } from '../../../../test/builders/booking/index';
 import { BookingLineBuilder } from '../../../../test/builders/booking/booking-line.builder';
@@ -7,9 +8,11 @@ import { TenantContextBuilder } from '../../../../test/factories/tenant-context.
 import { BookingStatus } from '../../domain/booking.aggregate';
 import {
   BookingNotFoundError,
+  BookingPhotoNotUploadedError,
   CompleteBookingLinesIncompleteError,
   InvalidBookingTransitionError,
 } from '../../domain/errors/booking-domain.error';
+import { PhotoExistenceService } from '../services/photo-existence.service';
 import { CompleteBookingUseCase } from './complete-booking.use-case';
 import { Money } from '../../../../shared/value-objects/money';
 
@@ -51,11 +54,13 @@ function makeDto(
 describe('CompleteBookingUseCase', () => {
   let bookingRepo: InMemoryBookingRepository;
   let eventBus: InMemoryEventBus;
+  let storageService: InMemoryStorageService;
   let useCase: CompleteBookingUseCase;
 
   beforeEach(() => {
     bookingRepo = new InMemoryBookingRepository();
     eventBus = new InMemoryEventBus();
+    storageService = new InMemoryStorageService();
     const ctx = new TenantContextBuilder()
       .withTenantId(TENANT_A)
       .withActorId(STAFF_ID)
@@ -66,6 +71,7 @@ describe('CompleteBookingUseCase', () => {
       bookingRepo,
       new InMemoryTransactionManager(),
       eventBus,
+      new PhotoExistenceService(storageService),
     );
   });
 
@@ -108,12 +114,26 @@ describe('CompleteBookingUseCase', () => {
   it('persists afterServicePhotoUrls', async () => {
     const booking = makeApprovedBooking();
     await bookingRepo.save(booking);
-    const photos = ['tenants/t1/bookings/b1/after1.jpg'];
+    const photos = [`tenants/${TENANT_A}/bookings/${booking.id}/after1.jpg`];
+    photos.forEach((path) => storageService.markAsUploaded(path));
 
     await useCase.execute(makeDto(booking.id, [LINE_ID_1], { afterServicePhotoUrls: photos }));
 
     const saved = await bookingRepo.findById(booking.id, TENANT_A);
     expect(saved!.afterServicePhotoUrls).toEqual(photos);
+  });
+
+  it('throws BookingPhotoNotUploadedError when a photo path does not exist in storage', async () => {
+    const booking = makeApprovedBooking();
+    await bookingRepo.save(booking);
+
+    await expect(
+      useCase.execute(
+        makeDto(booking.id, [LINE_ID_1], {
+          afterServicePhotoUrls: [`tenants/${TENANT_A}/bookings/${booking.id}/missing.jpg`],
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BookingPhotoNotUploadedError);
   });
 
   it('publishes BookingCompleted event with full line payload', async () => {

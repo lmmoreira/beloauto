@@ -38,3 +38,21 @@ export interface HotsiteResponse {
 export interface HotsiteManifestResponse extends HotsiteResponse {
   tenant: TenantInfoResponse;
 }
+
+export interface HotsiteAdminContentResponse extends HotsiteResponse {
+  updatedAt: string;
+}
+
+export interface PublishHotsiteResponse {
+  isPublished: boolean;
+}
+
+export interface UnpublishHotsiteResponse {
+  isPublished: boolean;
+}
+
+export interface GenerateHotsiteImageSignedUrlResponse {
+  signedUrl: string;
+  filePath: string;
+  expiresAt: string;
+}

@@ -1,5 +1,6 @@
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
+import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { BookingBuilder } from '../../../../test/builders/booking/index';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
@@ -8,8 +9,10 @@ import { BookingStatus } from '../../domain/booking.aggregate';
 import {
   BookingForbiddenError,
   BookingNotFoundError,
+  BookingPhotoNotUploadedError,
   InvalidBookingTransitionError,
 } from '../../domain/errors/booking-domain.error';
+import { PhotoExistenceService } from '../services/photo-existence.service';
 import { SubmitBookingInfoUseCase } from './submit-booking-info.use-case';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000501';
@@ -24,11 +27,13 @@ const scheduledAt = new Date(`${futureDate(2)}T13:00:00.000Z`);
 describe('SubmitBookingInfoUseCase', () => {
   let bookingRepo: InMemoryBookingRepository;
   let eventBus: InMemoryEventBus;
+  let storageService: InMemoryStorageService;
   let useCase: SubmitBookingInfoUseCase;
 
   beforeEach(() => {
     bookingRepo = new InMemoryBookingRepository();
     eventBus = new InMemoryEventBus();
+    storageService = new InMemoryStorageService();
     const ctx = new TenantContextBuilder()
       .withTenantId(TENANT_A)
       .withCorrelationId(CORRELATION_ID)
@@ -41,6 +46,7 @@ describe('SubmitBookingInfoUseCase', () => {
       bookingRepo,
       new InMemoryTransactionManager(),
       eventBus,
+      new PhotoExistenceService(storageService),
     );
   });
 
@@ -77,7 +83,11 @@ describe('SubmitBookingInfoUseCase', () => {
   });
 
   it('appends photoUrls to beforeServicePhotoUrls', async () => {
-    const photoUrls = ['https://s3.example.com/photo1.jpg', 'https://s3.example.com/photo2.jpg'];
+    const photoUrls = [
+      `tenants/${TENANT_A}/uploads/upload-1/photo1.jpg`,
+      `tenants/${TENANT_A}/uploads/upload-2/photo2.jpg`,
+    ];
+    photoUrls.forEach((path) => storageService.markAsUploaded(path));
     const booking = new BookingBuilder()
       .withTenantId(TENANT_A)
       .withCustomerId(CUSTOMER_ID)
@@ -90,6 +100,24 @@ describe('SubmitBookingInfoUseCase', () => {
 
     const saved = await bookingRepo.findById(booking.id, TENANT_A);
     expect(saved!.beforeServicePhotoUrls).toEqual(expect.arrayContaining(photoUrls));
+  });
+
+  it('throws BookingPhotoNotUploadedError when a photo path does not exist in storage', async () => {
+    const booking = new BookingBuilder()
+      .withTenantId(TENANT_A)
+      .withCustomerId(CUSTOMER_ID)
+      .withStatus(BookingStatus.INFO_REQUESTED)
+      .withScheduledAt(scheduledAt)
+      .build();
+    await bookingRepo.save(booking);
+
+    await expect(
+      useCase.execute({
+        bookingId: booking.id,
+        response: VALID_RESPONSE,
+        photoUrls: [`tenants/${TENANT_A}/uploads/upload-1/missing.jpg`],
+      }),
+    ).rejects.toBeInstanceOf(BookingPhotoNotUploadedError);
   });
 
   it('publishes BookingInfoSubmitted event with correct customerId and submittedByEmail', async () => {

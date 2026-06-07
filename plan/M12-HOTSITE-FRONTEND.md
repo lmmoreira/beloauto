@@ -120,23 +120,25 @@ interface HotsiteBranding {
 
 ### M12-S02 — UC-027: Admin manages hotsite
 
-**Agent:** `backend-ts` + `bff-ts`  
-**Complexity:** M  
+**Agent:** `backend-ts` + `bff-ts` — spans both the `platform` context (hotsite content/publish/upload) and the `booking` context (photo-existence retrofit, see cross-cutting addition below)  
+**Complexity:** L  
 **Docs to load:** `docs/04-USE_CASES.md` § UC-027, `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md`
 
 **Description:**  
-Implement the admin endpoint for updating hotsite content (full branding token set + layout modules) and toggling publish status. Image URLs (logo, hero background, gallery images) are GCS paths obtained via M115-S01 — the backend stores and returns paths only, never signed URLs.
+Implement the admin endpoint for updating hotsite content (full branding token set + layout modules) and toggling publish status, plus the signed-URL flow that lets admins upload hotsite images (logo, hero/CTA backgrounds, gallery, about photos). The backend stores and returns GCS **paths** only — `filePath`, never signed URLs — fresh read-signed URLs are generated at display time. M115-S01 built the `IStorageService`/`GcsSignedUrlAdapter` and a booking-specific signed-URL endpoint; M12-S02 reuses that same port/adapter behind a hotsite-specific endpoint and path convention (M115-S01's note explicitly defers "the BFF endpoint for [hotsite uploads]" to "a separate story in M12" — this is that story).
 
 **Backend use cases:**
 - `UpdateHotsiteContentUseCase` — loads `HotsiteConfig` by `tenantId`, calls `config.updateContent(branding, layout)`, persists
 - `PublishHotsiteUseCase` — calls `config.publish()`, persists
 - `UnpublishHotsiteUseCase` — calls `config.unpublish()`, persists
+- `GenerateHotsiteImageSignedUrlUseCase` — generates a GCS signed upload URL for hotsite images via `IStorageService` (same adapter as M115-S01, no new storage code); returns `{ signedUrl, filePath, expiresAt }`. `filePath = tenants/<tenantId>/hotsite/<purpose>/<uuid>/<fileName>`, where `purpose` is one of `branding | hero | gallery | about | booking-cta` — keeps uploaded assets organized by what they're for, mirroring how booking attachments are grouped by `bookingId`
 
 **BFF endpoints:**
 - `PATCH /v1/tenants/hotsite` — requires JWT + `MANAGER` role; body: `{ branding?, layout? }`; returns `200`
 - `POST /v1/tenants/hotsite/publish` — requires JWT + `MANAGER` role; returns `200 { isPublished: true }`
 - `POST /v1/tenants/hotsite/unpublish` — requires JWT + `MANAGER` role; returns `200 { isPublished: false }`
 - `GET /v1/tenants/hotsite` — requires JWT + `MANAGER` role; returns full hotsite config including unpublished state
+- `POST /v1/tenants/hotsite/images/signed-url` — requires JWT + `MANAGER` role; body: `{ fileName, contentType, purpose }`; returns `201 { signedUrl, filePath, expiresAt }`
 
 **Branding validation rules:**
 - `primaryColor`, `secondaryColor`, `backgroundColor`, `textColor` — valid hex strings (`#rrggbb`)
@@ -144,7 +146,18 @@ Implement the admin endpoint for updating hotsite content (full branding token s
 - `buttonStyle` — one of `filled | outline | ghost`
 - `spacing` — one of `compact | comfortable | spacious`
 - `shadowStyle` — one of `none | subtle | strong`
-- `logoUrl`, image URLs in module `data` — must be valid GCS paths (`tenants/<uuid>/...`) obtained from M115-S01
+- `logoUrl`, image URLs in module `data` — must be valid GCS paths (`tenants/<uuid>/...`) obtained from the signed-URL endpoint above
+
+**Cross-cutting addition — verify uploaded images exist before persisting (booking + hotsite):**
+
+> **Why:** Pre-signed URLs let the frontend upload directly to GCS, bypassing the backend entirely. Today, nothing confirms that a `filePath`/`photoUrl` the client submits actually corresponds to a file that was uploaded — the backend only validates the *string format* (regex/URL shape — see `complete-booking.dto.ts:13`). A user could close the tab mid-upload, hit a network failure, or (in the worst case) hand-craft a request, and the booking/hotsite would persist a permanently broken image reference. Since images are core to both the booking experience (before/after photos drive trust and dispute resolution) and the hotsite (branding, galleries, hero banners — literally the product's visual identity for each tenant), this deserves a real check rather than trusting client-provided strings.
+>
+> **What:**
+> 1. Extend `IStorageService` (shared port, `storage.service.port.ts`) with `exists(storagePath: string): Promise<boolean>` — `GcsSignedUrlAdapter` implements it via a single GCS metadata lookup (`bucket.file(path).exists()`); `InMemoryStorageService` gets a trackable `existingPaths` set + `markAsUploaded()` helper so specs can simulate both "uploaded" and "missing" scenarios
+> 2. **Hotsite** (core to this story): `UpdateHotsiteContentUseCase` calls `exists()` for every non-empty image path in the submitted `branding`/`layout` (`logoUrl`, module `backgroundImageUrl`/`imageUrl`/`avatarUrl`, gallery `images[].url` where `source: 'upload'`) before calling `config.updateContent()`; throws `HotsiteImageNotUploadedError extends PlatformDomainError` → `400 hotsite-image-not-uploaded` if any path doesn't resolve
+> 3. **Booking retrofit** (bundled in as the "attachment" part of this story — same gap, same fix, same place, no separate story): `RequestBookingUseCase`, `RequestAuthenticatedBookingUseCase`, `SubmitBookingInfoUseCase`/`SubmitGuestBookingInfoUseCase`, and `CompleteBookingUseCase` each gain the same `exists()` check on every submitted photo path; throws a new `BookingPhotoNotUploadedError extends BookingDomainError` → `400 photo-not-uploaded`
+>
+> Acceptance criteria for this addition are folded into the list below (the three `image`/`photo`-existence checkboxes).
 
 **Acceptance criteria:**
 - [ ] PATCH updates branding and/or layout; unspecified fields unchanged (partial update)
@@ -157,6 +170,13 @@ Implement the admin endpoint for updating hotsite content (full branding token s
 - [ ] After publish → `GET /v1/tenants/slug/:slug` returns the manifest
 - [ ] After unpublish → `GET /v1/tenants/slug/:slug` returns `404`
 - [ ] Only `MANAGER` role can publish — `STAFF` returns `403`
+- [ ] `POST /v1/tenants/hotsite/images/signed-url` returns `filePath` matching `tenants/<tenantId>/hotsite/<purpose>/<uuid>/<fileName>`
+- [ ] `purpose` must be one of `branding | hero | gallery | about | booking-cta` — invalid value returns `400`
+- [ ] Only `MANAGER` role can request a hotsite image signed URL — `STAFF` returns `403`
+- [ ] Tenant isolation: a `MANAGER` JWT scoped to Tenant A cannot view, update, publish, unpublish, or request image-upload URLs for Tenant B's hotsite — every operation resolves `tenantId` from `TenantContext` (JWT claim, never a path param), so cross-tenant access is structurally impossible; integration test asserts Tenant B's `hotsite_configs` row is unaffected by Tenant A's calls
+- [ ] `PATCH /v1/tenants/hotsite` with a `logoUrl`/module image path not present in GCS → `400 hotsite-image-not-uploaded` (cross-cutting addition — `IStorageService.exists()`)
+- [ ] `POST /v1/bookings`, `POST /v1/bookings/authenticated`, `PATCH /bookings/:id/submit-info`, and `PATCH /bookings/:id/complete` each → `400 photo-not-uploaded` when a submitted photo path doesn't exist in GCS (cross-cutting addition — same `IStorageService.exists()` check retrofitted into `RequestBookingUseCase`, `RequestAuthenticatedBookingUseCase`, `SubmitBookingInfoUseCase`/`SubmitGuestBookingInfoUseCase`, `CompleteBookingUseCase`)
+- [ ] Happy path proven end-to-end for both contexts: upload to the signed URL first (GCS emulator), then submit with the returned `filePath` → succeeds without an existence error
 
 **Dependencies:** M12-S01, M03-S05, M115-S01
 

@@ -14,6 +14,7 @@ import {
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
 import { IServiceRepository, SERVICE_REPOSITORY } from '../ports/service-repository.port';
 import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
+import { PhotoExistenceService } from '../services/photo-existence.service';
 import { RequestBookingDto } from '../dtos/request-booking.dto';
 import { buildLineInputs, toBookingResult, BookingRequestResult } from './booking-request.helpers';
 
@@ -43,6 +44,7 @@ export class RequestBookingUseCase {
   constructor(
     @Inject(SERVICE_REPOSITORY) private readonly serviceRepo: IServiceRepository,
     private readonly slotConflictService: BookingSlotConflictService,
+    private readonly photoExistenceService: PhotoExistenceService,
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
@@ -69,6 +71,7 @@ export class RequestBookingUseCase {
     );
 
     await this.slotConflictService.assertSlotFree(tenantId, scheduledAt, totalDurationMins);
+    await this.photoExistenceService.assertPhotosUploaded(dto.beforeServicePhotoUrls ?? []);
 
     const lineInputs = buildLineInputs(dto.serviceIds, serviceMap);
 

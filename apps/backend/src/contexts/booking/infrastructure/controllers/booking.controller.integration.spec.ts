@@ -8,6 +8,8 @@ import {
 import { CustomerEntityBuilder } from '../../../../test/builders/customer/index';
 import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { futureDate } from '../../../../test/utils/date-helpers';
+import { STORAGE_SERVICE } from '../../../../shared/ports/storage.service.port';
+import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
 import { createBookingIntegrationApp } from '../../../../test/utils/booking-integration-app';
 import { PlatformModule } from '../../../platform/platform.module';
 import { CustomerEntity } from '../../../customer/infrastructure/entities/customer.entity';
@@ -28,6 +30,7 @@ function guestHeaders(tenantId: string) {
 describe('BookingController (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
+  let storageService: InMemoryStorageService;
   let tenantAId: string;
   let tenantBId: string;
   let serviceId: string;
@@ -38,6 +41,7 @@ describe('BookingController (integration)', () => {
     ({ app, ds } = await createBookingIntegrationApp({
       extraModules: [PlatformModule],
     }));
+    storageService = app.get(STORAGE_SERVICE);
 
     // Seed tenants via the canonical API — no direct DB access to the platform context.
     const { body: a } = await request(app.getHttpServer())
@@ -121,14 +125,17 @@ describe('BookingController (integration)', () => {
     });
 
     it('stores beforeServicePhotoUrls', async () => {
+      const photoPath = `tenants/${tenantAId}/uploads/upload-1/car.jpg`;
+      storageService.markAsUploaded(photoPath);
+
       const { body } = await request(app.getHttpServer())
         .post('/bookings')
         .set(guestHeaders(tenantAId))
-        .send({ ...validBody(), beforeServicePhotoUrls: ['https://s3.example.com/car.jpg'] })
+        .send({ ...validBody(), beforeServicePhotoUrls: [photoPath] })
         .expect(201);
 
       const row = await ds.getRepository(BookingEntity).findOne({ where: { id: body.bookingId } });
-      expect(row!.beforeServicePhotoUrls).toContain('https://s3.example.com/car.jpg');
+      expect(row!.beforeServicePhotoUrls).toContain(photoPath);
     });
 
     it('stores pickupAddress when a pickup service is selected', async () => {
@@ -1444,13 +1451,15 @@ describe('BookingController (integration)', () => {
     it('persists actualPriceCharged, completedBy, adminNotes in DB', async () => {
       const bookingId = await createAndApproveBooking(`${futureDate(61)}T09:00:00.000Z`);
       const lineIds = await getLineIds(bookingId);
+      const photoPath = `tenants/${tenantAId}/bookings/${bookingId}/after.jpg`;
+      storageService.markAsUploaded(photoPath);
 
       await request(app.getHttpServer())
         .patch(`/bookings/${bookingId}/complete`)
         .set(actorHeaders(tenantAId, STAFF_ID, 'MANAGER'))
         .send({
           lines: lineIds.map((lineId) => ({ lineId, actualPriceCharged: 75 })),
-          afterServicePhotoUrls: ['tenants/t/bookings/b/after.jpg'],
+          afterServicePhotoUrls: [photoPath],
           adminNotes: 'Looks great',
         })
         .expect(200);
@@ -1461,7 +1470,7 @@ describe('BookingController (integration)', () => {
       expect(row!.status).toBe('COMPLETED');
       expect(row!.completedBy).toBe(STAFF_ID);
       expect(row!.adminNotes).toBe('Looks great');
-      expect(row!.afterServicePhotoUrls).toEqual(['tenants/t/bookings/b/after.jpg']);
+      expect(row!.afterServicePhotoUrls).toEqual([photoPath]);
 
       const lines = await ds
         .getRepository(BookingLineEntity)

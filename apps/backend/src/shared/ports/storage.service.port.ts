@@ -11,4 +11,5 @@ export interface IStorageService {
     contentType: string,
     operation: 'write',
   ): Promise<GenerateSignedUrlResult>;
+  exists(storagePath: string): Promise<boolean>;
 }
