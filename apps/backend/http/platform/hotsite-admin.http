@@ -172,7 +172,7 @@ Content-Type: application/json
 
 ###
 
-### 422 — Publish with no enabled modules
+### 400 — Publish with no enabled modules
 POST {{baseUrl}}/tenants/hotsite/publish
 X-Tenant-ID: {{tenantId}}
 X-Actor-ID: {{managerId}}

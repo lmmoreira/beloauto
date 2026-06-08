@@ -1,0 +1,166 @@
+import { makeBackendHttp } from '../test/backend-http.mock';
+import { HotsiteAdminController } from './hotsite-admin.controller';
+import {
+  GenerateHotsiteImageSignedUrlResponse,
+  HotsiteAdminContentResponse,
+  PublishHotsiteResponse,
+  UnpublishHotsiteResponse,
+} from './tenants.types';
+
+const hotsiteContentResponse: HotsiteAdminContentResponse = {
+  branding: {
+    primaryColor: '#2563eb',
+    secondaryColor: '#eff6ff',
+    backgroundColor: '#ffffff',
+    textColor: '#111827',
+    headingFontFamily: 'Inter, sans-serif',
+    bodyFontFamily: 'Inter, sans-serif',
+    logoUrl: '',
+    borderRadius: 'rounded',
+    buttonStyle: 'filled',
+    spacing: 'comfortable',
+    shadowStyle: 'subtle',
+  },
+  layout: [
+    {
+      type: 'HERO',
+      enabled: true,
+      data: {
+        variant: 'centered',
+        title: 'Bem-vindo',
+        ctaLabel: 'Agendar agora',
+        ctaTarget: 'booking',
+      },
+    },
+  ],
+  isPublished: false,
+  updatedAt: '2026-06-01T10:00:00.000Z',
+};
+
+const publishedResponse: PublishHotsiteResponse = { isPublished: true };
+const unpublishedResponse: UnpublishHotsiteResponse = { isPublished: false };
+
+const signedUrlResponse: GenerateHotsiteImageSignedUrlResponse = {
+  signedUrl: 'https://storage.example.com/signed?token=abc',
+  filePath: 'tenants/10000000-0000-4000-8000-000000000001/hotsite/branding/u1/logo.png',
+  expiresAt: '2026-06-01T10:15:00.000Z',
+};
+
+describe('HotsiteAdminController', () => {
+  afterEach(() => jest.resetAllMocks());
+
+  describe('getContent()', () => {
+    it('calls GET /tenants/hotsite and returns the content', async () => {
+      const backendHttp = makeBackendHttp({
+        get: jest.fn().mockResolvedValue(hotsiteContentResponse),
+      });
+      const controller = new HotsiteAdminController(backendHttp);
+
+      const result = await controller.getContent();
+
+      expect(backendHttp.get).toHaveBeenCalledWith('/tenants/hotsite');
+      expect(result).toEqual(hotsiteContentResponse);
+    });
+
+    it('propagates errors from the backend', async () => {
+      const backendHttp = makeBackendHttp({ get: jest.fn().mockRejectedValue(new Error('404')) });
+      const controller = new HotsiteAdminController(backendHttp);
+
+      await expect(controller.getContent()).rejects.toThrow('404');
+    });
+  });
+
+  describe('updateContent()', () => {
+    it('calls PATCH /tenants/hotsite with the parsed body and returns the updated content', async () => {
+      const backendHttp = makeBackendHttp({
+        patch: jest.fn().mockResolvedValue(hotsiteContentResponse),
+      });
+      const controller = new HotsiteAdminController(backendHttp);
+      const body = { branding: { primaryColor: '#FF5733' } };
+
+      const result = await controller.updateContent(body);
+
+      expect(backendHttp.patch).toHaveBeenCalledWith('/tenants/hotsite', body);
+      expect(result).toEqual(hotsiteContentResponse);
+    });
+
+    it('propagates errors from the backend', async () => {
+      const backendHttp = makeBackendHttp({ patch: jest.fn().mockRejectedValue(new Error('400')) });
+      const controller = new HotsiteAdminController(backendHttp);
+
+      await expect(
+        controller.updateContent({ branding: { primaryColor: '#FF5733' } }),
+      ).rejects.toThrow('400');
+    });
+  });
+
+  describe('publish()', () => {
+    it('calls POST /tenants/hotsite/publish and returns isPublished true', async () => {
+      const backendHttp = makeBackendHttp({ post: jest.fn().mockResolvedValue(publishedResponse) });
+      const controller = new HotsiteAdminController(backendHttp);
+
+      const result = await controller.publish();
+
+      expect(backendHttp.post).toHaveBeenCalledWith('/tenants/hotsite/publish', {});
+      expect(result).toEqual(publishedResponse);
+    });
+
+    it('propagates errors from the backend', async () => {
+      const backendHttp = makeBackendHttp({ post: jest.fn().mockRejectedValue(new Error('400')) });
+      const controller = new HotsiteAdminController(backendHttp);
+
+      await expect(controller.publish()).rejects.toThrow('400');
+    });
+  });
+
+  describe('unpublish()', () => {
+    it('calls POST /tenants/hotsite/unpublish and returns isPublished false', async () => {
+      const backendHttp = makeBackendHttp({
+        post: jest.fn().mockResolvedValue(unpublishedResponse),
+      });
+      const controller = new HotsiteAdminController(backendHttp);
+
+      const result = await controller.unpublish();
+
+      expect(backendHttp.post).toHaveBeenCalledWith('/tenants/hotsite/unpublish', {});
+      expect(result).toEqual(unpublishedResponse);
+    });
+
+    it('propagates errors from the backend', async () => {
+      const backendHttp = makeBackendHttp({ post: jest.fn().mockRejectedValue(new Error('404')) });
+      const controller = new HotsiteAdminController(backendHttp);
+
+      await expect(controller.unpublish()).rejects.toThrow('404');
+    });
+  });
+
+  describe('generateImageSignedUrl()', () => {
+    it('calls POST /tenants/hotsite/images/signed-url with the parsed body and returns the signed URL', async () => {
+      const backendHttp = makeBackendHttp({ post: jest.fn().mockResolvedValue(signedUrlResponse) });
+      const controller = new HotsiteAdminController(backendHttp);
+      const body = {
+        fileName: 'logo.png',
+        contentType: 'image/png' as const,
+        purpose: 'branding' as const,
+      };
+
+      const result = await controller.generateImageSignedUrl(body);
+
+      expect(backendHttp.post).toHaveBeenCalledWith('/tenants/hotsite/images/signed-url', body);
+      expect(result).toEqual(signedUrlResponse);
+    });
+
+    it('propagates errors from the backend', async () => {
+      const backendHttp = makeBackendHttp({ post: jest.fn().mockRejectedValue(new Error('400')) });
+      const controller = new HotsiteAdminController(backendHttp);
+
+      await expect(
+        controller.generateImageSignedUrl({
+          fileName: 'logo.png',
+          contentType: 'image/png',
+          purpose: 'branding',
+        }),
+      ).rejects.toThrow('400');
+    });
+  });
+});
