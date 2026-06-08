@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { EmailDeliveryChannelAdapter } from './email-delivery-channel.adapter';
 import { IEmailSender } from '../../application/ports/email-sender.port';
-import { INotificationTenantPort } from '../../application/ports/notification-tenant.port';
+import { INotificationPlatformPort } from '../../application/ports/notification-platform.port';
 import { OutboundMessage } from '../../application/ports/notification-dispatcher.port';
 
 const TENANT_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -12,7 +12,7 @@ function makeAdapter(fromEmail: string | null = null): {
   configService: ConfigService;
 } {
   const emailSender: jest.Mocked<IEmailSender> = { send: jest.fn().mockResolvedValue(undefined) };
-  const tenantPort: INotificationTenantPort = {
+  const tenantPort: INotificationPlatformPort = {
     getTenantInfo: jest.fn().mockResolvedValue({
       id: TENANT_ID,
       name: 'Lava Car',

@@ -3,7 +3,7 @@ import {
   ILoyaltyEntryRepository,
   LOYALTY_ENTRY_REPOSITORY,
 } from '../../ports/loyalty-entry-repository.port';
-import { IServiceCatalogPort, SERVICE_CATALOG_PORT } from '../../ports/service-catalog.port';
+import { ILoyaltyBookingPort, LOYALTY_BOOKING_PORT } from '../../ports/loyalty-booking.port';
 
 export interface GetLoyaltyEntriesDto {
   tenantId: string;
@@ -31,7 +31,7 @@ export interface GetLoyaltyEntriesResult {
 export class GetLoyaltyEntriesUseCase {
   constructor(
     @Inject(LOYALTY_ENTRY_REPOSITORY) private readonly entryRepo: ILoyaltyEntryRepository,
-    @Inject(SERVICE_CATALOG_PORT) private readonly serviceCatalog: IServiceCatalogPort,
+    @Inject(LOYALTY_BOOKING_PORT) private readonly serviceCatalog: ILoyaltyBookingPort,
   ) {}
 
   async execute(dto: GetLoyaltyEntriesDto): Promise<GetLoyaltyEntriesResult> {

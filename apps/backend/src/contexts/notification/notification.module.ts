@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TransactionManagerModule } from '../../shared/infrastructure/transaction-manager.module';
+import { BookingModule } from '../booking/booking.module';
 import { PlatformModule } from '../platform/platform.module';
 import { StaffModule } from '../staff/staff.module';
 import { CustomerModule } from '../customer/customer.module';
@@ -9,9 +10,9 @@ import { NOTIFICATION_CUSTOMER_PORT } from './application/ports/notification-cus
 import { NOTIFICATION_DISPATCHER } from './application/ports/notification-dispatcher.port';
 import { NOTIFICATION_LOG_REPOSITORY } from './application/ports/notification-log-repository.port';
 import { NOTIFICATION_PROCESSED_EVENT_REPOSITORY } from './application/ports/processed-event-repository.port';
-import { NOTIFICATION_SERVICE_PORT } from './application/ports/notification-service.port';
+import { NOTIFICATION_BOOKING_PORT } from './application/ports/notification-booking.port';
 import { NOTIFICATION_STAFF_PORT } from './application/ports/notification-staff.port';
-import { NOTIFICATION_TENANT_PORT } from './application/ports/notification-tenant.port';
+import { NOTIFICATION_PLATFORM_PORT } from './application/ports/notification-platform.port';
 import { SendStaffInvitationUseCase } from './application/use-cases/send-staff-invitation/send-staff-invitation.use-case';
 import { SendBookingRequestedNotificationUseCase } from './application/use-cases/send-booking-requested-notification/send-booking-requested-notification.use-case';
 import { SendBookingApprovedNotificationUseCase } from './application/use-cases/send-booking-approved-notification/send-booking-approved-notification.use-case';
@@ -25,10 +26,10 @@ import { SendBookingReminderDueNotificationUseCase } from './application/use-cas
 import { SendBookingReminderDueTodayNotificationUseCase } from './application/use-cases/send-booking-reminder-due-today-notification/send-booking-reminder-due-today-notification.use-case';
 import { SendAdminDailyScheduleReminderNotificationUseCase } from './application/use-cases/send-admin-daily-schedule-reminder-notification/send-admin-daily-schedule-reminder-notification.use-case';
 import { SendPointsExpiringSoonNotificationUseCase } from './application/use-cases/send-points-expiring-soon-notification/send-points-expiring-soon-notification.use-case';
-import { CustomerInfoAdapter } from './infrastructure/cross-context/customer-info.adapter';
-import { ServiceInfoAdapter } from './infrastructure/cross-context/service-info.adapter';
-import { StaffInfoAdapter } from './infrastructure/cross-context/staff-info.adapter';
-import { TenantInfoAdapter } from './infrastructure/cross-context/tenant-info.adapter';
+import { NotificationCustomerAdapter } from './infrastructure/cross-context/notification-customer.adapter';
+import { NotificationBookingAdapter } from './infrastructure/cross-context/notification-booking.adapter';
+import { NotificationStaffAdapter } from './infrastructure/cross-context/notification-staff.adapter';
+import { NotificationPlatformAdapter } from './infrastructure/cross-context/notification-platform.adapter';
 import { DELIVERY_CHANNEL } from './application/ports/delivery-channel.port';
 import { EMAIL_SENDER } from './application/ports/email-sender.port';
 import { MailhogEmailAdapter } from './infrastructure/delivery/mailhog-email.adapter';
@@ -66,6 +67,7 @@ import { DeadLetterHandler } from './infrastructure/events/dead-letter.handler';
       NotificationTemplateEntity,
     ]),
     TransactionManagerModule,
+    BookingModule,
     StaffModule,
     PlatformModule,
     CustomerModule,
@@ -97,10 +99,10 @@ import { DeadLetterHandler } from './infrastructure/events/dead-letter.handler';
       inject: [EmailDeliveryChannelAdapter],
     },
     { provide: NOTIFICATION_DISPATCHER, useClass: NotificationDispatcherAdapter },
-    { provide: NOTIFICATION_STAFF_PORT, useClass: StaffInfoAdapter },
-    { provide: NOTIFICATION_TENANT_PORT, useClass: TenantInfoAdapter },
-    { provide: NOTIFICATION_CUSTOMER_PORT, useClass: CustomerInfoAdapter },
-    { provide: NOTIFICATION_SERVICE_PORT, useClass: ServiceInfoAdapter },
+    { provide: NOTIFICATION_STAFF_PORT, useClass: NotificationStaffAdapter },
+    { provide: NOTIFICATION_PLATFORM_PORT, useClass: NotificationPlatformAdapter },
+    { provide: NOTIFICATION_CUSTOMER_PORT, useClass: NotificationCustomerAdapter },
+    { provide: NOTIFICATION_BOOKING_PORT, useClass: NotificationBookingAdapter },
     SendStaffInvitationUseCase,
     SendBookingRequestedNotificationUseCase,
     SendBookingApprovedNotificationUseCase,

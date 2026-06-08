@@ -1,7 +1,7 @@
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
-import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationPlatformPort } from '../../../../../test/infrastructure/in-memory-notification-platform.port';
 import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingReminderDueNotificationDtoBuilder } from '../../../../../test/builders/notification/send-booking-reminder-due-notification-dto.builder';
@@ -21,7 +21,7 @@ describe('SendBookingReminderDueTodayNotificationUseCase', () => {
   let dispatcher: InMemoryNotificationDispatcher;
   let logRepo: InMemoryNotificationLogRepository;
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
-  let tenantPort: InMemoryNotificationTenantPort;
+  let tenantPort: InMemoryNotificationPlatformPort;
   let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendBookingReminderDueTodayNotificationUseCase;
 
@@ -29,7 +29,7 @@ describe('SendBookingReminderDueTodayNotificationUseCase', () => {
     dispatcher = new InMemoryNotificationDispatcher();
     logRepo = new InMemoryNotificationLogRepository();
     processedEventRepo = new InMemoryNotificationProcessedEventRepository();
-    tenantPort = new InMemoryNotificationTenantPort();
+    tenantPort = new InMemoryNotificationPlatformPort();
     templateRepo = new InMemoryNotificationTemplateRepository();
 
     tenantPort.setTenantInfo(TENANT_ID, {

@@ -3,7 +3,7 @@ import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { actorHeaders } from '../../../../test/utils/actor-headers';
 import { createLoyaltyIntegrationApp } from '../../../../test/utils/loyalty-integration-app';
-import { InMemoryServiceCatalogPort } from '../../../../test/infrastructure/in-memory-service-catalog.port';
+import { InMemoryLoyaltyBookingPort } from '../../../../test/infrastructure/in-memory-loyalty-booking.port';
 import { LoyaltyBalanceEntity } from '../entities/loyalty-balance.entity';
 import { LoyaltyEntryEntity } from '../entities/loyalty-entry.entity';
 import { LoyaltyRedemptionEntity } from '../entities/loyalty-redemption.entity';
@@ -21,7 +21,7 @@ const SERVICE_ID = 'cccccccc-0000-7000-8000-000000000001';
 describe('LoyaltyController (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
-  let serviceCatalog: InMemoryServiceCatalogPort;
+  let serviceCatalog: InMemoryLoyaltyBookingPort;
   let tenantId: string;
 
   beforeAll(async () => {

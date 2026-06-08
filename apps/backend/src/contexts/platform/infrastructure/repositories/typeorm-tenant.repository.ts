@@ -52,6 +52,11 @@ export class TypeOrmTenantRepository implements ITenantRepository {
     return entities.map((e) => this.toDomain(e));
   }
 
+  async findAllActive(): Promise<Tenant[]> {
+    const entities = await this.repo.findBy({ isActive: true });
+    return entities.map((e) => this.toDomain(e));
+  }
+
   async existsBySlug(slug: string): Promise<boolean> {
     return this.repo.existsBy({ slug });
   }

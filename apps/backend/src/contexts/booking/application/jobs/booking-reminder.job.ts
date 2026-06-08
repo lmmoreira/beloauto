@@ -7,8 +7,8 @@ import { Booking, BookingStatus } from '../../domain/booking.aggregate';
 import { BookingReminderDue } from '../../domain/events/booking-reminder-due.event';
 import { BookingReminderDueToday } from '../../domain/events/booking-reminder-due-today.event';
 import { BOOKING_REPOSITORY, IBookingRepository } from '../ports/booking-repository.port';
-import { CUSTOMER_PROFILE_PORT, ICustomerProfilePort } from '../ports/customer-profile.port';
-import { REMINDER_TENANT_PORT, IReminderTenantPort } from '../ports/reminder-tenant.port';
+import { BOOKING_CUSTOMER_PORT, IBookingCustomerPort } from '../ports/booking-customer.port';
+import { BOOKING_PLATFORM_PORT, IBookingPlatformPort } from '../ports/booking-platform.port';
 
 const WINDOW_START = '06:00';
 const WINDOW_END = '06:29';
@@ -16,9 +16,9 @@ const WINDOW_END = '06:29';
 @Injectable()
 export class BookingReminderJob {
   constructor(
-    @Inject(REMINDER_TENANT_PORT) private readonly tenantPort: IReminderTenantPort,
+    @Inject(BOOKING_PLATFORM_PORT) private readonly tenantPort: IBookingPlatformPort,
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
-    @Inject(CUSTOMER_PROFILE_PORT) private readonly customerProfilePort: ICustomerProfilePort,
+    @Inject(BOOKING_CUSTOMER_PORT) private readonly customerProfilePort: IBookingCustomerPort,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
   ) {}
 

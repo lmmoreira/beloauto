@@ -22,9 +22,9 @@ import {
   NOTIFICATION_PROCESSED_EVENT_REPOSITORY,
 } from '../../ports/processed-event-repository.port';
 import {
-  INotificationServicePort,
-  NOTIFICATION_SERVICE_PORT,
-} from '../../ports/notification-service.port';
+  INotificationBookingPort,
+  NOTIFICATION_BOOKING_PORT,
+} from '../../ports/notification-booking.port';
 import {
   INotificationTemplateRepository,
   NOTIFICATION_TEMPLATE_REPOSITORY,
@@ -45,7 +45,7 @@ export class SendServicePointsEarnedNotificationUseCase extends BaseNotification
     processedEventRepo: INotificationProcessedEventRepository,
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_CUSTOMER_PORT) private readonly customerPort: INotificationCustomerPort,
-    @Inject(NOTIFICATION_SERVICE_PORT) private readonly servicePort: INotificationServicePort,
+    @Inject(NOTIFICATION_BOOKING_PORT) private readonly servicePort: INotificationBookingPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
     @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
     private readonly templateRepo: INotificationTemplateRepository,

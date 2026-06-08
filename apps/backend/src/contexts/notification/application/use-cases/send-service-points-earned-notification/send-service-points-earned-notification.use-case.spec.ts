@@ -2,7 +2,7 @@ import { InMemoryNotificationCustomerPort } from '../../../../../test/infrastruc
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
-import { InMemoryNotificationServicePort } from '../../../../../test/infrastructure/in-memory-notification-service.port';
+import { InMemoryNotificationBookingPort } from '../../../../../test/infrastructure/in-memory-notification-booking.port';
 import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendServicePointsEarnedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
@@ -28,7 +28,7 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let customerPort: InMemoryNotificationCustomerPort;
-  let servicePort: InMemoryNotificationServicePort;
+  let servicePort: InMemoryNotificationBookingPort;
   let templateRepo: InMemoryNotificationTemplateRepository;
 
   beforeEach(() => {
@@ -36,7 +36,7 @@ describe('SendServicePointsEarnedNotificationUseCase', () => {
     logRepo = new InMemoryNotificationLogRepository();
     processedEventRepo = new InMemoryNotificationProcessedEventRepository();
     customerPort = new InMemoryNotificationCustomerPort();
-    servicePort = new InMemoryNotificationServicePort();
+    servicePort = new InMemoryNotificationBookingPort();
     templateRepo = new InMemoryNotificationTemplateRepository();
 
     customerPort.setCustomer(TENANT_ID, CUSTOMER_ID, {

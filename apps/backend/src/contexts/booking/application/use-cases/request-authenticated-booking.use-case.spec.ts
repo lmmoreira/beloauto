@@ -1,11 +1,11 @@
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
-import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { InMemoryBookingPlatformPort } from '../../../../test/infrastructure/in-memory-booking-platform.port';
 import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
 import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
 import { PhotoExistenceService } from '../services/photo-existence.service';
-import { InMemoryCustomerProfilePort } from '../../../../test/infrastructure/in-memory-customer-profile.port';
+import { InMemoryBookingCustomerPort } from '../../../../test/infrastructure/in-memory-booking-customer.port';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
 import { ServiceBuilder } from '../../../../test/builders/booking/index';
@@ -32,7 +32,7 @@ describe('RequestAuthenticatedBookingUseCase', () => {
   let availabilityPort: InMemoryBookingAvailabilityPort;
   let bookingRepo: InMemoryBookingRepository;
   let eventBus: InMemoryEventBus;
-  let customerProfilePort: InMemoryCustomerProfilePort;
+  let customerProfilePort: InMemoryBookingCustomerPort;
   let storageService: InMemoryStorageService;
   let useCase: RequestAuthenticatedBookingUseCase;
   let serviceId: string;
@@ -42,7 +42,7 @@ describe('RequestAuthenticatedBookingUseCase', () => {
     availabilityPort = new InMemoryBookingAvailabilityPort();
     bookingRepo = new InMemoryBookingRepository();
     eventBus = new InMemoryEventBus();
-    customerProfilePort = new InMemoryCustomerProfilePort();
+    customerProfilePort = new InMemoryBookingCustomerPort();
     storageService = new InMemoryStorageService();
     const txManager = new InMemoryTransactionManager();
     const ctx = new TenantContextBuilder()
@@ -56,7 +56,7 @@ describe('RequestAuthenticatedBookingUseCase', () => {
     useCase = new RequestAuthenticatedBookingUseCase(
       customerProfilePort,
       serviceRepo,
-      new BookingSlotConflictService(availabilityPort, new InMemoryScheduleTenantSettingsPort()),
+      new BookingSlotConflictService(availabilityPort, new InMemoryBookingPlatformPort()),
       new PhotoExistenceService(storageService),
       bookingRepo,
       txManager,
@@ -127,7 +127,7 @@ describe('RequestAuthenticatedBookingUseCase', () => {
   });
 
   it('throws BookingCustomerNotFoundError when customer does not exist', async () => {
-    const emptyPort = new InMemoryCustomerProfilePort();
+    const emptyPort = new InMemoryBookingCustomerPort();
     const ctx = new TenantContextBuilder()
       .withTenantId(TENANT_A)
       .withCorrelationId(CORRELATION_ID)
@@ -137,7 +137,7 @@ describe('RequestAuthenticatedBookingUseCase', () => {
     const uc = new RequestAuthenticatedBookingUseCase(
       emptyPort,
       serviceRepo,
-      new BookingSlotConflictService(availabilityPort, new InMemoryScheduleTenantSettingsPort()),
+      new BookingSlotConflictService(availabilityPort, new InMemoryBookingPlatformPort()),
       new PhotoExistenceService(storageService),
       bookingRepo,
       new InMemoryTransactionManager(),

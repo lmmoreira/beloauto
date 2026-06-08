@@ -15,10 +15,7 @@ import {
   ILoyaltyEntryRepository,
   LOYALTY_ENTRY_REPOSITORY,
 } from '../../ports/loyalty-entry-repository.port';
-import {
-  ILoyaltyTenantSettingsPort,
-  LOYALTY_TENANT_SETTINGS_PORT,
-} from '../../ports/loyalty-tenant-settings.port';
+import { ILoyaltyPlatformPort, LOYALTY_PLATFORM_PORT } from '../../ports/loyalty-platform.port';
 import {
   IProcessedEventRepository,
   PROCESSED_EVENT_REPOSITORY,
@@ -54,8 +51,8 @@ export class RecordLoyaltyEntriesUseCase {
     @Inject(LOYALTY_BALANCE_REPOSITORY) private readonly balanceRepo: ILoyaltyBalanceRepository,
     @Inject(PROCESSED_EVENT_REPOSITORY)
     private readonly processedEventRepo: IProcessedEventRepository,
-    @Inject(LOYALTY_TENANT_SETTINGS_PORT)
-    private readonly tenantSettingsPort: ILoyaltyTenantSettingsPort,
+    @Inject(LOYALTY_PLATFORM_PORT)
+    private readonly tenantSettingsPort: ILoyaltyPlatformPort,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
   ) {}

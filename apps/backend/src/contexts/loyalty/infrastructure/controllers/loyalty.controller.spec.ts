@@ -1,7 +1,7 @@
 import { InMemoryLoyaltyBalanceRepository } from '../../../../test/infrastructure/in-memory-loyalty-balance.repository';
 import { InMemoryLoyaltyEntryRepository } from '../../../../test/infrastructure/in-memory-loyalty-entry.repository';
 import { InMemoryLoyaltyRedemptionRepository } from '../../../../test/infrastructure/in-memory-loyalty-redemption.repository';
-import { InMemoryServiceCatalogPort } from '../../../../test/infrastructure/in-memory-service-catalog.port';
+import { InMemoryLoyaltyBookingPort } from '../../../../test/infrastructure/in-memory-loyalty-booking.port';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import {
@@ -24,7 +24,7 @@ describe('LoyaltyController', () => {
   let balanceRepo: InMemoryLoyaltyBalanceRepository;
   let entryRepo: InMemoryLoyaltyEntryRepository;
   let redemptionRepo: InMemoryLoyaltyRedemptionRepository;
-  let serviceCatalog: InMemoryServiceCatalogPort;
+  let serviceCatalog: InMemoryLoyaltyBookingPort;
   let txManager: InMemoryTransactionManager;
   let controller: LoyaltyController;
 
@@ -34,7 +34,7 @@ describe('LoyaltyController', () => {
       txManager = new InMemoryTransactionManager();
       entryRepo = new InMemoryLoyaltyEntryRepository();
       redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
-      serviceCatalog = new InMemoryServiceCatalogPort();
+      serviceCatalog = new InMemoryLoyaltyBookingPort();
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_ID)
         .withActorId(CUSTOMER_ID)
@@ -76,7 +76,7 @@ describe('LoyaltyController', () => {
       txManager = new InMemoryTransactionManager();
       entryRepo = new InMemoryLoyaltyEntryRepository();
       redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
-      serviceCatalog = new InMemoryServiceCatalogPort();
+      serviceCatalog = new InMemoryLoyaltyBookingPort();
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_ID)
         .withActorId(CUSTOMER_ID)
@@ -118,7 +118,7 @@ describe('LoyaltyController', () => {
       txManager = new InMemoryTransactionManager();
       entryRepo = new InMemoryLoyaltyEntryRepository();
       redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
-      serviceCatalog = new InMemoryServiceCatalogPort();
+      serviceCatalog = new InMemoryLoyaltyBookingPort();
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_ID)
         .withActorId(CUSTOMER_ID)
@@ -159,7 +159,7 @@ describe('LoyaltyController', () => {
       txManager = new InMemoryTransactionManager();
       entryRepo = new InMemoryLoyaltyEntryRepository();
       redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
-      serviceCatalog = new InMemoryServiceCatalogPort();
+      serviceCatalog = new InMemoryLoyaltyBookingPort();
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_ID)
         .withActorId(STAFF_ID)
@@ -200,7 +200,7 @@ describe('LoyaltyController', () => {
       txManager = new InMemoryTransactionManager();
       entryRepo = new InMemoryLoyaltyEntryRepository();
       redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
-      serviceCatalog = new InMemoryServiceCatalogPort();
+      serviceCatalog = new InMemoryLoyaltyBookingPort();
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_ID)
         .withActorId(STAFF_ID)
@@ -236,7 +236,7 @@ describe('LoyaltyController', () => {
       txManager = new InMemoryTransactionManager();
       entryRepo = new InMemoryLoyaltyEntryRepository();
       redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
-      serviceCatalog = new InMemoryServiceCatalogPort();
+      serviceCatalog = new InMemoryLoyaltyBookingPort();
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_ID)
         .withActorId(STAFF_ID)
@@ -272,7 +272,7 @@ describe('LoyaltyController', () => {
       txManager = new InMemoryTransactionManager();
       entryRepo = new InMemoryLoyaltyEntryRepository();
       redemptionRepo = new InMemoryLoyaltyRedemptionRepository();
-      serviceCatalog = new InMemoryServiceCatalogPort();
+      serviceCatalog = new InMemoryLoyaltyBookingPort();
       const ctx = new TenantContextBuilder()
         .withTenantId(TENANT_ID)
         .withActorId(STAFF_ID)

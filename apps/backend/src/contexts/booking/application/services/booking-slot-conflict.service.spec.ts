@@ -1,5 +1,5 @@
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
-import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { InMemoryBookingPlatformPort } from '../../../../test/infrastructure/in-memory-booking-platform.port';
 import { futureDate } from '../../../../test/utils/date-helpers';
 import { BookingSlotUnavailableError } from '../../domain/errors/booking-domain.error';
 import { BookingSlotConflictService } from './booking-slot-conflict.service';
@@ -13,10 +13,7 @@ describe('BookingSlotConflictService', () => {
 
   beforeEach(() => {
     availabilityPort = new InMemoryBookingAvailabilityPort();
-    service = new BookingSlotConflictService(
-      availabilityPort,
-      new InMemoryScheduleTenantSettingsPort(),
-    );
+    service = new BookingSlotConflictService(availabilityPort, new InMemoryBookingPlatformPort());
   });
 
   it('resolves when no existing slots', async () => {

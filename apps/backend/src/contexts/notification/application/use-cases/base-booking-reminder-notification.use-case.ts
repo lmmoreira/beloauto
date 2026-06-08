@@ -5,7 +5,7 @@ import { SendBookingReminderDueNotificationDto } from '../dtos/send-booking-remi
 import { INotificationDispatcher } from '../ports/notification-dispatcher.port';
 import { INotificationLogRepository } from '../ports/notification-log-repository.port';
 import { INotificationProcessedEventRepository } from '../ports/processed-event-repository.port';
-import { INotificationTenantPort } from '../ports/notification-tenant.port';
+import { INotificationPlatformPort } from '../ports/notification-platform.port';
 import { INotificationTemplateRepository } from '../ports/notification-template-repository.port';
 import { BaseNotificationUseCase } from './base-notification.use-case';
 
@@ -20,7 +20,7 @@ export abstract class BaseBookingReminderNotificationUseCase extends BaseNotific
     logRepo: INotificationLogRepository,
     processedEventRepo: INotificationProcessedEventRepository,
     dispatcher: INotificationDispatcher,
-    protected readonly tenantPort: INotificationTenantPort,
+    protected readonly tenantPort: INotificationPlatformPort,
     txManager: ITransactionManager,
     protected readonly templateRepo: INotificationTemplateRepository,
   ) {

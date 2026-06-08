@@ -2,7 +2,7 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
-import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationPlatformPort } from '../../../../../test/infrastructure/in-memory-notification-platform.port';
 import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendAdminDailyScheduleReminderNotificationDtoBuilder } from '../../../../../test/builders/notification/send-admin-daily-schedule-reminder-notification-dto.builder';
@@ -23,7 +23,7 @@ describe('SendAdminDailyScheduleReminderNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let staffPort: InMemoryNotificationStaffPort;
-  let tenantPort: InMemoryNotificationTenantPort;
+  let tenantPort: InMemoryNotificationPlatformPort;
   let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendAdminDailyScheduleReminderNotificationUseCase;
 
@@ -32,7 +32,7 @@ describe('SendAdminDailyScheduleReminderNotificationUseCase', () => {
     logRepo = new InMemoryNotificationLogRepository();
     processedEventRepo = new InMemoryNotificationProcessedEventRepository();
     staffPort = new InMemoryNotificationStaffPort();
-    tenantPort = new InMemoryNotificationTenantPort();
+    tenantPort = new InMemoryNotificationPlatformPort();
     templateRepo = new InMemoryNotificationTemplateRepository();
 
     tenantPort.setTenantInfo(TENANT_ID, {

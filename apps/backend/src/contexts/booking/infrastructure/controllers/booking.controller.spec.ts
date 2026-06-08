@@ -2,8 +2,8 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
-import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
-import { InMemoryCustomerProfilePort } from '../../../../test/infrastructure/in-memory-customer-profile.port';
+import { InMemoryBookingPlatformPort } from '../../../../test/infrastructure/in-memory-booking-platform.port';
+import { InMemoryBookingCustomerPort } from '../../../../test/infrastructure/in-memory-booking-customer.port';
 import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
@@ -64,7 +64,7 @@ describe('BookingController', () => {
       .withActorId(STAFF_ID)
       .withActorRole('MANAGER')
       .build();
-    const customerProfilePort = new InMemoryCustomerProfilePort();
+    const customerProfilePort = new InMemoryBookingCustomerPort();
     customerProfilePort.setProfile(CUSTOMER_ID, {
       email: 'cliente@example.com',
       name: 'Maria Silva',
@@ -76,7 +76,7 @@ describe('BookingController', () => {
         serviceRepo,
         new BookingSlotConflictService(
           new InMemoryBookingAvailabilityPort(),
-          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingPlatformPort(),
         ),
         new PhotoExistenceService(storageService),
         bookingRepo,
@@ -89,7 +89,7 @@ describe('BookingController', () => {
         serviceRepo,
         new BookingSlotConflictService(
           new InMemoryBookingAvailabilityPort(),
-          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingPlatformPort(),
         ),
         new PhotoExistenceService(storageService),
         bookingRepo,
@@ -102,7 +102,7 @@ describe('BookingController', () => {
         bookingRepo,
         new BookingSlotConflictService(
           new InMemoryBookingAvailabilityPort(),
-          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingPlatformPort(),
         ),
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -138,7 +138,7 @@ describe('BookingController', () => {
       new CancelBookingAsCustomerUseCase(
         customerCtx,
         bookingRepo,
-        new InMemoryScheduleTenantSettingsPort(),
+        new InMemoryBookingPlatformPort(),
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
       ),
@@ -153,7 +153,7 @@ describe('BookingController', () => {
         bookingRepo,
         new BookingSlotConflictService(
           new InMemoryBookingAvailabilityPort(),
-          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingPlatformPort(),
         ),
         new InMemoryTransactionManager(),
         new InMemoryEventBus(),
@@ -214,7 +214,7 @@ describe('BookingController', () => {
       const ctrl = new BookingController(
         new RequestBookingUseCase(
           serviceRepo,
-          new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
+          new BookingSlotConflictService(conflictPort, new InMemoryBookingPlatformPort()),
           new PhotoExistenceService(storageService),
           repoB,
           new InMemoryTransactionManager(),
@@ -222,11 +222,11 @@ describe('BookingController', () => {
           ctx,
         ),
         new RequestAuthenticatedBookingUseCase(
-          new InMemoryCustomerProfilePort(),
+          new InMemoryBookingCustomerPort(),
           serviceRepo,
           new BookingSlotConflictService(
             new InMemoryBookingAvailabilityPort(),
-            new InMemoryScheduleTenantSettingsPort(),
+            new InMemoryBookingPlatformPort(),
           ),
           new PhotoExistenceService(storageService),
           repoB,
@@ -239,7 +239,7 @@ describe('BookingController', () => {
           repoB,
           new BookingSlotConflictService(
             new InMemoryBookingAvailabilityPort(),
-            new InMemoryScheduleTenantSettingsPort(),
+            new InMemoryBookingPlatformPort(),
           ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -275,7 +275,7 @@ describe('BookingController', () => {
         new CancelBookingAsCustomerUseCase(
           customerCtxB,
           repoB,
-          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingPlatformPort(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -290,7 +290,7 @@ describe('BookingController', () => {
           repoB,
           new BookingSlotConflictService(
             new InMemoryBookingAvailabilityPort(),
-            new InMemoryScheduleTenantSettingsPort(),
+            new InMemoryBookingPlatformPort(),
           ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -374,7 +374,7 @@ describe('BookingController', () => {
           serviceRepo,
           new BookingSlotConflictService(
             new InMemoryBookingAvailabilityPort(),
-            new InMemoryScheduleTenantSettingsPort(),
+            new InMemoryBookingPlatformPort(),
           ),
           new PhotoExistenceService(storageService),
           bookingRepoB,
@@ -383,11 +383,11 @@ describe('BookingController', () => {
           new TenantContextBuilder().withTenantId(TENANT_A).build(),
         ),
         new RequestAuthenticatedBookingUseCase(
-          new InMemoryCustomerProfilePort(),
+          new InMemoryBookingCustomerPort(),
           serviceRepo,
           new BookingSlotConflictService(
             new InMemoryBookingAvailabilityPort(),
-            new InMemoryScheduleTenantSettingsPort(),
+            new InMemoryBookingPlatformPort(),
           ),
           new PhotoExistenceService(storageService),
           bookingRepoB,
@@ -398,7 +398,7 @@ describe('BookingController', () => {
         new ApproveBookingUseCase(
           staffCtx,
           bookingRepoB,
-          new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
+          new BookingSlotConflictService(conflictPort, new InMemoryBookingPlatformPort()),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -433,7 +433,7 @@ describe('BookingController', () => {
         new CancelBookingAsCustomerUseCase(
           customerCtxC,
           bookingRepoB,
-          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingPlatformPort(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -446,7 +446,7 @@ describe('BookingController', () => {
         new RescheduleBookingUseCase(
           staffCtx,
           bookingRepoB,
-          new BookingSlotConflictService(conflictPort, new InMemoryScheduleTenantSettingsPort()),
+          new BookingSlotConflictService(conflictPort, new InMemoryBookingPlatformPort()),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -797,7 +797,7 @@ describe('BookingController', () => {
 
     it('maps CustomerPhoneNotSetError to 422', async () => {
       const { CustomerPhoneNotSetError } = await import('../../domain/errors/booking-domain.error');
-      const noPhonePort = new InMemoryCustomerProfilePort();
+      const noPhonePort = new InMemoryBookingCustomerPort();
       noPhonePort.setProfile(CUSTOMER_ID, {
         email: 'nophone@example.com',
         name: 'Sem Telefone',
@@ -820,7 +820,7 @@ describe('BookingController', () => {
           serviceRepo,
           new BookingSlotConflictService(
             new InMemoryBookingAvailabilityPort(),
-            new InMemoryScheduleTenantSettingsPort(),
+            new InMemoryBookingPlatformPort(),
           ),
           new PhotoExistenceService(storageService),
           repoC,
@@ -833,7 +833,7 @@ describe('BookingController', () => {
           serviceRepo,
           new BookingSlotConflictService(
             new InMemoryBookingAvailabilityPort(),
-            new InMemoryScheduleTenantSettingsPort(),
+            new InMemoryBookingPlatformPort(),
           ),
           new PhotoExistenceService(storageService),
           repoC,
@@ -846,7 +846,7 @@ describe('BookingController', () => {
           repoC,
           new BookingSlotConflictService(
             new InMemoryBookingAvailabilityPort(),
-            new InMemoryScheduleTenantSettingsPort(),
+            new InMemoryBookingPlatformPort(),
           ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
@@ -882,7 +882,7 @@ describe('BookingController', () => {
         new CancelBookingAsCustomerUseCase(
           ctx,
           repoC,
-          new InMemoryScheduleTenantSettingsPort(),
+          new InMemoryBookingPlatformPort(),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),
         ),
@@ -897,7 +897,7 @@ describe('BookingController', () => {
           repoC,
           new BookingSlotConflictService(
             new InMemoryBookingAvailabilityPort(),
-            new InMemoryScheduleTenantSettingsPort(),
+            new InMemoryBookingPlatformPort(),
           ),
           new InMemoryTransactionManager(),
           new InMemoryEventBus(),

@@ -3,7 +3,7 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
-import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationPlatformPort } from '../../../../../test/infrastructure/in-memory-notification-platform.port';
 import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendStaffInvitationDtoBuilder } from '../../../../../test/builders/notification/index';
@@ -32,7 +32,7 @@ describe('SendStaffInvitationUseCase', () => {
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let dispatcher: InMemoryNotificationDispatcher;
   let staffPort: InMemoryNotificationStaffPort;
-  let tenantPort: InMemoryNotificationTenantPort;
+  let tenantPort: InMemoryNotificationPlatformPort;
   let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendStaffInvitationUseCase;
 
@@ -42,7 +42,7 @@ describe('SendStaffInvitationUseCase', () => {
     dispatcher = new InMemoryNotificationDispatcher();
     staffPort = new InMemoryNotificationStaffPort();
     staffPort.setStaff(TENANT_ID, { id: STAFF_ID, email: 'maria@lavacar.com.br', name: 'Maria' });
-    tenantPort = new InMemoryNotificationTenantPort();
+    tenantPort = new InMemoryNotificationPlatformPort();
     tenantPort.setTenantInfo(TENANT_ID, {
       id: TENANT_ID,
       name: 'Lava Car',

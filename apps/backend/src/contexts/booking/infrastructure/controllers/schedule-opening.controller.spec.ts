@@ -2,7 +2,7 @@ import { HttpException } from '@nestjs/common';
 import { futureDate, nextWeekday, pastDate } from '../../../../test/utils/date-helpers';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryScheduleOpeningRepository } from '../../../../test/repositories/booking/in-memory-schedule-opening.repository';
-import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { InMemoryBookingPlatformPort } from '../../../../test/infrastructure/in-memory-booking-platform.port';
 import { ScheduleOpeningBuilder } from '../../../../test/builders/booking/schedule-opening.builder';
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { OpenScheduleUseCase } from '../../application/use-cases/open-schedule.use-case';
@@ -22,7 +22,7 @@ describe('ScheduleOpeningController', () => {
     const ctx = new TenantContextBuilder().withTenantId(TENANT_ID).withActorId(ACTOR_ID).build();
     const tx = new InMemoryTransactionManager();
     controller = new ScheduleOpeningController(
-      new OpenScheduleUseCase(repo, new InMemoryScheduleTenantSettingsPort(), tx, ctx),
+      new OpenScheduleUseCase(repo, new InMemoryBookingPlatformPort(), tx, ctx),
       new RemoveScheduleOpeningUseCase(repo, tx, ctx),
       new ListOpeningsUseCase(repo, ctx),
     );

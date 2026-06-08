@@ -1,7 +1,7 @@
 import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructure/in-memory-notification-dispatcher';
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
-import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationPlatformPort } from '../../../../../test/infrastructure/in-memory-notification-platform.port';
 import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingApprovedNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
@@ -21,7 +21,7 @@ describe('SendBookingApprovedNotificationUseCase', () => {
   let logRepo: InMemoryNotificationLogRepository;
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let dispatcher: InMemoryNotificationDispatcher;
-  let tenantPort: InMemoryNotificationTenantPort;
+  let tenantPort: InMemoryNotificationPlatformPort;
   let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendBookingApprovedNotificationUseCase;
 
@@ -29,7 +29,7 @@ describe('SendBookingApprovedNotificationUseCase', () => {
     logRepo = new InMemoryNotificationLogRepository();
     processedEventRepo = new InMemoryNotificationProcessedEventRepository();
     dispatcher = new InMemoryNotificationDispatcher();
-    tenantPort = new InMemoryNotificationTenantPort();
+    tenantPort = new InMemoryNotificationPlatformPort();
     templateRepo = new InMemoryNotificationTemplateRepository();
 
     tenantPort.setTenantInfo(TENANT_ID, {
@@ -80,7 +80,7 @@ describe('SendBookingApprovedNotificationUseCase', () => {
   });
 
   it('falls back to America/Sao_Paulo when tenant info is unavailable', async () => {
-    const emptyTenantPort = new InMemoryNotificationTenantPort();
+    const emptyTenantPort = new InMemoryNotificationPlatformPort();
     const uc = new SendBookingApprovedNotificationUseCase(
       logRepo,
       processedEventRepo,

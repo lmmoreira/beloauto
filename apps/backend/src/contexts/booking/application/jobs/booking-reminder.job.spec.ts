@@ -1,7 +1,7 @@
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
-import { InMemoryReminderTenantPort } from '../../../../test/infrastructure/in-memory-reminder-tenant.port';
+import { InMemoryBookingPlatformPort } from '../../../../test/infrastructure/in-memory-booking-platform.port';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
-import { InMemoryCustomerProfilePort } from '../../../../test/infrastructure/in-memory-customer-profile.port';
+import { InMemoryBookingCustomerPort } from '../../../../test/infrastructure/in-memory-booking-customer.port';
 import { BookingBuilder, BookingLineBuilder } from '../../../../test/builders/booking/index';
 import { BookingStatus } from '../../domain/booking.aggregate';
 import { BookingReminderJob } from './booking-reminder.job';
@@ -29,16 +29,16 @@ const TOMORROW = new Date('2026-06-02T09:00:00.000Z');
 const TODAY = new Date('2026-06-01T09:00:00.000Z');
 
 describe('BookingReminderJob', () => {
-  let tenantPort: InMemoryReminderTenantPort;
+  let tenantPort: InMemoryBookingPlatformPort;
   let bookingRepo: InMemoryBookingRepository;
-  let customerProfilePort: InMemoryCustomerProfilePort;
+  let customerProfilePort: InMemoryBookingCustomerPort;
   let eventBus: InMemoryEventBus;
   let job: BookingReminderJob;
 
   beforeEach(() => {
-    tenantPort = new InMemoryReminderTenantPort();
+    tenantPort = new InMemoryBookingPlatformPort();
     bookingRepo = new InMemoryBookingRepository();
-    customerProfilePort = new InMemoryCustomerProfilePort();
+    customerProfilePort = new InMemoryBookingCustomerPort();
     eventBus = new InMemoryEventBus();
     job = new BookingReminderJob(tenantPort, bookingRepo, customerProfilePort, eventBus);
   });

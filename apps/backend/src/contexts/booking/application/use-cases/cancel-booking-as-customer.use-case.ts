@@ -12,10 +12,7 @@ import {
 } from '../../domain/errors/booking-domain.error';
 import { BookingStatus } from '../../domain/booking.aggregate';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
-import {
-  IScheduleTenantSettingsPort,
-  SCHEDULE_TENANT_SETTINGS_PORT,
-} from '../ports/schedule-tenant-settings.port';
+import { IBookingPlatformPort, BOOKING_PLATFORM_PORT } from '../ports/booking-platform.port';
 import { CancelBookingAsCustomerDto } from '../dtos/cancel-booking-as-customer.dto';
 
 export interface CancelBookingAsCustomerUseCaseResult {
@@ -28,8 +25,8 @@ export class CancelBookingAsCustomerUseCase {
   constructor(
     private readonly tenantContext: TenantContext,
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
-    @Inject(SCHEDULE_TENANT_SETTINGS_PORT)
-    private readonly scheduleTenantSettings: IScheduleTenantSettingsPort,
+    @Inject(BOOKING_PLATFORM_PORT)
+    private readonly scheduleTenantSettings: IBookingPlatformPort,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
   ) {}

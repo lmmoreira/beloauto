@@ -1,4 +1,4 @@
-import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { InMemoryBookingPlatformPort } from '../../../../test/infrastructure/in-memory-booking-platform.port';
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryBookingRepository } from '../../../../test/repositories/booking/in-memory-booking.repository';
@@ -23,13 +23,13 @@ const CORRELATION_ID = 'corr-cancel-customer-test';
 describe('CancelBookingAsCustomerUseCase', () => {
   let bookingRepo: InMemoryBookingRepository;
   let eventBus: InMemoryEventBus;
-  let settingsPort: InMemoryScheduleTenantSettingsPort;
+  let settingsPort: InMemoryBookingPlatformPort;
   let useCase: CancelBookingAsCustomerUseCase;
 
   beforeEach(() => {
     bookingRepo = new InMemoryBookingRepository();
     eventBus = new InMemoryEventBus();
-    settingsPort = new InMemoryScheduleTenantSettingsPort();
+    settingsPort = new InMemoryBookingPlatformPort();
     const ctx = new TenantContextBuilder()
       .withTenantId(TENANT_A)
       .withCorrelationId(CORRELATION_ID)

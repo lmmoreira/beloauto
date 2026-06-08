@@ -6,7 +6,7 @@ import { TenantContextBuilder } from '../../../../test/factories/tenant-context.
 import { HotsiteConfigBuilder } from '../../../../test/builders/platform';
 import { InMemoryHotsiteConfigRepository } from '../../../../test/repositories/platform/in-memory-hotsite-config.repository';
 import { InMemoryTenantRepository } from '../../../../test/repositories/platform/in-memory-tenant.repository';
-import { InMemoryBookingLookupPort } from '../../../../test/infrastructure/in-memory-booking-lookup.port';
+import { InMemoryPlatformBookingPort } from '../../../../test/infrastructure/in-memory-platform-booking.port';
 import { HotsiteImagePathsService } from '../../domain/services/hotsite-image-paths.service';
 import { HotsiteImageUrlResolver } from '../../domain/services/hotsite-image-url-resolver.service';
 import { FeatureBookingPhotoUseCase } from '../../application/use-cases/feature-booking-photo.use-case';
@@ -26,7 +26,7 @@ describe('HotsiteAdminController', () => {
   let repo: InMemoryHotsiteConfigRepository;
   let tenantRepo: InMemoryTenantRepository;
   let storageService: InMemoryStorageService;
-  let bookingLookup: InMemoryBookingLookupPort;
+  let bookingLookup: InMemoryPlatformBookingPort;
   let frontendRevalidation: InMemoryFrontendRevalidationPort;
   let controller: HotsiteAdminController;
 
@@ -34,7 +34,7 @@ describe('HotsiteAdminController', () => {
     repo = new InMemoryHotsiteConfigRepository();
     tenantRepo = new InMemoryTenantRepository();
     storageService = new InMemoryStorageService();
-    bookingLookup = new InMemoryBookingLookupPort();
+    bookingLookup = new InMemoryPlatformBookingPort();
     frontendRevalidation = new InMemoryFrontendRevalidationPort();
     const now = new Date();
     await tenantRepo.save(
