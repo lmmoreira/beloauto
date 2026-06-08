@@ -3,7 +3,7 @@
 **Scope:** `apps/bff/`  
 **Type:** Technical Debt — Refactor + Test Coverage  
 **Created:** 2026-05-19  
-**Status:** Pending
+**Status:** Resolved — 2026-06-08 (Stories 1–5 implemented across 3 PRs; guard scenarios covered in `staff.controller.component.spec.ts`)
 
 ---
 
