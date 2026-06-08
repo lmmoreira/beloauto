@@ -71,7 +71,10 @@ export class RequestBookingUseCase {
     );
 
     await this.slotConflictService.assertSlotFree(tenantId, scheduledAt, totalDurationMins);
-    await this.photoExistenceService.assertPhotosUploaded(dto.beforeServicePhotoUrls ?? []);
+    await this.photoExistenceService.assertPhotosUploaded(
+      dto.beforeServicePhotoUrls ?? [],
+      tenantId,
+    );
 
     const lineInputs = buildLineInputs(dto.serviceIds, serviceMap);
 

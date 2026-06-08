@@ -197,7 +197,7 @@ Lets a `MANAGER` configure branding, layout modules, and publish status. Mirrors
 - `PATCH /v1/tenants/hotsite` → body `{ branding?, layout? }` (partial update — unspecified fields unchanged); `200` returns updated state
   - Validation: hex colors must be `#rrggbb` · `borderRadius/buttonStyle/spacing/shadowStyle` must be known enum values · layout module `type` must be a known `HotsiteModuleType` — any violation → `400`
   - Image existence check: every non-empty image path submitted (`branding.logoUrl`, module `backgroundImageUrl`/`imageUrl`/`avatarUrl`, `GALLERY` images with `source: 'upload'`) must resolve to a real object in GCS — verified via `IStorageService.exists()` before persisting; an unresolvable path returns `400 hotsite-image-not-uploaded`
-- `POST /v1/tenants/hotsite/publish` → `200 { isPublished: true }`; `422` if the layout has no `enabled: true` modules
+- `POST /v1/tenants/hotsite/publish` → `200 { isPublished: true }`; `400 publish-requires-enabled-module` if the layout has no `enabled: true` modules
 - `POST /v1/tenants/hotsite/unpublish` → `200 { isPublished: false }`
 - All four require JWT + `MANAGER` role — `STAFF` gets `403`
 

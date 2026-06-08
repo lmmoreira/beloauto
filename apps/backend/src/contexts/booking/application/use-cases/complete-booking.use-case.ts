@@ -47,7 +47,7 @@ export class CompleteBookingUseCase {
       throw new CompleteBookingLinesIncompleteError(missingLineIds);
     }
 
-    await this.photoExistenceService.assertPhotosUploaded(dto.afterServicePhotoUrls);
+    await this.photoExistenceService.assertPhotosUploaded(dto.afterServicePhotoUrls, tenantId);
 
     const lineActualPrices = new Map(
       dto.lines.map((l) => [l.lineId, Money.from(l.actualPriceCharged)]),

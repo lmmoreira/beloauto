@@ -39,7 +39,7 @@ export class SubmitBookingInfoUseCase {
 
     if (booking.customerId !== customerId) throw new BookingForbiddenError();
 
-    await this.photoExistenceService.assertPhotosUploaded(dto.photoUrls ?? []);
+    await this.photoExistenceService.assertPhotosUploaded(dto.photoUrls ?? [], tenantId);
 
     booking.submitInformation(
       booking.contactEmail.address,

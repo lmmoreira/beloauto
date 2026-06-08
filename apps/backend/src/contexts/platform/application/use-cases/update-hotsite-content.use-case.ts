@@ -63,7 +63,9 @@ export class UpdateHotsiteContentUseCase {
     branding: HotsiteBranding,
     layout: HotsiteModule[],
   ): Promise<void> {
+    const tenantPrefix = `tenants/${this.tenantContext.tenantId}/`;
     for (const path of this.collectImagePaths(branding, layout)) {
+      if (!path.startsWith(tenantPrefix)) throw new HotsiteImageNotUploadedError(path);
       const exists = await this.storageService.exists(path);
       if (!exists) throw new HotsiteImageNotUploadedError(path);
     }

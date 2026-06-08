@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { HexColor } from '../../../../shared/value-objects/hex-color.vo';
 
 const HEX_COLOR_MESSAGE = { message: 'must be a valid hex color (e.g. #FF5733)' };
+const LOGO_URL_REGEX = /^$|^tenants\/[^/]+\/hotsite\/.+$/;
+const LOGO_URL_MESSAGE = {
+  message: 'logoUrl must be empty (to clear) or a tenants/<id>/hotsite/... storage path',
+};
 
 const HotsiteBrandingSchema = z
   .object({
@@ -11,7 +15,7 @@ const HotsiteBrandingSchema = z
     textColor: z.string().refine(HexColor.isValid, HEX_COLOR_MESSAGE),
     headingFontFamily: z.string().min(1),
     bodyFontFamily: z.string().min(1),
-    logoUrl: z.string(),
+    logoUrl: z.string().regex(LOGO_URL_REGEX, LOGO_URL_MESSAGE),
     borderRadius: z.enum(['sharp', 'rounded', 'pill']),
     buttonStyle: z.enum(['filled', 'outline', 'ghost']),
     spacing: z.enum(['compact', 'comfortable', 'spacious']),

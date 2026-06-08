@@ -11,6 +11,10 @@ import {
 } from './tenants.types';
 
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+const LOGO_URL_REGEX = /^$|^tenants\/[^/]+\/hotsite\/.+$/;
+const LOGO_URL_MESSAGE = {
+  message: 'logoUrl must be empty (to clear) or a tenants/<id>/hotsite/... storage path',
+};
 
 const HotsiteBrandingBodySchema = z
   .object({
@@ -20,7 +24,7 @@ const HotsiteBrandingBodySchema = z
     textColor: z.string().regex(HEX_COLOR_REGEX),
     headingFontFamily: z.string().min(1),
     bodyFontFamily: z.string().min(1),
-    logoUrl: z.string(),
+    logoUrl: z.string().regex(LOGO_URL_REGEX, LOGO_URL_MESSAGE),
     borderRadius: z.enum(['sharp', 'rounded', 'pill']),
     buttonStyle: z.enum(['filled', 'outline', 'ghost']),
     spacing: z.enum(['compact', 'comfortable', 'spacious']),

@@ -197,4 +197,15 @@ describe('UpdateHotsiteContentUseCase', () => {
     const savedB = await repo.findByTenantId(TENANT_B);
     expect(savedB!.branding.primaryColor).toBe(DEFAULT_HOTSITE_BRANDING.primaryColor);
   });
+
+  it('tenant isolation: rejects a logoUrl pointing at another tenant storage path even if it exists', async () => {
+    const config = new HotsiteConfigBuilder().withTenantId(TENANT_A).buildWithContent();
+    await repo.save(config);
+    const otherTenantPath = `tenants/${TENANT_B}/hotsite/branding/u1/logo.png`;
+    storageService.markAsUploaded(otherTenantPath);
+
+    await expect(
+      useCase.execute({ branding: { logoUrl: otherTenantPath } }),
+    ).rejects.toBeInstanceOf(HotsiteImageNotUploadedError);
+  });
 });
