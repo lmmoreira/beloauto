@@ -10,9 +10,7 @@ describe('NotificationBookingAdapter', () => {
 
   beforeEach(() => {
     serviceQueryService = { findByIds: jest.fn() };
-    adapter = new NotificationBookingAdapter(
-      serviceQueryService as unknown as ServiceQueryService,
-    );
+    adapter = new NotificationBookingAdapter(serviceQueryService as unknown as ServiceQueryService);
   });
 
   afterEach(() => jest.resetAllMocks());

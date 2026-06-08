@@ -10,9 +10,7 @@ describe('LoyaltyBookingAdapter', () => {
 
   beforeEach(() => {
     serviceQueryService = { findByIds: jest.fn() };
-    adapter = new LoyaltyBookingAdapter(
-      serviceQueryService as unknown as ServiceQueryService,
-    );
+    adapter = new LoyaltyBookingAdapter(serviceQueryService as unknown as ServiceQueryService);
   });
 
   afterEach(() => jest.resetAllMocks());
