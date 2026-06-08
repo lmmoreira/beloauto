@@ -7,9 +7,9 @@ import {
 import { EMAIL_SENDER, IEmailSender } from '../../application/ports/email-sender.port';
 import { OutboundMessage } from '../../application/ports/notification-dispatcher.port';
 import {
-  INotificationTenantPort,
-  NOTIFICATION_TENANT_PORT,
-} from '../../application/ports/notification-tenant.port';
+  INotificationPlatformPort,
+  NOTIFICATION_PLATFORM_PORT,
+} from '../../application/ports/notification-platform.port';
 
 @Injectable()
 export class EmailDeliveryChannelAdapter implements IDeliveryChannel {
@@ -17,7 +17,7 @@ export class EmailDeliveryChannelAdapter implements IDeliveryChannel {
 
   constructor(
     @Inject(EMAIL_SENDER) private readonly emailSender: IEmailSender,
-    @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
+    @Inject(NOTIFICATION_PLATFORM_PORT) private readonly tenantPort: INotificationPlatformPort,
     private readonly config: ConfigService,
   ) {}
 

@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BookingModule } from '../booking/booking.module';
 import { StorageModule } from '../../shared/infrastructure/storage.module';
 import { TenantModule } from '../../shared/tenant/tenant.module';
-import { BOOKING_LOOKUP_PORT } from './application/ports/booking-lookup.port';
+import { PLATFORM_BOOKING_PORT } from './application/ports/platform-booking.port';
 import { FRONTEND_REVALIDATION_PORT } from './application/ports/frontend-revalidation.port';
 import { HOTSITE_CONFIG_REPOSITORY } from './application/ports/hotsite-config-repository.port';
 import { TENANT_REPOSITORY } from './application/ports/tenant-repository.port';
@@ -23,7 +23,8 @@ import { UpdateTenantSettingsUseCase } from './application/use-cases/update-tena
 import { HotsiteConfigEntity } from './infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from './infrastructure/entities/tenant.entity';
 import { FrontendRevalidationAdapter } from './infrastructure/adapters/frontend-revalidation.adapter';
-import { BookingLookupAdapter } from './infrastructure/cross-context/booking-lookup.adapter';
+import { PlatformBookingAdapter } from './infrastructure/cross-context/platform-booking.adapter';
+import { TenantQueryService } from './application/services/tenant-query.service';
 import { HotsiteAdminController } from './infrastructure/controllers/hotsite-admin.controller';
 import { HotsiteController } from './infrastructure/controllers/hotsite.controller';
 import { InternalTenantController } from './infrastructure/controllers/internal-tenant.controller';
@@ -49,7 +50,8 @@ import { TypeOrmTenantRepository } from './infrastructure/repositories/typeorm-t
   providers: [
     { provide: TENANT_REPOSITORY, useClass: TypeOrmTenantRepository },
     { provide: HOTSITE_CONFIG_REPOSITORY, useClass: TypeOrmHotsiteConfigRepository },
-    { provide: BOOKING_LOOKUP_PORT, useClass: BookingLookupAdapter },
+    { provide: PLATFORM_BOOKING_PORT, useClass: PlatformBookingAdapter },
+    TenantQueryService,
     { provide: FRONTEND_REVALIDATION_PORT, useClass: FrontendRevalidationAdapter },
     HotsiteImagePathsService,
     HotsiteImageUrlResolver,
@@ -65,6 +67,6 @@ import { TypeOrmTenantRepository } from './infrastructure/repositories/typeorm-t
     UpdateHotsiteContentUseCase,
     UpdateTenantSettingsUseCase,
   ],
-  exports: [GetTenantByIdUseCase],
+  exports: [GetTenantByIdUseCase, TenantQueryService],
 })
 export class PlatformModule {}

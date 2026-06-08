@@ -14,7 +14,7 @@ import {
   CustomerPhoneNotSetError,
 } from '../../domain/errors/booking-domain.error';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
-import { ICustomerProfilePort, CUSTOMER_PROFILE_PORT } from '../ports/customer-profile.port';
+import { IBookingCustomerPort, BOOKING_CUSTOMER_PORT } from '../ports/booking-customer.port';
 import { IServiceRepository, SERVICE_REPOSITORY } from '../ports/service-repository.port';
 import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
 import { PhotoExistenceService } from '../services/photo-existence.service';
@@ -26,7 +26,7 @@ export type RequestAuthenticatedBookingUseCaseResult = BookingRequestResult;
 @Injectable()
 export class RequestAuthenticatedBookingUseCase {
   constructor(
-    @Inject(CUSTOMER_PROFILE_PORT) private readonly customerProfilePort: ICustomerProfilePort,
+    @Inject(BOOKING_CUSTOMER_PORT) private readonly customerProfilePort: IBookingCustomerPort,
     @Inject(SERVICE_REPOSITORY) private readonly serviceRepo: IServiceRepository,
     private readonly slotConflictService: BookingSlotConflictService,
     private readonly photoExistenceService: PhotoExistenceService,

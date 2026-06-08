@@ -2,7 +2,7 @@ import { InMemoryNotificationDispatcher } from '../../../../../test/infrastructu
 import { InMemoryNotificationLogRepository } from '../../../../../test/repositories/notification/in-memory-notification-log.repository';
 import { InMemoryNotificationProcessedEventRepository } from '../../../../../test/repositories/notification/in-memory-processed-event.repository';
 import { InMemoryNotificationStaffPort } from '../../../../../test/infrastructure/in-memory-notification-staff.port';
-import { InMemoryNotificationTenantPort } from '../../../../../test/infrastructure/in-memory-notification-tenant.port';
+import { InMemoryNotificationPlatformPort } from '../../../../../test/infrastructure/in-memory-notification-platform.port';
 import { InMemoryNotificationTemplateRepository } from '../../../../../test/repositories/notification/in-memory-notification-template.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import { SendBookingRescheduledNotificationDtoBuilder } from '../../../../../test/builders/notification/index';
@@ -23,7 +23,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
   let processedEventRepo: InMemoryNotificationProcessedEventRepository;
   let dispatcher: InMemoryNotificationDispatcher;
   let staffPort: InMemoryNotificationStaffPort;
-  let tenantPort: InMemoryNotificationTenantPort;
+  let tenantPort: InMemoryNotificationPlatformPort;
   let templateRepo: InMemoryNotificationTemplateRepository;
   let useCase: SendBookingRescheduledNotificationUseCase;
 
@@ -33,7 +33,7 @@ describe('SendBookingRescheduledNotificationUseCase', () => {
     dispatcher = new InMemoryNotificationDispatcher();
     staffPort = new InMemoryNotificationStaffPort();
     staffPort.setManagerEmails(TENANT_ID, ['manager@lavacar.com.br']);
-    tenantPort = new InMemoryNotificationTenantPort();
+    tenantPort = new InMemoryNotificationPlatformPort();
     tenantPort.setTenantInfo(TENANT_ID, {
       id: TENANT_ID,
       name: 'Lava Car',

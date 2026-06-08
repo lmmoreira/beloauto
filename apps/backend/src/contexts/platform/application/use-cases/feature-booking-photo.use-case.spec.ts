@@ -1,6 +1,6 @@
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
-import { InMemoryBookingLookupPort } from '../../../../test/infrastructure/in-memory-booking-lookup.port';
+import { InMemoryPlatformBookingPort } from '../../../../test/infrastructure/in-memory-platform-booking.port';
 import {
   FeaturedBookingNotFoundError,
   PhotoNotOnBookingError,
@@ -14,12 +14,12 @@ const BEFORE_PHOTO = `tenants/${TENANT_A}/bookings/${BOOKING_ID}/before-1.jpg`;
 const AFTER_PHOTO = `tenants/${TENANT_A}/bookings/${BOOKING_ID}/after-1.jpg`;
 
 describe('FeatureBookingPhotoUseCase', () => {
-  let bookingLookup: InMemoryBookingLookupPort;
+  let bookingLookup: InMemoryPlatformBookingPort;
   let storageService: InMemoryStorageService;
   let useCase: FeatureBookingPhotoUseCase;
 
   beforeEach(() => {
-    bookingLookup = new InMemoryBookingLookupPort();
+    bookingLookup = new InMemoryPlatformBookingPort();
     storageService = new InMemoryStorageService();
     bookingLookup.setBooking(TENANT_A, {
       id: BOOKING_ID,

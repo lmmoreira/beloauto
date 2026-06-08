@@ -8,11 +8,10 @@ import { CustomerModule } from '../customer/customer.module';
 import { PlatformSettingsModule } from '../platform/platform-settings.module';
 import { BOOKING_AVAILABILITY_PORT } from './application/ports/booking-availability.port';
 import { BOOKING_REPOSITORY } from './application/ports/booking-repository.port';
-import { CUSTOMER_PROFILE_PORT } from './application/ports/customer-profile.port';
-import { REMINDER_TENANT_PORT } from './application/ports/reminder-tenant.port';
+import { BOOKING_CUSTOMER_PORT } from './application/ports/booking-customer.port';
+import { BOOKING_PLATFORM_PORT } from './application/ports/booking-platform.port';
 import { SCHEDULE_CLOSURE_REPOSITORY } from './application/ports/schedule-closure-repository.port';
 import { SCHEDULE_OPENING_REPOSITORY } from './application/ports/schedule-opening-repository.port';
-import { SCHEDULE_TENANT_SETTINGS_PORT } from './application/ports/schedule-tenant-settings.port';
 import { SERVICE_REPOSITORY } from './application/ports/service-repository.port';
 import { AdminScheduleReminderJob } from './application/jobs/admin-schedule-reminder.job';
 import { BookingReminderJob } from './application/jobs/booking-reminder.job';
@@ -44,6 +43,7 @@ import { CompleteBookingUseCase } from './application/use-cases/complete-booking
 import { GenerateAttachmentSignedUrlUseCase } from './application/use-cases/generate-attachment-signed-url.use-case';
 import { BookingAttachmentsController } from './infrastructure/controllers/booking-attachments.controller';
 import { BookingQueryService } from './application/services/booking-query.service';
+import { ServiceQueryService } from './application/services/service-query.service';
 import { BookingSlotConflictService } from './application/services/booking-slot-conflict.service';
 import { PhotoExistenceService } from './application/services/photo-existence.service';
 import { BookingEntity } from './infrastructure/entities/booking.entity';
@@ -51,7 +51,7 @@ import { BookingLineEntity } from './infrastructure/entities/booking-line.entity
 import { ScheduleClosureEntity } from './infrastructure/entities/schedule-closure.entity';
 import { ScheduleOpeningEntity } from './infrastructure/entities/schedule-opening.entity';
 import { ServiceEntity } from './infrastructure/entities/service.entity';
-import { CustomerProfileAdapter } from './infrastructure/adapters/customer-profile.adapter';
+import { BookingCustomerAdapter } from './infrastructure/cross-context/booking-customer.adapter';
 import { BookingController } from './infrastructure/controllers/booking.controller';
 import { CronBookingController } from './infrastructure/controllers/cron-booking.controller';
 import { ScheduleAvailabilityController } from './infrastructure/controllers/schedule-availability.controller';
@@ -59,8 +59,7 @@ import { ScheduleAvailabilitySummaryController } from './infrastructure/controll
 import { ScheduleClosureController } from './infrastructure/controllers/schedule-closure.controller';
 import { ScheduleOpeningController } from './infrastructure/controllers/schedule-opening.controller';
 import { ServiceController } from './infrastructure/controllers/service.controller';
-import { ReminderTenantAdapter } from './infrastructure/cross-context/reminder-tenant.adapter';
-import { ScheduleTenantSettingsAdapter } from './infrastructure/cross-context/schedule-tenant-settings.adapter';
+import { BookingPlatformAdapter } from './infrastructure/cross-context/booking-platform.adapter';
 import { TypeOrmBookingAvailabilityAdapter } from './infrastructure/cross-context/typeorm-booking-availability.adapter';
 import { TypeOrmBookingRepository } from './infrastructure/repositories/typeorm-booking.repository';
 import { TypeOrmScheduleClosureRepository } from './infrastructure/repositories/typeorm-schedule-closure.repository';
@@ -98,15 +97,15 @@ import { AvailabilityService } from './domain/services/availability.service';
     { provide: SERVICE_REPOSITORY, useClass: TypeOrmServiceRepository },
     { provide: SCHEDULE_CLOSURE_REPOSITORY, useClass: TypeOrmScheduleClosureRepository },
     { provide: SCHEDULE_OPENING_REPOSITORY, useClass: TypeOrmScheduleOpeningRepository },
-    { provide: SCHEDULE_TENANT_SETTINGS_PORT, useClass: ScheduleTenantSettingsAdapter },
+    { provide: BOOKING_PLATFORM_PORT, useClass: BookingPlatformAdapter },
     { provide: BOOKING_AVAILABILITY_PORT, useClass: TypeOrmBookingAvailabilityAdapter },
     { provide: BOOKING_REPOSITORY, useClass: TypeOrmBookingRepository },
-    { provide: CUSTOMER_PROFILE_PORT, useClass: CustomerProfileAdapter },
-    { provide: REMINDER_TENANT_PORT, useClass: ReminderTenantAdapter },
+    { provide: BOOKING_CUSTOMER_PORT, useClass: BookingCustomerAdapter },
     AvailabilityService,
     BookingReminderJob,
     AdminScheduleReminderJob,
     BookingQueryService,
+    ServiceQueryService,
     BookingSlotConflictService,
     PhotoExistenceService,
     CreateServiceUseCase,
@@ -136,6 +135,6 @@ import { AvailabilityService } from './domain/services/availability.service';
     CompleteBookingUseCase,
     GenerateAttachmentSignedUrlUseCase,
   ],
-  exports: [BookingQueryService],
+  exports: [BookingQueryService, ServiceQueryService],
 })
 export class BookingModule {}

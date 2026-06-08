@@ -7,9 +7,9 @@ import {
 } from '../../../../test/builders/platform';
 import { STORAGE_SERVICE } from '../../../../shared/ports/storage.service.port';
 import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
-import { InMemoryBookingLookupPort } from '../../../../test/infrastructure/in-memory-booking-lookup.port';
+import { InMemoryPlatformBookingPort } from '../../../../test/infrastructure/in-memory-platform-booking.port';
 import { InMemoryFrontendRevalidationPort } from '../../../../test/infrastructure/in-memory-frontend-revalidation.port';
-import { BOOKING_LOOKUP_PORT } from '../../application/ports/booking-lookup.port';
+import { PLATFORM_BOOKING_PORT } from '../../application/ports/platform-booking.port';
 import { FRONTEND_REVALIDATION_PORT } from '../../application/ports/frontend-revalidation.port';
 import { HotsiteConfigEntity } from '../entities/hotsite-config.entity';
 import { TenantEntity } from '../entities/tenant.entity';
@@ -39,13 +39,13 @@ describe('HotsiteAdminController (integration)', () => {
   let app: INestApplication;
   let ds: DataSource;
   let storageService: InMemoryStorageService;
-  let bookingLookup: InMemoryBookingLookupPort;
+  let bookingLookup: InMemoryPlatformBookingPort;
   let frontendRevalidation: InMemoryFrontendRevalidationPort;
 
   beforeAll(async () => {
     ({ app, ds } = await createPlatformIntegrationApp());
     storageService = app.get(STORAGE_SERVICE);
-    bookingLookup = app.get(BOOKING_LOOKUP_PORT);
+    bookingLookup = app.get(PLATFORM_BOOKING_PORT);
     frontendRevalidation = app.get(FRONTEND_REVALIDATION_PORT);
 
     await ds

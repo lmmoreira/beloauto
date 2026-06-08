@@ -14,10 +14,7 @@ import {
   IScheduleOpeningRepository,
   SCHEDULE_OPENING_REPOSITORY,
 } from '../ports/schedule-opening-repository.port';
-import {
-  IScheduleTenantSettingsPort,
-  SCHEDULE_TENANT_SETTINGS_PORT,
-} from '../ports/schedule-tenant-settings.port';
+import { IBookingPlatformPort, BOOKING_PLATFORM_PORT } from '../ports/booking-platform.port';
 import { getUtcWeekDayName, todayUTC } from '../../../../shared/utils/calendar-date';
 import { OpenScheduleDto } from '../dtos/open-schedule.dto';
 
@@ -36,8 +33,8 @@ export class OpenScheduleUseCase {
   constructor(
     @Inject(SCHEDULE_OPENING_REPOSITORY)
     private readonly openingRepo: IScheduleOpeningRepository,
-    @Inject(SCHEDULE_TENANT_SETTINGS_PORT)
-    private readonly tenantSettings: IScheduleTenantSettingsPort,
+    @Inject(BOOKING_PLATFORM_PORT)
+    private readonly tenantSettings: IBookingPlatformPort,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
     private readonly tenantContext: TenantContext,
   ) {}

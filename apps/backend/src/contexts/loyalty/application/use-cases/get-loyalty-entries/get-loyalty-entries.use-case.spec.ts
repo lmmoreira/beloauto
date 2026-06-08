@@ -1,5 +1,5 @@
 import { InMemoryLoyaltyEntryRepository } from '../../../../../test/infrastructure/in-memory-loyalty-entry.repository';
-import { InMemoryServiceCatalogPort } from '../../../../../test/infrastructure/in-memory-service-catalog.port';
+import { InMemoryLoyaltyBookingPort } from '../../../../../test/infrastructure/in-memory-loyalty-booking.port';
 import { LoyaltyEntryBuilder } from '../../../../../test/builders/loyalty/index';
 import { GetLoyaltyEntriesUseCase } from './get-loyalty-entries.use-case';
 
@@ -9,12 +9,12 @@ const SERVICE_ID = 'bbbbbbbb-0000-7000-8000-000000000001';
 
 describe('GetLoyaltyEntriesUseCase', () => {
   let entryRepo: InMemoryLoyaltyEntryRepository;
-  let serviceCatalog: InMemoryServiceCatalogPort;
+  let serviceCatalog: InMemoryLoyaltyBookingPort;
   let useCase: GetLoyaltyEntriesUseCase;
 
   beforeEach(() => {
     entryRepo = new InMemoryLoyaltyEntryRepository();
-    serviceCatalog = new InMemoryServiceCatalogPort();
+    serviceCatalog = new InMemoryLoyaltyBookingPort();
     useCase = new GetLoyaltyEntriesUseCase(entryRepo, serviceCatalog);
   });
 

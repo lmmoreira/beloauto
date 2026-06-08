@@ -2,7 +2,7 @@ import { ServicePointsEarned } from '../../../domain/events/service-points-earne
 import { InMemoryEventBus } from '../../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryLoyaltyBalanceRepository } from '../../../../../test/infrastructure/in-memory-loyalty-balance.repository';
 import { InMemoryLoyaltyEntryRepository } from '../../../../../test/infrastructure/in-memory-loyalty-entry.repository';
-import { InMemoryLoyaltyTenantSettingsPort } from '../../../../../test/infrastructure/in-memory-loyalty-tenant-settings.port';
+import { InMemoryLoyaltyPlatformPort } from '../../../../../test/infrastructure/in-memory-loyalty-platform.port';
 import { InMemoryProcessedEventRepository } from '../../../../../test/infrastructure/in-memory-processed-event.repository';
 import { InMemoryTransactionManager } from '../../../../../test/infrastructure/in-memory-transaction-manager';
 import {
@@ -44,14 +44,14 @@ describe('RecordLoyaltyEntriesUseCase', () => {
   let entryRepo: InMemoryLoyaltyEntryRepository;
   let balanceRepo: InMemoryLoyaltyBalanceRepository;
   let processedEventRepo: InMemoryProcessedEventRepository;
-  let tenantSettingsPort: InMemoryLoyaltyTenantSettingsPort;
+  let tenantSettingsPort: InMemoryLoyaltyPlatformPort;
   let eventBus: InMemoryEventBus;
 
   beforeEach(() => {
     entryRepo = new InMemoryLoyaltyEntryRepository();
     balanceRepo = new InMemoryLoyaltyBalanceRepository();
     processedEventRepo = new InMemoryProcessedEventRepository();
-    tenantSettingsPort = new InMemoryLoyaltyTenantSettingsPort();
+    tenantSettingsPort = new InMemoryLoyaltyPlatformPort();
     eventBus = new InMemoryEventBus();
 
     useCase = new RecordLoyaltyEntriesUseCase(

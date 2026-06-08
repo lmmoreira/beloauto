@@ -15,23 +15,23 @@ import { LoyaltyBalanceEntity } from '../../contexts/loyalty/infrastructure/enti
 import { LoyaltyEntryEntity } from '../../contexts/loyalty/infrastructure/entities/loyalty-entry.entity';
 import { LoyaltyRedemptionEntity } from '../../contexts/loyalty/infrastructure/entities/loyalty-redemption.entity';
 import { ProcessedEventEntity } from '../../contexts/loyalty/infrastructure/entities/processed-event.entity';
-import { SERVICE_CATALOG_PORT } from '../../contexts/loyalty/application/ports/service-catalog.port';
+import { LOYALTY_BOOKING_PORT } from '../../contexts/loyalty/application/ports/loyalty-booking.port';
 import { LoyaltyModule } from '../../contexts/loyalty/loyalty.module';
 import { HotsiteConfigEntity } from '../../contexts/platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../../contexts/platform/infrastructure/entities/tenant.entity';
 import { PlatformModule } from '../../contexts/platform/platform.module';
 import { InMemoryEventBus } from '../infrastructure/in-memory-event-bus';
-import { InMemoryServiceCatalogPort } from '../infrastructure/in-memory-service-catalog.port';
+import { InMemoryLoyaltyBookingPort } from '../infrastructure/in-memory-loyalty-booking.port';
 import { InMemoryStorageService } from '../infrastructure/in-memory-storage.service';
 
 export interface LoyaltyIntegrationAppResult {
   app: INestApplication;
   ds: DataSource;
-  serviceCatalog: InMemoryServiceCatalogPort;
+  serviceCatalog: InMemoryLoyaltyBookingPort;
 }
 
 export async function createLoyaltyIntegrationApp(): Promise<LoyaltyIntegrationAppResult> {
-  const serviceCatalog = new InMemoryServiceCatalogPort();
+  const serviceCatalog = new InMemoryLoyaltyBookingPort();
 
   let builder: TestingModuleBuilder = Test.createTestingModule({
     imports: [
@@ -62,7 +62,7 @@ export async function createLoyaltyIntegrationApp(): Promise<LoyaltyIntegrationA
   builder = builder
     .overrideProvider(EVENT_BUS)
     .useValue(new InMemoryEventBus())
-    .overrideProvider(SERVICE_CATALOG_PORT)
+    .overrideProvider(LOYALTY_BOOKING_PORT)
     .useValue(serviceCatalog)
     .overrideProvider(STORAGE_SERVICE)
     .useValue(new InMemoryStorageService());

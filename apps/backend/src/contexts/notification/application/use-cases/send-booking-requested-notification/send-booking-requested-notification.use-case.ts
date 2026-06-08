@@ -23,9 +23,9 @@ import {
   NOTIFICATION_STAFF_PORT,
 } from '../../ports/notification-staff.port';
 import {
-  INotificationTenantPort,
-  NOTIFICATION_TENANT_PORT,
-} from '../../ports/notification-tenant.port';
+  INotificationPlatformPort,
+  NOTIFICATION_PLATFORM_PORT,
+} from '../../ports/notification-platform.port';
 import {
   INotificationTemplateRepository,
   NOTIFICATION_TEMPLATE_REPOSITORY,
@@ -45,7 +45,7 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
     processedEventRepo: INotificationProcessedEventRepository,
     @Inject(NOTIFICATION_DISPATCHER) dispatcher: INotificationDispatcher,
     @Inject(NOTIFICATION_STAFF_PORT) private readonly staffPort: INotificationStaffPort,
-    @Inject(NOTIFICATION_TENANT_PORT) private readonly tenantPort: INotificationTenantPort,
+    @Inject(NOTIFICATION_PLATFORM_PORT) private readonly tenantPort: INotificationPlatformPort,
     @Inject(TRANSACTION_MANAGER) txManager: ITransactionManager,
     @Inject(NOTIFICATION_TEMPLATE_REPOSITORY)
     private readonly templateRepo: INotificationTemplateRepository,

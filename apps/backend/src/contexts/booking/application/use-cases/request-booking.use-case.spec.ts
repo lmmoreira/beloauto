@@ -1,7 +1,7 @@
 import { InMemoryEventBus } from '../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryTransactionManager } from '../../../../test/infrastructure/in-memory-transaction-manager';
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
-import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { InMemoryBookingPlatformPort } from '../../../../test/infrastructure/in-memory-booking-platform.port';
 import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
 import { BookingSlotConflictService } from '../services/booking-slot-conflict.service';
 import { PhotoExistenceService } from '../services/photo-existence.service';
@@ -45,7 +45,7 @@ describe('RequestBookingUseCase', () => {
       .build();
     useCase = new RequestBookingUseCase(
       serviceRepo,
-      new BookingSlotConflictService(availabilityPort, new InMemoryScheduleTenantSettingsPort()),
+      new BookingSlotConflictService(availabilityPort, new InMemoryBookingPlatformPort()),
       new PhotoExistenceService(storageService),
       bookingRepo,
       txManager,

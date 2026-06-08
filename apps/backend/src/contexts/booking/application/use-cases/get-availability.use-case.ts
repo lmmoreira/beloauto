@@ -18,10 +18,7 @@ import {
   IScheduleOpeningRepository,
   SCHEDULE_OPENING_REPOSITORY,
 } from '../ports/schedule-opening-repository.port';
-import {
-  IScheduleTenantSettingsPort,
-  SCHEDULE_TENANT_SETTINGS_PORT,
-} from '../ports/schedule-tenant-settings.port';
+import { IBookingPlatformPort, BOOKING_PLATFORM_PORT } from '../ports/booking-platform.port';
 import { IServiceRepository, SERVICE_REPOSITORY } from '../ports/service-repository.port';
 import { GetAvailabilityDto } from '../dtos/get-availability.dto';
 
@@ -43,8 +40,8 @@ export class GetAvailabilityUseCase {
     @Inject(SERVICE_REPOSITORY) private readonly serviceRepo: IServiceRepository,
     @Inject(SCHEDULE_CLOSURE_REPOSITORY) private readonly closureRepo: IScheduleClosureRepository,
     @Inject(SCHEDULE_OPENING_REPOSITORY) private readonly openingRepo: IScheduleOpeningRepository,
-    @Inject(SCHEDULE_TENANT_SETTINGS_PORT)
-    private readonly settingsPort: IScheduleTenantSettingsPort,
+    @Inject(BOOKING_PLATFORM_PORT)
+    private readonly settingsPort: IBookingPlatformPort,
     @Inject(BOOKING_AVAILABILITY_PORT)
     private readonly bookingPort: IBookingAvailabilityPort,
     private readonly availabilityService: AvailabilityService,

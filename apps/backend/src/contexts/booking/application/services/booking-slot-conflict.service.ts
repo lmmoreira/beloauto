@@ -5,18 +5,15 @@ import {
   IBookingAvailabilityPort,
   BOOKING_AVAILABILITY_PORT,
 } from '../ports/booking-availability.port';
-import {
-  IScheduleTenantSettingsPort,
-  SCHEDULE_TENANT_SETTINGS_PORT,
-} from '../ports/schedule-tenant-settings.port';
+import { IBookingPlatformPort, BOOKING_PLATFORM_PORT } from '../ports/booking-platform.port';
 
 @Injectable()
 export class BookingSlotConflictService {
   constructor(
     @Inject(BOOKING_AVAILABILITY_PORT)
     private readonly availabilityPort: IBookingAvailabilityPort,
-    @Inject(SCHEDULE_TENANT_SETTINGS_PORT)
-    private readonly settingsPort: IScheduleTenantSettingsPort,
+    @Inject(BOOKING_PLATFORM_PORT)
+    private readonly settingsPort: IBookingPlatformPort,
   ) {}
 
   async assertSlotFree(

@@ -3,10 +3,7 @@ import { uuidv7 } from '../../../../../shared/domain/uuid-v7';
 import { EVENT_BUS, IEventBus } from '../../../../../shared/ports/event-bus.port';
 import { PointsExpiringSoon } from '../../../domain/events/points-expiring-soon.event';
 import { LoyaltyEntry } from '../../../domain/loyalty-entry.aggregate';
-import {
-  ILoyaltyTenantSettingsPort,
-  LOYALTY_TENANT_SETTINGS_PORT,
-} from '../../ports/loyalty-tenant-settings.port';
+import { ILoyaltyPlatformPort, LOYALTY_PLATFORM_PORT } from '../../ports/loyalty-platform.port';
 import {
   ILoyaltyEntryRepository,
   LOYALTY_ENTRY_REPOSITORY,
@@ -23,7 +20,7 @@ export class NotifyExpiringPointsUseCase {
   constructor(
     @Inject(LOYALTY_ENTRY_REPOSITORY) private readonly entryRepo: ILoyaltyEntryRepository,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
-    @Inject(LOYALTY_TENANT_SETTINGS_PORT) private readonly settingsPort: ILoyaltyTenantSettingsPort,
+    @Inject(LOYALTY_PLATFORM_PORT) private readonly settingsPort: ILoyaltyPlatformPort,
   ) {}
 
   async execute(warningDays = DEFAULT_EXPIRY_WARNING_DAYS): Promise<NotifyExpiringPointsResult> {

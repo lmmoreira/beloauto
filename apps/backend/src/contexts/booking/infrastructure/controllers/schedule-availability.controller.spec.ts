@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { InMemoryBookingAvailabilityPort } from '../../../../test/infrastructure/in-memory-booking-availability';
-import { InMemoryScheduleTenantSettingsPort } from '../../../../test/infrastructure/in-memory-schedule-tenant-settings';
+import { InMemoryBookingPlatformPort } from '../../../../test/infrastructure/in-memory-booking-platform.port';
 import { InMemoryScheduleClosureRepository } from '../../../../test/repositories/booking/in-memory-schedule-closure.repository';
 import { InMemoryScheduleOpeningRepository } from '../../../../test/repositories/booking/in-memory-schedule-opening.repository';
 import { InMemoryServiceRepository } from '../../../../test/repositories/booking/in-memory-service.repository';
@@ -29,7 +29,7 @@ describe('ScheduleAvailabilityController', () => {
         serviceRepo,
         closureRepo,
         new InMemoryScheduleOpeningRepository(),
-        new InMemoryScheduleTenantSettingsPort(),
+        new InMemoryBookingPlatformPort(),
         new InMemoryBookingAvailabilityPort(),
         new AvailabilityService(),
       ),

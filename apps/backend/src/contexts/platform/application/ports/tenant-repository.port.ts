@@ -6,6 +6,7 @@ export interface ITenantRepository {
   findBySlug(slug: string): Promise<Tenant | null>;
   findById(id: string): Promise<Tenant | null>;
   findByIds(ids: string[]): Promise<Tenant[]>;
+  findAllActive(): Promise<Tenant[]>;
   save(tenant: Tenant): Promise<void>;
   existsBySlug(slug: string): Promise<boolean>;
 }

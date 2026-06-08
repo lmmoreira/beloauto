@@ -1,6 +1,6 @@
 import { InMemoryEventBus } from '../../../../../test/infrastructure/in-memory-event-bus';
 import { InMemoryLoyaltyEntryRepository } from '../../../../../test/infrastructure/in-memory-loyalty-entry.repository';
-import { InMemoryLoyaltyTenantSettingsPort } from '../../../../../test/infrastructure/in-memory-loyalty-tenant-settings.port';
+import { InMemoryLoyaltyPlatformPort } from '../../../../../test/infrastructure/in-memory-loyalty-platform.port';
 import { LoyaltyEntryBuilder } from '../../../../../test/builders/loyalty/index';
 import { PointsExpiringSoon } from '../../../domain/events/points-expiring-soon.event';
 import { NotifyExpiringPointsUseCase } from './notify-expiring-points.use-case';
@@ -17,12 +17,12 @@ describe('NotifyExpiringPointsUseCase', () => {
   let useCase: NotifyExpiringPointsUseCase;
   let entryRepo: InMemoryLoyaltyEntryRepository;
   let eventBus: InMemoryEventBus;
-  let settingsPort: InMemoryLoyaltyTenantSettingsPort;
+  let settingsPort: InMemoryLoyaltyPlatformPort;
 
   beforeEach(() => {
     entryRepo = new InMemoryLoyaltyEntryRepository();
     eventBus = new InMemoryEventBus();
-    settingsPort = new InMemoryLoyaltyTenantSettingsPort();
+    settingsPort = new InMemoryLoyaltyPlatformPort();
     useCase = new NotifyExpiringPointsUseCase(entryRepo, eventBus, settingsPort);
   });
 
