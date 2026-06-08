@@ -8,23 +8,26 @@ import { DataSource } from 'typeorm';
 import { EventBusModule } from '../../shared/infrastructure/event-bus.module';
 import { TransactionManagerModule } from '../../shared/infrastructure/transaction-manager.module';
 import { EVENT_BUS } from '../../shared/ports/event-bus.port';
+import { STORAGE_SERVICE } from '../../shared/ports/storage.service.port';
 import { TenantInterceptor } from '../../shared/tenant/tenant.interceptor';
 import { TenantModule } from '../../shared/tenant/tenant.module';
 import { HotsiteConfigEntity } from '../../contexts/platform/infrastructure/entities/hotsite-config.entity';
 import { TenantEntity } from '../../contexts/platform/infrastructure/entities/tenant.entity';
 import { PlatformModule } from '../../contexts/platform/platform.module';
 import { InMemoryEventBus } from '../infrastructure/in-memory-event-bus';
+import { InMemoryStorageService } from '../infrastructure/in-memory-storage.service';
 
 export interface PlatformIntegrationAppOptions {
   extraProviders?: Provider[];
+  overrideProviders?: Array<{ provide: symbol | string; useValue: unknown }>;
 }
 
 export async function createPlatformIntegrationApp(
   options: PlatformIntegrationAppOptions = {},
 ): Promise<{ app: INestApplication; ds: DataSource }> {
-  const { extraProviders = [] } = options;
+  const { extraProviders = [], overrideProviders = [] } = options;
 
-  const moduleRef = await Test.createTestingModule({
+  let builder = Test.createTestingModule({
     imports: [
       ConfigModule.forRoot({ isGlobal: true }),
       TypeOrmModule.forRoot({
@@ -42,7 +45,14 @@ export async function createPlatformIntegrationApp(
   })
     .overrideProvider(EVENT_BUS)
     .useValue(new InMemoryEventBus())
-    .compile();
+    .overrideProvider(STORAGE_SERVICE)
+    .useValue(new InMemoryStorageService());
+
+  for (const { provide, useValue } of overrideProviders) {
+    builder = builder.overrideProvider(provide).useValue(useValue);
+  }
+
+  const moduleRef = await builder.compile();
 
   const app = moduleRef.createNestApplication();
   await app.init();

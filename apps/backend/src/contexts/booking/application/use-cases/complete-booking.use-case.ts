@@ -11,6 +11,7 @@ import {
   CompleteBookingLinesIncompleteError,
 } from '../../domain/errors/booking-domain.error';
 import { IBookingRepository, BOOKING_REPOSITORY } from '../ports/booking-repository.port';
+import { PhotoExistenceService } from '../services/photo-existence.service';
 import { CompleteBookingDto } from '../dtos/complete-booking.dto';
 
 export interface CompleteBookingUseCaseResult {
@@ -27,6 +28,7 @@ export class CompleteBookingUseCase {
     @Inject(BOOKING_REPOSITORY) private readonly bookingRepo: IBookingRepository,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
     @Inject(EVENT_BUS) private readonly eventBus: IEventBus,
+    private readonly photoExistenceService: PhotoExistenceService,
   ) {}
 
   async execute(dto: CompleteBookingDto): Promise<CompleteBookingUseCaseResult> {
@@ -44,6 +46,8 @@ export class CompleteBookingUseCase {
     if (missingLineIds.length > 0) {
       throw new CompleteBookingLinesIncompleteError(missingLineIds);
     }
+
+    await this.photoExistenceService.assertPhotosUploaded(dto.afterServicePhotoUrls, tenantId);
 
     const lineActualPrices = new Map(
       dto.lines.map((l) => [l.lineId, Money.from(l.actualPriceCharged)]),

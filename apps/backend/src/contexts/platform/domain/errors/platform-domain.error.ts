@@ -40,3 +40,10 @@ export class HotsiteNotPublishedError extends PlatformDomainError {
     this.name = 'HotsiteNotPublishedError';
   }
 }
+
+export class HotsiteImageNotUploadedError extends PlatformDomainError {
+  constructor(storagePath: string) {
+    super(`Image was not found in storage: ${storagePath}`);
+    this.name = 'HotsiteImageNotUploadedError';
+  }
+}

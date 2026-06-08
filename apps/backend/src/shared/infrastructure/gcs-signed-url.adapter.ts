@@ -54,4 +54,9 @@ export class GcsSignedUrlAdapter implements IStorageService, OnApplicationBootst
 
     return { signedUrl, expiresAt };
   }
+
+  async exists(storagePath: string): Promise<boolean> {
+    const [fileExists] = await this.storage.bucket(this.bucketName).file(storagePath).exists();
+    return fileExists;
+  }
 }

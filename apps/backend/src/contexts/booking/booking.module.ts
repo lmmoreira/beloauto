@@ -44,6 +44,7 @@ import { CompleteBookingUseCase } from './application/use-cases/complete-booking
 import { GenerateAttachmentSignedUrlUseCase } from './application/use-cases/generate-attachment-signed-url.use-case';
 import { BookingAttachmentsController } from './infrastructure/controllers/booking-attachments.controller';
 import { BookingSlotConflictService } from './application/services/booking-slot-conflict.service';
+import { PhotoExistenceService } from './application/services/photo-existence.service';
 import { BookingEntity } from './infrastructure/entities/booking.entity';
 import { BookingLineEntity } from './infrastructure/entities/booking-line.entity';
 import { ScheduleClosureEntity } from './infrastructure/entities/schedule-closure.entity';
@@ -105,6 +106,7 @@ import { AvailabilityService } from './domain/services/availability.service';
     BookingReminderJob,
     AdminScheduleReminderJob,
     BookingSlotConflictService,
+    PhotoExistenceService,
     CreateServiceUseCase,
     RequestBookingUseCase,
     RequestAuthenticatedBookingUseCase,

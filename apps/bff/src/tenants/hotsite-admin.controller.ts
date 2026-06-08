@@ -1,0 +1,115 @@
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post } from '@nestjs/common';
+import { z } from 'zod';
+import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
+import { Roles } from '../shared/decorators/roles.decorator';
+import { BackendHttpService } from '../shared/http/backend-http.service';
+import {
+  GenerateHotsiteImageSignedUrlResponse,
+  HotsiteAdminContentResponse,
+  PublishHotsiteResponse,
+  UnpublishHotsiteResponse,
+} from './tenants.types';
+
+const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+const LOGO_URL_REGEX = /^$|^tenants\/[^/]+\/hotsite\/.+$/;
+const LOGO_URL_MESSAGE = {
+  message: 'logoUrl must be empty (to clear) or a tenants/<id>/hotsite/... storage path',
+};
+
+const HotsiteBrandingBodySchema = z
+  .object({
+    primaryColor: z.string().regex(HEX_COLOR_REGEX),
+    secondaryColor: z.string().regex(HEX_COLOR_REGEX),
+    backgroundColor: z.string().regex(HEX_COLOR_REGEX),
+    textColor: z.string().regex(HEX_COLOR_REGEX),
+    headingFontFamily: z.string().min(1),
+    bodyFontFamily: z.string().min(1),
+    logoUrl: z.string().regex(LOGO_URL_REGEX, LOGO_URL_MESSAGE),
+    borderRadius: z.enum(['sharp', 'rounded', 'pill']),
+    buttonStyle: z.enum(['filled', 'outline', 'ghost']),
+    spacing: z.enum(['compact', 'comfortable', 'spacious']),
+    shadowStyle: z.enum(['none', 'subtle', 'strong']),
+  })
+  .partial();
+
+const HotsiteModuleBodySchema = z.object({
+  type: z.enum([
+    'HERO',
+    'SERVICE_LIST',
+    'GALLERY',
+    'TESTIMONIALS',
+    'BOOKING_CTA',
+    'ABOUT',
+    'CONTACT',
+  ]),
+  enabled: z.boolean(),
+  data: z.record(z.string(), z.unknown()),
+});
+
+export const UpdateHotsiteContentBodySchema = z
+  .object({
+    branding: HotsiteBrandingBodySchema.optional(),
+    layout: z.array(HotsiteModuleBodySchema).optional(),
+  })
+  .refine((data) => data.branding !== undefined || data.layout !== undefined, {
+    message: 'at least one of branding or layout must be provided',
+  });
+
+type UpdateHotsiteContentBody = z.infer<typeof UpdateHotsiteContentBodySchema>;
+
+export const GenerateHotsiteImageSignedUrlBodySchema = z.object({
+  fileName: z
+    .string()
+    .min(1)
+    .max(255)
+    .refine((v) => !v.includes('/') && !v.includes('..'), {
+      message: 'fileName must not contain path separators or ".."',
+    }),
+  contentType: z.enum(['image/jpeg', 'image/png']),
+  purpose: z.enum(['branding', 'hero', 'gallery', 'about', 'booking-cta']),
+});
+
+type GenerateHotsiteImageSignedUrlBody = z.infer<typeof GenerateHotsiteImageSignedUrlBodySchema>;
+
+@Controller('tenants/hotsite')
+@Roles('MANAGER')
+export class HotsiteAdminController {
+  constructor(private readonly backendHttp: BackendHttpService) {}
+
+  @Get()
+  getContent(): Promise<HotsiteAdminContentResponse> {
+    return this.backendHttp.get<HotsiteAdminContentResponse>('/tenants/hotsite');
+  }
+
+  @Patch()
+  @HttpCode(HttpStatus.OK)
+  updateContent(
+    @Body(new ZodValidationPipe(UpdateHotsiteContentBodySchema)) body: UpdateHotsiteContentBody,
+  ): Promise<HotsiteAdminContentResponse> {
+    return this.backendHttp.patch<HotsiteAdminContentResponse>('/tenants/hotsite', body);
+  }
+
+  @Post('publish')
+  @HttpCode(HttpStatus.OK)
+  publish(): Promise<PublishHotsiteResponse> {
+    return this.backendHttp.post<PublishHotsiteResponse>('/tenants/hotsite/publish', {});
+  }
+
+  @Post('unpublish')
+  @HttpCode(HttpStatus.OK)
+  unpublish(): Promise<UnpublishHotsiteResponse> {
+    return this.backendHttp.post<UnpublishHotsiteResponse>('/tenants/hotsite/unpublish', {});
+  }
+
+  @Post('images/signed-url')
+  @HttpCode(HttpStatus.CREATED)
+  generateImageSignedUrl(
+    @Body(new ZodValidationPipe(GenerateHotsiteImageSignedUrlBodySchema))
+    body: GenerateHotsiteImageSignedUrlBody,
+  ): Promise<GenerateHotsiteImageSignedUrlResponse> {
+    return this.backendHttp.post<GenerateHotsiteImageSignedUrlResponse>(
+      '/tenants/hotsite/images/signed-url',
+      body,
+    );
+  }
+}

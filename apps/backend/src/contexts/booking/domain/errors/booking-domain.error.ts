@@ -187,3 +187,10 @@ export class CompleteBookingLinesIncompleteError extends BookingDomainError {
     this.name = 'CompleteBookingLinesIncompleteError';
   }
 }
+
+export class BookingPhotoNotUploadedError extends BookingDomainError {
+  constructor(storagePath: string) {
+    super(`Photo was not found in storage: ${storagePath}`);
+    this.name = 'BookingPhotoNotUploadedError';
+  }
+}

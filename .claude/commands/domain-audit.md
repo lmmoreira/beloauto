@@ -53,6 +53,12 @@ Grep for:
 - `deepMerge` implemented inline (not imported from `src/shared/utils/deep-merge`)
 - Any function body that re-implements string trimming, digit-stripping, or format conversion that already exists in a shared VO or util
 
+### 7. Builder fields without a `withXxx()` setter must be readonly (S2933)
+
+For each `*.builder.ts` in `src/test/builders/`, find private fields initialised inline (`private fieldName = ...`) that have no corresponding `withFieldName(...)` fluent setter method. SonarCloud (S2933) flags these — a field that's never reassigned via a setter should be `readonly`.
+
+Report: `<file>:<line> — 'fieldName' has no setter; mark readonly`
+
 ---
 
 ## Output format
@@ -82,6 +88,10 @@ Grep for:
 
 ### 6. Duplicated utilities
 (none found)
+
+### 7. Builder readonly fields (S2933)
+- [ ] src/test/builders/customer/customer-entity.builder.ts:18 — 'createdAt' has no setter; mark readonly
+...
 
 ---
 Total issues: N
