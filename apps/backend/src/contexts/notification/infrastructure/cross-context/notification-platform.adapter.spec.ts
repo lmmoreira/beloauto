@@ -46,7 +46,7 @@ describe('NotificationPlatformAdapter', () => {
     expect(getTenantById.execute).toHaveBeenCalledWith(TENANT_ID);
   });
 
-  it('falls back to null fromEmail when notification settings absent', async () => {
+  it('returns null fromEmail when from_email is null', async () => {
     const tenantResult = makeTenantResult(null);
     getTenantById.execute.mockResolvedValue(tenantResult);
 
