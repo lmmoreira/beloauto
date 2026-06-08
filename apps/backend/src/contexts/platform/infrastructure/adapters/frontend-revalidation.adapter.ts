@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { AppLogger } from '../../../../shared/observability/app-logger';
 import { IFrontendRevalidationPort } from '../../application/ports/frontend-revalidation.port';
 
+const REVALIDATION_TIMEOUT_MS = 5000;
+
 @Injectable()
 export class FrontendRevalidationAdapter implements IFrontendRevalidationPort {
   private readonly logger = new AppLogger(FrontendRevalidationAdapter.name);
@@ -15,9 +17,12 @@ export class FrontendRevalidationAdapter implements IFrontendRevalidationPort {
   }
 
   async revalidate(slug: string): Promise<void> {
-    const url = `${this.frontendUrl}/api/revalidate?secret=${this.secret}&slug=${slug}`;
+    const url = new URL('/api/revalidate', this.frontendUrl);
+    url.searchParams.set('secret', this.secret);
+    url.searchParams.set('slug', slug);
+
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: AbortSignal.timeout(REVALIDATION_TIMEOUT_MS) });
       if (!response.ok) {
         this.logger.warn(`Hotsite revalidation request failed for slug '${slug}'`, {
           status: response.status,
