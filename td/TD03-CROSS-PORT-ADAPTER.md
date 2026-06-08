@@ -6,6 +6,7 @@
 - **Context**: Backend (NestJS)
 - **Created**: 2026-06-08
 - **Updated**: 2026-06-08
+- **Resolved**: 2026-06-08 — PR #96 merged to main
 
 ---
 
