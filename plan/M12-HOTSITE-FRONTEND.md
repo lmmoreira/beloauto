@@ -118,7 +118,7 @@ interface HotsiteBranding {
 
 ---
 
-### M12-S02 — UC-027: Admin manages hotsite
+### M12-S02 — UC-027: Admin manages hotsite ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts` — spans both the `platform` context (hotsite content/publish/upload) and the `booking` context (photo-existence retrofit, see cross-cutting addition below)  
 **Complexity:** L  
