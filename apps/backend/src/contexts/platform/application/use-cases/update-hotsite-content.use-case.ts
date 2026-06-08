@@ -10,10 +10,11 @@ import {
   HotsiteNotFoundError,
 } from '../../domain/errors/platform-domain.error';
 import {
-  GalleryImage,
   HotsiteBranding,
   HotsiteModule,
+  HotsiteModuleData,
 } from '../../domain/hotsite-config.aggregate';
+import { HotsiteImagePathsService } from '../../domain/services/hotsite-image-paths.service';
 import {
   HOTSITE_CONFIG_REPOSITORY,
   IHotsiteConfigRepository,
@@ -34,6 +35,7 @@ export class UpdateHotsiteContentUseCase {
     @Inject(STORAGE_SERVICE) private readonly storageService: IStorageService,
     @Inject(TRANSACTION_MANAGER) private readonly txManager: ITransactionManager,
     private readonly tenantContext: TenantContext,
+    private readonly imagePathsService: HotsiteImagePathsService,
   ) {}
 
   async execute(dto: UpdateHotsiteContentDto): Promise<UpdateHotsiteContentUseCaseResult> {
@@ -44,9 +46,7 @@ export class UpdateHotsiteContentUseCase {
     const branding: HotsiteBranding = dto.branding
       ? { ...config.branding, ...dto.branding }
       : config.branding;
-    const layout: HotsiteModule[] = dto.layout
-      ? (dto.layout as unknown as HotsiteModule[])
-      : config.layout;
+    const layout: HotsiteModule[] = dto.layout ? this.toDomainLayout(dto.layout) : config.layout;
 
     await this.verifyImagesExist(branding, layout);
 
@@ -64,40 +64,20 @@ export class UpdateHotsiteContentUseCase {
     layout: HotsiteModule[],
   ): Promise<void> {
     const tenantPrefix = `tenants/${this.tenantContext.tenantId}/`;
-    for (const path of this.collectImagePaths(branding, layout)) {
+    for (const path of this.imagePathsService.collect(branding, layout)) {
       if (!path.startsWith(tenantPrefix)) throw new HotsiteImageNotUploadedError(path);
       const exists = await this.storageService.exists(path);
       if (!exists) throw new HotsiteImageNotUploadedError(path);
     }
   }
 
-  private collectImagePaths(branding: HotsiteBranding, layout: HotsiteModule[]): string[] {
-    const paths: string[] = [];
-    this.pushIfPath(paths, branding.logoUrl);
-
-    for (const module of layout) {
-      const data = module.data as unknown as Record<string, unknown>;
-      this.pushIfPath(paths, data.backgroundImageUrl);
-      this.pushIfPath(paths, data.imageUrl);
-      this.pushIfPath(paths, data.avatarUrl);
-
-      if (module.type === 'TESTIMONIALS') {
-        const items = (data.items as { avatarUrl?: string }[] | undefined) ?? [];
-        for (const item of items) this.pushIfPath(paths, item.avatarUrl);
-      }
-
-      if (module.type === 'GALLERY') {
-        const images = (data.images as GalleryImage[] | undefined) ?? [];
-        for (const image of images) {
-          if (image.source === 'upload') this.pushIfPath(paths, image.url);
-        }
-      }
-    }
-
-    return paths;
-  }
-
-  private pushIfPath(paths: string[], value: unknown): void {
-    if (typeof value === 'string' && value.length > 0) paths.push(value);
+  private toDomainLayout(layout: UpdateHotsiteContentDto['layout']): HotsiteModule[] {
+    return (layout ?? []).map((module) => ({
+      type: module.type,
+      enabled: module.enabled,
+      // Zod validates `data` generically as a record — per-module-type shape
+      // (HeroModuleData, GalleryModuleData, ...) is not statically derivable from it.
+      data: module.data as unknown as HotsiteModuleData,
+    }));
   }
 }

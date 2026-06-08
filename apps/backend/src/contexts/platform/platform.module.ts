@@ -4,6 +4,7 @@ import { StorageModule } from '../../shared/infrastructure/storage.module';
 import { TenantModule } from '../../shared/tenant/tenant.module';
 import { HOTSITE_CONFIG_REPOSITORY } from './application/ports/hotsite-config-repository.port';
 import { TENANT_REPOSITORY } from './application/ports/tenant-repository.port';
+import { HotsiteImagePathsService } from './domain/services/hotsite-image-paths.service';
 import { GenerateHotsiteImageSignedUrlUseCase } from './application/use-cases/generate-hotsite-image-signed-url.use-case';
 import { GetHotsiteContentUseCase } from './application/use-cases/get-hotsite-content.use-case';
 import { GetHotsiteManifestUseCase } from './application/use-cases/get-hotsite-manifest.use-case';
@@ -40,6 +41,7 @@ import { TypeOrmTenantRepository } from './infrastructure/repositories/typeorm-t
   providers: [
     { provide: TENANT_REPOSITORY, useClass: TypeOrmTenantRepository },
     { provide: HOTSITE_CONFIG_REPOSITORY, useClass: TypeOrmHotsiteConfigRepository },
+    HotsiteImagePathsService,
     GenerateHotsiteImageSignedUrlUseCase,
     GetHotsiteContentUseCase,
     GetHotsiteManifestUseCase,

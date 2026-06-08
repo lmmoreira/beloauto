@@ -4,6 +4,7 @@ import { InMemoryStorageService } from '../../../../test/infrastructure/in-memor
 import { TenantContextBuilder } from '../../../../test/factories/tenant-context.factory';
 import { HotsiteConfigBuilder } from '../../../../test/builders/platform';
 import { InMemoryHotsiteConfigRepository } from '../../../../test/repositories/platform/in-memory-hotsite-config.repository';
+import { HotsiteImagePathsService } from '../../domain/services/hotsite-image-paths.service';
 import { GetHotsiteContentUseCase } from '../../application/use-cases/get-hotsite-content.use-case';
 import { UpdateHotsiteContentUseCase } from '../../application/use-cases/update-hotsite-content.use-case';
 import { PublishHotsiteUseCase } from '../../application/use-cases/publish-hotsite.use-case';
@@ -26,7 +27,13 @@ describe('HotsiteAdminController', () => {
 
     controller = new HotsiteAdminController(
       new GetHotsiteContentUseCase(repo, ctx),
-      new UpdateHotsiteContentUseCase(repo, storageService, txManager, ctx),
+      new UpdateHotsiteContentUseCase(
+        repo,
+        storageService,
+        txManager,
+        ctx,
+        new HotsiteImagePathsService(),
+      ),
       new PublishHotsiteUseCase(repo, txManager, ctx),
       new UnpublishHotsiteUseCase(repo, txManager, ctx),
       new GenerateHotsiteImageSignedUrlUseCase(ctx, storageService),

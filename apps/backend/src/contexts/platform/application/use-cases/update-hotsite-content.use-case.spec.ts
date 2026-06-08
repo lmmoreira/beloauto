@@ -9,6 +9,7 @@ import {
   PlatformDomainError,
 } from '../../domain/errors/platform-domain.error';
 import { DEFAULT_HOTSITE_BRANDING } from '../../domain/hotsite-config.aggregate';
+import { HotsiteImagePathsService } from '../../domain/services/hotsite-image-paths.service';
 import { UpdateHotsiteContentUseCase } from './update-hotsite-content.use-case';
 
 const TENANT_A = '10000000-0000-4000-8000-000000000001';
@@ -27,6 +28,7 @@ describe('UpdateHotsiteContentUseCase', () => {
       storageService,
       new InMemoryTransactionManager(),
       new TenantContextBuilder().withTenantId(TENANT_A).build(),
+      new HotsiteImagePathsService(),
     );
   });
 
