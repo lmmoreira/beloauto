@@ -9,7 +9,7 @@ Run:
 bash scripts/pre-pr.sh
 ```
 
-This single call covers checks 1, 5, 6, 7, 11, 12, 14, 15, 16, 17, 18 and domain-audit checks DA-2, DA-3, DA-4, DA-5.
+This single call covers checks 1, 5, 6, 7, 11, 12, 14, 15, 16, 17, 18 and domain-audit checks DA-2, DA-3, DA-4, DA-5, DA-7.
 
 If the script exits with issues, fix them and re-run before continuing. Do not proceed to Step 2 with script failures outstanding.
 
@@ -39,7 +39,22 @@ Empty output = clean. Any `error TS` line = failure; report it and stop.
 
 ## Step 3 — Agent checks (require reading changed files)
 
-Numbers reference the 20-item master checklist; items covered by the script in Step 1 are not repeated here.
+Every numbered check below belongs to this project's master checklist (#1–#20; **#9 was retired** — its content was folded into #10, and the number was never reassigned, so don't go looking for it). Items covered by the script in Step 1 are not repeated here:
+
+| # | Check | Covered in |
+|---|---|---|
+| 1, 5, 6, 7, 11, 12, 14–18 | grep/file-existence checks (HTTP imports, infra tokens, `any`, Zod v3, `.spec.ts`, DI registration, `.skip`/`.only`, `console.*`, barrels) | Step 1 (script) |
+| 2 | Multi-aggregate writes wrapped in `ITransactionManager.run()` | Step 3 below |
+| 3 | Every new REST endpoint has a `.http` request block | Step 3 below |
+| 4 | Every public controller/service method has an explicit return type | Step 3 below |
+| 8 | `@Global()` modules have an explanatory comment | Step 3 below |
+| 9 | _retired — folded into #10_ | — |
+| 10 | Aggregate fields use VO types; getters return the VO (also subsumes domain-audit `DA-1`) | Step 3 below |
+| 13 | Static routes declared before dynamic routes | Step 3 below |
+| 19 | PATCH body schemas with all-optional fields use `.default({})` | Step 3 below |
+| 20 | Integration test setup steps only call implemented endpoints | Step 3 below |
+
+Domain-audit checks `DA-2`–`DA-5` and `DA-7` run mechanically in Step 1; `DA-6` requires agent reasoning and is listed below. `DA-1` is covered by #10 (see that entry) — not repeated as its own item.
 
 Read the changed files once, then check all of the following.
 
@@ -59,25 +74,23 @@ Check changed `*.controller.ts` and `*.service.ts` files for public methods miss
 
 For each `@Global()` occurrence in changed `*.module.ts` files, verify the line or a nearby comment explains why it is global and where it is imported.
 
-### 10. Aggregate fields use VO types; getters return the VO
+### 10. Aggregate fields use VO types; getters return the VO (subsumes DA-1)
 
 Read changed `*.aggregate.ts` files. Check that:
-- Props interfaces use VO types (`Email`, `PhoneNumber`, `Slug`, `Timezone`, `HexColor`, `TimeOfDay`) — not `string` or `number`
+- Props interfaces use VO types — not `string` or `number` — for known VO candidates:
+  - `email` → `Email`
+  - `phone` → `PhoneNumber`
+  - `slug` → `Slug`
+  - `timezone` → `Timezone`
+  - `color` / `primary_color` / `accent_color` → `HexColor`
+  - `open` / `close` / `opens_at` / `closes_at` (in business-hours-like structures) → `TimeOfDay`
 - Getter return types match the VO (e.g. `get email(): Email`, not `get email(): string`)
+
+This is the changed-files version of domain-audit `DA-1`; the full-codebase scan still runs via `/domain-audit`.
 
 ### 13. Static routes declared before dynamic routes in the same controller
 
 Read changed controller files. Verify that all `@Get('literal-path')` decorators appear before any `@Get(':param')` decorators in declaration order within each controller class.
-
-### DA-1. Aggregate props not typed as plain primitives
-
-Look for `Props` interfaces inside changed `*/domain/*.aggregate.ts` files. Report any field that matches a known VO candidate but is typed as `string` or `number`:
-- `email: string` → should be `Email`
-- `phone: string` → should be `PhoneNumber`
-- `slug: string` → should be `Slug`
-- `timezone: string` → should be `Timezone`
-- `color`/`primary_color`/`accent_color: string` → should be `HexColor`
-- `open`/`close`/`opens_at`/`closes_at: string` in business hours structures → should be `TimeOfDay`
 
 ### DA-6. No utility functions duplicated outside src/shared/utils/
 
