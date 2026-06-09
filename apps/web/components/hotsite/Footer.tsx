@@ -1,5 +1,5 @@
 interface FooterProps {
-  slug: string;
+  readonly slug: string;
 }
 
 export function Footer({ slug: _ }: FooterProps) {

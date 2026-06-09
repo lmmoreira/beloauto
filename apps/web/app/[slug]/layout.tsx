@@ -3,8 +3,8 @@ import { applyBranding } from '@/lib/hotsite/apply-branding';
 import { FONT_VARIABLES } from '@/lib/hotsite/font-config';
 
 interface HotsiteLayoutProps {
-  children: React.ReactNode;
-  params: Promise<{ slug: string }>;
+  readonly children: React.ReactNode;
+  readonly params: Promise<{ readonly slug: string }>;
 }
 
 export default async function HotsiteLayout({ children, params }: HotsiteLayoutProps) {

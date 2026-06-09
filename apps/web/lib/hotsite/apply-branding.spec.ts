@@ -48,6 +48,12 @@ describe('applyBranding', () => {
     expect(result['--ba-heading-font']).toBe('var(--font-inter)');
   });
 
+  it('falls back to Inter for body font when family is not in the allow-list', () => {
+    const result = applyBranding(makeBranding({ bodyFontFamily: 'Wingdings' })) as CSSTokens;
+
+    expect(result['--ba-body-font']).toBe('var(--font-inter)');
+  });
+
   it('maps border-radius variants correctly', () => {
     expect(
       (applyBranding(makeBranding({ borderRadius: 'sharp' })) as CSSTokens)['--ba-radius'],

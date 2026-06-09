@@ -11,7 +11,9 @@ const SHADOW = {
   strong: '0 4px 16px rgba(0,0,0,0.20)',
 };
 
-export function applyBranding(branding: HotsiteBrandingResponse): React.CSSProperties {
+export function applyBranding(
+  branding: HotsiteBrandingResponse,
+): React.CSSProperties & Record<`--ba-${string}`, string> {
   return {
     '--ba-primary': branding.primaryColor,
     '--ba-secondary': branding.secondaryColor,
@@ -23,5 +25,5 @@ export function applyBranding(branding: HotsiteBrandingResponse): React.CSSPrope
     '--ba-section-py': SECTION_PY[branding.spacing],
     '--ba-shadow': SHADOW[branding.shadowStyle],
     '--ba-btn-variant': branding.buttonStyle,
-  } as React.CSSProperties;
+  };
 }
