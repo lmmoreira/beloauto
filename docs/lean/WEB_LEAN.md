@@ -9,6 +9,7 @@
 ## Table of Contents
 
 - [M12-S03 — Foundation: Next.js, React, CSS Variables, Fonts](#m12-s03)
+- [M12-S03 (cont.) — Testing: Vitest, Mocking, Coverage, SonarCloud](#m12-s03-testing)
 - *(more sections added as we build)*
 
 ---
@@ -331,6 +332,213 @@ Browser → Next.js server
 ```
 
 After M12-S04 lands, `MODULE_MAP.HERO = HeroModule`. The HERO module renders with the tenant's branding automatically via `var(--ba-*)`.
+
+---
+
+---
+
+<a name="m12-s03-testing"></a>
+## M12-S03 (cont.) — Testing: Vitest, Mocking, Coverage, SonarCloud
+
+---
+
+### 13. Why Vitest Instead of Jest
+
+The backend and BFF use Jest — so why does the web app use Vitest?
+
+**Root cause: ESM vs CommonJS.**
+
+JavaScript historically used CommonJS (`require()`, `module.exports`). Modern tooling — including Next.js 16 and `next/server`, `next/font/google`, etc. — uses ESM (`import`/`export`). Jest was designed for CommonJS. Making Jest handle ESM packages requires a Babel or `ts-jest` transform layer that recompiles imports at test time. This transform is fragile: some Next.js internals resist it and crash.
+
+Vitest is ESM-native. It runs TypeScript/ESM directly without a recompile step, so Next.js packages import cleanly.
+
+**Backend analogy:** It's like choosing between a tool that natively speaks your protocol vs one that needs an adapter. The adapter usually works, but breaks on edge cases.
+
+**API is nearly identical to Jest:**
+
+| Jest | Vitest |
+|---|---|
+| `jest.fn()` | `vi.fn()` |
+| `jest.mock('module', ...)` | `vi.mock('module', ...)` |
+| `jest.spyOn(obj, 'method')` | `vi.spyOn(obj, 'method')` |
+| `jest.mocked(fn)` | `vi.mocked(fn)` |
+| `describe`, `it`, `expect` | same |
+
+If you know Jest, you know Vitest. The main difference is the `vi.*` namespace instead of `jest.*`.
+
+---
+
+### 14. What We Test (and What We Don't)
+
+#### What we test — three categories
+
+**1. Pure utility functions** (`apply-branding.ts`, `font-config.ts`)
+
+These are functions with no side effects: input goes in, CSS tokens or a record comes out. No browser, no network, no framework. Identical to testing a NestJS service method that transforms data.
+
+```ts
+// apply-branding.spec.ts
+it('maps border-radius variants correctly', () => {
+  const result = applyBranding(makeBranding({ borderRadius: 'sharp' })) as CSSTokens;
+  expect(result['--ba-radius']).toBe('0px');
+});
+```
+
+**2. API route handlers** (`app/api/revalidate/route.ts`)
+
+A Next.js route handler is just a function: it receives a `Request` and returns a `Response`. Mock the Next.js-specific side effects (`revalidatePath`), then test the auth and branching logic directly.
+
+```ts
+// route.spec.ts
+it('returns 401 when the revalidate secret header is missing', async () => {
+  const response = await GET(makeRequest('tenant-a')); // no secret header
+  expect(response.status).toBe(401);
+});
+```
+
+**3. Async data fetchers** (`lib/api/tenant.ts`)
+
+Functions that call `fetch()` and handle errors. Mock global `fetch`, test what happens on 200, 404, and 500 responses.
+
+```ts
+// tenant.spec.ts
+it('calls notFound() when the BFF returns 404', async () => {
+  fetchSpy.mockResolvedValue(new Response(null, { status: 404 }));
+  await expect(fetchManifest('unknown-slug')).rejects.toThrow('NEXT_NOT_FOUND');
+});
+```
+
+#### What we don't test (and why)
+
+**React Server Components (layouts, pages):** `[slug]/layout.tsx` and `[slug]/page.tsx` are server components that call `await params`, `await fetchManifest()`, and return JSX. Testing them in Vitest would require mocking the entire Next.js server runtime. The result would be tests that verify the mocks work, not that the code works. These are validated by **Playwright E2E tests** (planned for M16) which run a real Next.js server.
+
+**Client components with DOM interaction:** Buttons, forms, modals — these need a browser environment. Playwright covers them at the integration level.
+
+**Rule of thumb:** Unit-test what's pure and logic-heavy. E2E-test what's visual and interactive.
+
+---
+
+### 15. The Mocking Problem with `next/font/google`
+
+This is the trickiest part of the frontend test setup, worth understanding in depth.
+
+`font-config.ts` calls `Inter(...)`, `Poppins(...)` etc. **at module load time** (top level, outside any function):
+
+```ts
+// font-config.ts
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+```
+
+The real `Inter(...)` from Next.js writes font metadata and CSS to the filesystem as part of the build pipeline. Outside of a Next.js build context, it crashes.
+
+**Problem:** When any test file imports `apply-branding.ts`, which imports `./font-config`, which imports `next/font/google`, Node tries to execute `Inter(...)` immediately — before your test even runs. This is called a **module-level side effect**.
+
+**Backend analogy:** Imagine a NestJS service whose constructor connects to the database immediately (`new DatabaseService()` → instant connection attempt). If you import it in a test without a mock, it tries to connect to a real database before you can intercept it.
+
+**Solution — module alias in `vitest.config.ts`:**
+
+```ts
+// vitest.config.ts
+resolve: {
+  alias: {
+    'next/font/google': path.resolve(__dirname, '__mocks__/next-font-google.ts'),
+  },
+}
+```
+
+This replaces `next/font/google` globally for the entire test suite — not just in one test file. Whenever anything imports `next/font/google`, Vitest silently swaps it for our mock:
+
+```ts
+// __mocks__/next-font-google.ts
+const font = (id: string) => (): { variable: string; className: string } => ({
+  variable: `--font-${id}`,
+  className: `font-${id}`,
+});
+
+export const Inter = font('inter');    // Inter('latin') returns { variable: '--font-inter', className: 'font-inter' }
+export const Poppins = font('poppins');
+// ...
+```
+
+The mock returns the same shape as the real thing (`variable`, `className`), so all code that uses it still works — but no filesystem writes happen.
+
+---
+
+### 16. Per-Test Mocking with `vi.mock()`
+
+For things that don't need a global alias — like `next/cache` and `next/navigation` — we mock per test file with `vi.mock()`:
+
+```ts
+// route.spec.ts
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+}));
+
+// After this, any import of 'next/cache' in this file (and in the code under test)
+// gets the mock version.
+import { revalidatePath } from 'next/cache';
+```
+
+**Key rule: `vi.mock()` is hoisted.** Even though it's written after the `import` statements in your file, Vitest moves it to the very top before any imports execute. This is the same behaviour as Jest's `jest.mock()` — it's a deliberate design decision so the mock is in place before the module under test loads.
+
+**Checking mock calls:**
+
+```ts
+const mockRevalidatePath = vi.mocked(revalidatePath);
+
+it('calls revalidatePath with the correct path', async () => {
+  await GET(makeRequest('tenant-a', VALID_SECRET));
+  expect(mockRevalidatePath).toHaveBeenCalledWith('/tenant-a', 'page');
+});
+```
+
+`vi.mocked()` is a type helper — it takes a value you know is a mock and types it as `MockInstance<...>`, giving you `.toHaveBeenCalledWith()` etc. on the `expect()` matcher.
+
+---
+
+### 17. Coverage and SonarCloud
+
+**How coverage works:**
+
+When you run `pnpm test:cov`, Vitest instruments every line of your source files and tracks which lines execute during tests. At the end it generates `coverage/lcov.info` — a standard format that SonarCloud, Codecov, and most CI tools understand.
+
+```
+pnpm --filter @beloauto/web test:cov
+→ apps/web/coverage/lcov.info  (222 lines, records which lines were hit)
+```
+
+**How SonarCloud picks it up:**
+
+`sonar-project.properties` tells SonarCloud where to find the coverage report:
+```properties
+sonar.javascript.lcov.reportPaths=apps/backend/coverage/lcov.info,apps/bff/coverage/lcov.info,apps/web/coverage/lcov.info
+```
+
+In CI (`pr-quality.yml`), the SonarCloud job runs all three `test:cov` commands before scanning:
+```yaml
+- name: Generate coverage reports
+  run: |
+    pnpm --filter @beloauto/backend test:cov
+    pnpm --filter @beloauto/bff test:cov
+    pnpm --filter @beloauto/web test:cov   # added
+```
+
+**Why the quality gate was failing before this PR:**
+
+`apps/web` was already listed in `sonar.sources` (SonarCloud could see the files), but there was no coverage report for it. SonarCloud treats files with no coverage data as 0% covered. New code with 0% coverage → Quality Gate fails.
+
+**Differential coverage — why you don't need 80% everywhere today:**
+
+`sonar.newCode.referenceBranch=main` tells SonarCloud to only enforce the ≥80% gate on code that changed since the last main commit. Legacy files with no tests don't block the PR. Only the lines YOU changed in this PR need to be covered.
+
+This is the same principle as the backend: you don't need to test the whole codebase before shipping a feature — you need to test the code you're adding.
+
+**What's not covered and why that's OK:**
+
+`[slug]/layout.tsx` and `[slug]/page.tsx` are not covered by unit tests. SonarCloud sees them as uncovered lines. But:
+1. They're server components — Playwright covers them at E2E level
+2. The differential gate only cares about coverage on **new** lines, and the definition of "new" is relative to main
+3. Once M16 Playwright tests land, these paths get covered at integration level
 
 ---
 
