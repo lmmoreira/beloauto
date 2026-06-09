@@ -307,15 +307,67 @@ interface HeroModuleData {
 - Button uses `var(--ba-btn-variant)` and `var(--ba-primary)` — never hardcoded colors
 - Responsive: full-height on mobile, 60vh on desktop
 
+**Component testing infrastructure (one-time setup — do first, benefits S04–S07):**
+
+Module components (`components/hotsite/`) are synchronous prop-driven functions that return JSX with no Next.js runtime API calls. They are fully testable with `@testing-library/react` in jsdom. This story sets up the infrastructure so every subsequent module story (S05, S06, S07) can add its `*.spec.tsx` without further setup.
+
+1. Install devDependencies in `apps/web`: `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`
+2. Create `apps/web/__mocks__/next-image.ts` — renders `<img src alt ...rest>` (same global-alias pattern as `next-font-google.ts`; `next/image` has the same module-evaluation side-effect and must be globally swapped, not per-file mocked)
+3. Update `apps/web/vitest.config.ts`:
+   - Add `'next/image': path.resolve(__dirname, '__mocks__/next-image.ts')` to `resolve.alias`
+   - Each component spec file declares `// @vitest-environment jsdom` at line 1 — `environmentMatchGlobs` is not available in Vitest v4's TypeScript types; per-file declaration is the correct mechanism. `lib/**` stays in `node` with no annotation.
+4. Update `apps/web/vitest.setup.ts`: add `import '@testing-library/jest-dom'`
+5. Update `sonar-project.properties` (or equivalent): remove `apps/web/components/**` from `sonar.coverage.exclusions` — module components now have Vitest tests and must contribute to coverage
+
+**Component typing convention (established here for all module stories):**
+
+`HeroModule` declares its own fully-typed props interface. The `ModuleComponent` registry type in `page.tsx` uses `data: Record<string, unknown>` for heterogeneity — the cast is isolated to the registration site only, never inside the component:
+
+```ts
+// HeroModule.tsx — fully typed, readable contract
+interface HeroModuleProps {
+  readonly data: HeroModuleData;
+  readonly slug: string;
+}
+
+// page.tsx — single cast at the boundary
+MODULE_MAP['HERO'] = HeroModule as ModuleComponent;
+```
+
+All subsequent module components (S05–S07) follow this same pattern.
+
 **Acceptance criteria:**
-- [ ] `variant: 'centered'` renders title and CTA centered
-- [ ] `variant: 'left-aligned'` renders content left-aligned with image right on desktop
-- [ ] Both variants are mobile-responsive (stack to single column on `< sm`)
-- [ ] Primary color button uses `var(--ba-primary)` (not hardcoded)
-- [ ] If `backgroundImageUrl` is null, renders with solid `var(--ba-primary)` background
-- [ ] CTA scrolls to `#booking-form` or `#service-list` depending on `ctaTarget`
-- [ ] `backgroundImageUrl` rendered via `next/image` with `priority` (it's typically the page's LCP element) — never `loading="lazy"`
-- [ ] Vitest component test: renders both variants, title, subtitle, and CTA button correctly
+
+*Component:*
+- [ ] `variant: 'centered'` — title, optional subtitle, and CTA button rendered and horizontally centred
+- [ ] `variant: 'left-aligned'` — content left-aligned; on desktop: two-column layout (content left, image right); on mobile: single-column stacked
+- [ ] Both variants are responsive — stack to single column on `< sm` breakpoint
+- [ ] CTA button uses `var(--ba-primary)` for colour — no hardcoded hex or Tailwind colour class
+- [ ] CTA button style respects `var(--ba-btn-variant)` — `filled`, `outline`, `ghost` produce distinct visual styles without hardcoded values
+- [ ] `backgroundImageUrl` absent → no `<img>` rendered; section background is solid `var(--ba-primary)`
+- [ ] `backgroundImageUrl` present → rendered via `next/image` with `priority` prop set (LCP element — never `loading="lazy"`)
+- [ ] `ctaTarget: 'booking'` → CTA `href="#booking-form"`
+- [ ] `ctaTarget: 'service-list'` → CTA `href="#service-list"`
+- [ ] `subtitle` present → subtitle text rendered; `subtitle` absent → no subtitle element in DOM
+- [ ] Section height: full-height on mobile, `60vh` on desktop
+- [ ] `HeroModule` registered as `MODULE_MAP['HERO']` in `apps/web/app/[slug]/page.tsx`; cast to `ModuleComponent` at the registration site only
+
+*Infrastructure:*
+- [ ] `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event` present in `apps/web` devDependencies
+- [ ] `apps/web/__mocks__/next-image.ts` created and wired into `vitest.config.ts` `resolve.alias`
+- [ ] Each component spec file declares `// @vitest-environment jsdom` at line 1; existing `lib/**` tests continue to pass with `environment: 'node'` (no annotation needed)
+- [ ] `vitest.setup.ts` imports `@testing-library/jest-dom`
+- [ ] `sonar.coverage.exclusions` no longer includes `apps/web/components/**`
+
+*`HeroModule.spec.tsx` (via `@testing-library/react` in jsdom):*
+- [ ] `variant: 'centered'` — title text, CTA button with correct label rendered; centred layout class/structure applied
+- [ ] `variant: 'left-aligned'` — title text rendered; left-aligned layout class/structure applied
+- [ ] `ctaTarget: 'booking'` → CTA anchor `href` is `#booking-form`
+- [ ] `ctaTarget: 'service-list'` → CTA anchor `href` is `#service-list`
+- [ ] `backgroundImageUrl` absent → no `<img>` in DOM
+- [ ] `backgroundImageUrl: 'https://example.com/hero.jpg'` → `<img>` rendered with `src` matching the URL
+- [ ] `subtitle: 'Texto'` → subtitle text in DOM; no `subtitle` prop → subtitle element absent
+- [ ] `tsc --noEmit` passes across monorepo after all changes
 
 **Dependencies:** M12-S03
 

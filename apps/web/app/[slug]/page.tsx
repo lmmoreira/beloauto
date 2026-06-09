@@ -1,11 +1,17 @@
 import type { HotsiteModuleType } from '@beloauto/types';
 import { fetchManifest } from '@/lib/api/tenant';
 import { Footer } from '@/components/hotsite/Footer';
+import { HeroModule } from '@/components/hotsite/HeroModule';
 
 type ModuleComponent = React.ComponentType<{ data: Record<string, unknown>; slug: string }>;
 
-// Module components registered here as each story (M12-S04 to S06) lands
-const MODULE_MAP: Partial<Record<HotsiteModuleType, ModuleComponent>> = {};
+// Each module story (M12-S04 to S06) registers its component here.
+// HeroModule is typed as { data: HeroModuleData; slug: string } — cast only at this boundary.
+const MODULE_MAP: Partial<Record<HotsiteModuleType, ModuleComponent>> = {
+  // HeroModule is typed as { data: HeroModuleData; slug: string } — double cast isolates the
+  // type erasure to this single registry boundary; the component's own props stay fully typed.
+  HERO: HeroModule as unknown as ModuleComponent,
+};
 
 interface HotsitePageProps {
   params: Promise<{ slug: string }>;

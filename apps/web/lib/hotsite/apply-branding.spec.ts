@@ -95,4 +95,28 @@ describe('applyBranding', () => {
 
     expect(result['--ba-btn-variant']).toBe('outline');
   });
+
+  it('derives filled button tokens: primary bg, white text, primary border', () => {
+    const result = applyBranding(makeBranding({ buttonStyle: 'filled' })) as CSSTokens;
+
+    expect(result['--ba-btn-bg']).toBe('var(--ba-primary)');
+    expect(result['--ba-btn-text']).toBe('#ffffff');
+    expect(result['--ba-btn-border']).toBe('var(--ba-primary)');
+  });
+
+  it('derives outline button tokens: transparent bg, primary text, primary border', () => {
+    const result = applyBranding(makeBranding({ buttonStyle: 'outline' })) as CSSTokens;
+
+    expect(result['--ba-btn-bg']).toBe('transparent');
+    expect(result['--ba-btn-text']).toBe('var(--ba-primary)');
+    expect(result['--ba-btn-border']).toBe('var(--ba-primary)');
+  });
+
+  it('derives ghost button tokens: transparent bg, primary text, transparent border', () => {
+    const result = applyBranding(makeBranding({ buttonStyle: 'ghost' })) as CSSTokens;
+
+    expect(result['--ba-btn-bg']).toBe('transparent');
+    expect(result['--ba-btn-text']).toBe('var(--ba-primary)');
+    expect(result['--ba-btn-border']).toBe('transparent');
+  });
 });

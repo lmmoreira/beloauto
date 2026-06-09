@@ -11,9 +11,18 @@ const SHADOW = {
   strong: '0 4px 16px rgba(0,0,0,0.20)',
 };
 
+// Derived button tokens: module components consume --ba-btn-bg/text/border directly via
+// inline styles so they never need to branch on the --ba-btn-variant string value in CSS.
+const BTN_STYLES = {
+  filled: { bg: 'var(--ba-primary)', text: '#ffffff', border: 'var(--ba-primary)' },
+  outline: { bg: 'transparent', text: 'var(--ba-primary)', border: 'var(--ba-primary)' },
+  ghost: { bg: 'transparent', text: 'var(--ba-primary)', border: 'transparent' },
+} as const;
+
 export function applyBranding(
   branding: HotsiteBrandingResponse,
 ): React.CSSProperties & Record<`--ba-${string}`, string> {
+  const btn = BTN_STYLES[branding.buttonStyle];
   return {
     '--ba-primary': branding.primaryColor,
     '--ba-secondary': branding.secondaryColor,
@@ -25,5 +34,8 @@ export function applyBranding(
     '--ba-section-py': SECTION_PY[branding.spacing],
     '--ba-shadow': SHADOW[branding.shadowStyle],
     '--ba-btn-variant': branding.buttonStyle,
+    '--ba-btn-bg': btn.bg,
+    '--ba-btn-text': btn.text,
+    '--ba-btn-border': btn.border,
   };
 }
