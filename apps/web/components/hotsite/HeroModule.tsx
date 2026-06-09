@@ -63,7 +63,14 @@ export function HeroModule({ data, slug: _ }: HeroModuleProps) {
         style={{ backgroundColor: hasImage ? undefined : 'var(--ba-primary)' }}
       >
         {hasImage && (
-          <Image src={data.backgroundImageUrl!} alt="" fill priority sizes="100vw" className="object-cover" />
+          <Image
+            src={data.backgroundImageUrl!}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
         )}
         <div className="relative z-10 text-center py-16 max-w-3xl mx-auto">
           <HeroTextContent data={data} ctaHref={ctaHref} />
