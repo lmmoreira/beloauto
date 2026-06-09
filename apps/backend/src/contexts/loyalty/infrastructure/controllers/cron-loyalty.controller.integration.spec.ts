@@ -40,7 +40,10 @@ describe('CronLoyaltyController (integration)', () => {
   });
 
   afterEach(async () => {
-    await ds.createQueryBuilder().delete().from(BalanceExpiryLogEntity).execute();
+    await ds.query(
+      `DELETE FROM loyalty.balance_expiry_log WHERE entry_id IN (SELECT id FROM loyalty.loyalty_entries WHERE tenant_id = $1)`,
+      [tenantId],
+    );
     await ds.getRepository(LoyaltyEntryEntity).delete({ tenantId });
     await ds.getRepository(LoyaltyBalanceEntity).delete({ tenantId });
   });
