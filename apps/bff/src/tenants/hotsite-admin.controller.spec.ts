@@ -6,7 +6,7 @@ import {
   HotsiteAdminContentResponse,
   PublishHotsiteResponse,
   UnpublishHotsiteResponse,
-} from './tenants.types';
+} from '@beloauto/types';
 
 const hotsiteContentResponse: HotsiteAdminContentResponse = {
   branding: {

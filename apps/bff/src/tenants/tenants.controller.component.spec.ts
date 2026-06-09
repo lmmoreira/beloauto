@@ -1,6 +1,6 @@
 import { HttpException, INestApplication } from '@nestjs/common';
 import { MockBackendHttpService, createTestApp, request } from '../test/component-test.helpers';
-import { HotsiteResponse } from './tenants.types';
+import { HotsiteResponse } from '@beloauto/types';
 
 const tenantInfo = { id: 'tenant-uuid', slug: 'lavacar-bh', name: 'Lavacar BH' };
 

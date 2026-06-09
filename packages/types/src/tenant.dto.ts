@@ -1,3 +1,9 @@
+export interface TenantInfoResponse {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export interface BusinessHours {
   open: string; // "HH:MM"
   close: string; // "HH:MM"

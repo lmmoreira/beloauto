@@ -2,7 +2,7 @@ import { Controller, Get, Header, Param } from '@nestjs/common';
 import { Public } from '../shared/decorators/public.decorator';
 import { BackendHttpService } from '../shared/http/backend-http.service';
 import { TenantInfoResponse } from '../shared/types/backend-responses';
-import { HotsiteManifestResponse, HotsiteResponse } from './tenants.types';
+import { HotsiteManifestResponse, HotsiteResponse } from '@beloauto/types';
 
 @Controller('tenants')
 export class TenantsController {

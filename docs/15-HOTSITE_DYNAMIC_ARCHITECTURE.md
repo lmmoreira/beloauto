@@ -58,9 +58,26 @@ interface HotsiteBranding {
 }
 ```
 
+### Font Allow-List
+
+Fonts are pre-loaded at build time via `next/font/google` in `apps/web/lib/hotsite/font-config.ts`. The manifest stores a font key (e.g. `"Playfair Display"`); `applyBranding()` resolves it to the matching CSS variable. No runtime CDN link, no LGPD exposure.
+
+| Manifest key | Font | Personality |
+|---|---|---|
+| `"Inter"` | Inter | Modern, neutral — default |
+| `"Poppins"` | Poppins | Friendly, rounded — salons, clinics |
+| `"Playfair Display"` | Playfair Display | Elegant, premium — luxury detailing |
+| `"Montserrat"` | Montserrat | Bold, impactful — performance/sports |
+| `"Raleway"` | Raleway | Light, refined — boutique/premium |
+| `"Oswald"` | Oswald | Strong, condensed — garages, auto shops |
+| `"Lato"` | Lato | Clean, trustworthy — clinics, corporate |
+| `"Roboto"` | Roboto | Neutral, reliable — mechanics, services |
+
+`font-config.ts` exports `FONT_VARIABLES` (array of CSS variable class names, applied to `<body className>`) and `FONT_MAP` (key → CSS variable string, e.g. `{ "Inter": "var(--font-inter)" }`). Unknown keys fall back to `"Inter"`.
+
 ### CSS Variable Mapping
 
-The `applyBranding(branding)` helper (called in `app/[slug]/layout.tsx`) resolves semantic choices to CSS variables:
+The `applyBranding(branding)` helper (called in `app/[slug]/layout.tsx`) resolves semantic choices to CSS variables. Takes `HotsiteBrandingResponse` from `@beloauto/types`.
 
 ```typescript
 // apps/web/lib/hotsite/apply-branding.ts
@@ -72,20 +89,19 @@ const SHADOW        = {
   subtle: '0 1px 3px rgba(0,0,0,0.10)',
   strong: '0 4px 16px rgba(0,0,0,0.20)',
 };
-const BUTTON_VARIANT = { filled: 'filled', outline: 'outline', ghost: 'ghost' };
 
-export function applyBranding(branding: HotsiteBranding): React.CSSProperties {
+export function applyBranding(branding: HotsiteBrandingResponse): React.CSSProperties {
   return {
     '--ba-primary':       branding.primaryColor,
     '--ba-secondary':     branding.secondaryColor,
     '--ba-background':    branding.backgroundColor,
     '--ba-text':          branding.textColor,
-    '--ba-heading-font':  branding.headingFontFamily,
-    '--ba-body-font':     branding.bodyFontFamily,
+    '--ba-heading-font':  FONT_MAP[branding.headingFontFamily] ?? FONT_MAP['Inter'],
+    '--ba-body-font':     FONT_MAP[branding.bodyFontFamily]    ?? FONT_MAP['Inter'],
     '--ba-radius':        BORDER_RADIUS[branding.borderRadius],
     '--ba-section-py':    SECTION_PY[branding.spacing],
     '--ba-shadow':        SHADOW[branding.shadowStyle],
-    '--ba-btn-variant':   BUTTON_VARIANT[branding.buttonStyle],
+    '--ba-btn-variant':   branding.buttonStyle,
   } as React.CSSProperties;
 }
 ```
@@ -281,19 +297,24 @@ https://beloauto.com/dashboard             → app/dashboard/ (requires auth)
 ```typescript
 import { fetchManifest } from '@/lib/api/tenant';
 import { applyBranding } from '@/lib/hotsite/apply-branding';
+import { FONT_VARIABLES } from '@/lib/hotsite/font-config';
 
 export default async function HotsiteLayout({
   children,
   params,
 }: {
   children: React.ReactNode;
-  params: { slug: string };
+  params: Promise<{ slug: string }>;  // Next.js 16: params is a Promise
 }) {
-  const manifest = await fetchManifest(params.slug);
+  const { slug } = await params;
+  const manifest = await fetchManifest(slug);
 
   return (
     <html lang="pt-BR">
-      <body style={applyBranding(manifest.branding)}>
+      <body
+        style={applyBranding(manifest.branding)}
+        className={FONT_VARIABLES.join(' ')}
+      >
         {children}
       </body>
     </html>
@@ -301,27 +322,22 @@ export default async function HotsiteLayout({
 }
 ```
 
-**`app/[slug]/page.tsx`** — renders enabled modules in manifest order:
+**`app/[slug]/page.tsx`** — renders enabled modules in manifest order. `MODULE_MAP` starts empty and grows as each module story (M12-S04–S06) lands:
 
 ```typescript
-import {
-  HeroModule, ServiceListModule, GalleryModule,
-  TestimonialsModule, BookingCtaModule, AboutModule, ContactModule,
-} from '@/components/hotsite';
 import { Footer } from '@/components/hotsite/Footer';
+import { HotsiteModuleType } from '@beloauto/types';
 
-const MODULE_MAP: Record<HotsiteModuleType, React.ComponentType<{ data: any; slug: string }>> = {
-  HERO:         HeroModule,
-  SERVICE_LIST: ServiceListModule,
-  GALLERY:      GalleryModule,
-  TESTIMONIALS: TestimonialsModule,
-  BOOKING_CTA:  BookingCtaModule,
-  ABOUT:        AboutModule,
-  CONTACT:      ContactModule,
-};
+// Each module story registers its component here
+const MODULE_MAP: Partial<Record<HotsiteModuleType, React.ComponentType<{ data: any; slug: string }>>> = {};
 
-export default async function HotsitePage({ params }: { params: { slug: string } }) {
-  const manifest = await fetchManifest(params.slug);
+export default async function HotsitePage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;  // Next.js 16: params is a Promise
+}) {
+  const { slug } = await params;
+  const manifest = await fetchManifest(slug);
 
   return (
     <main>
@@ -329,9 +345,9 @@ export default async function HotsitePage({ params }: { params: { slug: string }
         .filter((m) => m.enabled)
         .map((m) => {
           const Component = MODULE_MAP[m.type];
-          return Component ? <Component key={m.type} data={m.data} slug={params.slug} /> : null;
+          return Component ? <Component key={m.type} data={m.data} slug={slug} /> : null;
         })}
-      <Footer slug={params.slug} />
+      <Footer slug={slug} />
     </main>
   );
 }
@@ -343,13 +359,10 @@ export default async function HotsitePage({ params }: { params: { slug: string }
 
 ```typescript
 // lib/api/tenant.ts
-export async function fetchManifest(slug: string): Promise<HotsiteManifest> {
+export async function fetchManifest(slug: string): Promise<HotsiteManifestResponse> {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_BFF_URL}/tenants/slug/${slug}`,
-    {
-      headers: { 'X-Tenant-Slug': slug },
-      next: { revalidate: 300 },  // ISR: revalidate every 5 minutes
-    },
+    { next: { revalidate: 300 } },  // ISR: revalidate every 5 minutes
   );
 
   if (res.status === 404) notFound();
