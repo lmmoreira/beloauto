@@ -189,22 +189,47 @@ Implement the admin endpoint for updating hotsite content (full branding token s
 **Docs to load:** `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` § routing + manifest caching + CSS variables
 
 **Description:**  
-Implement the Next.js App Router foundation for the hotsite: the `[slug]/layout.tsx` fetches the manifest (with ISR 5-minute revalidation), applies the full branding token set via CSS custom properties using `applyBranding()`, and provides the manifest to all child pages via React context.
+Implement the Next.js App Router foundation for the hotsite: the `[slug]/layout.tsx` fetches the manifest (with ISR 5-minute revalidation), applies the full branding token set via CSS custom properties using `applyBranding()`, and makes it available to child pages. Also includes the shared types migration and env var additions required before any module story starts.
 
-**What to create/update in `apps/web/app/[slug]/`:**
-- `layout.tsx`:
-  - Server component — fetches `GET /v1/tenants/slug/[slug]` at render time
-  - `next/cache` `revalidate: 300` (5-minute ISR)
-  - `notFound()` if manifest returns 404
-  - Calls `applyBranding(manifest.branding)` and injects all CSS variables via `style` prop on `<body>`
-  - Passes manifest to `ManifestProvider` context
-- `page.tsx`:
-  - Reads manifest from context
-  - Filters `layout[]` to `enabled: true` only, then maps each type to its React component
-  - Renders `<Footer />` after all modules
-- `ManifestContext.tsx` — React context providing manifest to all hotsite components
+> **Discovery decisions (2026-06-08):**
+> - **No ManifestContext** — `layout.tsx` and `page.tsx` are both server components; React context is client-only. Both independently call `fetchManifest(slug)`; Next.js deduplicates the `fetch()` into a single BFF call per render. CSS variables (`var(--ba-*)`) injected on `<body>` are globally available to all client components — no JS data-passing needed for styling.
+> - **ISR unchanged** — `next: { revalidate: 300 }` in `fetchManifest()` is the caching strategy. On-demand revalidation via `/api/revalidate` clears the cache immediately on publish/unpublish.
+> - **Font allow-list** — `headingFontFamily`/`bodyFontFamily` resolved via `apps/web/lib/hotsite/font-config.ts` which pre-loads 8 fonts at build time using `next/font/google`. Manifest stores the font key (e.g. `"Playfair Display"`); `applyBranding()` maps it to `var(--font-<key>)`. No runtime CDN link, no LGPD exposure.
+> - **Shared types migration** — `packages/types/src/hotsite.ts` created in this branch; `apps/bff/src/tenants/tenants.types.ts` deleted; 5 BFF files updated to import from `@beloauto/types`. Backend domain types (`HotsiteBranding`, `HotsiteModule` in `hotsite-config.aggregate.ts`) are NOT touched — they are domain-layer types, not API contract types.
+> - **async params** — Next.js 16: `params: Promise<{ slug: string }>; const { slug } = await params` throughout.
+> - **Env vars** — `HOTSITE_REVALIDATE_SECRET` and `NEXT_PUBLIC_HOTSITE_IMAGE_BASE_URL` added to `apps/web/.env.example` and `.env.local`. `NEXT_PUBLIC_HOTSITE_IMAGE_BASE_URL` defaults to `http://localhost:4443/beloauto-hotsite-public-dev` locally; set to CDN/bucket URL in prod via environment config.
 
-**`applyBranding()` helper** (`apps/web/lib/hotsite/apply-branding.ts`):
+**Font allow-list (`apps/web/lib/hotsite/font-config.ts`):**
+
+| Manifest key | Font | Personality |
+|---|---|---|
+| `"Inter"` | Inter | Modern, neutral — default |
+| `"Poppins"` | Poppins | Friendly, rounded — salons, clinics |
+| `"Playfair Display"` | Playfair Display | Elegant, premium — luxury detailing |
+| `"Montserrat"` | Montserrat | Bold, impactful — performance/sports |
+| `"Raleway"` | Raleway | Light, refined — boutique/premium |
+| `"Oswald"` | Oswald | Strong, condensed — garages, auto shops |
+| `"Lato"` | Lato | Clean, trustworthy — clinics, corporate |
+| `"Roboto"` | Roboto | Neutral, reliable — mechanics, services |
+
+Each font is loaded once at build time with a CSS variable (`variable` option in `next/font/google`). `applyBranding()` resolves the manifest font key to the matching CSS variable; unknown keys fall back to `"Inter"`.
+
+**Shared types migration (same branch — do first):**
+1. Create `packages/types/src/hotsite.ts` — move `HotsiteManifestResponse`, `HotsiteBrandingResponse`, `HotsiteModuleResponse`, `HotsiteAdminContentResponse`, `PublishHotsiteResponse`, `UnpublishHotsiteResponse`, `GenerateHotsiteImageSignedUrlResponse`, `FeatureBookingPhotoResponse` from `apps/bff/src/tenants/tenants.types.ts`
+2. Add `export * from './hotsite'` to `packages/types/src/index.ts`
+3. Delete `apps/bff/src/tenants/tenants.types.ts`
+4. Update 5 BFF files to import from `@beloauto/types`: `tenants.controller.ts`, `hotsite-admin.controller.ts`, `tenants.controller.spec.ts`, `tenants.controller.component.spec.ts`, `hotsite-admin.controller.spec.ts`
+
+**What to create/update in `apps/web/`:**
+- `apps/web/lib/hotsite/font-config.ts` — loads 8 fonts via `next/font/google`, exports `FONT_VARIABLES` array (for `<body className>`) and `FONT_MAP` (key → CSS variable string)
+- `apps/web/lib/hotsite/apply-branding.ts` — `applyBranding(branding)` returns `React.CSSProperties` with all `--ba-*` variables; resolves font keys via `FONT_MAP`
+- `apps/web/lib/api/tenant.ts` — `fetchManifest(slug)` calls `GET ${NEXT_PUBLIC_BFF_URL}/tenants/slug/${slug}` with `next: { revalidate: 300 }`; calls `notFound()` on 404
+- `apps/web/app/[slug]/layout.tsx` — server component; `await params`; calls `fetchManifest(slug)`; injects `applyBranding()` result on `<body style>`; adds font CSS variables via `className` on `<body>`; wraps children in `<html lang="pt-BR">`
+- `apps/web/app/[slug]/page.tsx` — server component; `await params`; calls `fetchManifest(slug)` (deduplicated); filters `layout[]` to `enabled: true`; maps each type to its component via `MODULE_MAP`; renders `<Footer />`
+- `apps/web/app/api/revalidate/route.ts` — `GET` handler; verifies `secret` query param against `HOTSITE_REVALIDATE_SECRET`; calls `revalidatePath('/[slug]', 'page')` on match; returns `401` on mismatch/missing
+- `apps/web/next.config.mjs` — add `images.remotePatterns` reading hostname from `NEXT_PUBLIC_HOTSITE_IMAGE_BASE_URL`
+
+**`applyBranding()` signature** (`apps/web/lib/hotsite/apply-branding.ts`):
 
 ```typescript
 const BORDER_RADIUS = { sharp: '0px', rounded: '8px', pill: '9999px' };
@@ -215,14 +240,14 @@ const SHADOW        = {
   strong: '0 4px 16px rgba(0,0,0,0.20)',
 };
 
-export function applyBranding(branding: HotsiteBranding): React.CSSProperties {
+export function applyBranding(branding: HotsiteBrandingResponse): React.CSSProperties {
   return {
     '--ba-primary':       branding.primaryColor,
     '--ba-secondary':     branding.secondaryColor,
     '--ba-background':    branding.backgroundColor,
     '--ba-text':          branding.textColor,
-    '--ba-heading-font':  branding.headingFontFamily,
-    '--ba-body-font':     branding.bodyFontFamily,
+    '--ba-heading-font':  FONT_MAP[branding.headingFontFamily] ?? FONT_MAP['Inter'],
+    '--ba-body-font':     FONT_MAP[branding.bodyFontFamily]    ?? FONT_MAP['Inter'],
     '--ba-radius':        BORDER_RADIUS[branding.borderRadius],
     '--ba-section-py':    SECTION_PY[branding.spacing],
     '--ba-shadow':        SHADOW[branding.shadowStyle],
@@ -234,16 +259,20 @@ export function applyBranding(branding: HotsiteBranding): React.CSSProperties {
 **Rule for all module components:** use only `var(--ba-*)` for colors, fonts, radius, spacing, and shadows. Never hardcode visual values.
 
 **Acceptance criteria:**
-- [ ] `GET /lavacar-beloauto` renders the hotsite with all 10 branding tokens applied as CSS variables
-- [ ] All `--ba-*` variables are present on `<body>` with correct values
+- [ ] `GET /lavacar-beloauto` renders the hotsite with all 10 branding tokens applied as CSS variables on `<body>`
+- [ ] All `--ba-*` variables are present with correct values
 - [ ] `borderRadius: 'pill'` → `--ba-radius: 9999px`; `spacing: 'compact'` → `--ba-section-py: 3rem`
 - [ ] Only modules with `enabled: true` are rendered — `enabled: false` modules are skipped silently
 - [ ] `GET /nonexistent-slug` returns Next.js 404 page
 - [ ] Second request within 5 minutes served from Next.js cache (no BFF call)
-- [ ] TypeScript compiles with zero errors
-- [ ] Secured `/api/revalidate?secret=&slug=` route implemented — verifies `secret` against `HOTSITE_REVALIDATE_SECRET` (env var shared with M12-S10's `IFrontendRevalidationPort`; same name, same value in both services); on match calls `revalidatePath('/[slug]')`, on mismatch/missing returns `401`. Called by the backend (M12-S10) on publish/unpublish so changes go live without waiting for ISR
-- [ ] `next.config.js` `images.remotePatterns` configured for the public hotsite bucket / CDN domain (M12-S10) — required before any module can render `next/image` against manifest URLs
-- [ ] `headingFontFamily`/`bodyFontFamily` load via `next/font/google` from a curated allow-list (not a runtime `<link>` to Google's CDN) — avoids render-blocking requests and third-party visitor-data exposure (LGPD)
+- [ ] `headingFontFamily: 'Playfair Display'` → `--ba-heading-font` resolves to the pre-loaded `next/font/google` CSS variable (not a runtime `<link>`)
+- [ ] Unknown font key falls back to Inter — no crash
+- [ ] `<body>` has both `style` (CSS var values) and `className` (font CSS variable names) applied correctly
+- [ ] Secured `GET /api/revalidate?secret=&slug=` route implemented — `HOTSITE_REVALIDATE_SECRET` match → `revalidatePath`, mismatch/missing → `401`
+- [ ] `next.config.mjs` `images.remotePatterns` hostname derived from `NEXT_PUBLIC_HOTSITE_IMAGE_BASE_URL` env var
+- [ ] `HOTSITE_REVALIDATE_SECRET` and `NEXT_PUBLIC_HOTSITE_IMAGE_BASE_URL` present in `apps/web/.env.example` and `.env.local`
+- [ ] Shared types migration complete: `packages/types/src/hotsite.ts` exists, `apps/bff/src/tenants/tenants.types.ts` deleted, BFF imports from `@beloauto/types`, `tsc --noEmit` passes in both `apps/bff` and `apps/web`
+- [ ] TypeScript compiles with zero errors across the monorepo
 
 **Dependencies:** M12-S01, M12-S10, M00-S05
 
