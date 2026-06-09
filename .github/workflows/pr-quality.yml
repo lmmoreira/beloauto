@@ -86,6 +86,7 @@ jobs:
         run: |
           pnpm --filter @beloauto/backend test:cov
           pnpm --filter @beloauto/bff test:cov
+          pnpm --filter @beloauto/web test:cov
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
