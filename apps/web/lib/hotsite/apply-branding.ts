@@ -22,7 +22,7 @@ const BTN_STYLES = {
 export function applyBranding(
   branding: HotsiteBrandingResponse,
 ): React.CSSProperties & Record<`--ba-${string}`, string> {
-  const btn = BTN_STYLES[branding.buttonStyle];
+  const btn = BTN_STYLES[branding.buttonStyle] ?? BTN_STYLES.filled;
   return {
     '--ba-primary': branding.primaryColor,
     '--ba-secondary': branding.secondaryColor,
@@ -37,5 +37,6 @@ export function applyBranding(
     '--ba-btn-bg': btn.bg,
     '--ba-btn-text': btn.text,
     '--ba-btn-border': btn.border,
+    '--ba-hero-text': branding.backgroundColor,
   };
 }

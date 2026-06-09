@@ -16,7 +16,7 @@ const btnStyle: React.CSSProperties = {
 
 const headingStyle: React.CSSProperties = {
   fontFamily: 'var(--ba-heading-font)',
-  color: '#ffffff',
+  color: 'var(--ba-hero-text)',
 };
 
 function HeroTextContent({
@@ -34,7 +34,7 @@ function HeroTextContent({
       {data.subtitle && (
         <p
           className="text-lg sm:text-xl mb-8 opacity-90"
-          style={{ color: '#ffffff' }}
+          style={{ color: 'var(--ba-hero-text)' }}
           data-testid="hero-subtitle"
         >
           {data.subtitle}
@@ -63,7 +63,7 @@ export function HeroModule({ data, slug: _ }: HeroModuleProps) {
         style={{ backgroundColor: hasImage ? undefined : 'var(--ba-primary)' }}
       >
         {hasImage && (
-          <Image src={data.backgroundImageUrl!} alt="" fill priority className="object-cover" />
+          <Image src={data.backgroundImageUrl!} alt="" fill priority sizes="100vw" className="object-cover" />
         )}
         <div className="relative z-10 text-center py-16 max-w-3xl mx-auto">
           <HeroTextContent data={data} ctaHref={ctaHref} />
@@ -91,6 +91,7 @@ export function HeroModule({ data, slug: _ }: HeroModuleProps) {
                 alt=""
                 fill
                 priority
+                sizes="(min-width: 640px) 50vw, 100vw"
                 className="object-cover"
                 style={{ borderRadius: 'var(--ba-radius)' }}
               />

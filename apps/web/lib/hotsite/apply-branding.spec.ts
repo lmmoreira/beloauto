@@ -119,4 +119,19 @@ describe('applyBranding', () => {
     expect(result['--ba-btn-text']).toBe('var(--ba-primary)');
     expect(result['--ba-btn-border']).toBe('transparent');
   });
+
+  it('derives --ba-hero-text from backgroundColor (contrast colour for primaryColor overlay)', () => {
+    const result = applyBranding(makeBranding({ backgroundColor: '#FFFFFF' })) as CSSTokens;
+
+    expect(result['--ba-hero-text']).toBe('#FFFFFF');
+  });
+
+  it('falls back to filled button style when buttonStyle is not a known variant', () => {
+    const branding = makeBranding({ buttonStyle: 'unknown' as 'filled' });
+    const result = applyBranding(branding) as CSSTokens;
+
+    expect(result['--ba-btn-bg']).toBe('var(--ba-primary)');
+    expect(result['--ba-btn-text']).toBe('#ffffff');
+    expect(result['--ba-btn-border']).toBe('var(--ba-primary)');
+  });
 });

@@ -5,7 +5,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-06-09 (§7 web testing block expanded — module component testing infrastructure and per-component test table added in M12-S04; `docs/ANTI_PATTERNS.md` extended with `@beloauto/types` boundary and CSS custom property return type)
+**Last updated:** 2026-06-09 (§7 web testing block expanded — module component testing infrastructure and per-component test table added in M12-S04; `docs/ANTI_PATTERNS.md` extended with `@beloauto/types` boundary, CSS custom property return type, `<Image fill>` sizes, and jest-dom/vitest entrypoint; pre-pr.sh check W1 added)
 
 ---
 
@@ -282,8 +282,9 @@ export default MockImage;
 
 **`vitest.setup.ts`:**
 ```ts
-import '@testing-library/jest-dom';
-// Global test setup — jest-dom DOM matchers available in all specs
+import '@testing-library/jest-dom/vitest';
+// Global test setup — /vitest entrypoint registers types for Vitest's expect();
+// bare @testing-library/jest-dom leaves toBeInTheDocument() etc. untyped in strict mode.
 ```
 
 **`next/navigation`** (`useRouter`, `usePathname`, etc.) and **`next/cache`** (`revalidatePath`) still use per-file `vi.mock()` when needed — they do not have the module-eval side-effect that requires a global alias.
