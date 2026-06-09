@@ -1,6 +1,6 @@
 import { makeBackendHttp } from '../test/backend-http.mock';
 import { TenantsController } from './tenants.controller';
-import { HotsiteResponse } from './tenants.types';
+import { HotsiteResponse } from '@beloauto/types';
 
 const tenantInfo = { id: 'tenant-uuid', slug: 'lavacar-bh', name: 'Lavacar BH' };
 

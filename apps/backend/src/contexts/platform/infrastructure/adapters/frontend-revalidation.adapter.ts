@@ -18,11 +18,13 @@ export class FrontendRevalidationAdapter implements IFrontendRevalidationPort {
 
   async revalidate(slug: string): Promise<void> {
     const url = new URL('/api/revalidate', this.frontendUrl);
-    url.searchParams.set('secret', this.secret);
     url.searchParams.set('slug', slug);
 
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(REVALIDATION_TIMEOUT_MS) });
+      const response = await fetch(url, {
+        headers: { 'x-revalidate-secret': this.secret },
+        signal: AbortSignal.timeout(REVALIDATION_TIMEOUT_MS),
+      });
       if (!response.ok) {
         this.logger.warn(`Hotsite revalidation request failed for slug '${slug}'`, {
           status: response.status,

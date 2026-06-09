@@ -16,3 +16,4 @@ plan/
 
 # Generated / vendor files
 pnpm-lock.yaml
+**/next-env.d.ts

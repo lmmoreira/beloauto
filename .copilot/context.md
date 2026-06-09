@@ -5,7 +5,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-06-06 (context.md optimised — §7/§8/§11 compressed; `docs/ENGINEERING_RULES.md` + `docs/REPOSITORY_STRUCTURE.md` created for dynamic loading)
+**Last updated:** 2026-06-09 (§7 web testing block added; `docs/ANTI_PATTERNS.md` extended with `@beloauto/types` boundary and CSS custom property return type)
 
 ---
 
@@ -219,7 +219,7 @@ Every `save()` must be wrapped in `ITransactionManager.run()` — single-aggrega
 - Pass `event.correlationId` into the DTO — never generate a new UUID in the handler.
 → Pub/Sub naming, subscribe pattern, test wiring tables: `docs/ENGINEERING_RULES.md`.
 
-### Testing
+### Testing (backend + BFF)
 Three layers: **Unit** (`.spec.ts`) · **Integration** (`.integration.spec.ts`) · **E2E** (Playwright). Full patterns → `docs/08-TESTING_STRATEGY.md` + `docs/ENGINEERING_RULES.md`.
 
 - Every UC: ≥1 unit + ≥1 integration + ≥1 tenant-isolation test. SonarCloud ingests unit only — every controller/use case needs `.spec.ts`.
@@ -227,6 +227,18 @@ Three layers: **Unit** (`.spec.ts`) · **Integration** (`.integration.spec.ts`) 
 - No `.skip()`, `.only()`, `setTimeout`. Integration DB isolation: unique inline tenant UUID for count assertions.
 - New migration/entity → register in `integration-global-setup.ts` in the **same commit**. Missing = silent integration test failure.
 - Integration app helpers must default-override network-calling adapters (e.g. `STORAGE_SERVICE`). Use `useClass` not `useExisting` in module providers.
+
+### Testing (apps/web)
+Test runner: **Vitest** (not Jest) — config at `apps/web/vitest.config.ts`. Scripts: `test`, `test:cov`, `test:watch`.
+
+**Unit-test:** pure utility functions (`lib/**`), API route handlers (`app/api/*/route.ts`), async data fetchers (`lib/api/**`).  
+**Do NOT unit-test:** Server Component pages/layouts (require full Next.js runtime — Playwright E2E only), interactive client components (Playwright).
+
+- `next/font/google` calls font-loader functions at module-evaluation time — a module-level side effect. Per-file `vi.mock()` is too late. Use a **global `resolve.alias`** in `vitest.config.ts` pointing to `apps/web/__mocks__/next-font-google.ts`. Modules with runtime-only deps (`next/cache`, `next/navigation`) can use per-file `vi.mock()` normally.
+- React component props interfaces: every field must be **`readonly`** (SonarCloud S6759 — fires on every new component).
+- Import Node.js built-ins with the `node:` prefix (`node:path`, `node:fs`) — bare names are flagged by SonarCloud.
+- Functions returning CSS custom properties: declare return type as `React.CSSProperties & Record<\`--ba-${string}\`, string>` — never use `as React.CSSProperties` assertion (SonarCloud smell).
+- SonarCloud coverage gate: `sonar.coverage.exclusions` must include `apps/web/app/**/page.tsx`, `apps/web/app/**/layout.tsx`, `apps/web/components/**`. Test infrastructure (`**/vitest.config.ts`, `**/__mocks__/**`) must be in `sonar.exclusions`.
 
 ### CI gates (block merge)
 - ESLint + Prettier — zero warnings

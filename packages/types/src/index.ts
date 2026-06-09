@@ -10,3 +10,4 @@ export * from './schedule.dto';
 export * from './booking.dto';
 export * from './loyalty.dto';
 export * from './tenant.dto';
+export * from './hotsite';

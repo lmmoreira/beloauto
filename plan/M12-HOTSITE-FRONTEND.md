@@ -215,7 +215,7 @@ Implement the Next.js App Router foundation for the hotsite: the `[slug]/layout.
 Each font is loaded once at build time with a CSS variable (`variable` option in `next/font/google`). `applyBranding()` resolves the manifest font key to the matching CSS variable; unknown keys fall back to `"Inter"`.
 
 **Shared types migration (same branch — do first):**
-1. Create `packages/types/src/hotsite.ts` — move `HotsiteManifestResponse`, `HotsiteBrandingResponse`, `HotsiteModuleResponse`, `HotsiteAdminContentResponse`, `PublishHotsiteResponse`, `UnpublishHotsiteResponse`, `GenerateHotsiteImageSignedUrlResponse`, `FeatureBookingPhotoResponse` from `apps/bff/src/tenants/tenants.types.ts`
+1. Create `packages/types/src/hotsite.ts` — move `HotsiteManifestResponse`, `HotsiteBrandingResponse`, `HotsiteModuleResponse`, `HotsiteAdminContentResponse`, `PublishHotsiteResponse`, `UnpublishHotsiteResponse`, `GenerateHotsiteImageSignedUrlResponse`, `FeatureBookingPhotoResponse` from `apps/bff/src/tenants/tenants.types.ts`; **also define all 7 module data interfaces** (`HeroModuleData`, `ServiceListModuleData`, `GalleryModuleData`, `TestimonialsModuleData`, `BookingCtaModuleData`, `AboutModuleData`, `ContactModuleData`) from `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` §4 — so S04–S09 module components import from `@beloauto/types` rather than defining local interfaces that can drift from the BFF
 2. Add `export * from './hotsite'` to `packages/types/src/index.ts`
 3. Delete `apps/bff/src/tenants/tenants.types.ts`
 4. Update 5 BFF files to import from `@beloauto/types`: `tenants.controller.ts`, `hotsite-admin.controller.ts`, `tenants.controller.spec.ts`, `tenants.controller.component.spec.ts`, `hotsite-admin.controller.spec.ts`
@@ -225,7 +225,7 @@ Each font is loaded once at build time with a CSS variable (`variable` option in
 - `apps/web/lib/hotsite/apply-branding.ts` — `applyBranding(branding)` returns `React.CSSProperties` with all `--ba-*` variables; resolves font keys via `FONT_MAP`
 - `apps/web/lib/api/tenant.ts` — `fetchManifest(slug)` calls `GET ${NEXT_PUBLIC_BFF_URL}/tenants/slug/${slug}` with `next: { revalidate: 300 }`; calls `notFound()` on 404
 - `apps/web/app/[slug]/layout.tsx` — server component; `await params`; calls `fetchManifest(slug)`; injects `applyBranding()` result on `<body style>`; adds font CSS variables via `className` on `<body>`; wraps children in `<html lang="pt-BR">`
-- `apps/web/app/[slug]/page.tsx` — server component; `await params`; calls `fetchManifest(slug)` (deduplicated); filters `layout[]` to `enabled: true`; maps each type to its component via `MODULE_MAP`; renders `<Footer />`
+- `apps/web/app/[slug]/page.tsx` — server component; `await params`; calls `fetchManifest(slug)` (deduplicated); filters `layout[]` to `enabled: true`; maps each type to its component via `MODULE_MAP` (starts as `Partial<Record<HotsiteModuleType, ...>> = {}` — each module story S04–S06 registers its entry); renders `<Footer />`
 - `apps/web/app/api/revalidate/route.ts` — `GET` handler; verifies `secret` query param against `HOTSITE_REVALIDATE_SECRET`; calls `revalidatePath('/[slug]', 'page')` on match; returns `401` on mismatch/missing
 - `apps/web/next.config.mjs` — add `images.remotePatterns` reading hostname from `NEXT_PUBLIC_HOTSITE_IMAGE_BASE_URL`
 

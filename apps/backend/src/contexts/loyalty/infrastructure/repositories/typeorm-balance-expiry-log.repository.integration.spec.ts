@@ -7,6 +7,8 @@ import { LoyaltyEntryEntity } from '../entities/loyalty-entry.entity';
 import { TypeOrmBalanceExpiryLogRepository } from './typeorm-balance-expiry-log.repository';
 import { TypeOrmLoyaltyEntryRepository } from './typeorm-loyalty-entry.repository';
 
+const EXPIRY_LOG_TEST_TENANT = '00000000-0000-7000-8000-000000000001';
+
 describe('TypeOrmBalanceExpiryLogRepository (integration)', () => {
   let dataSource: DataSource;
   let repo: TypeOrmBalanceExpiryLogRepository;
@@ -23,8 +25,13 @@ describe('TypeOrmBalanceExpiryLogRepository (integration)', () => {
   });
 
   afterEach(async () => {
-    await dataSource.query(`DELETE FROM "loyalty"."balance_expiry_log"`);
-    await dataSource.query(`DELETE FROM "loyalty"."loyalty_entries"`);
+    await dataSource.query(
+      `DELETE FROM "loyalty"."balance_expiry_log" WHERE entry_id IN (SELECT id FROM "loyalty"."loyalty_entries" WHERE tenant_id = $1)`,
+      [EXPIRY_LOG_TEST_TENANT],
+    );
+    await dataSource.query(`DELETE FROM "loyalty"."loyalty_entries" WHERE tenant_id = $1`, [
+      EXPIRY_LOG_TEST_TENANT,
+    ]);
   });
 
   it('hasBeenProcessed returns false for unknown entryId', async () => {

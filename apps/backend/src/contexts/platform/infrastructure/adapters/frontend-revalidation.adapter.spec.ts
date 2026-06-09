@@ -23,29 +23,27 @@ describe('FrontendRevalidationAdapter', () => {
     fetchSpy.mockRestore();
   });
 
-  it('calls the frontend revalidate endpoint with the slug and secret', async () => {
+  it('calls the frontend revalidate endpoint with slug in query and secret in header', async () => {
     fetchSpy.mockResolvedValue({ ok: true, status: 200 } as Response);
     const adapter = new FrontendRevalidationAdapter(makeConfigService());
 
     await adapter.revalidate('tenant-a');
 
     const [calledUrl, calledOptions] = fetchSpy.mock.calls[0] as [URL, RequestInit];
-    expect(calledUrl.toString()).toBe(
-      'https://app.example.com/api/revalidate?secret=top-secret&slug=tenant-a',
+    expect(calledUrl.toString()).toBe('https://app.example.com/api/revalidate?slug=tenant-a');
+    expect((calledOptions.headers as Record<string, string>)['x-revalidate-secret']).toBe(
+      'top-secret',
     );
     expect(calledOptions.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it('URL-encodes secrets and slugs containing special characters', async () => {
+  it('URL-encodes slugs containing special characters', async () => {
     fetchSpy.mockResolvedValue({ ok: true, status: 200 } as Response);
-    const adapter = new FrontendRevalidationAdapter(
-      makeConfigService({ HOTSITE_REVALIDATE_SECRET: 'a+b&c=d' }),
-    );
+    const adapter = new FrontendRevalidationAdapter(makeConfigService());
 
     await adapter.revalidate('tenant a');
 
     const [calledUrl] = fetchSpy.mock.calls[0] as [URL, RequestInit];
-    expect(calledUrl.searchParams.get('secret')).toBe('a+b&c=d');
     expect(calledUrl.searchParams.get('slug')).toBe('tenant a');
   });
 
@@ -57,8 +55,9 @@ describe('FrontendRevalidationAdapter', () => {
 
     await adapter.revalidate('tenant-a');
 
-    const [calledUrl] = fetchSpy.mock.calls[0] as [URL, RequestInit];
-    expect(calledUrl.toString()).toBe('http://localhost:3000/api/revalidate?secret=&slug=tenant-a');
+    const [calledUrl, calledOptions] = fetchSpy.mock.calls[0] as [URL, RequestInit];
+    expect(calledUrl.toString()).toBe('http://localhost:3000/api/revalidate?slug=tenant-a');
+    expect((calledOptions.headers as Record<string, string>)['x-revalidate-secret']).toBe('');
   });
 
   it('resolves without throwing when the response is not ok', async () => {
