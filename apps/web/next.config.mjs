@@ -1,5 +1,4 @@
-const imageBaseUrl =
-  process.env.NEXT_PUBLIC_HOTSITE_IMAGE_BASE_URL ?? 'http://localhost:4443';
+const imageBaseUrl = process.env.NEXT_PUBLIC_HOTSITE_IMAGE_BASE_URL ?? 'http://localhost:4443';
 const imageHostname = new URL(imageBaseUrl).hostname;
 
 /** @type {import('next').NextConfig} */
