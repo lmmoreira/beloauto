@@ -315,7 +315,7 @@ https://beloauto.com/dashboard             → app/dashboard/ (requires auth)
 **`app/[slug]/layout.tsx`** — fetches manifest and applies full branding token set:
 
 ```typescript
-import { fetchManifest } from '@/lib/api/tenant';
+import { fetchManifest } from '@/lib/api/platform';
 import { applyBranding } from '@/lib/hotsite/apply-branding';
 import { FONT_VARIABLES } from '@/lib/hotsite/font-config';
 
@@ -378,7 +378,7 @@ export default async function HotsitePage({
 ## 6. Manifest Caching
 
 ```typescript
-// lib/api/tenant.ts
+// lib/api/platform.ts
 export async function fetchManifest(slug: string): Promise<HotsiteManifestResponse> {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_BFF_URL}/platform/manifest/${slug}`,

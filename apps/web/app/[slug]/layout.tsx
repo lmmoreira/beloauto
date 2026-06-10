@@ -1,4 +1,4 @@
-import { fetchManifest } from '@/lib/api/tenant';
+import { fetchManifest } from '@/lib/api/platform';
 import { applyBranding } from '@/lib/hotsite/apply-branding';
 import { FONT_VARIABLES } from '@/lib/hotsite/font-config';
 

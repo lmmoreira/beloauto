@@ -8,7 +8,7 @@ vi.mock('next/navigation', () => ({
 
 import type { HotsiteManifestResponse } from '@beloauto/types';
 import { notFound } from 'next/navigation';
-import { fetchManifest } from './tenant';
+import { fetchManifest } from './platform';
 
 const mockNotFound = vi.mocked(notFound);
 

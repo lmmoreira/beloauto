@@ -1,5 +1,5 @@
 import type { HotsiteModuleType, ServiceListModuleData } from '@beloauto/types';
-import { fetchManifest } from '@/lib/api/tenant';
+import { fetchManifest } from '@/lib/api/platform';
 import { fetchServices } from '@/lib/api/services';
 import { Footer } from '@/components/hotsite/Footer';
 import { HeroModule } from '@/components/hotsite/HeroModule';
