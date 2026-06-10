@@ -50,9 +50,9 @@ function deriveButtonTokens(branding: HotsiteBrandingResponse): ButtonTokens {
 function hexToRgb(hex: string): [number, number, number] {
   const normalized = hex.replace('#', '');
   return [
-    parseInt(normalized.substring(0, 2), 16),
-    parseInt(normalized.substring(2, 4), 16),
-    parseInt(normalized.substring(4, 6), 16),
+    Number.parseInt(normalized.substring(0, 2), 16),
+    Number.parseInt(normalized.substring(2, 4), 16),
+    Number.parseInt(normalized.substring(4, 6), 16),
   ];
 }
 
