@@ -64,6 +64,7 @@ export class XxxDomainError extends Error {
 | Use case result type | `{UseCaseClassName}Result` | `ApproveBookingUseCaseResult` |
 | Input DTO | `{Action}Dto` | `ApproveBookingDto` |
 | Zod schema | `{Action}Schema` | `ApproveBookingSchema` |
+| Public hotsite response type (`@beloauto/types`) | `Hotsite<Resource>Response` / `Hotsite<Resource>ListResponse` | `HotsiteManifestResponse`, `HotsiteServiceResponse` / `HotsiteServiceListResponse` |
 
 - Never `*RequestDto`, `*InputDto`, `*Info`.
 - When a path param must be combined with a request body, pass them as **separate arguments**: `execute(staffId, dto)` — never merge into a composite DTO.

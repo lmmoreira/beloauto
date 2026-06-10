@@ -50,6 +50,11 @@ apps/bff/src/
 │   ├── platform.public.controller.ts  ← /platform/manifest/:slug (hotsite manifest — public, no auth required)
 │   └── hotsite-admin.controller.ts    ← /tenants/hotsite (hotsite admin management — MANAGER only)
 │
+├── services/
+│   ├── services.module.ts
+│   ├── services.controller.ts         ← /services, /services/:id (POST/PATCH/DELETE — admin CRUD, MANAGER|STAFF)
+│   └── services.public.controller.ts  ← /services (GET — hotsite service list, public, no auth required)
+│
 ├── schedule/
 │   ├── schedule.module.ts
 │   ├── schedule.controller.ts    ← /schedule/availability, /schedule/closures
@@ -79,6 +84,28 @@ apps/bff/src/
 │
 └── app.module.ts
 ```
+
+---
+
+## Module & Controller Naming Conventions
+
+**Modules are named after bounded contexts (CLAUDE.md §3), not aggregates.** A module name must match a row in the Bounded Contexts table — e.g. `platform/` for the Platform context (`Tenant`, `HotsiteConfig`), never `tenants/` (`Tenant` is one aggregate *inside* Platform, not a module of its own). This is the rule that the M12-S05 `tenants/` → `platform/` rename now enforces — it should not need to happen again.
+
+**Within a module, split controllers by audience, not by resource:**
+
+| File | Audience | Example |
+|---|---|---|
+| `<context>.controller.ts` | Authenticated dashboard (STAFF/MANAGER/CUSTOMER), `@Roles(...)` guarded | `ServicesController` — `POST /services`, `PATCH /services/:id`, `DELETE /services/:id` |
+| `<context>.public.controller.ts` | Unauthenticated hotsite, `@Public()` | `ServicesPublicController` — `GET /services`; `PlatformPublicController` — `GET /platform/manifest/:slug` |
+
+- Both controllers **may share the same `@Controller('<path>')` prefix** as long as method+path combinations don't collide (e.g. `ServicesController` owns the mutating `/services` routes, `ServicesPublicController` owns `GET /services`).
+- A single `.public.controller.ts` can serve **multiple hotsite module types** — it is not 1:1 with `HotsiteModuleType`.
+- `@Public()` is binary — a public route never receives `req.user`. A route that must behave differently for guests vs. authenticated callers needs a new optional-auth guard; treat that as an open decision, not something to improvise per-endpoint.
+- Public route paths describe the **resource/action returned** (`/platform/manifest/:slug`, `/services`), independent of the module folder name.
+
+**Response types for `.public.controller.ts` endpoints** live in `@beloauto/types` (`packages/types/src/hotsite.ts`), named `Hotsite<Resource>Response` / `Hotsite<Resource>ListResponse` (e.g. `HotsiteManifestResponse`, `HotsiteServiceResponse` / `HotsiteServiceListResponse`). Authenticated/admin response types may use plainer names (e.g. `ServiceResponse` in `service.dto.ts`) since they aren't part of the public hotsite contract.
+
+**Frontend fetchers (`apps/web/lib/api/<name>.ts`) mirror the BFF module name** they call — e.g. `lib/api/platform.ts` ↔ `platform.public.controller.ts`, `lib/api/services.ts` ↔ `services.public.controller.ts`.
 
 ---
 
