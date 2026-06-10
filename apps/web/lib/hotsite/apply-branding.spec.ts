@@ -120,10 +120,22 @@ describe('applyBranding', () => {
     expect(result['--ba-btn-border']).toBe('transparent');
   });
 
-  it('derives --ba-hero-text from backgroundColor (contrast colour for primaryColor overlay)', () => {
-    const result = applyBranding(makeBranding({ backgroundColor: '#FFFFFF' })) as CSSTokens;
+  describe('--ba-hero-text contrast', () => {
+    it('derives --ba-hero-text from backgroundColor when it contrasts with primaryColor', () => {
+      const result = applyBranding(
+        makeBranding({ primaryColor: '#0055A4', backgroundColor: '#FFFFFF', textColor: '#111111' }),
+      ) as CSSTokens;
 
-    expect(result['--ba-hero-text']).toBe('#FFFFFF');
+      expect(result['--ba-hero-text']).toBe('#FFFFFF');
+    });
+
+    it('falls back to textColor when backgroundColor would not contrast with primaryColor', () => {
+      const result = applyBranding(
+        makeBranding({ primaryColor: '#F5F5F5', backgroundColor: '#FFFFFF', textColor: '#111111' }),
+      ) as CSSTokens;
+
+      expect(result['--ba-hero-text']).toBe('#111111');
+    });
   });
 
   it('falls back to filled button style when buttonStyle is not a known variant', () => {

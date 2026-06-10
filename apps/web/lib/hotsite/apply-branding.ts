@@ -47,6 +47,43 @@ function deriveButtonTokens(branding: HotsiteBrandingResponse): ButtonTokens {
   return { bg, text, border, hoverBg };
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const normalized = hex.replace('#', '');
+  return [
+    parseInt(normalized.substring(0, 2), 16),
+    parseInt(normalized.substring(2, 4), 16),
+    parseInt(normalized.substring(4, 6), 16),
+  ];
+}
+
+function linearizeChannel(channel: number): number {
+  const value = channel / 255;
+  return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+// WCAG 2.1 relative luminance: https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+function relativeLuminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex);
+  return 0.2126 * linearizeChannel(r) + 0.7152 * linearizeChannel(g) + 0.0722 * linearizeChannel(b);
+}
+
+function contrastRatio(hexA: string, hexB: string): number {
+  const [lighter, darker] = [relativeLuminance(hexA), relativeLuminance(hexB)].sort(
+    (a, b) => b - a,
+  );
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// The hero section's solid background is --ba-primary (see HeroModule.tsx) when there is no
+// background image. Pick whichever of backgroundColor/textColor contrasts better against it,
+// rather than always assuming backgroundColor is readable on top of primaryColor.
+function deriveHeroTextColor(branding: HotsiteBrandingResponse): string {
+  const { primaryColor, backgroundColor, textColor } = branding;
+  return contrastRatio(primaryColor, backgroundColor) >= contrastRatio(primaryColor, textColor)
+    ? backgroundColor
+    : textColor;
+}
+
 export function applyBranding(
   branding: HotsiteBrandingResponse,
 ): React.CSSProperties & Record<`--ba-${string}`, string> {
@@ -66,6 +103,6 @@ export function applyBranding(
     '--ba-btn-text': btn.text,
     '--ba-btn-border': btn.border,
     '--ba-btn-hover-bg': btn.hoverBg,
-    '--ba-hero-text': branding.backgroundColor,
+    '--ba-hero-text': deriveHeroTextColor(branding),
   };
 }

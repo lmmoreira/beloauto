@@ -53,25 +53,16 @@ function HeroTextContent({
 
 export function HeroModule({ data, slug: _ }: HeroModuleProps) {
   const ctaHref = data.ctaTarget === 'booking' ? '#booking-form' : '#service-list';
-  const hasImage = Boolean(data.backgroundImageUrl);
+  const bgUrl = data.backgroundImageUrl;
 
   if (data.variant === 'centered') {
     return (
       <section
         data-variant="centered"
         className="relative min-h-screen sm:min-h-[60vh] flex items-center justify-center px-6"
-        style={{ backgroundColor: hasImage ? undefined : 'var(--ba-primary)' }}
+        style={{ backgroundColor: bgUrl ? undefined : 'var(--ba-primary)' }}
       >
-        {hasImage && (
-          <Image
-            src={data.backgroundImageUrl!}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-        )}
+        {bgUrl && <Image src={bgUrl} alt="" fill priority sizes="100vw" className="object-cover" />}
         <div className="relative z-10 text-center py-16 max-w-3xl mx-auto">
           <HeroTextContent data={data} ctaHref={ctaHref} />
         </div>
@@ -87,14 +78,14 @@ export function HeroModule({ data, slug: _ }: HeroModuleProps) {
       style={{ backgroundColor: 'var(--ba-primary)' }}
     >
       <div className="w-full px-6 py-16 max-w-7xl mx-auto">
-        <div className={`grid grid-cols-1 ${hasImage ? 'sm:grid-cols-2' : ''} gap-12 items-center`}>
+        <div className={`grid grid-cols-1 ${bgUrl ? 'sm:grid-cols-2' : ''} gap-12 items-center`}>
           <div>
             <HeroTextContent data={data} ctaHref={ctaHref} />
           </div>
-          {hasImage && (
+          {bgUrl && (
             <div className="relative h-64 sm:h-full sm:min-h-[40vh]">
               <Image
-                src={data.backgroundImageUrl!}
+                src={bgUrl}
                 alt=""
                 fill
                 priority

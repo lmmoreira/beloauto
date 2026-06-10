@@ -2,6 +2,7 @@ import type { HotsiteModuleType } from '@beloauto/types';
 import { fetchManifest } from '@/lib/api/tenant';
 import { Footer } from '@/components/hotsite/Footer';
 import { HeroModule } from '@/components/hotsite/HeroModule';
+import { isValidModuleData } from '@/lib/hotsite/module-schemas';
 
 type ModuleComponent = React.ComponentType<{ data: Record<string, unknown>; slug: string }>;
 
@@ -25,9 +26,14 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
     <main>
       {manifest.layout
         .filter((m) => m.enabled)
-        .map((m) => {
+        .map((m, index) => {
           const Component = MODULE_MAP[m.type];
-          return Component ? <Component key={m.type} data={m.data} slug={slug} /> : null;
+          // Skip modules with no registered component or with data that fails its schema —
+          // a single malformed module must not take down the whole hotsite page.
+          if (!Component || !isValidModuleData(m.type, m.data)) {
+            return null;
+          }
+          return <Component key={`${m.type}-${index}`} data={m.data} slug={slug} />;
         })}
       <Footer slug={slug} />
     </main>
