@@ -382,6 +382,8 @@ All subsequent module components (S05–S07) follow this same pattern.
 **Description:**  
 Implement the SERVICE_LIST hotsite module. Fetches active services from the BFF and renders them as cards with name, description, price, and duration.
 
+> **Note (M12-S04 follow-up):** `HeroModule.tsx` defines local `btnStyle`/`headingStyle` constants referencing `var(--ba-btn-bg)`, `var(--ba-btn-text)`, `var(--ba-radius)`, `var(--ba-heading-font)`, etc. If `ServiceListModule` (and S06's modules) need the same button/heading styling, don't redefine these inline — extract a shared `apps/web/lib/hotsite/module-styles.ts` once the pattern repeats in a second component. Not done in S04 since there was only one consumer.
+
 **Component:** `apps/web/components/hotsite/ServiceListModule.tsx`
 
 ```typescript
@@ -768,3 +770,29 @@ Add two optional hex tokens, `buttonBackgroundColor` and `buttonTextColor`, so a
 - [ ] `tsc --noEmit` passes across the monorepo (`apps/backend`, `packages/types`, `apps/web`)
 
 **Dependencies:** M12-S02, M12-S03, M12-S04
+
+---
+
+### M12-S12 — ESLint: react-hooks + jsx-a11y rules for apps/web
+
+**Agent:** `frontend-ts`  
+**Complexity:** S  
+**Docs to load:** `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` § linting, `docs/CODE_STANDARDS.md`
+
+**Description:**  
+`docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` §3 mandates `eslint-plugin-react-hooks` and `eslint-plugin-jsx-a11y` for `apps/web`, but neither is installed anywhere in the monorepo. Without `react-hooks`, Rules-of-Hooks violations (conditional hooks, stale closures from missing `useEffect`/`useMemo`/`useCallback` deps) go undetected until runtime — a real risk once M12-S07 (booking form state) and M13 (TanStack Query hooks throughout the dashboard) land. Without `jsx-a11y`, accessibility issues (missing `alt`, invalid ARIA attributes, non-interactive elements with click handlers, etc.) aren't caught in CI — relevant since BeloAuto hotsites are public-facing for small businesses unlikely to run their own a11y audits.
+
+**What to do:**
+- Add `eslint-plugin-react-hooks` and `eslint-plugin-jsx-a11y` to `apps/web` devDependencies
+- Apply both plugins' recommended flat-config presets in `apps/web/eslint.config.js`, scoped to `apps/web` only — do **not** touch `packages/config/eslint-base.js` (backend/BFF have no JSX or hooks)
+- Fix any violations the new rules surface in existing code (`HeroModule.tsx`, `[slug]/page.tsx`, `[slug]/layout.tsx`, `Footer.tsx`, etc.) — mechanical fixes only (e.g. `alt` text, hook dependency arrays); no behavioral changes
+- No `// eslint-disable` comments — if a rule produces a false positive, narrow the rule's config instead
+
+**Acceptance criteria:**
+- [ ] `eslint-plugin-react-hooks` and `eslint-plugin-jsx-a11y` present in `apps/web` devDependencies
+- [ ] Recommended rule sets from both plugins applied in `apps/web/eslint.config.js`, scoped to `apps/web`'s `.tsx`/`.ts` files
+- [ ] `pnpm lint` (apps/web) passes with zero errors/warnings
+- [ ] Any pre-existing violations surfaced by the new rules are fixed, not suppressed
+- [ ] `pnpm type-check` and `pnpm test` (apps/web) continue to pass
+
+**Dependencies:** None — tooling-only, independent of other M12 stories
