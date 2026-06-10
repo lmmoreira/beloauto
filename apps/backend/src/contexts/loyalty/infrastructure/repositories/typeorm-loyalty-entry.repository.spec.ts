@@ -23,7 +23,7 @@ describe('TypeOrmLoyaltyEntryRepository', () => {
           provide: getRepositoryToken(LoyaltyEntryEntity),
           useValue: {
             save: jest.fn(),
-            exist: jest.fn(),
+            exists: jest.fn(),
             find: jest.fn(),
             findAndCount: jest.fn(),
             query: jest.fn(),
@@ -51,16 +51,16 @@ describe('TypeOrmLoyaltyEntryRepository', () => {
 
   describe('existsById()', () => {
     it('returns true when the entry exists', async () => {
-      (ormRepo.exist as jest.Mock).mockResolvedValue(true);
+      (ormRepo.exists as jest.Mock).mockResolvedValue(true);
 
       const result = await repo.existsById('entry-id');
 
       expect(result).toBe(true);
-      expect(ormRepo.exist).toHaveBeenCalledWith({ where: { id: 'entry-id' } });
+      expect(ormRepo.exists).toHaveBeenCalledWith({ where: { id: 'entry-id' } });
     });
 
     it('returns false when the entry does not exist', async () => {
-      (ormRepo.exist as jest.Mock).mockResolvedValue(false);
+      (ormRepo.exists as jest.Mock).mockResolvedValue(false);
 
       const result = await repo.existsById('entry-id');
 
