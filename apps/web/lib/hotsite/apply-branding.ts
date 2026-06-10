@@ -11,18 +11,46 @@ const SHADOW = {
   strong: '0 4px 16px rgba(0,0,0,0.20)',
 };
 
-// Derived button tokens: module components consume --ba-btn-bg/text/border directly via
-// inline styles so they never need to branch on the --ba-btn-variant string value in CSS.
+// Derived button tokens: module components consume --ba-btn-bg/text/border/hover-bg directly via
+// inline styles and Tailwind arbitrary values so they never need to branch on the
+// --ba-btn-variant string value in CSS.
 const BTN_STYLES = {
   filled: { bg: 'var(--ba-primary)', text: '#ffffff', border: 'var(--ba-primary)' },
   outline: { bg: 'transparent', text: 'var(--ba-primary)', border: 'var(--ba-primary)' },
   ghost: { bg: 'transparent', text: 'var(--ba-primary)', border: 'transparent' },
 } as const;
 
+interface ButtonTokens {
+  bg: string;
+  text: string;
+  border: string;
+  hoverBg: string;
+}
+
+// buttonBackgroundColor: 'filled' -> permanent bg+border override; 'outline'/'ghost' -> hover-fill
+// (--ba-btn-hover-bg) only, resting bg stays transparent. buttonTextColor: overrides text for all
+// styles, plus border for 'outline' (border mirrors text there, same as the primaryColor default).
+function deriveButtonTokens(branding: HotsiteBrandingResponse): ButtonTokens {
+  const base = BTN_STYLES[branding.buttonStyle] ?? BTN_STYLES.filled;
+  const { buttonBackgroundColor, buttonTextColor } = branding;
+  const isFilled = branding.buttonStyle === 'filled';
+  const isOutline = branding.buttonStyle === 'outline';
+
+  const bg = isFilled && buttonBackgroundColor ? buttonBackgroundColor : base.bg;
+  const border =
+    isFilled && buttonBackgroundColor
+      ? buttonBackgroundColor
+      : (isOutline && buttonTextColor) || base.border;
+  const text = buttonTextColor ?? base.text;
+  const hoverBg = isFilled ? bg : (buttonBackgroundColor ?? 'transparent');
+
+  return { bg, text, border, hoverBg };
+}
+
 export function applyBranding(
   branding: HotsiteBrandingResponse,
 ): React.CSSProperties & Record<`--ba-${string}`, string> {
-  const btn = BTN_STYLES[branding.buttonStyle] ?? BTN_STYLES.filled;
+  const btn = deriveButtonTokens(branding);
   return {
     '--ba-primary': branding.primaryColor,
     '--ba-secondary': branding.secondaryColor,
@@ -37,6 +65,7 @@ export function applyBranding(
     '--ba-btn-bg': btn.bg,
     '--ba-btn-text': btn.text,
     '--ba-btn-border': btn.border,
+    '--ba-btn-hover-bg': btn.hoverBg,
     '--ba-hero-text': branding.backgroundColor,
   };
 }

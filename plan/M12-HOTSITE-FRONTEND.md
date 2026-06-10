@@ -705,3 +705,66 @@ interface GalleryImage {
 
 **Dependencies:** M12-S01, M12-S02, M115-S01  
 **Blocks:** M12-S03 — changes the manifest's `*Url` field contract (resolved public URL vs. raw `filePath`); must land first
+
+---
+
+### M12-S11 — Hotsite branding: button color overrides
+
+> **Implementation note:** folded into the current `feat/M12-S04-hero-module` branch (PR #98) — this story modifies `HeroModule.tsx`, which that branch introduces, so it ships as part of the same PR rather than a separate `feat/M12-S11-*` branch.
+
+**Agent:** `backend-ts` + `frontend-ts`  
+**Complexity:** M  
+**Docs to load:** `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` § Branding & Design Token System · `docs/14-API_CONTRACTS.md` § Tenant Hotsite Manifest / Hotsite Admin Management
+
+**Description:**  
+Add two optional hex tokens, `buttonBackgroundColor` and `buttonTextColor`, so a tenant's CTA button color can be set independently of `primaryColor`. Today every button color is derived from `primaryColor` + `buttonStyle` via `BTN_STYLES` in `apply-branding.ts`. When a section's background is also `var(--ba-primary)` (e.g. the `left-aligned` HERO variant, or `centered` without a background image), a `filled` button's fill and border become identical to the section behind it — the button is effectively invisible. These two fields are optional overrides: when unset, `applyBranding()` produces output identical to today (zero impact on existing tenants); when set, they take precedence. For `outline`/`ghost` styles — which have no permanent fill to recolor — `buttonBackgroundColor` instead drives a **hover-fill** effect via a new `--ba-btn-hover-bg` token.
+
+**Field semantics:**
+- `buttonBackgroundColor?: string` (hex):
+  - `buttonStyle: 'filled'` — overrides `--ba-btn-bg` **and** `--ba-btn-border` (the button's permanent fill/border color)
+  - `buttonStyle: 'outline' | 'ghost'` — sets the new `--ba-btn-hover-bg` token: the button's background fills with this color **on hover only**; the resting state stays `transparent` (unchanged)
+  - Unset → `--ba-btn-hover-bg` defaults to `--ba-btn-bg` for `filled` (hover is a visual no-op, since the background doesn't change) and to `transparent` for `outline`/`ghost` (today's behavior — `hover:opacity-90` remains the only hover effect, byte-identical output)
+- `buttonTextColor?: string` (hex) — overrides `--ba-btn-text` for all three styles, and additionally `--ba-btn-border` for `outline` (border mirrors text in the outline style, same as today's `var(--ba-primary)` derivation). Text color does **not** change on hover — same trust-the-palette assumption as `filled`'s white-on-`primaryColor` default; the admin picks a `buttonBackgroundColor` hover-fill that contrasts with their chosen `buttonTextColor`.
+
+**New CSS token:** `--ba-btn-hover-bg`, consumed by `HeroModule.tsx`'s CTA via a Tailwind arbitrary-value hover class.
+
+**Backend (`apps/backend/src/contexts/platform/`):**
+- `HotsiteBranding` (`domain/hotsite-config.aggregate.ts`) — add `buttonBackgroundColor?: string; buttonTextColor?: string;`
+- `validateBranding()` — if either field is present, validate via `HexColor.isValid` (same `PlatformDomainError` message pattern as the 4 existing hex fields: `primaryColor`, `secondaryColor`, `backgroundColor`, `textColor`); absent values are not validated
+- **Not** added to `DEFAULT_HOTSITE_BRANDING` — purely additive; existing tenant rows (jsonb without these keys) remain valid, no migration required
+- `HotsiteBrandingSchema` (`application/dtos/update-hotsite-content.dto.ts`) — add both fields as `.optional()` hex-validated strings (schema is already `.partial()`)
+
+**BFF (`apps/bff/src/tenants/hotsite-admin.controller.ts`):**
+- `HotsiteBrandingBodySchema` is a separate `.partial()` Zod object (default "strip" mode) that re-validates the branding payload before forwarding it to the backend. Add `buttonBackgroundColor`/`buttonTextColor` as `z.string().regex(HEX_COLOR_REGEX)` here too — without this, `PATCH /v1/tenants/hotsite` silently drops both fields (Zod strips unrecognized keys by default), so the "persists and round-trips" AC would fail end-to-end despite backend/frontend tests passing.
+- `hotsite-admin.controller.spec.ts` — add a `describe('UpdateHotsiteContentBodySchema', ...)` block asserting both fields round-trip through `.parse()` unstripped, and that invalid hex values fail `.safeParse()`.
+
+**Shared types (`packages/types/src/hotsite.ts`):**
+- `HotsiteBrandingResponse` — add `buttonBackgroundColor?: string; buttonTextColor?: string;`
+
+**Frontend (`apps/web/lib/hotsite/apply-branding.ts`):**
+- `--ba-btn-bg`, `--ba-btn-text`, `--ba-btn-border`, and the new `--ba-btn-hover-bg` derive from the override fields when present, falling back to the current `BTN_STYLES`-derived values / defaults otherwise (per the field semantics above)
+
+**Frontend (`apps/web/components/hotsite/HeroModule.tsx`):**
+- CTA `<a>` className gains `hover:bg-[var(--ba-btn-hover-bg)]` (Tailwind arbitrary value referencing the new token); `transition-opacity` becomes `transition-colors` (or is extended) so the hover background-color change animates smoothly
+- `HeroModule.spec.tsx` — assert the CTA className includes `hover:bg-[var(--ba-btn-hover-bg)]`
+
+**Docs:**
+- Update `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` §2 — add the 2 new fields and `--ba-btn-hover-bg` to the `HotsiteBranding` token definition snippet and the `applyBranding()` CSS variable mapping snippet, with a one-line note on the filled-fill / outline-ghost-hover-fill semantics
+- Update `docs/14-API_CONTRACTS.md` — add `buttonBackgroundColor`/`buttonTextColor` (both optional) to the canonical `branding` JSON example shared by the public manifest and `GET/PATCH /v1/tenants/hotsite`, with a one-line validation note
+
+**Acceptance criteria:**
+- [ ] `buttonBackgroundColor`/`buttonTextColor` both unset → `applyBranding()` output identical to current behavior for all 3 `buttonStyle` values, including `--ba-btn-hover-bg` (regression — existing `apply-branding.spec.ts` cases unchanged)
+- [ ] `buttonStyle: 'filled'`, `buttonBackgroundColor: '#fbbf24'` → `--ba-btn-bg` = `--ba-btn-border` = `--ba-btn-hover-bg` = `#fbbf24`
+- [ ] `buttonStyle: 'filled'`, `buttonTextColor: '#0f172a'` → `--ba-btn-text` = `#0f172a`
+- [ ] `buttonStyle: 'outline'`, `buttonTextColor: '#0f172a'` → `--ba-btn-text` = `--ba-btn-border` = `#0f172a`
+- [ ] `buttonStyle: 'outline'`, `buttonBackgroundColor: '#fbbf24'` → `--ba-btn-bg` remains `transparent`; `--ba-btn-hover-bg` = `#fbbf24`
+- [ ] `buttonStyle: 'outline'`, `buttonBackgroundColor` unset → `--ba-btn-hover-bg` = `transparent` (current hover behavior preserved)
+- [ ] `buttonStyle: 'ghost'`, `buttonTextColor: '#0f172a'` → `--ba-btn-text` = `#0f172a`; `--ba-btn-border` remains `transparent`
+- [ ] `buttonStyle: 'ghost'`, `buttonBackgroundColor: '#fbbf24'` → `--ba-btn-hover-bg` = `#fbbf24`
+- [ ] `PATCH /v1/tenants/hotsite` with `branding: { buttonBackgroundColor: "#fbbf24" }` persists and round-trips via `GET /v1/tenants/hotsite` and the public manifest
+- [ ] `buttonBackgroundColor: "notacolor"` → `400` (invalid hex)
+- [ ] Existing tenant rows (no `buttonBackgroundColor`/`buttonTextColor` in stored jsonb) — a PATCH that doesn't touch these fields continues to succeed (no `validateBranding()` regression for missing optional fields)
+- [ ] `HeroModule.spec.tsx` — CTA `<a>` className includes `hover:bg-[var(--ba-btn-hover-bg)]`
+- [ ] `tsc --noEmit` passes across the monorepo (`apps/backend`, `packages/types`, `apps/web`)
+
+**Dependencies:** M12-S02, M12-S03, M12-S04

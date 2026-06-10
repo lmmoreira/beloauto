@@ -86,6 +86,16 @@ describe('HeroModule', () => {
     });
   });
 
+  describe('CTA hover-fill styling', () => {
+    it('CTA includes a hover background-fill class referencing --ba-btn-hover-bg', () => {
+      render(<HeroModule data={makeData()} slug="tenant" />);
+
+      expect(screen.getByRole('link', { name: 'Agendar agora' }).className).toContain(
+        'hover:bg-[var(--ba-btn-hover-bg)]',
+      );
+    });
+  });
+
   describe('background image', () => {
     it('renders img with correct src when backgroundImageUrl is provided', () => {
       const { container } = render(

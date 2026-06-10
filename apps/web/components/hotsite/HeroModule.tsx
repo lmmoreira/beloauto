@@ -43,7 +43,7 @@ function HeroTextContent({
       <a
         href={ctaHref}
         style={btnStyle}
-        className="inline-block border-2 px-8 py-3 font-semibold transition-opacity hover:opacity-90"
+        className="inline-block border-2 px-8 py-3 font-semibold transition-all hover:opacity-90 hover:bg-[var(--ba-btn-hover-bg)]"
       >
         {data.ctaLabel}
       </a>
