@@ -373,7 +373,7 @@ All subsequent module components (S05–S07) follow this same pattern.
 
 ---
 
-### M12-S05 — SERVICE_LIST module component
+### M12-S05 — SERVICE_LIST module component ✅ Done
 
 **Agent:** `frontend-ts`  
 **Complexity:** S  
