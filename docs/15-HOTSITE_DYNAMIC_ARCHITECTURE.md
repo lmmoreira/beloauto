@@ -381,7 +381,7 @@ export default async function HotsitePage({
 // lib/api/tenant.ts
 export async function fetchManifest(slug: string): Promise<HotsiteManifestResponse> {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_BFF_URL}/tenants/slug/${slug}`,
+    `${process.env.NEXT_PUBLIC_BFF_URL}/platform/manifest/${slug}`,
     { next: { revalidate: 300 } },  // ISR: revalidate every 5 minutes
   );
 

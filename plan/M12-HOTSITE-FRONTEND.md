@@ -384,6 +384,12 @@ Implement the SERVICE_LIST hotsite module. Fetches active services from the BFF 
 
 > **Note (M12-S04 follow-up):** `HeroModule.tsx` defines local `btnStyle`/`headingStyle` constants referencing `var(--ba-btn-bg)`, `var(--ba-btn-text)`, `var(--ba-radius)`, `var(--ba-heading-font)`, etc. If `ServiceListModule` (and S06's modules) need the same button/heading styling, don't redefine these inline — extract a shared `apps/web/lib/hotsite/module-styles.ts` once the pattern repeats in a second component. Not done in S04 since there was only one consumer.
 
+> **Note (story-discovery resolution, M12-S05):** Data fetching happens at **page level**, not inside the component — `app/[slug]/page.tsx` calls a new `fetchServices(slug)` (`apps/web/lib/api/services.ts`, same `next: { revalidate: 300 }` ISR pattern as `fetchManifest`) when a `SERVICE_LIST` module is enabled, and passes the resolved array as a `services` prop. `ServiceListModule` itself stays a synchronous, fully-prop-driven component — consistent with `HeroModule` and the "rendered from mocked data" component-test expectation.
+>
+> **Note (refactor during M12-S05):** the public service-list contract was promoted to `@beloauto/types` as `HotsiteServiceResponse`/`HotsiteServiceListResponse` (`id, name, description, price: Money, durationMinutes, loyaltyPointsValue, requiresPickupAddress, isActive, createdAt`) — `apps/web/lib/api/services.ts` imports these directly rather than defining a local `ServiceListItem`. The BFF's `apps/bff/src/services/services.types.ts` was deleted; admin CRUD lives in `ServicesController` and the public list in the new `ServicesPublicController` (`GET /services`), both `@Controller('services')` and both returning `@beloauto/types` shapes. The existing `@beloauto/types` `ServiceResponse` (`service.dto.ts`) remains a different, unused dashboard-shaped placeholder — not touched by this story.
+>
+> Duration format: `< 60` → `"${m} min"`; `>= 60` and `m % 60 === 0` → `"${h}h"`; otherwise `"${h}h ${m}min"` (e.g. 45→"45 min", 60→"1h", 90→"1h 30min").
+
 **Component:** `apps/web/components/hotsite/ServiceListModule.tsx`
 
 ```typescript

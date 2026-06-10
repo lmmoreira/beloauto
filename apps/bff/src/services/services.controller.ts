@@ -2,10 +2,7 @@ import {
   Body,
   Controller,
   Delete,
-  Get,
-  Headers,
   HttpCode,
-  HttpException,
   HttpStatus,
   Param,
   ParseUUIDPipe,
@@ -13,12 +10,10 @@ import {
   Post,
 } from '@nestjs/common';
 import { z } from 'zod';
-import { Public } from '../shared/decorators/public.decorator';
+import { HotsiteServiceResponse } from '@beloauto/types';
 import { Roles } from '../shared/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/http/zod-validation.pipe';
 import { BackendHttpService } from '../shared/http/backend-http.service';
-import { TenantInfoResponse } from '../shared/types/backend-responses';
-import { ServiceResponse, ServiceListResponse } from './services.types';
 
 const CreateServiceBodySchema = z.object({
   name: z.string().min(1),
@@ -45,35 +40,13 @@ type UpdateServiceBody = z.infer<typeof UpdateServiceBodySchema>;
 export class ServicesController {
   constructor(private readonly backendHttp: BackendHttpService) {}
 
-  @Get()
-  @Public()
-  async list(
-    @Headers('x-tenant-slug') tenantSlug: string | undefined,
-  ): Promise<ServiceListResponse> {
-    if (!tenantSlug) {
-      throw new HttpException(
-        {
-          type: 'about:blank',
-          title: 'Bad Request',
-          status: HttpStatus.BAD_REQUEST,
-          detail: 'X-Tenant-Slug header is required',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    const tenant = await this.backendHttp.get<TenantInfoResponse>(
-      `/internal/tenants/by-slug/${tenantSlug}`,
-    );
-    return this.backendHttp.getForPublic<ServiceListResponse>('/services', tenant.id);
-  }
-
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @Roles('MANAGER', 'STAFF')
   create(
     @Body(new ZodValidationPipe(CreateServiceBodySchema)) body: CreateServiceBody,
-  ): Promise<ServiceResponse> {
-    return this.backendHttp.post<ServiceResponse>('/services', body);
+  ): Promise<HotsiteServiceResponse> {
+    return this.backendHttp.post<HotsiteServiceResponse>('/services', body);
   }
 
   @Patch(':id')
@@ -82,8 +55,8 @@ export class ServicesController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateServiceBodySchema)) body: UpdateServiceBody,
-  ): Promise<ServiceResponse> {
-    return this.backendHttp.patch<ServiceResponse>(`/services/${id}`, body);
+  ): Promise<HotsiteServiceResponse> {
+    return this.backendHttp.patch<HotsiteServiceResponse>(`/services/${id}`, body);
   }
 
   @Delete(':id')

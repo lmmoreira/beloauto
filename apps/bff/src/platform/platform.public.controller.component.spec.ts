@@ -33,7 +33,7 @@ const hotsiteResponse: HotsiteResponse = {
   isPublished: true,
 };
 
-describe('TenantsController (component)', () => {
+describe('PlatformPublicController (component)', () => {
   let app: INestApplication;
   let backendHttpService: MockBackendHttpService;
   let restoreEnv: () => void;
@@ -51,12 +51,12 @@ describe('TenantsController (component)', () => {
     jest.resetAllMocks();
   });
 
-  describe('GET /v1/tenants/slug/:slug (public)', () => {
+  describe('GET /v1/platform/manifest/:slug (public)', () => {
     it('returns the composed manifest without a JWT', async () => {
       backendHttpService.get.mockResolvedValueOnce(tenantInfo);
       backendHttpService.getForPublic = jest.fn().mockResolvedValueOnce(hotsiteResponse);
 
-      const res = await request(app.getHttpServer()).get('/v1/tenants/slug/lavacar-bh');
+      const res = await request(app.getHttpServer()).get('/v1/platform/manifest/lavacar-bh');
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ tenant: tenantInfo, ...hotsiteResponse });
@@ -70,7 +70,7 @@ describe('TenantsController (component)', () => {
         new HttpException({ title: 'Not Found', status: 404 }, 404),
       );
 
-      const res = await request(app.getHttpServer()).get('/v1/tenants/slug/unknown-slug');
+      const res = await request(app.getHttpServer()).get('/v1/platform/manifest/unknown-slug');
 
       expect(res.status).toBe(404);
     });
@@ -81,7 +81,7 @@ describe('TenantsController (component)', () => {
         .fn()
         .mockRejectedValueOnce(new HttpException({ title: 'Not Found', status: 404 }, 404));
 
-      const res = await request(app.getHttpServer()).get('/v1/tenants/slug/lavacar-bh');
+      const res = await request(app.getHttpServer()).get('/v1/platform/manifest/lavacar-bh');
 
       expect(res.status).toBe(404);
     });

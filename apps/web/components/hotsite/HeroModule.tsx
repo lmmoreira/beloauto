@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import type React from 'react';
 import type { HeroModuleData } from '@beloauto/types';
+import { sectionHeadingFont } from '@/lib/hotsite/module-styles';
 
 interface HeroModuleProps {
   readonly data: HeroModuleData;
@@ -15,7 +16,7 @@ const btnStyle: React.CSSProperties = {
 };
 
 const headingStyle: React.CSSProperties = {
-  fontFamily: 'var(--ba-heading-font)',
+  ...sectionHeadingFont,
   color: 'var(--ba-hero-text)',
 };
 

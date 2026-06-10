@@ -1,7 +1,6 @@
-import { HttpException } from '@nestjs/common';
+import { HotsiteServiceResponse } from '@beloauto/types';
 import { makeBackendHttp } from '../test/backend-http.mock';
 import { ServicesController } from './services.controller';
-import { ServiceListResponse, ServiceResponse } from './services.types';
 
 const validCreateBody = {
   name: 'Lavagem Completa',
@@ -10,7 +9,7 @@ const validCreateBody = {
   loyaltyPointsValue: 10,
 };
 
-const mockServiceResponse: ServiceResponse = {
+const mockServiceResponse: HotsiteServiceResponse = {
   id: '10000000-0000-4000-8000-000000000001',
   name: 'Lavagem Completa',
   description: null,
@@ -26,33 +25,6 @@ const SERVICE_ID = '10000000-0000-4000-8000-000000000001';
 
 describe('ServicesController', () => {
   afterEach(() => jest.resetAllMocks());
-
-  describe('list()', () => {
-    it('returns 400 when X-Tenant-Slug header is missing', async () => {
-      const backendHttp = makeBackendHttp();
-      const controller = new ServicesController(backendHttp);
-
-      const err = await controller.list(undefined).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(HttpException);
-      expect((err as HttpException).getStatus()).toBe(400);
-    });
-
-    it('resolves slug to tenantId then calls GET /services', async () => {
-      const tenantInfo = { id: 'tenant-uuid', slug: 'lavacar-bh', name: 'Lavacar BH' };
-      const mockList: ServiceListResponse = { items: [mockServiceResponse] };
-      const backendHttp = makeBackendHttp({
-        get: jest.fn().mockResolvedValue(tenantInfo),
-        getForPublic: jest.fn().mockResolvedValue(mockList),
-      });
-      const controller = new ServicesController(backendHttp);
-
-      const result = await controller.list('lavacar-bh');
-
-      expect(backendHttp.get).toHaveBeenCalledWith('/internal/tenants/by-slug/lavacar-bh');
-      expect(backendHttp.getForPublic).toHaveBeenCalledWith('/services', 'tenant-uuid');
-      expect(result).toBe(mockList);
-    });
-  });
 
   describe('create()', () => {
     it('calls POST /services with body and returns the backend response', async () => {
