@@ -8,7 +8,7 @@ vi.mock('next/navigation', () => ({
 
 import type { HotsiteManifestResponse } from '@beloauto/types';
 import { notFound } from 'next/navigation';
-import { fetchManifest } from './tenant';
+import { fetchManifest } from './platform';
 
 const mockNotFound = vi.mocked(notFound);
 
@@ -60,7 +60,7 @@ describe('fetchManifest', () => {
     expect(result.tenant.slug).toBe('tenant-a');
     expect(result.tenant.id).toBe(manifest.tenant.id);
     expect(fetchSpy).toHaveBeenCalledWith(
-      `${BFF_URL}/tenants/slug/tenant-a`,
+      `${BFF_URL}/platform/manifest/tenant-a`,
       expect.objectContaining({ next: { revalidate: 300 } }),
     );
   });

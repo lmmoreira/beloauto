@@ -1,4 +1,4 @@
-# BFF — Tenants endpoints (public)
+# BFF — Platform endpoints (public)
 # M12-S01: Hotsite manifest — used by the Next.js hotsite renderer
 #
 # Prerequisites:
@@ -14,16 +14,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 ### Get the hotsite manifest for a tenant by slug (public — no auth required)
-GET {{bffUrl}}/v1/tenants/slug/{{tenantSlug}}
+GET {{bffUrl}}/v1/platform/manifest/{{tenantSlug}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ERROR CASES
 # ─────────────────────────────────────────────────────────────────────────────
 
 ### 404 — Unknown tenant slug
-GET {{bffUrl}}/v1/tenants/slug/no-such-tenant-slug
+GET {{bffUrl}}/v1/platform/manifest/no-such-tenant-slug
 
 ###
 
 ### 404 — Hotsite exists but is not published
-GET {{bffUrl}}/v1/tenants/slug/unpublished-hotsite-tenant
+GET {{bffUrl}}/v1/platform/manifest/unpublished-hotsite-tenant

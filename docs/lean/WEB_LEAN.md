@@ -396,7 +396,7 @@ it('returns 401 when the revalidate secret header is missing', async () => {
 });
 ```
 
-**3. Async data fetchers** (`lib/api/tenant.ts`)
+**3. Async data fetchers** (`lib/api/platform.ts`)
 
 Functions that call `fetch()` and handle errors. Mock global `fetch`, test what happens on 200, 404, and 500 responses.
 

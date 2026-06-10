@@ -5,7 +5,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-06-09 (§7 web testing block expanded — module component testing infrastructure and per-component test table added in M12-S04; `docs/ANTI_PATTERNS.md` extended with `@beloauto/types` boundary, CSS custom property return type, `<Image fill>` sizes, and jest-dom/vitest entrypoint; pre-pr.sh check W1 added)
+**Last updated:** 2026-06-10 (§7 new "BFF module & controller naming" subsection — bounded-context module names, `<context>.controller.ts`/`<context>.public.controller.ts` audience split, `Hotsite<Resource>Response` naming, frontend fetcher mirroring; `docs/24-BFF_ARCHITECTURE.md` gains a "Module & Controller Naming Conventions" section + `services/` tree entry; `docs/ANTI_PATTERNS.md` and `docs/CODE_STANDARDS.md` updated to match — codifies the M12-S05 `tenants/` → `platform/` rename pattern)
 
 ---
 
@@ -208,6 +208,10 @@ When Context A needs data owned by Context B, choose the **first** option that a
 3. **Port + adapter (last resort — sync, same process):** Interface in Context A's `application/ports/`. Adapter injects Context B's **service** (never its repository token).
 
 **Never** a direct SQL JOIN across contexts inside a repository. A repository queries its own schema only.
+
+### BFF module & controller naming
+BFF modules are named after their **bounded context** (§3), never an aggregate (`platform/`, not `tenants/` — `Tenant` is one aggregate inside the Platform context). Within a module: `<context>.controller.ts` = authenticated/role-guarded (dashboard); `<context>.public.controller.ts` = `@Public()` unauthenticated (hotsite) — both may share `@Controller('<path>')` if method+path combos don't collide, and one `.public.controller.ts` may serve multiple hotsite module types. Public response types live in `@beloauto/types` as `Hotsite<Resource>Response` / `Hotsite<Resource>ListResponse`. Frontend fetchers `apps/web/lib/api/<name>.ts` mirror the BFF module name they call.
+→ Full detail: `docs/24-BFF_ARCHITECTURE.md` § Module & Controller Naming Conventions.
 
 ### Transactions
 Every `save()` must be wrapped in `ITransactionManager.run()` — single-aggregate writes too. Scope: reads/validations/mutations happen *before* `txManager.run()` opens; wrap only the `save()` call(s).

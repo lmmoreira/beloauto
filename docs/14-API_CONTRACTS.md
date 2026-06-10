@@ -157,7 +157,7 @@ For even better performance with large datasets (Phase 2), consider cursor-based
 
 ### **Tenant Hotsite Manifest (Public — UC-001, UC-011, M12-S01)**
 Used by the Next.js hotsite renderer to fetch full branding and layout for a tenant slug.
-- `GET /tenants/slug/:slug`
+- `GET /platform/manifest/:slug`
 - **Public** — no auth required; no `X-Tenant-Slug` header needed (slug is the path param)
 - **Response headers:** `Cache-Control: public, max-age=300` (Next.js ISR respects this)
 - **Response:** `200 OK` with **Hotsite Manifest**:
@@ -233,7 +233,7 @@ Generates a GCS signed **upload** URL for hotsite images (logo, hero/CTA backgro
 
 **Storage path rule:** `tenants/<tenantId>/hotsite/<purpose>/<uuid>/<fileName>` (in the **public** hotsite bucket — see note above)
 
-`filePath` is what gets persisted internally (`branding.logoUrl` / module `data.*Url` / `GalleryImage.url`). **Reading hotsite images back works differently from booking attachments:** because the object lives in a public bucket, `GetHotsiteManifestUseCase`/`GetHotsiteContentUseCase` resolve `filePath` to a **permanent public URL** via `IStorageService.getPublicUrl()` — a pure string template, no signed URL, no expiry, nothing to regenerate. The admin endpoint (`GET /v1/tenants/hotsite`) and the public manifest (`GET /v1/tenants/slug/:slug`) both return this same resolved address. This is what makes the manifest safely cacheable (`Cache-Control: public, max-age=300`, ISR, future CDN) — an expiring signed URL embedded in cached content would eventually serve a broken image.
+`filePath` is what gets persisted internally (`branding.logoUrl` / module `data.*Url` / `GalleryImage.url`). **Reading hotsite images back works differently from booking attachments:** because the object lives in a public bucket, `GetHotsiteManifestUseCase`/`GetHotsiteContentUseCase` resolve `filePath` to a **permanent public URL** via `IStorageService.getPublicUrl()` — a pure string template, no signed URL, no expiry, nothing to regenerate. The admin endpoint (`GET /v1/tenants/hotsite`) and the public manifest (`GET /v1/platform/manifest/:slug`) both return this same resolved address. This is what makes the manifest safely cacheable (`Cache-Control: public, max-age=300`, ISR, future CDN) — an expiring signed URL embedded in cached content would eventually serve a broken image.
 
 (Contrast with booking attachments below, where the bucket is private and a fresh *read*-signed URL genuinely must be minted per display.)
 

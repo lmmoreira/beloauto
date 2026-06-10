@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { HeroModuleData, HotsiteModuleType } from '@beloauto/types';
+import type { HeroModuleData, HotsiteModuleType, ServiceListModuleData } from '@beloauto/types';
 
 // Mirrors HeroModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const HeroModuleDataSchema = z.object({
@@ -11,8 +11,17 @@ export const HeroModuleDataSchema = z.object({
   ctaTarget: z.enum(['booking', 'service-list']),
 }) satisfies z.ZodType<HeroModuleData>;
 
+// Mirrors ServiceListModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
+export const ServiceListModuleDataSchema = z.object({
+  title: z.string().optional(),
+  showPrices: z.boolean(),
+  showPoints: z.boolean(),
+  layout: z.enum(['grid', 'list']),
+}) satisfies z.ZodType<ServiceListModuleData>;
+
 const MODULE_DATA_SCHEMAS: Partial<Record<HotsiteModuleType, z.ZodType>> = {
   HERO: HeroModuleDataSchema,
+  SERVICE_LIST: ServiceListModuleDataSchema,
 };
 
 // Module types without a registered schema render unvalidated until their story (M12-S05+) adds one.

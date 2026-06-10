@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { BackendHttpModule } from '../shared/http/backend-http.module';
 import { HotsiteAdminController } from './hotsite-admin.controller';
-import { TenantsController } from './tenants.controller';
+import { PlatformPublicController } from './platform.public.controller';
 
 @Module({
   imports: [BackendHttpModule],
-  controllers: [TenantsController, HotsiteAdminController],
+  controllers: [PlatformPublicController, HotsiteAdminController],
 })
-export class TenantsModule {}
+export class PlatformModule {}

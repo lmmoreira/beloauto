@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import type { HotsiteManifestResponse } from '@beloauto/types';
 
 export async function fetchManifest(slug: string): Promise<HotsiteManifestResponse> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BFF_URL}/tenants/slug/${slug}`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BFF_URL}/platform/manifest/${slug}`, {
     next: { revalidate: 300 },
   });
 

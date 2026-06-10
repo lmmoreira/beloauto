@@ -4,11 +4,11 @@ import { BackendHttpService } from '../shared/http/backend-http.service';
 import { TenantInfoResponse } from '../shared/types/backend-responses';
 import { HotsiteManifestResponse, HotsiteResponse } from '@beloauto/types';
 
-@Controller('tenants')
-export class TenantsController {
+@Controller('platform')
+export class PlatformPublicController {
   constructor(private readonly backendHttp: BackendHttpService) {}
 
-  @Get('slug/:slug')
+  @Get('manifest/:slug')
   @Public()
   @Header('Cache-Control', 'public, max-age=300')
   async getManifest(@Param('slug') slug: string): Promise<HotsiteManifestResponse> {

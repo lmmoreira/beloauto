@@ -37,7 +37,7 @@ graph TD
         Secrets[GCP Secret Manager]
     end
 
-    Hotsite -->|GET /tenants/slug/:slug — manifest| BFF
+    Hotsite -->|GET /platform/manifest/:slug — manifest| BFF
     Dashboard -->|Authenticated API calls + JWT| BFF
     BFF -->|Validates JWT · injects tenantId| BC1
     BFF -->|Validates JWT · injects tenantId| BC2

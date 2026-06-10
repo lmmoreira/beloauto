@@ -1,6 +1,6 @@
 # Platform — Hotsite Manifest (public)
 # M12-S01: HotsiteConfig domain + manifest API
-# Reached via BFF GET /v1/tenants/slug/:slug → getForPublic('/hotsite', tenantId)
+# Reached via BFF GET /v1/platform/manifest/:slug → getForPublic('/hotsite', tenantId)
 # TenantContext is populated from X-Tenant-ID (set by the BFF). No actor required.
 #
 # Prerequisites:

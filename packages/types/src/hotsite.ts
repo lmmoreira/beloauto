@@ -1,4 +1,5 @@
 import type { HotsiteModuleType } from './enums';
+import type { Money } from './money';
 import type { TenantInfoResponse } from './tenant.dto';
 
 export type { HotsiteModuleType };
@@ -133,4 +134,22 @@ export interface FeatureBookingPhotoResponse {
   filePath: string;
   url: string;
   photoType: 'before' | 'after';
+}
+
+// ─── Public service list (consumed by SERVICE_LIST module + future hotsite modules) ──
+
+export interface HotsiteServiceResponse {
+  id: string;
+  name: string;
+  description: string | null;
+  price: Money;
+  durationMinutes: number;
+  loyaltyPointsValue: number;
+  requiresPickupAddress: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface HotsiteServiceListResponse {
+  items: HotsiteServiceResponse[];
 }

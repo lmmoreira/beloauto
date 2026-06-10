@@ -9,10 +9,10 @@ import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { CustomersModule } from './customers/customers.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
+import { PlatformModule } from './platform/platform.module';
 import { ScheduleModule } from './schedule/schedule.module';
 import { ServicesModule } from './services/services.module';
 import { StaffModule } from './staff/staff.module';
-import { TenantsModule } from './tenants/tenants.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { ActiveStaffGuard } from './shared/guards/active-staff.guard';
 import { JwtAuthGuard } from './shared/guards/jwt-auth.guard';
@@ -41,10 +41,10 @@ import { ErrorInterceptor } from './shared/interceptors/error.interceptor';
     BookingsModule,
     CustomersModule,
     LoyaltyModule,
+    PlatformModule,
     ScheduleModule,
     ServicesModule,
     StaffModule,
-    TenantsModule,
     UploadsModule,
   ],
   controllers: [HealthController],

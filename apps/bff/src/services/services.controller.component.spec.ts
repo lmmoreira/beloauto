@@ -1,5 +1,6 @@
 import { HttpException, INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { HotsiteServiceResponse } from '@beloauto/types';
 import {
   MockHttpService,
   MockBackendHttpService,
@@ -10,11 +11,10 @@ import {
   setupActiveGuardMock,
   request,
 } from '../test/component-test.helpers';
-import { ServiceListResponse, ServiceResponse } from './services.types';
 
 const SERVICE_ID = '10000000-0000-4000-8000-000000000001';
 
-const mockServiceResponse: ServiceResponse = {
+const mockServiceResponse: HotsiteServiceResponse = {
   id: SERVICE_ID,
   name: 'Lavagem Completa',
   description: null,
@@ -25,8 +25,6 @@ const mockServiceResponse: ServiceResponse = {
   isActive: true,
   createdAt: '2026-01-01T00:00:00.000Z',
 };
-
-const mockListResponse: ServiceListResponse = { items: [mockServiceResponse] };
 
 const validCreateBody = {
   name: 'Lavagem Completa',
@@ -53,41 +51,6 @@ describe('ServicesController (component)', () => {
 
   afterEach(() => {
     jest.resetAllMocks();
-  });
-
-  // ─── GET /v1/services (public) ───────────────────────────────────────────────
-
-  describe('GET /v1/services (public)', () => {
-    it('returns 400 when X-Tenant-Slug header is missing', async () => {
-      const res = await request(app.getHttpServer()).get('/v1/services');
-      expect(res.status).toBe(400);
-      expect(res.body.status).toBe(400);
-    });
-
-    it('returns active services list without a JWT', async () => {
-      const tenantInfo = { id: 'tenant-uuid', slug: 'lavacar-bh', name: 'Lavacar BH' };
-      backendHttpService.get.mockResolvedValueOnce(tenantInfo);
-      backendHttpService.getForPublic = jest.fn().mockResolvedValueOnce(mockListResponse);
-
-      const res = await request(app.getHttpServer())
-        .get('/v1/services')
-        .set('X-Tenant-Slug', 'lavacar-bh');
-
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual(mockListResponse);
-    });
-
-    it('propagates 404 from backend when slug is unknown', async () => {
-      backendHttpService.get.mockRejectedValueOnce(
-        new HttpException({ title: 'Not Found', status: 404 }, 404),
-      );
-
-      const res = await request(app.getHttpServer())
-        .get('/v1/services')
-        .set('X-Tenant-Slug', 'unknown-slug');
-
-      expect(res.status).toBe(404);
-    });
   });
 
   // ─── POST /v1/services ───────────────────────────────────────────────────────

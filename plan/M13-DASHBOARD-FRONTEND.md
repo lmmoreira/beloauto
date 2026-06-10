@@ -20,7 +20,7 @@
 **Description:**  
 Set up TanStack Query (React Query) as the global data-fetching layer and create typed client functions for every BFF endpoint. This is the foundation all dashboard pages build on — pages import typed hooks, not raw `fetch` calls.
 
-> **Note (M12 follow-up):** `apps/web/lib/api/tenant.ts` (M12-S03) already exists — it's a `fetch()`-based, unauthenticated, ISR-cached client (`next: { revalidate: 300 }`) for the **public hotsite manifest**. The `bff-client.ts` Axios instance planned here is for the **authenticated dashboard** (JWT cookie + `X-Tenant-Slug` headers, client-side, TanStack Query). Keep these separate — don't route the public hotsite fetch through `bff-client.ts` (it would attach auth headers unnecessarily to a cacheable public request), and don't try to unify them under one abstraction.
+> **Note (M12 follow-up):** `apps/web/lib/api/platform.ts` (M12-S03) already exists — it's a `fetch()`-based, unauthenticated, ISR-cached client (`next: { revalidate: 300 }`) for the **public hotsite manifest**. The `bff-client.ts` Axios instance planned here is for the **authenticated dashboard** (JWT cookie + `X-Tenant-Slug` headers, client-side, TanStack Query). Keep these separate — don't route the public hotsite fetch through `bff-client.ts` (it would attach auth headers unnecessarily to a cacheable public request), and don't try to unify them under one abstraction.
 
 **What to create:**
 - `apps/web/lib/api/bff-client.ts` — Axios instance with base URL (`NEXT_PUBLIC_BFF_URL`), JWT cookie interceptor (attach `Authorization` header), `X-Tenant-Slug` interceptor, error handling (RFC 9457 Problem Detail → typed `ApiError`)

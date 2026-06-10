@@ -111,7 +111,7 @@ The hotsite fetches the manifest from the BFF and renders modules server-side.
 ```typescript
 // app/[slug]/page.tsx
 export default async function HotsitePage({ params }: { params: { slug: string } }) {
-  const manifest = await fetch(`${BFF_URL}/tenants/slug/${params.slug}`).then(r => r.json());
+  const manifest = await fetch(`${BFF_URL}/platform/manifest/${params.slug}`).then(r => r.json());
 
   return (
     <main style={{ '--primary': manifest.branding.primaryColor }}>

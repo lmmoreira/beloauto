@@ -1,5 +1,5 @@
 import { makeBackendHttp } from '../test/backend-http.mock';
-import { TenantsController } from './tenants.controller';
+import { PlatformPublicController } from './platform.public.controller';
 import { HotsiteResponse } from '@beloauto/types';
 
 const tenantInfo = { id: 'tenant-uuid', slug: 'lavacar-bh', name: 'Lavacar BH' };
@@ -33,7 +33,7 @@ const hotsiteResponse: HotsiteResponse = {
   isPublished: true,
 };
 
-describe('TenantsController', () => {
+describe('PlatformPublicController', () => {
   afterEach(() => jest.resetAllMocks());
 
   describe('getManifest()', () => {
@@ -42,7 +42,7 @@ describe('TenantsController', () => {
         get: jest.fn().mockResolvedValue(tenantInfo),
         getForPublic: jest.fn().mockResolvedValue(hotsiteResponse),
       });
-      const controller = new TenantsController(backendHttp);
+      const controller = new PlatformPublicController(backendHttp);
 
       const result = await controller.getManifest('lavacar-bh');
 
@@ -53,7 +53,7 @@ describe('TenantsController', () => {
 
     it('propagates 404 when the slug does not resolve to a tenant', async () => {
       const backendHttp = makeBackendHttp({ get: jest.fn().mockRejectedValue(new Error('404')) });
-      const controller = new TenantsController(backendHttp);
+      const controller = new PlatformPublicController(backendHttp);
 
       await expect(controller.getManifest('unknown-slug')).rejects.toThrow('404');
     });
@@ -63,7 +63,7 @@ describe('TenantsController', () => {
         get: jest.fn().mockResolvedValue(tenantInfo),
         getForPublic: jest.fn().mockRejectedValue(new Error('404')),
       });
-      const controller = new TenantsController(backendHttp);
+      const controller = new PlatformPublicController(backendHttp);
 
       await expect(controller.getManifest('lavacar-bh')).rejects.toThrow('404');
     });
