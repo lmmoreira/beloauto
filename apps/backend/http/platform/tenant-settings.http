@@ -11,6 +11,7 @@
 # REST Client environment: select "local" in VS Code status bar
 
 @baseUrl = {{backendUrl}}
+@internalKey = {{$dotenv INTERNAL_API_KEY}}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HAPPY PATH
@@ -65,6 +66,71 @@ Content-Type: application/json
     "business_hours": {
       "timezone": "America/Manaus",
       "sunday": null
+    }
+  }
+}
+
+###
+
+### Set business_info (phone, email, address) — used by the CONTACT hotsite module
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+X-Internal-Key: {{internalKey}}
+Content-Type: application/json
+
+{
+  "settings": {
+    "business_info": {
+      "phone": "11987654321",
+      "email": "contato@beloauto.com.br",
+      "address": {
+        "street": "Av. Paulista",
+        "number": "1000",
+        "complement": "Sala 12",
+        "neighborhood": "Bela Vista",
+        "city": "São Paulo",
+        "state": "SP",
+        "zip_code": "01310100"
+      }
+    }
+  }
+}
+
+###
+
+### Clear business_info.phone only (other business_info fields preserved)
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "settings": {
+    "business_info": {
+      "phone": null
+    }
+  }
+}
+
+###
+
+### Clear business_info.address entirely
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "settings": {
+    "business_info": {
+      "address": null
     }
   }
 }
@@ -179,6 +245,63 @@ Content-Type: application/json
 {
   "settings": {
     "booking": { "slot_granularity_minutes": 45 }
+  }
+}
+
+###
+
+### 400 — business_info.address.zip_code not 8 digits
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "settings": {
+    "business_info": {
+      "address": {
+        "street": "Av. Paulista",
+        "number": "1000",
+        "neighborhood": "Bela Vista",
+        "city": "São Paulo",
+        "state": "SP",
+        "zip_code": "123"
+      }
+    }
+  }
+}
+
+###
+
+### 400 — business_info.phone not a valid phone number
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "settings": {
+    "business_info": { "phone": "123" }
+  }
+}
+
+###
+
+### 400 — business_info.email not a valid email address
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "settings": {
+    "business_info": { "email": "not-an-email" }
   }
 }
 

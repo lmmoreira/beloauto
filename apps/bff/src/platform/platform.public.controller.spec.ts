@@ -1,10 +1,23 @@
 import { makeBackendHttp } from '../test/backend-http.mock';
 import { PlatformPublicController } from './platform.public.controller';
-import { HotsiteResponse } from '@beloauto/types';
+import { HotsiteBusinessInfoResponse, HotsiteResponse } from '@beloauto/types';
 
 const tenantInfo = { id: 'tenant-uuid', slug: 'lavacar-bh', name: 'Lavacar BH' };
 
-const hotsiteResponse: HotsiteResponse = {
+const businessInfo: HotsiteBusinessInfoResponse = {
+  phone: '11987654321',
+  email: 'contato@beloauto.com.br',
+  address: {
+    street: 'Av. Paulista',
+    number: '1000',
+    neighborhood: 'Bela Vista',
+    city: 'São Paulo',
+    state: 'SP',
+    zipCode: '01310100',
+  },
+};
+
+const hotsiteResponse: HotsiteResponse & { business: HotsiteBusinessInfoResponse } = {
   branding: {
     primaryColor: '#2563eb',
     secondaryColor: '#eff6ff',
@@ -31,6 +44,7 @@ const hotsiteResponse: HotsiteResponse = {
     },
   ],
   isPublished: true,
+  business: businessInfo,
 };
 
 describe('PlatformPublicController', () => {

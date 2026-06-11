@@ -1,6 +1,7 @@
 import {
   BookingSettings,
   BusinessHours,
+  BusinessInfo,
   LoyaltySettings,
   NotificationSettings,
   TenantSettings,
@@ -31,6 +32,17 @@ export class TenantSettingsPropsBuilder {
 
   withNotification(overrides: Partial<NotificationSettings>): this {
     this.props.notification = { from_email: null, ...this.props.notification, ...overrides };
+    return this;
+  }
+
+  withBusinessInfo(overrides: Partial<BusinessInfo>): this {
+    this.props.business_info = {
+      phone: null,
+      email: null,
+      address: null,
+      ...this.props.business_info,
+      ...overrides,
+    };
     return this;
   }
 

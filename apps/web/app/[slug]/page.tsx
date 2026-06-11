@@ -1,19 +1,26 @@
-import type { HotsiteModuleType, ServiceListModuleData } from '@beloauto/types';
+import type { ContactModuleData, HotsiteModuleType, ServiceListModuleData } from '@beloauto/types';
 import { fetchManifest } from '@/lib/api/platform';
 import { fetchServices } from '@/lib/api/services';
+import { AboutModule } from '@/components/hotsite/AboutModule';
+import { ContactModule } from '@/components/hotsite/ContactModule';
 import { Footer } from '@/components/hotsite/Footer';
+import { GalleryModule } from '@/components/hotsite/GalleryModule';
 import { HeroModule } from '@/components/hotsite/HeroModule';
 import { ServiceListModule } from '@/components/hotsite/ServiceListModule';
+import { TestimonialsModule } from '@/components/hotsite/TestimonialsModule';
 import { isValidModuleData } from '@/lib/hotsite/module-schemas';
 
 type ModuleComponent = React.ComponentType<{ data: Record<string, unknown>; slug: string }>;
 
-// Each module story (M12-S04 to S06) registers its component here. SERVICE_LIST is handled
-// separately below — it needs live service data fetched at page level, not just manifest data.
+// Each module story (M12-S04 to S06) registers its component here. SERVICE_LIST and CONTACT are
+// handled separately below — they need extra data fetched/resolved at page level, not just manifest data.
 const MODULE_MAP: Partial<Record<HotsiteModuleType, ModuleComponent>> = {
   // HeroModule is typed as { data: HeroModuleData; slug: string } — double cast isolates the
   // type erasure to this single registry boundary; the component's own props stay fully typed.
   HERO: HeroModule as unknown as ModuleComponent,
+  GALLERY: GalleryModule as unknown as ModuleComponent,
+  TESTIMONIALS: TestimonialsModule as unknown as ModuleComponent,
+  ABOUT: AboutModule as unknown as ModuleComponent,
 };
 
 interface HotsitePageProps {
@@ -45,6 +52,17 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
                 data={m.data as unknown as ServiceListModuleData}
                 slug={slug}
                 services={services}
+              />
+            );
+          }
+
+          if (m.type === 'CONTACT') {
+            return (
+              <ContactModule
+                key={`${m.type}-${index}`}
+                data={m.data as unknown as ContactModuleData}
+                business={manifest.business}
+                slug={slug}
               />
             );
           }

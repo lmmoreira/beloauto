@@ -108,8 +108,25 @@ export interface HotsiteResponse {
   isPublished: boolean;
 }
 
+export interface HotsiteBusinessInfoAddress {
+  street: string;
+  number: string;
+  complement?: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zipCode: string;
+}
+
+export interface HotsiteBusinessInfoResponse {
+  phone: string | null;
+  email: string | null;
+  address: HotsiteBusinessInfoAddress | null;
+}
+
 export interface HotsiteManifestResponse extends HotsiteResponse {
   tenant: TenantInfoResponse;
+  business: HotsiteBusinessInfoResponse;
 }
 
 export interface HotsiteAdminContentResponse extends HotsiteResponse {

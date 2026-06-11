@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import type { HeroModuleData, HotsiteModuleType, ServiceListModuleData } from '@beloauto/types';
+import type {
+  AboutModuleData,
+  GalleryImage,
+  GalleryModuleData,
+  HeroModuleData,
+  HotsiteModuleType,
+  ServiceListModuleData,
+  Testimonial,
+  TestimonialsModuleData,
+} from '@beloauto/types';
 
 // Mirrors HeroModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const HeroModuleDataSchema = z.object({
@@ -19,9 +28,54 @@ export const ServiceListModuleDataSchema = z.object({
   layout: z.enum(['grid', 'list']),
 }) satisfies z.ZodType<ServiceListModuleData>;
 
+// Mirrors GalleryImage (packages/types/src/hotsite.ts) — keep in sync when that type changes.
+const GalleryImageSchema = z.object({
+  url: z.string(),
+  caption: z.string().optional(),
+  source: z.enum(['booking', 'upload']),
+  bookingId: z.string().optional(),
+  photoType: z.enum(['before', 'after']).optional(),
+}) satisfies z.ZodType<GalleryImage>;
+
+// Mirrors GalleryModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
+export const GalleryModuleDataSchema = z.object({
+  title: z.string().optional(),
+  images: z.array(GalleryImageSchema),
+  layout: z.enum(['grid', 'masonry']),
+  maxVisible: z.number(),
+}) satisfies z.ZodType<GalleryModuleData>;
+
+// Mirrors Testimonial (packages/types/src/hotsite.ts) — keep in sync when that type changes.
+const TestimonialSchema = z.object({
+  authorName: z.string(),
+  text: z.string(),
+  rating: z
+    .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
+    .optional(),
+  avatarUrl: z.string().optional(),
+}) satisfies z.ZodType<Testimonial>;
+
+// Mirrors TestimonialsModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
+export const TestimonialsModuleDataSchema = z.object({
+  title: z.string().optional(),
+  items: z.array(TestimonialSchema),
+  layout: z.enum(['grid', 'carousel']),
+}) satisfies z.ZodType<TestimonialsModuleData>;
+
+// Mirrors AboutModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
+export const AboutModuleDataSchema = z.object({
+  title: z.string(),
+  body: z.string(),
+  imageUrl: z.string().optional(),
+  imagePosition: z.enum(['left', 'right']),
+}) satisfies z.ZodType<AboutModuleData>;
+
 const MODULE_DATA_SCHEMAS: Partial<Record<HotsiteModuleType, z.ZodType>> = {
   HERO: HeroModuleDataSchema,
   SERVICE_LIST: ServiceListModuleDataSchema,
+  GALLERY: GalleryModuleDataSchema,
+  TESTIMONIALS: TestimonialsModuleDataSchema,
+  ABOUT: AboutModuleDataSchema,
 };
 
 // Module types without a registered schema render unvalidated until their story (M12-S05+) adds one.

@@ -74,6 +74,33 @@ describe('UpdateTenantSettingsUseCase', () => {
     expect(result.settings.business_hours.monday).toEqual({ open: '09:00', close: '18:00' });
   });
 
+  it('merges partial business_info without wiping other settings', async () => {
+    const tenant = new TenantBuilder().build();
+    await tenantRepo.save(tenant);
+
+    const result = await useCase.execute(tenant.id, {
+      settings: { business_info: { phone: '11987654321' } },
+    });
+
+    expect(result.settings.business_info).toEqual({
+      phone: '11987654321',
+      email: null,
+      address: null,
+    });
+    expect(result.settings.loyalty.expiry_days).toBe(180);
+  });
+
+  it('throws PlatformDomainError for an invalid business_info.phone', async () => {
+    const tenant = new TenantBuilder().build();
+    await tenantRepo.save(tenant);
+
+    await expect(
+      useCase.execute(tenant.id, {
+        settings: { business_info: { phone: '123' } },
+      }),
+    ).rejects.toThrow(PlatformDomainError);
+  });
+
   it('updates the tenant name', async () => {
     const tenant = new TenantBuilder().build();
     await tenantRepo.save(tenant);

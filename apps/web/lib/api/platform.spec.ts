@@ -36,6 +36,11 @@ function makeManifest(): HotsiteManifestResponse {
     },
     layout: [],
     isPublished: true,
+    business: {
+      phone: null,
+      email: null,
+      address: null,
+    },
   };
 }
 

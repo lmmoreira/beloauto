@@ -450,6 +450,7 @@ Create `apps/web/components/hotsite/XxxModule.tsx`. Rules:
 - Mobile-first responsive layout (Tailwind breakpoints: `sm`, `md`, `lg`)
 - Accessible (WCAG 2.1 AA) — semantic HTML, `aria-label` where needed, sufficient color contrast
 - Accept props: `data: XxxModuleData` and `slug: string`
+- **Default to a server component** (no `'use client'`). Before marking the whole component client-side, identify the smallest interactive piece (e.g. a reveal button, carousel nav) and extract only that into a small `'use client'` child component, passed pre-rendered server content as `children` (the "islands" pattern) — keeps data fetching, image rendering (`next/image`), and markup server-rendered for SEO/LCP, and ships minimal client JS. Exception: when the entire module is interactive by nature (forms, real-time data, heavy animation), mark the whole module `'use client'` — forced splitting adds complexity without benefit.
 - Write a Vitest unit test and a React Testing Library component test
 
 **3. Register in MODULE_MAP**
