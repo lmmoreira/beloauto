@@ -994,19 +994,19 @@ If these have different values, you get inconsistent behavior. The HTML might be
 export const HOTSITE_REVALIDATE_SECONDS = 300;
 ```
 
-Every place that sets a TTL imports this constant:
+**Important constraint:** `export const revalidate` in `page.tsx` / `layout.tsx` **must be a literal**. Next.js statically extracts segment config using AST parsing — it does not execute the module, so imported variables are not resolved. This causes a build failure with "Invalid segment configuration export detected."
 
 ```ts
-// page.tsx
-import { HOTSITE_REVALIDATE_SECONDS } from '@/lib/hotsite/revalidate';
-export const revalidate = HOTSITE_REVALIDATE_SECONDS;
+// page.tsx — MUST be a literal, not an imported variable
+// Keep in sync with HOTSITE_REVALIDATE_SECONDS in lib/hotsite/revalidate.ts manually.
+export const revalidate = 300;
 
-// lib/api/platform.ts
+// lib/api/platform.ts — fetch() is runtime code, so the constant works fine here
 import { HOTSITE_REVALIDATE_SECONDS } from '@/lib/hotsite/revalidate';
 fetch(url, { next: { revalidate: isDev ? 0 : HOTSITE_REVALIDATE_SECONDS } });
 ```
 
-Change one number → both caches move together. **Never hardcode `300` in a `fetch()` call or page export.**
+**Rule:** `HOTSITE_REVALIDATE_SECONDS` is used in `fetch()` calls only. Pages use the literal `300` with a comment pointing to the constant. Change the constant and the literal together when updating the TTL.
 
 ---
 

@@ -427,9 +427,9 @@ export const HOTSITE_REVALIDATE_SECONDS = 300;
 
 ```typescript
 // apps/web/app/[slug]/page.tsx  (and layout.tsx)
-import { HOTSITE_REVALIDATE_SECONDS } from '@/lib/hotsite/revalidate';
-
-export const revalidate = HOTSITE_REVALIDATE_SECONDS;  // Full Route Cache TTL
+// Next.js statically analyses segment config exports — imported variables are not resolved.
+// Must be a literal. Keep in sync with HOTSITE_REVALIDATE_SECONDS in lib/hotsite/revalidate.ts.
+export const revalidate = 300;
 ```
 
 ```typescript

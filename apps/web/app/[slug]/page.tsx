@@ -1,7 +1,6 @@
 import type { ContactModuleData, HotsiteModuleType, ServiceListModuleData } from '@beloauto/types';
 import { fetchManifest } from '@/lib/api/platform';
 import { fetchServices } from '@/lib/api/services';
-import { HOTSITE_REVALIDATE_SECONDS } from '@/lib/hotsite/revalidate';
 import { AboutModule } from '@/components/hotsite/AboutModule';
 import { ContactModule } from '@/components/hotsite/ContactModule';
 import { Footer } from '@/components/hotsite/Footer';
@@ -11,7 +10,9 @@ import { ServiceListModule } from '@/components/hotsite/ServiceListModule';
 import { TestimonialsModule } from '@/components/hotsite/TestimonialsModule';
 import { isValidModuleData } from '@/lib/hotsite/module-schemas';
 
-export const revalidate = HOTSITE_REVALIDATE_SECONDS;
+// Next.js statically analyses segment config exports — imported variables are not resolved.
+// Must be a literal. Keep in sync with HOTSITE_REVALIDATE_SECONDS in lib/hotsite/revalidate.ts.
+export const revalidate = 300;
 
 type ModuleComponent = React.ComponentType<{ data: Record<string, unknown>; slug: string }>;
 
