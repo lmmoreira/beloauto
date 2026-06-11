@@ -255,6 +255,16 @@ export class TenantSettings {
       throw new PlatformDomainError('business_info.email must be a valid email address');
     }
     TenantSettings.validateBusinessAddress(businessInfo.address);
+    TenantSettings.validateSocialLinks(businessInfo.social_links);
+  }
+
+  private static validateSocialLinks(socialLinks: SocialLinks | null): void {
+    if (socialLinks == null) return;
+    if (socialLinks.whatsapp != null && !PhoneNumber.isValid(socialLinks.whatsapp)) {
+      throw new PlatformDomainError(
+        'business_info.social_links.whatsapp must be a valid phone number',
+      );
+    }
   }
 
   private static validateBusinessAddress(address: BusinessInfoAddress | null): void {

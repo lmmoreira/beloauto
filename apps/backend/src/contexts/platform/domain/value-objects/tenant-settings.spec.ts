@@ -171,6 +171,42 @@ describe('TenantSettings', () => {
         .build();
       expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
     });
+
+    it('accepts business_info with social_links set and exposes them via getter', () => {
+      const props = new TenantSettingsPropsBuilder()
+        .withBusinessInfo({ phone: '11987654321' })
+        .withSocialLinks({
+          whatsapp: '11987654321',
+          instagram: 'https://instagram.com/lavacar',
+          facebook: null,
+        })
+        .build();
+      const settings = TenantSettings.create(props);
+      expect(settings.business_info.social_links).toEqual({
+        whatsapp: '11987654321',
+        instagram: 'https://instagram.com/lavacar',
+        facebook: null,
+      });
+    });
+
+    it('toJSON() serialises social_links from business_info', () => {
+      const props = new TenantSettingsPropsBuilder()
+        .withSocialLinks({ whatsapp: '11987654321', instagram: null, facebook: null })
+        .build();
+      const settings = TenantSettings.create(props);
+      expect(settings.toJSON().business_info!.social_links).toEqual({
+        whatsapp: '11987654321',
+        instagram: null,
+        facebook: null,
+      });
+    });
+
+    it('throws for an invalid social_links.whatsapp (not a phone number)', () => {
+      const props = new TenantSettingsPropsBuilder()
+        .withSocialLinks({ whatsapp: '123', instagram: null, facebook: null })
+        .build();
+      expect(() => TenantSettings.create(props)).toThrow(PlatformDomainError);
+    });
   });
 
   describe('encapsulation — getters return independent copies', () => {

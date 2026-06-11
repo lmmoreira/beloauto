@@ -1,6 +1,7 @@
 import type { ContactModuleData, HotsiteModuleType, ServiceListModuleData } from '@beloauto/types';
 import { fetchManifest } from '@/lib/api/platform';
 import { fetchServices } from '@/lib/api/services';
+import { HOTSITE_REVALIDATE_SECONDS } from '@/lib/hotsite/revalidate';
 import { AboutModule } from '@/components/hotsite/AboutModule';
 import { ContactModule } from '@/components/hotsite/ContactModule';
 import { Footer } from '@/components/hotsite/Footer';
@@ -9,6 +10,8 @@ import { HeroModule } from '@/components/hotsite/HeroModule';
 import { ServiceListModule } from '@/components/hotsite/ServiceListModule';
 import { TestimonialsModule } from '@/components/hotsite/TestimonialsModule';
 import { isValidModuleData } from '@/lib/hotsite/module-schemas';
+
+export const revalidate = HOTSITE_REVALIDATE_SECONDS;
 
 type ModuleComponent = React.ComponentType<{ data: Record<string, unknown>; slug: string }>;
 

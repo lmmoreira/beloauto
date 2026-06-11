@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect, type CSSProperties } from 'react';
-import type { GalleryImage } from '@beloauto/types';
-import { GalleryItem } from './GalleryItem';
+import { useState, useRef, useEffect, type CSSProperties, type ReactNode } from 'react';
 
 interface GalleryGridProps {
-  readonly images: readonly GalleryImage[];
+  readonly children: ReactNode;
   readonly maxVisible: number;
-  readonly layout: 'grid' | 'masonry';
+  readonly totalImages: number;
 }
 
 const btnStyle: CSSProperties = {
@@ -22,47 +20,37 @@ const closeBtnStyle: CSSProperties = {
   borderRadius: '50%',
 };
 
-export function GalleryGrid({ images, maxVisible, layout }: GalleryGridProps) {
+export function GalleryGrid({ children, maxVisible, totalImages }: GalleryGridProps) {
   const [expanded, setExpanded] = useState(false);
-  const [lightboxImage, setLightboxImage] = useState<GalleryImage | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; caption: string } | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (lightboxImage) {
+    if (lightbox) {
       dialog.showModal();
     } else {
       dialog.close();
     }
-  }, [lightboxImage]);
+  }, [lightbox]);
 
-  const visible = expanded ? images : images.slice(0, maxVisible);
-  const hasMore = images.length > maxVisible;
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const anchor = (e.target as HTMLElement).closest<HTMLAnchorElement>('[data-gallery-url]');
+    if (!anchor) return;
+    e.preventDefault();
+    setLightbox({
+      url: anchor.dataset.galleryUrl!,
+      caption: anchor.dataset.galleryCaption ?? '',
+    });
+  };
 
-  const containerClassName =
-    layout === 'masonry'
-      ? 'columns-2 sm:columns-3 gap-4 [&>*]:mb-4'
-      : 'grid grid-cols-2 sm:grid-cols-3 gap-4';
+  const hasMore = totalImages > maxVisible;
 
   return (
     <>
-      <div className={containerClassName}>
-        {visible.map((image, index) => (
-          <a
-            key={`${image.url}-${index}`}
-            href={image.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              e.preventDefault();
-              setLightboxImage(image);
-            }}
-            className="block cursor-zoom-in"
-          >
-            <GalleryItem image={image} priority={index === 0} />
-          </a>
-        ))}
+      <div data-gallery-expanded={expanded} onClick={handleClick}>
+        {children}
       </div>
 
       {hasMore && !expanded && (
@@ -80,7 +68,7 @@ export function GalleryGrid({ images, maxVisible, layout }: GalleryGridProps) {
 
       <dialog
         ref={dialogRef}
-        onClose={() => setLightboxImage(null)}
+        onClose={() => setLightbox(null)}
         style={{
           width: '100vw',
           height: '100dvh',
@@ -91,13 +79,12 @@ export function GalleryGrid({ images, maxVisible, layout }: GalleryGridProps) {
           background: 'transparent',
           border: 'none',
         }}
-        className="flex items-center justify-center backdrop:bg-black/80"
+        className="open:flex items-center justify-center backdrop:bg-black/80"
       >
-        {/* Transparent backdrop button — clicking outside the image closes the dialog */}
         <button
           type="button"
           aria-label="Fechar lightbox"
-          onClick={() => setLightboxImage(null)}
+          onClick={() => setLightbox(null)}
           style={{
             position: 'fixed',
             inset: 0,
@@ -106,11 +93,11 @@ export function GalleryGrid({ images, maxVisible, layout }: GalleryGridProps) {
             cursor: 'default',
           }}
         />
-        {lightboxImage && (
+        {lightbox && (
           <div className="relative" style={{ position: 'relative', zIndex: 1 }}>
             <button
               type="button"
-              onClick={() => setLightboxImage(null)}
+              onClick={() => setLightbox(null)}
               aria-label="Fechar"
               style={closeBtnStyle}
               className="absolute -right-3 -top-3 z-10 flex h-8 w-8 items-center justify-center shadow-lg hover:bg-white"
@@ -118,8 +105,8 @@ export function GalleryGrid({ images, maxVisible, layout }: GalleryGridProps) {
               ×
             </button>
             <img
-              src={lightboxImage.url}
-              alt={lightboxImage.caption ?? 'Foto da lavagem'}
+              src={lightbox.url}
+              alt={lightbox.caption || 'Foto da lavagem'}
               style={{
                 maxWidth: 'min(85vw, 1200px)',
                 maxHeight: '85dvh',
@@ -128,8 +115,8 @@ export function GalleryGrid({ images, maxVisible, layout }: GalleryGridProps) {
                 display: 'block',
               }}
             />
-            {lightboxImage.caption && (
-              <p className="mt-2 text-center text-sm text-white">{lightboxImage.caption}</p>
+            {lightbox.caption && (
+              <p className="mt-2 text-center text-sm text-white">{lightbox.caption}</p>
             )}
           </div>
         )}

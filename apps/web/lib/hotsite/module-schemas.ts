@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type {
   AboutModuleData,
+  ContactModuleData,
   GalleryImage,
   GalleryModuleData,
   HeroModuleData,
@@ -70,12 +71,23 @@ export const AboutModuleDataSchema = z.object({
   imagePosition: z.enum(['left', 'right']),
 }) satisfies z.ZodType<AboutModuleData>;
 
+// Mirrors ContactModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
+export const ContactModuleDataSchema = z.object({
+  title: z.string().optional(),
+  showAddress: z.boolean(),
+  showPhone: z.boolean(),
+  showWhatsapp: z.boolean(),
+  showEmail: z.boolean(),
+  showMap: z.boolean(),
+}) satisfies z.ZodType<ContactModuleData>;
+
 const MODULE_DATA_SCHEMAS: Partial<Record<HotsiteModuleType, z.ZodType>> = {
   HERO: HeroModuleDataSchema,
   SERVICE_LIST: ServiceListModuleDataSchema,
   GALLERY: GalleryModuleDataSchema,
   TESTIMONIALS: TestimonialsModuleDataSchema,
   ABOUT: AboutModuleDataSchema,
+  CONTACT: ContactModuleDataSchema,
 };
 
 // Module types without a registered schema render unvalidated until their story (M12-S05+) adds one.

@@ -41,6 +41,20 @@ describe('GalleryModule', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it('renders a grid layout container for layout: grid', () => {
+    const { container } = render(<GalleryModule data={makeData({ layout: 'grid' })} slug="tenant" />);
+
+    expect(container.querySelector('.grid')).toBeInTheDocument();
+  });
+
+  it('renders a CSS-columns container for layout: masonry', () => {
+    const { container } = render(
+      <GalleryModule data={makeData({ layout: 'masonry' })} slug="tenant" />,
+    );
+
+    expect(container.querySelector('.columns-2')).toBeInTheDocument();
+  });
+
   it('renders the first image with loading="eager" (LCP) and subsequent ones with loading="lazy"', () => {
     const images = [
       makeImage(),
@@ -54,6 +68,53 @@ describe('GalleryModule', () => {
     expect(imgs[1]).toHaveAttribute('loading', 'lazy');
   });
 
+  it('renders all images in the DOM (SSR) and marks extras with data-gallery-extra', () => {
+    const images = Array.from({ length: 8 }, (_, i) =>
+      makeImage({ url: `https://storage.example.com/gallery/photo-${i}.jpg` }),
+    );
+    const { container } = render(
+      <GalleryModule data={makeData({ images, maxVisible: 6 })} slug="tenant" />,
+    );
+
+    expect(container.querySelectorAll('img')).toHaveLength(8);
+    expect(container.querySelectorAll('[data-gallery-extra]')).toHaveLength(2);
+  });
+
+  it('shows a "Ver mais" button when images.length > maxVisible', () => {
+    const images = Array.from({ length: 8 }, (_, i) =>
+      makeImage({ url: `https://storage.example.com/gallery/photo-${i}.jpg` }),
+    );
+    render(<GalleryModule data={makeData({ images, maxVisible: 6 })} slug="tenant" />);
+
+    expect(screen.getByRole('button', { name: 'Ver mais' })).toBeInTheDocument();
+  });
+
+  it('sets data-gallery-expanded to true and removes "Ver mais" when clicked', async () => {
+    const user = userEvent.setup();
+    const images = Array.from({ length: 8 }, (_, i) =>
+      makeImage({ url: `https://storage.example.com/gallery/photo-${i}.jpg` }),
+    );
+    const { container } = render(
+      <GalleryModule data={makeData({ images, maxVisible: 6 })} slug="tenant" />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Ver mais' }));
+
+    expect(container.querySelector('[data-gallery-expanded]')).toHaveAttribute(
+      'data-gallery-expanded',
+      'true',
+    );
+    expect(screen.queryByRole('button', { name: 'Ver mais' })).not.toBeInTheDocument();
+  });
+
+  it('does not render a "Ver mais" button when images.length <= maxVisible', () => {
+    render(
+      <GalleryModule data={makeData({ images: [makeImage()], maxVisible: 6 })} slug="tenant" />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Ver mais' })).not.toBeInTheDocument();
+  });
+
   it('opens the lightbox when a gallery image is clicked', async () => {
     const user = userEvent.setup();
     const { container } = render(<GalleryModule data={makeData()} slug="tenant" />);
@@ -65,41 +126,6 @@ describe('GalleryModule', () => {
       'src',
       'https://storage.example.com/gallery/photo.jpg',
     );
-  });
-
-  it('shows 6 images and a "Ver mais" button when there are 8 images and maxVisible is 6', () => {
-    const images = Array.from({ length: 8 }, (_, i) =>
-      makeImage({ url: `https://storage.example.com/gallery/photo-${i}.jpg` }),
-    );
-    const { container } = render(
-      <GalleryModule data={makeData({ images, maxVisible: 6 })} slug="tenant" />,
-    );
-
-    expect(container.querySelectorAll('img')).toHaveLength(6);
-    expect(screen.getByRole('button', { name: 'Ver mais' })).toBeInTheDocument();
-  });
-
-  it('reveals the remaining images when "Ver mais" is clicked', async () => {
-    const user = userEvent.setup();
-    const images = Array.from({ length: 8 }, (_, i) =>
-      makeImage({ url: `https://storage.example.com/gallery/photo-${i}.jpg` }),
-    );
-    const { container } = render(
-      <GalleryModule data={makeData({ images, maxVisible: 6 })} slug="tenant" />,
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Ver mais' }));
-
-    expect(container.querySelectorAll('img')).toHaveLength(8);
-    expect(screen.queryByRole('button', { name: 'Ver mais' })).not.toBeInTheDocument();
-  });
-
-  it('does not render a "Ver mais" button when images.length <= maxVisible', () => {
-    render(
-      <GalleryModule data={makeData({ images: [makeImage()], maxVisible: 6 })} slug="tenant" />,
-    );
-
-    expect(screen.queryByRole('button', { name: 'Ver mais' })).not.toBeInTheDocument();
   });
 
   describe('photoType badges', () => {

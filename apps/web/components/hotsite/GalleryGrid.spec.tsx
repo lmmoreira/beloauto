@@ -2,77 +2,76 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import type { GalleryImage } from '@beloauto/types';
 import { GalleryGrid } from './GalleryGrid';
 
-function makeImage(overrides?: Partial<GalleryImage>): GalleryImage {
-  return { url: 'https://storage.example.com/photo.jpg', source: 'upload', ...overrides };
-}
-
-function makeImages(count: number): GalleryImage[] {
-  return Array.from({ length: count }, (_, i) =>
-    makeImage({ url: `https://storage.example.com/photo-${i}.jpg` }),
+function makeLink(url: string, caption = ''): React.ReactElement {
+  return (
+    <a
+      key={url}
+      href={url}
+      data-gallery-url={url}
+      data-gallery-caption={caption}
+    >
+      <img src={url} alt={caption || 'photo'} />
+    </a>
   );
 }
 
 describe('GalleryGrid', () => {
-  it('renders a grid layout container for layout: grid', () => {
+  it('renders its children', () => {
     const { container } = render(
-      <GalleryGrid images={[makeImage()]} maxVisible={6} layout="grid" />,
+      <GalleryGrid maxVisible={6} totalImages={1}>
+        {makeLink('https://storage.example.com/photo.jpg')}
+      </GalleryGrid>,
     );
 
-    expect(container.querySelector('.grid')).toBeInTheDocument();
+    expect(container.querySelector('img')).toBeInTheDocument();
   });
 
-  it('renders a CSS-columns container for layout: masonry', () => {
-    const { container } = render(
-      <GalleryGrid images={[makeImage()]} maxVisible={6} layout="masonry" />,
+  it('shows "Ver mais" button when totalImages > maxVisible', () => {
+    render(
+      <GalleryGrid maxVisible={2} totalImages={5}>
+        {makeLink('https://storage.example.com/photo.jpg')}
+      </GalleryGrid>,
     );
 
-    expect(container.querySelector('.columns-2')).toBeInTheDocument();
-  });
-
-  it('renders only maxVisible images and a "Ver mais" button when there are more', () => {
-    const { container } = render(
-      <GalleryGrid images={makeImages(5)} maxVisible={2} layout="grid" />,
-    );
-
-    expect(container.querySelectorAll('img')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Ver mais' })).toBeInTheDocument();
   });
 
-  it('does not render "Ver mais" when images.length <= maxVisible', () => {
-    render(<GalleryGrid images={makeImages(3)} maxVisible={6} layout="grid" />);
+  it('does not show "Ver mais" when totalImages <= maxVisible', () => {
+    render(
+      <GalleryGrid maxVisible={6} totalImages={3}>
+        {makeLink('https://storage.example.com/photo.jpg')}
+      </GalleryGrid>,
+    );
 
     expect(screen.queryByRole('button', { name: 'Ver mais' })).not.toBeInTheDocument();
   });
 
-  it('reveals all images and hides the button after clicking "Ver mais"', async () => {
+  it('sets data-gallery-expanded to true and hides the button after clicking "Ver mais"', async () => {
     const user = userEvent.setup();
     const { container } = render(
-      <GalleryGrid images={makeImages(5)} maxVisible={2} layout="grid" />,
+      <GalleryGrid maxVisible={2} totalImages={5}>
+        {makeLink('https://storage.example.com/photo.jpg')}
+      </GalleryGrid>,
     );
 
     await user.click(screen.getByRole('button', { name: 'Ver mais' }));
 
-    expect(container.querySelectorAll('img')).toHaveLength(5);
+    expect(container.querySelector('[data-gallery-expanded]')).toHaveAttribute(
+      'data-gallery-expanded',
+      'true',
+    );
     expect(screen.queryByRole('button', { name: 'Ver mais' })).not.toBeInTheDocument();
   });
 
-  it('wraps each thumbnail in a link for progressive enhancement', () => {
-    const image = makeImage({ url: 'https://storage.example.com/full.jpg' });
-    render(<GalleryGrid images={[image]} maxVisible={6} layout="grid" />);
-
-    const link = screen.getByRole('link');
-    expect(link).toHaveAttribute('href', 'https://storage.example.com/full.jpg');
-    expect(link).toHaveAttribute('target', '_blank');
-    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-  });
-
-  it('opens the lightbox with the full image when a thumbnail link is clicked', async () => {
+  it('opens the lightbox when a [data-gallery-url] child link is clicked', async () => {
     const user = userEvent.setup();
-    const image = makeImage({ url: 'https://storage.example.com/full.jpg', caption: 'Antes' });
-    const { container } = render(<GalleryGrid images={[image]} maxVisible={6} layout="grid" />);
+    const { container } = render(
+      <GalleryGrid maxVisible={6} totalImages={1}>
+        {makeLink('https://storage.example.com/full.jpg', 'Antes')}
+      </GalleryGrid>,
+    );
 
     await user.click(screen.getByRole('link'));
 
@@ -85,8 +84,11 @@ describe('GalleryGrid', () => {
 
   it('shows the caption inside the lightbox when the image has one', async () => {
     const user = userEvent.setup();
-    const image = makeImage({ caption: 'Lavagem completa' });
-    const { container } = render(<GalleryGrid images={[image]} maxVisible={6} layout="grid" />);
+    const { container } = render(
+      <GalleryGrid maxVisible={6} totalImages={1}>
+        {makeLink('https://storage.example.com/photo.jpg', 'Lavagem completa')}
+      </GalleryGrid>,
+    );
 
     await user.click(screen.getByRole('link'));
 
@@ -96,7 +98,9 @@ describe('GalleryGrid', () => {
   it('closes the lightbox when the close button is clicked', async () => {
     const user = userEvent.setup();
     const { container } = render(
-      <GalleryGrid images={[makeImage()]} maxVisible={6} layout="grid" />,
+      <GalleryGrid maxVisible={6} totalImages={1}>
+        {makeLink('https://storage.example.com/photo.jpg')}
+      </GalleryGrid>,
     );
 
     await user.click(screen.getByRole('link'));
@@ -106,14 +110,18 @@ describe('GalleryGrid', () => {
     expect(dialog?.querySelector('img')).not.toBeInTheDocument();
   });
 
-  it('renders the first image with priority (loading="eager") for LCP', () => {
+  it('closes the lightbox when the backdrop button is clicked', async () => {
+    const user = userEvent.setup();
     const { container } = render(
-      <GalleryGrid images={makeImages(3)} maxVisible={6} layout="grid" />,
+      <GalleryGrid maxVisible={6} totalImages={1}>
+        {makeLink('https://storage.example.com/photo.jpg')}
+      </GalleryGrid>,
     );
 
-    const imgs = container.querySelectorAll('img');
-    expect(imgs[0]).toHaveAttribute('loading', 'eager');
-    expect(imgs[1]).toHaveAttribute('loading', 'lazy');
-    expect(imgs[2]).toHaveAttribute('loading', 'lazy');
+    await user.click(screen.getByRole('link'));
+    await user.click(screen.getByRole('button', { name: 'Fechar lightbox' }));
+
+    const dialog = container.querySelector('dialog');
+    expect(dialog?.querySelector('img')).not.toBeInTheDocument();
   });
 });

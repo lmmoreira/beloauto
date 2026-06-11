@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AboutModuleDataSchema,
+  ContactModuleDataSchema,
   GalleryModuleDataSchema,
   HeroModuleDataSchema,
   ServiceListModuleDataSchema,
@@ -227,6 +228,38 @@ describe('AboutModuleDataSchema', () => {
   });
 });
 
+const validContactData = {
+  showAddress: true,
+  showPhone: true,
+  showWhatsapp: true,
+  showEmail: false,
+  showMap: false,
+};
+
+describe('ContactModuleDataSchema', () => {
+  it('accepts the required fields', () => {
+    expect(ContactModuleDataSchema.safeParse(validContactData).success).toBe(true);
+  });
+
+  it('accepts an optional title', () => {
+    const result = ContactModuleDataSchema.safeParse({ ...validContactData, title: 'Contato' });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects missing required boolean fields', () => {
+    const result = ContactModuleDataSchema.safeParse({ showAddress: true, showPhone: true });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a non-boolean value for a show flag', () => {
+    const result = ContactModuleDataSchema.safeParse({ ...validContactData, showMap: 'yes' });
+
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('isValidModuleData', () => {
   it('returns true for valid HERO data', () => {
     expect(isValidModuleData('HERO', validHeroData)).toBe(true);
@@ -268,7 +301,19 @@ describe('isValidModuleData', () => {
     expect(isValidModuleData('ABOUT', { title: 'Sobre nós', imagePosition: 'right' })).toBe(false);
   });
 
-  it('returns true for module types without a registered schema', () => {
-    expect(isValidModuleData('CONTACT', { anything: 'goes' })).toBe(true);
+  it('returns true for valid CONTACT data', () => {
+    expect(
+      isValidModuleData('CONTACT', {
+        showAddress: true,
+        showPhone: true,
+        showWhatsapp: true,
+        showEmail: false,
+        showMap: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false for invalid CONTACT data', () => {
+    expect(isValidModuleData('CONTACT', { showAddress: true })).toBe(false);
   });
 });
