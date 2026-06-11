@@ -48,14 +48,20 @@ describe('GetHotsiteManifestUseCase', () => {
   });
 
   it('returns a minimal payload (empty layout, null business) when the hotsite is not published', async () => {
-    const config = new HotsiteConfigBuilder().withTenantId(TENANT_A).buildWithContent();
+    const branding: HotsiteBranding = {
+      ...DEFAULT_HOTSITE_BRANDING,
+      logoUrl: 'tenants/tenant-a/hotsite/branding/logo.png',
+    };
+    const config = new HotsiteConfigBuilder().withTenantId(TENANT_A).buildWithContent(branding);
     await repo.save(config);
 
     const result = await useCase.execute();
 
     expect(result.isPublished).toBe(false);
-    expect(result.branding).toEqual(config.branding);
     expect(result.layout).toEqual([]);
+    expect(result.branding.logoUrl).toBe(
+      storageService.getPublicUrl('tenants/tenant-a/hotsite/branding/logo.png'),
+    );
     expect(result.business).toEqual({
       phone: null,
       email: null,

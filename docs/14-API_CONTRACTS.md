@@ -202,7 +202,7 @@ Used by the Next.js hotsite renderer to fetch full branding and layout for a ten
 - `404` — tenant slug not found (no `HotsiteConfig` reachable for this slug at all)
 
 ### **Hotsite Admin Management (Admin — UC-027, M12-S02)**
-Lets a `MANAGER` configure branding, layout modules, and publish status. Mirrors the public manifest's `branding`/`layout`/`isPublished` shape, but `GET` always returns the full state regardless of publish status (unlike the public endpoint, which `404`s when unpublished).
+Lets a `MANAGER` configure branding, layout modules, and publish status. Mirrors the public manifest's `branding`/`layout`/`isPublished` shape, but `GET` always returns the full draft state regardless of publish status — unlike the public endpoint, which stubs `layout: []` and `business` (all fields `null`) when `isPublished: false` (see §1 above).
 
 - `GET /v1/tenants/hotsite` → `200 { branding, layout, isPublished, updatedAt }` — `MANAGER` only
 - `PATCH /v1/tenants/hotsite` → body `{ branding?, layout? }` (partial update — unspecified fields unchanged); `200` returns updated state

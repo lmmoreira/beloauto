@@ -615,7 +615,7 @@ interface BookingCtaModuleData {
 **Description:**  
 Implement the hotsite edge cases: a 404 page for unknown slugs, and an "Em breve" placeholder for unpublished hotsites. These are two distinct cases with two distinct UIs:
 
-- **Unknown slug** → `TenantNotFoundError`/`HotsiteNotFoundError` → `404` → `fetchManifest()` calls `notFound()` → `app/[slug]/not-found.tsx` (BeloAuto-branded, no manifest available).
+- **Unknown slug** → `TenantNotFoundError`/`HotsiteNotFoundError` → `404` → `fetchManifest()` calls `notFound()` → `app/not-found.tsx` (root-level, BeloAuto-branded, no manifest available).
 - **Hotsite not published** → tenant + hotsite config exist, but `isPublished: false`. Today `GetHotsiteManifestUseCase` throws `HotsiteNotPublishedError`, mapped to the *same* `404` as "unknown slug" — making the two cases indistinguishable, and discarding the `branding`/`layout`/`business` data needed to render anything tenant-specific.
 
 **Backend change (small — `apps/backend`):**
@@ -624,7 +624,7 @@ Implement the hotsite edge cases: a 404 page for unknown slugs, and an "Em breve
 - No change to `packages/types` (`HotsiteManifestResponse.isPublished` already exists) or the BFF controller (already passes the field through).
 
 **Frontend changes (`apps/web`):**
-- `apps/web/app/[slug]/not-found.tsx` — BeloAuto-branded 404: `"Lavacar não encontrada"` + link to `beloauto.com`. Static styling only — no manifest/branding available (`fetchManifest()`'s `notFound()` fires inside `layout.tsx`, before it renders).
+- `apps/web/app/not-found.tsx` (root-level, **not** `app/[slug]/not-found.tsx`) — BeloAuto-branded 404: `"Lavacar não encontrada"` + link to `beloauto.com`. Static styling only — no manifest/branding available. Must live at the root: `fetchManifest()`'s `notFound()` fires inside `app/[slug]/layout.tsx`, and Next.js does not let a segment's own `not-found.tsx` catch a `notFound()` thrown by that segment's own `layout.tsx` — only an ancestor segment's `not-found.tsx` can.
 - `apps/web/components/hotsite/Unavailable.tsx` — "Em breve" placeholder. Uses `var(--ba-*)` tokens (inherits the tenant's branding via `[slug]/layout.tsx`'s `applyBranding()`; defaults to `DEFAULT_HOTSITE_BRANDING` for unconfigured tenants — no special-casing needed).
 - `apps/web/app/[slug]/page.tsx` — if `!manifest.isPublished`, render `<Unavailable />` instead of the module list (Footer omitted).
 

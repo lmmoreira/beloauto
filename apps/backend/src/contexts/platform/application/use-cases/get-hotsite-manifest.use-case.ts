@@ -44,12 +44,14 @@ export interface GetHotsiteManifestUseCaseResult {
   business: HotsiteBusinessInfo;
 }
 
-const EMPTY_BUSINESS_INFO: HotsiteBusinessInfo = {
-  phone: null,
-  email: null,
-  address: null,
-  socialLinks: null,
-};
+function emptyBusinessInfo(): HotsiteBusinessInfo {
+  return {
+    phone: null,
+    email: null,
+    address: null,
+    socialLinks: null,
+  };
+}
 
 @Injectable()
 export class GetHotsiteManifestUseCase {
@@ -71,7 +73,7 @@ export class GetHotsiteManifestUseCase {
       const { branding } = this.imageUrlResolver.resolve(config.branding, [], (storagePath) =>
         this.storageService.getPublicUrl(storagePath),
       );
-      return { branding, layout: [], isPublished: false, business: EMPTY_BUSINESS_INFO };
+      return { branding, layout: [], isPublished: false, business: emptyBusinessInfo() };
     }
 
     const tenant = await this.tenantRepo.findById(tenantId);
