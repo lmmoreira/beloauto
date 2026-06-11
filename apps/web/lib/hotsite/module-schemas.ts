@@ -42,7 +42,7 @@ export const GalleryModuleDataSchema = z.object({
   title: z.string().optional(),
   images: z.array(GalleryImageSchema),
   layout: z.enum(['grid', 'masonry']),
-  maxVisible: z.number(),
+  maxVisible: z.number().int().min(1),
 }) satisfies z.ZodType<GalleryModuleData>;
 
 // Mirrors Testimonial (packages/types/src/hotsite.ts) — keep in sync when that type changes.

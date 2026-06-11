@@ -40,6 +40,7 @@ function makeManifest(): HotsiteManifestResponse {
       phone: null,
       email: null,
       address: null,
+      socialLinks: null,
     },
   };
 }

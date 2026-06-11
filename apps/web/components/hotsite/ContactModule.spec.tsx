@@ -18,6 +18,7 @@ function makeBusiness(
       state: 'SP',
       zipCode: '01310100',
     },
+    socialLinks: { whatsapp: '11987654321', instagram: null, facebook: null },
     ...overrides,
   };
 }
@@ -29,7 +30,6 @@ function makeData(overrides?: Partial<ContactModuleData>): ContactModuleData {
     showWhatsapp: true,
     showEmail: true,
     showMap: true,
-    socialLinks: { whatsapp: '11987654321' },
     ...overrides,
   };
 }
@@ -85,11 +85,11 @@ describe('ContactModule', () => {
     expect(screen.queryByRole('link', { name: 'WhatsApp' })).not.toBeInTheDocument();
   });
 
-  it('renders the WhatsApp link to wa.me with the digits-only number, opening in a new tab', () => {
+  it('renders the WhatsApp link to wa.me with digits-only number from business.socialLinks', () => {
     render(
       <ContactModule
-        data={makeData({ socialLinks: { whatsapp: '(11) 98765-4321' } })}
-        business={makeBusiness()}
+        data={makeData()}
+        business={makeBusiness({ socialLinks: { whatsapp: '(11) 98765-4321', instagram: null, facebook: null } })}
         slug="tenant"
       />,
     );
@@ -147,16 +147,17 @@ describe('ContactModule', () => {
     expect(screen.queryByText('contato@beloauto.com.br')).not.toBeInTheDocument();
   });
 
-  it('renders Instagram and Facebook links when present in socialLinks', () => {
+  it('renders Instagram and Facebook links from business.socialLinks', () => {
     render(
       <ContactModule
-        data={makeData({
+        data={makeData()}
+        business={makeBusiness({
           socialLinks: {
+            whatsapp: null,
             instagram: 'https://instagram.com/beloauto',
             facebook: 'https://facebook.com/beloauto',
           },
         })}
-        business={makeBusiness()}
         slug="tenant"
       />,
     );
@@ -169,5 +170,19 @@ describe('ContactModule', () => {
       'href',
       'https://facebook.com/beloauto',
     );
+  });
+
+  it('does not render social links when business.socialLinks is null', () => {
+    render(
+      <ContactModule
+        data={makeData()}
+        business={makeBusiness({ socialLinks: null })}
+        slug="tenant"
+      />,
+    );
+
+    expect(screen.queryByRole('link', { name: 'Instagram' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Facebook' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'WhatsApp' })).not.toBeInTheDocument();
   });
 });

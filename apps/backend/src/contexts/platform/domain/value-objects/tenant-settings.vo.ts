@@ -54,10 +54,17 @@ export interface BusinessInfoAddress {
   zip_code: string;
 }
 
+export interface SocialLinks {
+  whatsapp: string | null;
+  instagram: string | null;
+  facebook: string | null;
+}
+
 export interface BusinessInfo {
   phone: string | null;
   email: string | null;
   address: BusinessInfoAddress | null;
+  social_links: SocialLinks | null;
 }
 
 export interface TenantSettingsProps {
@@ -101,11 +108,21 @@ export class TenantSettings {
       phone: this.props.business_info?.phone ?? null,
       email: this.props.business_info?.email ?? null,
       address: this.props.business_info?.address ?? null,
+      social_links: this.props.business_info?.social_links ?? null,
     };
   }
 
   toJSON(): TenantSettingsProps {
-    return structuredClone(this.props);
+    const clone = structuredClone(this.props);
+    return {
+      ...clone,
+      business_info: {
+        phone: clone.business_info?.phone ?? null,
+        email: clone.business_info?.email ?? null,
+        address: clone.business_info?.address ?? null,
+        social_links: clone.business_info?.social_links ?? null,
+      },
+    };
   }
 
   static default(timezone = 'America/Sao_Paulo'): TenantSettings {
@@ -147,6 +164,7 @@ export class TenantSettings {
         phone: null,
         email: null,
         address: null,
+        social_links: null,
       },
     });
   }
@@ -230,17 +248,17 @@ export class TenantSettings {
 
   private static validateBusinessInfo(businessInfo?: BusinessInfo): void {
     if (!businessInfo) return;
-    if (businessInfo.phone !== null && !PhoneNumber.isValid(businessInfo.phone)) {
+    if (businessInfo.phone != null && !PhoneNumber.isValid(businessInfo.phone)) {
       throw new PlatformDomainError('business_info.phone must be a valid phone number');
     }
-    if (businessInfo.email !== null && !Email.isValid(businessInfo.email)) {
+    if (businessInfo.email != null && !Email.isValid(businessInfo.email)) {
       throw new PlatformDomainError('business_info.email must be a valid email address');
     }
     TenantSettings.validateBusinessAddress(businessInfo.address);
   }
 
   private static validateBusinessAddress(address: BusinessInfoAddress | null): void {
-    if (address === null) return;
+    if (address == null) return;
     if (!/^\d{8}$/.test(address.zip_code)) {
       throw new PlatformDomainError('business_info.address.zip_code must be exactly 8 digits');
     }

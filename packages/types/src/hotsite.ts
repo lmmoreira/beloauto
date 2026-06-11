@@ -71,11 +71,6 @@ export interface ContactModuleData {
   showWhatsapp: boolean;
   showEmail: boolean;
   showMap: boolean;
-  socialLinks?: {
-    instagram?: string;
-    facebook?: string;
-    whatsapp?: string;
-  };
 }
 
 // ─── BFF response types ───────────────────────────────────────────────────────
@@ -118,10 +113,17 @@ export interface HotsiteBusinessInfoAddress {
   zipCode: string;
 }
 
+export interface HotsiteBusinessInfoSocialLinks {
+  whatsapp: string | null;
+  instagram: string | null;
+  facebook: string | null;
+}
+
 export interface HotsiteBusinessInfoResponse {
   phone: string | null;
   email: string | null;
   address: HotsiteBusinessInfoAddress | null;
+  socialLinks: HotsiteBusinessInfoSocialLinks | null;
 }
 
 export interface HotsiteManifestResponse extends HotsiteResponse {

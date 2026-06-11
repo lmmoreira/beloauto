@@ -84,7 +84,7 @@ Content-Type: application/json
 {
   "settings": {
     "business_info": {
-      "phone": "11987654321",
+      "phone": "12982553850",
       "email": "contato@beloauto.com.br",
       "address": {
         "street": "Av. Paulista",
@@ -94,6 +94,11 @@ Content-Type: application/json
         "city": "São Paulo",
         "state": "SP",
         "zip_code": "01310100"
+      },
+      "social_links": {
+        "whatsapp": "12982553850",
+        "instagram": "https://instagram.com/lavacar",
+        "facebook": "https://facebook.com/lavacar"
       }
     }
   }
@@ -131,6 +136,70 @@ Content-Type: application/json
   "settings": {
     "business_info": {
       "address": null
+    }
+  }
+}
+
+###
+
+### Set social links (WhatsApp, Instagram, Facebook) — used by the CONTACT hotsite module
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "settings": {
+    "business_info": {
+      "social_links": {
+        "whatsapp": "11987654321",
+        "instagram": "https://instagram.com/lavacar",
+        "facebook": "https://facebook.com/lavacar"
+      }
+    }
+  }
+}
+
+###
+
+### Partial social links update — change only WhatsApp (Instagram and Facebook preserved)
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "settings": {
+    "business_info": {
+      "social_links": {
+        "whatsapp": "11999999999"
+      }
+    }
+  }
+}
+
+###
+
+### Clear all social links
+PATCH {{baseUrl}}/tenants/settings
+X-Tenant-ID: {{tenantId}}
+X-Actor-ID: {{managerId}}
+X-Actor-Type: STAFF
+X-Actor-Role: MANAGER
+Content-Type: application/json
+
+{
+  "settings": {
+    "business_info": {
+      "social_links": {
+        "whatsapp": null,
+        "instagram": null,
+        "facebook": null
+      }
     }
   }
 }

@@ -26,6 +26,16 @@ function digitsOnly(value: string): string {
   return value.replace(/\D/g, '');
 }
 
+function sanitizeUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'https:' || protocol === 'http:' ? url : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function ContactModule({ data, business, slug: _ }: ContactModuleProps) {
   const title = data.title ?? 'Fale conosco';
   const address = business.address;
@@ -33,9 +43,9 @@ export function ContactModule({ data, business, slug: _ }: ContactModuleProps) {
   const showPhone = data.showPhone && business.phone !== null;
   const showEmail = data.showEmail && business.email !== null;
   const showMap = data.showMap && address !== null;
-  const whatsapp = data.socialLinks?.whatsapp;
-  const instagram = data.socialLinks?.instagram;
-  const facebook = data.socialLinks?.facebook;
+  const whatsapp = business.socialLinks?.whatsapp;
+  const instagram = business.socialLinks?.instagram;
+  const facebook = business.socialLinks?.facebook;
 
   return (
     <section
@@ -58,29 +68,29 @@ export function ContactModule({ data, business, slug: _ }: ContactModuleProps) {
               <a
                 href={`https://wa.me/${digitsOnly(whatsapp)}`}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 style={linkStyle}
                 className="font-semibold underline"
               >
                 WhatsApp
               </a>
             )}
-            {instagram && (
+            {sanitizeUrl(instagram) && (
               <a
-                href={instagram}
+                href={sanitizeUrl(instagram)}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 style={linkStyle}
                 className="underline"
               >
                 Instagram
               </a>
             )}
-            {facebook && (
+            {sanitizeUrl(facebook) && (
               <a
-                href={facebook}
+                href={sanitizeUrl(facebook)}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 style={linkStyle}
                 className="underline"
               >

@@ -4,6 +4,7 @@ import {
   BusinessInfo,
   LoyaltySettings,
   NotificationSettings,
+  SocialLinks,
   TenantSettings,
   TenantSettingsProps,
 } from '../../../contexts/platform/domain/value-objects/tenant-settings.vo';
@@ -40,8 +41,21 @@ export class TenantSettingsPropsBuilder {
       phone: null,
       email: null,
       address: null,
+      social_links: null,
       ...this.props.business_info,
       ...overrides,
+    };
+    return this;
+  }
+
+  withSocialLinks(overrides: Partial<SocialLinks>): this {
+    const current = this.props.business_info?.social_links ?? { whatsapp: null, instagram: null, facebook: null };
+    this.props.business_info = {
+      phone: null,
+      email: null,
+      address: null,
+      ...this.props.business_info,
+      social_links: { ...current, ...overrides },
     };
     return this;
   }

@@ -25,10 +25,17 @@ export interface HotsiteBusinessInfoAddress {
   zipCode: string;
 }
 
+export interface HotsiteBusinessInfoSocialLinks {
+  whatsapp: string | null;
+  instagram: string | null;
+  facebook: string | null;
+}
+
 export interface HotsiteBusinessInfo {
   phone: string | null;
   email: string | null;
   address: HotsiteBusinessInfoAddress | null;
+  socialLinks: HotsiteBusinessInfoSocialLinks | null;
 }
 
 export interface GetHotsiteManifestUseCaseResult {
@@ -80,11 +87,18 @@ export class GetHotsiteManifestUseCase {
         ? {
             street: businessInfo.address.street,
             number: businessInfo.address.number,
-            complement: businessInfo.address.complement,
+            complement: businessInfo.address.complement ?? undefined,
             neighborhood: businessInfo.address.neighborhood,
             city: businessInfo.address.city,
             state: businessInfo.address.state,
             zipCode: businessInfo.address.zip_code,
+          }
+        : null,
+      socialLinks: businessInfo.social_links
+        ? {
+            whatsapp: businessInfo.social_links.whatsapp,
+            instagram: businessInfo.social_links.instagram,
+            facebook: businessInfo.social_links.facebook,
           }
         : null,
     };

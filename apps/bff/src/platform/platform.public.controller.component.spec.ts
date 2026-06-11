@@ -15,6 +15,7 @@ const businessInfo: HotsiteBusinessInfoResponse = {
     state: 'SP',
     zipCode: '01310100',
   },
+  socialLinks: null,
 };
 
 const hotsiteResponse: HotsiteResponse & { business: HotsiteBusinessInfoResponse } = {

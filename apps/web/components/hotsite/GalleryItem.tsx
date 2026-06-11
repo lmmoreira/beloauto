@@ -3,6 +3,7 @@ import type { GalleryImage } from '@beloauto/types';
 
 interface GalleryItemProps {
   readonly image: GalleryImage;
+  readonly priority?: boolean;
 }
 
 const PHOTO_TYPE_LABELS: Record<'before' | 'after', string> = {
@@ -16,7 +17,7 @@ const badgeStyle = {
   borderRadius: 'var(--ba-radius)',
 };
 
-export function GalleryItem({ image }: GalleryItemProps) {
+export function GalleryItem({ image, priority = false }: GalleryItemProps) {
   return (
     <div
       className="relative aspect-[4/3] w-full overflow-hidden"
@@ -26,7 +27,8 @@ export function GalleryItem({ image }: GalleryItemProps) {
         src={image.url}
         alt={image.caption ?? 'Foto da lavagem'}
         fill
-        loading="lazy"
+        loading={priority ? 'eager' : 'lazy'}
+        priority={priority}
         sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
         className="object-cover"
       />

@@ -55,7 +55,7 @@ const BusinessInfoAddressSchema = z
   .object({
     street: z.string().nullable(),
     number: z.string().nullable(),
-    complement: z.string().nullable(),
+    complement: z.string().optional(),
     neighborhood: z.string().nullable(),
     city: z.string().nullable(),
     state: z
@@ -69,11 +69,20 @@ const BusinessInfoAddressSchema = z
   })
   .partial();
 
+const SocialLinksSchema = z
+  .object({
+    whatsapp: z.string().nullable().optional(),
+    instagram: z.string().nullable().optional(),
+    facebook: z.string().nullable().optional(),
+  })
+  .optional();
+
 const BusinessInfoSchema = z
   .object({
     phone: z.string().nullable(),
     email: z.string().nullable(),
     address: BusinessInfoAddressSchema.nullable(),
+    social_links: SocialLinksSchema,
   })
   .partial();
 

@@ -2,7 +2,6 @@ import type React from 'react';
 import type { GalleryModuleData } from '@beloauto/types';
 import { sectionHeadingFont } from '@/lib/hotsite/module-styles';
 import { GalleryGrid } from './GalleryGrid';
-import { GalleryItem } from './GalleryItem';
 
 interface GalleryModuleProps {
   readonly data: GalleryModuleData;
@@ -33,11 +32,7 @@ export function GalleryModule({ data, slug: _ }: GalleryModuleProps) {
         <h2 className="mb-10 text-center text-3xl font-bold" style={headingStyle}>
           {title}
         </h2>
-        <GalleryGrid maxVisible={data.maxVisible} layout={data.layout}>
-          {data.images.map((image, index) => (
-            <GalleryItem key={`${image.url}-${index}`} image={image} />
-          ))}
-        </GalleryGrid>
+        <GalleryGrid images={data.images} maxVisible={data.maxVisible} layout={data.layout} />
       </div>
     </section>
   );

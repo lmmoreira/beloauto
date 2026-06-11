@@ -86,6 +86,7 @@ describe('UpdateTenantSettingsUseCase', () => {
       phone: '11987654321',
       email: null,
       address: null,
+      social_links: null,
     });
     expect(result.settings.loyalty.expiry_days).toBe(180);
   });

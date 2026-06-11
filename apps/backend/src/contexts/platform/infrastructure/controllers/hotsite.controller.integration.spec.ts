@@ -165,7 +165,7 @@ describe('HotsiteController (integration)', () => {
       .set('X-Tenant-ID', TENANT_A)
       .expect(200);
 
-    expect(body.business).toEqual({ phone: null, email: null, address: null });
+    expect(body.business).toEqual({ phone: null, email: null, address: null, socialLinks: null });
   });
 
   it('returns business resolved from tenant.settings.business_info when set', async () => {
@@ -186,6 +186,7 @@ describe('HotsiteController (integration)', () => {
         state: 'SP',
         zipCode: '01310100',
       },
+      socialLinks: null,
     });
   });
 

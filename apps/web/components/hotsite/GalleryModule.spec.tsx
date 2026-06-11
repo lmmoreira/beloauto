@@ -41,12 +41,30 @@ describe('GalleryModule', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders images via next/image with loading="lazy"', () => {
+  it('renders the first image with loading="eager" (LCP) and subsequent ones with loading="lazy"', () => {
+    const images = [
+      makeImage(),
+      makeImage({ url: 'https://storage.example.com/gallery/photo-2.jpg' }),
+    ];
+    const { container } = render(<GalleryModule data={makeData({ images })} slug="tenant" />);
+
+    const imgs = container.querySelectorAll('img');
+    expect(imgs[0]).toHaveAttribute('src', 'https://storage.example.com/gallery/photo.jpg');
+    expect(imgs[0]).toHaveAttribute('loading', 'eager');
+    expect(imgs[1]).toHaveAttribute('loading', 'lazy');
+  });
+
+  it('opens the lightbox when a gallery image is clicked', async () => {
+    const user = userEvent.setup();
     const { container } = render(<GalleryModule data={makeData()} slug="tenant" />);
 
-    const img = container.querySelector('img');
-    expect(img).toHaveAttribute('src', 'https://storage.example.com/gallery/photo.jpg');
-    expect(img).toHaveAttribute('loading', 'lazy');
+    await user.click(screen.getByRole('link'));
+
+    const dialog = container.querySelector('dialog');
+    expect(dialog?.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://storage.example.com/gallery/photo.jpg',
+    );
   });
 
   it('shows 6 images and a "Ver mais" button when there are 8 images and maxVisible is 6', () => {

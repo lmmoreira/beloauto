@@ -115,6 +115,7 @@ describe('GetHotsiteManifestUseCase', () => {
         state: 'SP',
         zipCode: '01310100',
       },
+      socialLinks: null,
     });
   });
 
@@ -124,7 +125,7 @@ describe('GetHotsiteManifestUseCase', () => {
 
     const result = await useCase.execute();
 
-    expect(result.business).toEqual({ phone: null, email: null, address: null });
+    expect(result.business).toEqual({ phone: null, email: null, address: null, socialLinks: null });
   });
 
   it('resolves stored filePaths to permanent public URLs — branding.logoUrl and GalleryImage.url', async () => {
