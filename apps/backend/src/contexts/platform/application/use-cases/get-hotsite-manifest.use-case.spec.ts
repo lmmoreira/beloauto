@@ -97,6 +97,11 @@ describe('GetHotsiteManifestUseCase', () => {
             zip_code: '01310100',
           },
         })
+        .withSocialLinks({
+          whatsapp: '11987654321',
+          instagram: 'https://instagram.com/lavacar',
+          facebook: null,
+        })
         .build(),
     );
     await tenantRepo.save(new TenantBuilder().withId(TENANT_A).withSettings(settings).build());
@@ -115,7 +120,11 @@ describe('GetHotsiteManifestUseCase', () => {
         state: 'SP',
         zipCode: '01310100',
       },
-      socialLinks: null,
+      socialLinks: {
+        whatsapp: '11987654321',
+        instagram: 'https://instagram.com/lavacar',
+        facebook: null,
+      },
     });
   });
 
