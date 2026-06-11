@@ -184,11 +184,20 @@ Used by the Next.js hotsite renderer to fetch full branding and layout for a ten
       { "type": "SERVICE_LIST", "enabled": true,  "data": { "showPrices": true, "showPoints": true, "layout": "grid" } },
       { "type": "GALLERY",      "enabled": false, "data": { "images": [], "layout": "grid", "maxVisible": 6 } }
     ],
-    "isPublished": true
+    "isPublished": true,
+    "business": {
+      "phone": "31999999999",
+      "email": "contato@lavacar.com.br",
+      "address": {
+        "street": "Rua das Flores", "number": "123", "complement": "Loja 2",
+        "neighborhood": "Centro", "city": "Belo Horizonte", "state": "MG", "zipCode": "30130000"
+      }
+    }
   }
   ```
 - **Module types:** `HERO | SERVICE_LIST | GALLERY | TESTIMONIALS | BOOKING_CTA | ABOUT | CONTACT`
 - **`enabled: false`** modules are included in the response; the frontend decides to skip them
+- **`business`** (M12-S06) — resolved from `tenants.settings.business_info` (`docs/21-TENANTS_SETTINGS_SCHEMA.md` §6), camelCased. Always present; any of `phone`/`email`/`address` may be `null` if the admin hasn't filled them in. Consumed by the `CONTACT` module — see `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` §4 CONTACT.
 - `404` — tenant slug not found
 - `404` — hotsite exists but `isPublished: false` (public cannot see unpublished hotsites)
 

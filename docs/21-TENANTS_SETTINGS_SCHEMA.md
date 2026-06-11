@@ -2,7 +2,7 @@
 
 **Status:** Phase 2 - Technical Architecture  
 **Audience:** Backend developers, AI agents, database teams  
-**Last Updated:** 2026-05-11
+**Last Updated:** 2026-06-10
 
 ---
 
@@ -21,7 +21,9 @@ The `tenants.settings` column is a JSONB field that stores per-tenant configurat
   "loyalty": { ... },
   "booking": { ... },
   "business_hours": { ... },
-  "localization": { ... }
+  "notification": { ... },
+  "localization": { ... },
+  "business_info": { ... }
 }
 ```
 
@@ -230,6 +232,59 @@ Currency, language, and regional preferences.
 
 ---
 
+### **6. Business Info Settings** (`settings.business_info`)
+
+Public-facing contact details for the tenant's hotsite (M12-S06 `CONTACT` module). Optional — admins fill these in via UC-026; until then every field is `null` and the hotsite `CONTACT` module renders nothing for the corresponding `showXxx` flag.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `phone` | string \| null | null | Business phone, digits only (10–11 digits, no country code) — same format as `Customer.phone` |
+| `email` | string \| null | null | Business contact email |
+| `address` | object \| null | null | Business address — see sub-fields below |
+
+**`address` sub-fields** (all required when `address` is non-null, except `complement`):
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `street` | string | Street name |
+| `number` | string | Street number |
+| `complement` | string (optional) | Suite / unit / floor |
+| `neighborhood` | string | Neighborhood / district |
+| `city` | string | City |
+| `state` | string | UF — 2-letter Brazilian state code |
+| `zip_code` | string | CEP, 8 digits, no hyphen |
+
+**Example:**
+```json
+{
+  "business_info": {
+    "phone": "31999999999",
+    "email": "contato@lavacar.com.br",
+    "address": {
+      "street": "Rua das Flores",
+      "number": "123",
+      "complement": "Loja 2",
+      "neighborhood": "Centro",
+      "city": "Belo Horizonte",
+      "state": "MG",
+      "zip_code": "30130000"
+    }
+  }
+}
+```
+
+**Validation Rules:**
+- `phone`, when present, must be 10–11 digits (`PhoneNumber.isValid`)
+- `email`, when present, must be a valid email address (`Email.isValid`)
+- `address`, when present, requires `street`, `number`, `neighborhood`, `city`, `state`, `zip_code`; `complement` is optional
+- `zip_code` must be exactly 8 digits (no hyphen)
+- `state` must be a 2-letter uppercase Brazilian UF code
+- Any top-level field may be `null`/absent — partial business info is valid (e.g. `phone` set, `address` not yet filled)
+
+**Usage:** Resolved into the public hotsite manifest's `business` field (camelCase) by `GetHotsiteManifestUseCase` — see `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` §4 CONTACT.
+
+---
+
 ## Complete Settings Example
 
 ```json
@@ -265,6 +320,19 @@ Currency, language, and regional preferences.
     "currency_symbol": "R$",
     "language": "pt-BR",
     "decimal_places": 2
+  },
+  "business_info": {
+    "phone": "31999999999",
+    "email": "contato@lavacar.com.br",
+    "address": {
+      "street": "Rua das Flores",
+      "number": "123",
+      "complement": "Loja 2",
+      "neighborhood": "Centro",
+      "city": "Belo Horizonte",
+      "state": "MG",
+      "zip_code": "30130000"
+    }
   }
 }
 ```
@@ -308,6 +376,11 @@ When a developer provisions a new tenant (UC-024), if settings are not provided,
     "currency_symbol": "R$",
     "language": "pt-BR",
     "decimal_places": 2
+  },
+  "business_info": {
+    "phone": null,
+    "email": null,
+    "address": null
   }
 }
 ```

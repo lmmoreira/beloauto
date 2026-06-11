@@ -421,23 +421,38 @@ interface ServiceListModuleData {
 
 ---
 
-### M12-S06 — GALLERY, TESTIMONIALS, ABOUT, CONTACT modules
+### M12-S06 — GALLERY, TESTIMONIALS, ABOUT, CONTACT modules + tenant business info settings
 
-**Agent:** `frontend-ts`  
-**Complexity:** S  
-**Docs to load:** `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` § module data contracts
+**Agent:** `backend-ts` + `bff-ts` + `frontend-ts`  
+**Complexity:** M  
+**Docs to load:** `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` § module data contracts (esp. CONTACT) + `docs/21-TENANTS_SETTINGS_SCHEMA.md` § Business Info Settings
 
 **Description:**  
 Implement the 4 remaining hotsite modules. All render data from the manifest `data` object. GALLERY is the most important — it displays admin-curated before/after images that come from two sources: completed booking after-photos and custom admin uploads.
 
-**Components to create:**
+> **Note (story-discovery, M12-S06):** `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` documented CONTACT's address/phone/email as "pulled from `tenants.settings`", but no such field existed anywhere — `TenantSettings`, the `tenants` table, and the manifest's `tenant` object only ever carried `{ id, name, slug }`. This story adds a `business_info` block to `tenants.settings` (`docs/21-TENANTS_SETTINGS_SCHEMA.md` §6, added 2026-06-10) and resolves it into a new `business` field on the public manifest — bumping this story from S to M and adding `apps/backend`/`apps/bff`/`packages/types` to its scope, on top of the 3 frontend-only modules (GALLERY, TESTIMONIALS, ABOUT).
+
+**Part A — `tenants.settings.business_info` (backend domain):**
+1. `apps/backend/src/contexts/platform/domain/value-objects/tenant-settings.vo.ts` — add `BusinessInfoAddress` (`street, number, complement?, neighborhood, city, state, zip_code`) and `BusinessInfo` (`phone: string | null`, `email: string | null`, `address: BusinessInfoAddress | null`); add optional `business_info?: BusinessInfo` to `TenantSettingsProps`; getter returns `{ phone: null, email: null, address: null }` when absent (same pattern as `notification`); `TenantSettings.default()` includes the all-null shape; `validateBusinessInfo()` checks `phone` via `PhoneNumber.isValid`, `email` via `Email.isValid`, `address.zip_code` is exactly 8 digits, `address.state` is a 2-letter uppercase UF, and required address sub-fields (`street/number/neighborhood/city/state/zip_code`) are present when `address` is non-null
+2. `apps/backend/src/contexts/platform/application/dtos/update-tenant-settings.dto.ts` — add a `BusinessInfoSchema` (`.partial()`, all fields nullable) to `UpdateTenantSettingsSchema.settings`, mirroring `LoyaltySchema`/`BookingSchema`
+3. `apps/backend/http/platform/tenant-settings.http` — add example `PATCH /tenants/settings` requests that set/clear `business_info` (happy path + `400` invalid `zip_code`/`phone`/`email`)
+
+**Part B — manifest exposure (backend + shared types):**
+4. `apps/backend/src/contexts/platform/application/use-cases/get-hotsite-manifest.use-case.ts` — inject `ITenantRepository` (`TENANT_REPOSITORY` — same Platform context as `HotsiteConfig`, no cross-context port needed), `findById(tenantContext.tenantId)`, and map `tenant.settings.business_info` (snake_case `zip_code`) → `business: { phone, email, address: { ...zipCode } | null }` (camelCase) on `GetHotsiteManifestUseCaseResult`
+5. `packages/types/src/hotsite.ts` — add `HotsiteBusinessInfoResponse` (`phone: string | null; email: string | null; address: { street, number, complement?, neighborhood, city, state, zipCode } | null`); add `business: HotsiteBusinessInfoResponse` to `HotsiteManifestResponse`
+6. `apps/bff/src/platform/platform.public.controller.ts` (+ `.spec`/`.component.spec`) — the existing `return { tenant, ...hotsite }` already carries `business` through once the backend response includes it; update the `HotsiteResponse`-typed local type / fixtures so `business` type-checks and is asserted in tests
+
+**Part C — frontend module components (`apps/web/components/hotsite/`):**
 
 **`GalleryModule.tsx`**
 ```typescript
+// canonical type: packages/types/src/hotsite.ts (already includes bookingId/photoType from M12-S10)
 interface GalleryImage {
   url: string;
   caption?: string;
   source: 'booking' | 'upload';
+  bookingId?: string;
+  photoType?: 'before' | 'after';
 }
 
 interface GalleryModuleData {
@@ -447,10 +462,11 @@ interface GalleryModuleData {
   maxVisible: number;                // default 6
 }
 ```
-- Renders up to `maxVisible` images; shows "Ver mais" button if `images.length > maxVisible`
+- Renders up to `maxVisible` images; "Ver mais" button (`'use client'`, local state) reveals the rest if `images.length > maxVisible`
 - Lazy-loads images (`loading="lazy"`)
 - If `images` is empty, renders nothing (entire section hidden)
 - `layout: 'masonry'` uses CSS columns for a Pinterest-style layout
+- Images with `photoType` render a localized badge ("Antes" / "Depois")
 
 **`TestimonialsModule.tsx`**
 ```typescript
@@ -468,7 +484,7 @@ interface TestimonialsModuleData {
 }
 ```
 - Star rating rendered when `rating` is present
-- `layout: 'carousel'` — horizontal scroll with navigation arrows
+- `layout: 'carousel'` — `'use client'`, horizontal scroll with prev/next navigation arrows
 
 **`AboutModule.tsx`**
 ```typescript
@@ -479,7 +495,7 @@ interface AboutModuleData {
   imagePosition: 'left' | 'right';  // default: 'right'
 }
 ```
-- `body` rendered as markdown (use `remark` or `marked`) — sanitised to prevent XSS
+- `body` rendered as markdown via `react-markdown` + `rehype-sanitize` (new `apps/web` dependencies)
 - Two-column layout on desktop (text + image); stacked on mobile
 
 **`ContactModule.tsx`**
@@ -490,7 +506,7 @@ interface ContactModuleData {
   showPhone: boolean;
   showWhatsapp: boolean;
   showEmail: boolean;
-  showMap: boolean;         // Google Maps embed using tenant settings address
+  showMap: boolean;
   socialLinks?: {
     instagram?: string;
     facebook?: string;
@@ -498,9 +514,15 @@ interface ContactModuleData {
   };
 }
 ```
-- Contact data (address, phone, email) pulled from tenant settings via manifest — not duplicated in module data
-- WhatsApp link opens `https://wa.me/<number>` in a new tab
-- `showMap: true` embeds a Google Maps iframe using the tenant's address
+- New `business: HotsiteBusinessInfoResponse` prop (from `manifest.business`, passed by `app/[slug]/page.tsx` the same way `ServiceListModule` receives `services`) supplies the actual address/phone/email values; `data` only controls which sections to show
+- `showAddress` / `showPhone` / `showEmail` are each gated on the corresponding `business.xxx` being non-`null`, even when the flag is `true`
+- `showWhatsapp` → `https://wa.me/<digits>` link from `data.socialLinks.whatsapp`, opens in a new tab
+- `socialLinks.instagram` / `.facebook` rendered when present
+- `showMap: true` → keyless `https://maps.google.com/maps?q=<urlencoded address>&output=embed` iframe built from `business.address`; omitted if `business.address` is `null`
+
+**Wiring (`app/[slug]/page.tsx` + `lib/hotsite/module-schemas.ts`):**
+- Register `GALLERY`, `TESTIMONIALS`, `ABOUT` in `MODULE_MAP` and add their Zod schemas to `MODULE_DATA_SCHEMAS`
+- `CONTACT` follows the `SERVICE_LIST` pattern (special-cased in `page.tsx`, not in `MODULE_MAP`) since it needs the extra `business` prop from `manifest.business`
 
 **Acceptance criteria:**
 - [ ] All 4 components render correctly when their module type is present in `layout` with `enabled: true`
@@ -511,6 +533,11 @@ interface ContactModuleData {
 - [ ] `AboutModule` with `imagePosition: 'left'` renders image on left, text on right on desktop
 - [ ] `AboutModule` markdown body is sanitised (no raw `<script>` tags rendered)
 - [ ] `ContactModule` `showMap: false` renders no iframe
+- [ ] `ContactModule` `showMap: true` + `business.address: null` renders no iframe
+- [ ] `ContactModule` `showAddress` / `showPhone` / `showEmail: true` with the corresponding `business.xxx: null` renders nothing for that field
+- [ ] `ContactModule` `showWhatsapp: true` + `data.socialLinks.whatsapp` present renders a `wa.me/<digits>` link
+- [ ] `tenant-settings.vo.ts`: `business_info` validation rejects invalid `phone`/`email`/`zip_code`/`state`, accepts `null`/partial values — unit tests
+- [ ] `GetHotsiteManifestUseCase`: manifest includes `business` resolved from `tenant.settings.business_info`; integration test asserts tenant isolation (Tenant A's `business_info` never appears in Tenant B's manifest)
 - [ ] All text in example/default content is pt-BR
 
 **Dependencies:** M12-S03

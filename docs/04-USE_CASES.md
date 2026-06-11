@@ -929,6 +929,7 @@ Returns:
       - **Horário de funcionamento** — days of week + open/close times
       - **Fuso horário** — required; default `America/Sao_Paulo`
       - **Buffer entre agendamentos** (minutos) — prep time between bookings, default 60
+      - **Endereço, telefone e e-mail do estabelecimento** — `settings.business_info` (M12-S06); all optional. Shown on the hotsite `CONTACT` module when its `showAddress`/`showPhone`/`showEmail`/`showMap` flags are enabled (`docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` §4 CONTACT, `docs/21-TENANTS_SETTINGS_SCHEMA.md` §6)
    2. Admin updates values.
    3. Admin clicks "Salvar".
    4. System validates all fields (see `docs/21-TENANTS_SETTINGS_SCHEMA.md` for rules).

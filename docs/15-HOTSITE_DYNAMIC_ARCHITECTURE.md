@@ -287,7 +287,7 @@ interface ContactModuleData {
   showPhone: boolean;
   showWhatsapp: boolean;
   showEmail: boolean;
-  showMap: boolean;        // Google Maps embed using address from tenant settings
+  showMap: boolean;        // Google Maps embed using address from tenants.settings.business_info
   socialLinks?: {
     instagram?: string;
     facebook?: string;
@@ -296,7 +296,41 @@ interface ContactModuleData {
 }
 ```
 
-Contact data (address, phone, email) is pulled from `tenants.settings` at render time — the admin edits it once in the tenant settings page, not per-module.
+`ContactModuleData` (manifest `layout[].data`) only carries **display preferences** — which sections to show and the social links. The actual **values** (address, phone, email) live in `tenants.settings.business_info` (`docs/21-TENANTS_SETTINGS_SCHEMA.md` §6) — the admin edits them once on the tenant settings page (UC-026), not per-module.
+
+`GetHotsiteManifestUseCase` resolves `tenants.settings.business_info` into a top-level `business` field on the manifest (camelCased, sibling of `tenant`/`branding`/`layout`):
+
+```typescript
+// packages/types/src/hotsite.ts
+interface HotsiteBusinessInfoResponse {
+  phone: string | null;
+  email: string | null;
+  address: {
+    street: string;
+    number: string;
+    complement?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  } | null;
+}
+
+interface HotsiteManifestResponse extends HotsiteResponse {
+  tenant: TenantInfoResponse;
+  business: HotsiteBusinessInfoResponse;
+}
+```
+
+`business` is always present; any of `phone`/`email`/`address` may be `null` if the admin hasn't filled them in yet.
+
+**`ContactModule` rendering rules:**
+- `showAddress` → render `business.address` (formatted as "Rua, Número - Bairro, Cidade - UF, CEP"); section omitted if `business.address` is `null`, even when `showAddress: true`
+- `showPhone` → render `business.phone` (formatted); omitted if `null`
+- `showEmail` → render `business.email` as a `mailto:` link; omitted if `null`
+- `showWhatsapp` → render a `https://wa.me/<digits>` link from `data.socialLinks.whatsapp`; omitted if absent
+- `socialLinks.instagram` / `socialLinks.facebook` → rendered as links when present, independent of the `showXxx` flags above
+- `showMap` → embeds `https://maps.google.com/maps?q=<urlencoded address>&output=embed` (keyless query-based embed, no Google Maps API key needed) using `business.address`; omitted if `business.address` is `null`, even when `showMap: true`
 
 ---
 
