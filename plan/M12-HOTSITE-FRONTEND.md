@@ -421,7 +421,7 @@ interface ServiceListModuleData {
 
 ---
 
-### M12-S06 — GALLERY, TESTIMONIALS, ABOUT, CONTACT modules + tenant business info settings
+### M12-S06 — GALLERY, TESTIMONIALS, ABOUT, CONTACT modules + tenant business info settings ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts` + `frontend-ts`  
 **Complexity:** M  
