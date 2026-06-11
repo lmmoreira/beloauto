@@ -608,22 +608,36 @@ interface BookingCtaModuleData {
 
 ### M12-S08 — Hotsite 404 and unpublished states
 
-**Agent:** `frontend-ts`  
+**Agent:** `frontend-ts` + `backend-ts` (small)  
 **Complexity:** S  
-**Docs to load:** `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md`
+**Docs to load:** `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` § Unpublished state, `docs/14-API_CONTRACTS.md` § Tenant Hotsite Manifest
 
 **Description:**  
-Implement the hotsite edge cases: a 404 page for unknown slugs and a "coming soon" page for unpublished hotsites. These are BeloAuto-branded (no tenant manifest available).
+Implement the hotsite edge cases: a 404 page for unknown slugs, and an "Em breve" placeholder for unpublished hotsites. These are two distinct cases with two distinct UIs:
 
-**What to create:**
-- `apps/web/app/[slug]/not-found.tsx` — BeloAuto-branded 404: `"Lavacar não encontrada"` + link to `beloauto.com`
-- `apps/web/app/[slug]/unavailable.tsx` — `"Em breve"` page for unpublished hotsites (admin preview shown in M13)
+- **Unknown slug** → `TenantNotFoundError`/`HotsiteNotFoundError` → `404` → `fetchManifest()` calls `notFound()` → `app/[slug]/not-found.tsx` (BeloAuto-branded, no manifest available).
+- **Hotsite not published** → tenant + hotsite config exist, but `isPublished: false`. Today `GetHotsiteManifestUseCase` throws `HotsiteNotPublishedError`, mapped to the *same* `404` as "unknown slug" — making the two cases indistinguishable, and discarding the `branding`/`layout`/`business` data needed to render anything tenant-specific.
+
+**Backend change (small — `apps/backend`):**
+- `get-hotsite-manifest.use-case.ts` — remove `if (!config.isPublished) throw new HotsiteNotPublishedError(tenantId)`. Instead, when `!config.isPublished`, return early with a **minimal payload**: `{ branding: config.branding, layout: [], isPublished: false, business: { phone: null, email: null, address: null, socialLinks: null } }` — skip `imageUrlResolver.resolve()` and the `tenantRepo`/`business_info` lookup entirely (not needed for the stub). Only `branding` (needed for `<Unavailable />`'s `var(--ba-*)` tokens) is real; `layout`/`business` are never populated with draft content on this **public, unauthenticated** endpoint — the admin's full draft state is already available via `GET /v1/tenants/hotsite` (M12-S02).
+- `HotsiteNotPublishedError` (`platform-domain.error.ts`) and its branch in `platform-error.mapper.ts` become dead code — remove both, plus the corresponding test cases in `get-hotsite-manifest.use-case.spec.ts` and `hotsite.controller.spec.ts`.
+- No change to `packages/types` (`HotsiteManifestResponse.isPublished` already exists) or the BFF controller (already passes the field through).
+
+**Frontend changes (`apps/web`):**
+- `apps/web/app/[slug]/not-found.tsx` — BeloAuto-branded 404: `"Lavacar não encontrada"` + link to `beloauto.com`. Static styling only — no manifest/branding available (`fetchManifest()`'s `notFound()` fires inside `layout.tsx`, before it renders).
+- `apps/web/components/hotsite/Unavailable.tsx` — "Em breve" placeholder. Uses `var(--ba-*)` tokens (inherits the tenant's branding via `[slug]/layout.tsx`'s `applyBranding()`; defaults to `DEFAULT_HOTSITE_BRANDING` for unconfigured tenants — no special-casing needed).
+- `apps/web/app/[slug]/page.tsx` — if `!manifest.isPublished`, render `<Unavailable />` instead of the module list (Footer omitted).
 
 **Acceptance criteria:**
-- [ ] `GET /unknown-slug` renders the 404 page
-- [ ] 404 page has human-readable pt-BR message
+- [ ] `GET /unknown-slug` renders `not-found.tsx`
+- [ ] 404 page has human-readable pt-BR message (`"Lavacar não encontrada"`) + link to `beloauto.com`
 - [ ] `<title>Não encontrado — BeloAuto</title>`
 - [ ] No JavaScript errors on 404 page
+- [ ] Tenant with `isPublished: false` → `GET /<slug>` returns `200` and renders `<Unavailable />` ("Em breve"), not the module layout
+- [ ] `<title>Em breve — BeloAuto</title>` when unpublished
+- [ ] `Unavailable` component test — renders pt-BR copy using only `isPublished`/branding tokens, no other manifest data required
+- [ ] `GetHotsiteManifestUseCase` returns `200 { isPublished: false, branding, layout: [], business: <all-null stub> }` for an unpublished tenant — unit test updated
+- [ ] `HotsiteNotPublishedError` removed; `platform-error.mapper.ts` and related specs updated accordingly
 
 **Dependencies:** M12-S03
 

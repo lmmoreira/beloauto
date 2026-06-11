@@ -9,7 +9,6 @@ import { InMemoryTenantRepository } from '../../../../test/repositories/platform
 import { InMemoryStorageService } from '../../../../test/infrastructure/in-memory-storage.service';
 import {
   HotsiteNotFoundError,
-  HotsiteNotPublishedError,
   TenantNotFoundError,
 } from '../../domain/errors/platform-domain.error';
 import {
@@ -48,11 +47,21 @@ describe('GetHotsiteManifestUseCase', () => {
     await expect(useCase.execute()).rejects.toBeInstanceOf(HotsiteNotFoundError);
   });
 
-  it('throws HotsiteNotPublishedError when the config is not published', async () => {
+  it('returns a minimal payload (empty layout, null business) when the hotsite is not published', async () => {
     const config = new HotsiteConfigBuilder().withTenantId(TENANT_A).buildWithContent();
     await repo.save(config);
 
-    await expect(useCase.execute()).rejects.toBeInstanceOf(HotsiteNotPublishedError);
+    const result = await useCase.execute();
+
+    expect(result.isPublished).toBe(false);
+    expect(result.branding).toEqual(config.branding);
+    expect(result.layout).toEqual([]);
+    expect(result.business).toEqual({
+      phone: null,
+      email: null,
+      address: null,
+      socialLinks: null,
+    });
   });
 
   it('returns branding, layout, and isPublished for a published hotsite', async () => {
