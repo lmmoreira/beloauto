@@ -49,7 +49,11 @@ export class TenantSettingsPropsBuilder {
   }
 
   withSocialLinks(overrides: Partial<SocialLinks>): this {
-    const current = this.props.business_info?.social_links ?? { whatsapp: null, instagram: null, facebook: null };
+    const current = this.props.business_info?.social_links ?? {
+      whatsapp: null,
+      instagram: null,
+      facebook: null,
+    };
     this.props.business_info = {
       phone: null,
       email: null,

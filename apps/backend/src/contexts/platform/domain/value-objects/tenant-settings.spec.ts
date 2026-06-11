@@ -22,7 +22,12 @@ describe('TenantSettings', () => {
       expect(settings.localization.currency).toBe('BRL');
       expect(settings.localization.language).toBe('pt-BR');
       expect(settings.notification.from_email).toBeNull();
-      expect(settings.business_info).toEqual({ phone: null, email: null, address: null, social_links: null });
+      expect(settings.business_info).toEqual({
+        phone: null,
+        email: null,
+        address: null,
+        social_links: null,
+      });
     });
 
     it('accepts a custom timezone', () => {
@@ -115,7 +120,12 @@ describe('TenantSettings', () => {
         .withBusinessInfo({ phone: '11987654321' })
         .build();
       const settings = TenantSettings.create(props);
-      expect(settings.business_info).toEqual({ phone: '11987654321', email: null, address: null, social_links: null });
+      expect(settings.business_info).toEqual({
+        phone: '11987654321',
+        email: null,
+        address: null,
+        social_links: null,
+      });
     });
 
     it('accepts a full business_info with a valid address', () => {
