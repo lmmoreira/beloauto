@@ -17,10 +17,8 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY packages/ packages/
 COPY apps/backend/ apps/backend/
 
-RUN pnpm --filter @beloauto/backend build
-
-# Create standalone deployment with flat prod node_modules (no symlinks)
-RUN pnpm --filter @beloauto/backend deploy --prod /standalone
+RUN pnpm --filter @beloauto/backend build \
+    && pnpm --filter @beloauto/backend deploy --prod /standalone
 
 
 # ─── Stage 2: Run ────────────────────────────────────────────────────────────
