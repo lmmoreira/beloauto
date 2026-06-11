@@ -42,7 +42,9 @@ describe('GalleryModule', () => {
   });
 
   it('renders a grid layout container for layout: grid', () => {
-    const { container } = render(<GalleryModule data={makeData({ layout: 'grid' })} slug="tenant" />);
+    const { container } = render(
+      <GalleryModule data={makeData({ layout: 'grid' })} slug="tenant" />,
+    );
 
     expect(container.querySelector('.grid')).toBeInTheDocument();
   });

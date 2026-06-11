@@ -6,12 +6,7 @@ import { GalleryGrid } from './GalleryGrid';
 
 function makeLink(url: string, caption = ''): React.ReactElement {
   return (
-    <a
-      key={url}
-      href={url}
-      data-gallery-url={url}
-      data-gallery-caption={caption}
-    >
+    <a key={url} href={url} data-gallery-url={url} data-gallery-caption={caption}>
       <img src={url} alt={caption || 'photo'} />
     </a>
   );

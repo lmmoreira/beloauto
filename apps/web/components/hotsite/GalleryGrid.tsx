@@ -24,6 +24,7 @@ export function GalleryGrid({ children, maxVisible, totalImages }: GalleryGridPr
   const [expanded, setExpanded] = useState(false);
   const [lightbox, setLightbox] = useState<{ url: string; caption: string } | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -35,21 +36,36 @@ export function GalleryGrid({ children, maxVisible, totalImages }: GalleryGridPr
     }
   }, [lightbox]);
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const anchor = (e.target as HTMLElement).closest<HTMLAnchorElement>('[data-gallery-url]');
-    if (!anchor) return;
-    e.preventDefault();
-    setLightbox({
-      url: anchor.dataset.galleryUrl!,
-      caption: anchor.dataset.galleryCaption ?? '',
-    });
-  };
+  // Native DOM listener avoids jsx-a11y warnings on the wrapper div — the <a> children are
+  // natively keyboard-accessible; click/Enter events bubble up and are intercepted here.
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+
+    const onInteract = (e: Event) => {
+      if (e instanceof KeyboardEvent && e.key !== 'Enter') return;
+      const anchor = (e.target as HTMLElement).closest<HTMLAnchorElement>('[data-gallery-url]');
+      if (!anchor) return;
+      e.preventDefault();
+      setLightbox({
+        url: anchor.dataset.galleryUrl ?? '',
+        caption: anchor.dataset.galleryCaption ?? '',
+      });
+    };
+
+    el.addEventListener('click', onInteract);
+    el.addEventListener('keydown', onInteract);
+    return () => {
+      el.removeEventListener('click', onInteract);
+      el.removeEventListener('keydown', onInteract);
+    };
+  }, []);
 
   const hasMore = totalImages > maxVisible;
 
   return (
     <>
-      <div data-gallery-expanded={expanded} onClick={handleClick}>
+      <div ref={wrapperRef} data-gallery-expanded={expanded}>
         {children}
       </div>
 
