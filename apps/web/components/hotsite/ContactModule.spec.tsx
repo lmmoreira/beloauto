@@ -89,7 +89,9 @@ describe('ContactModule', () => {
     render(
       <ContactModule
         data={makeData()}
-        business={makeBusiness({ socialLinks: { whatsapp: '(11) 98765-4321', instagram: null, facebook: null } })}
+        business={makeBusiness({
+          socialLinks: { whatsapp: '(11) 98765-4321', instagram: null, facebook: null },
+        })}
         slug="tenant"
       />,
     );

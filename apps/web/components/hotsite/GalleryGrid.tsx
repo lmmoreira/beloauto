@@ -81,9 +81,6 @@ export function GalleryGrid({ images, maxVisible, layout }: GalleryGridProps) {
       <dialog
         ref={dialogRef}
         onClose={() => setLightboxImage(null)}
-        onClick={(e) => {
-          if (e.target === dialogRef.current) setLightboxImage(null);
-        }}
         style={{
           width: '100vw',
           height: '100dvh',
@@ -96,11 +93,21 @@ export function GalleryGrid({ images, maxVisible, layout }: GalleryGridProps) {
         }}
         className="flex items-center justify-center backdrop:bg-black/80"
       >
+        {/* Transparent backdrop button — clicking outside the image closes the dialog */}
+        <button
+          type="button"
+          aria-label="Fechar lightbox"
+          onClick={() => setLightboxImage(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'transparent',
+            border: 'none',
+            cursor: 'default',
+          }}
+        />
         {lightboxImage && (
-          <div
-            className="relative"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="relative" style={{ position: 'relative', zIndex: 1 }}>
             <button
               type="button"
               onClick={() => setLightboxImage(null)}

@@ -27,7 +27,13 @@ const markdownComponents: Components = {
   ul: ({ children }) => <ul className="mb-4 list-disc space-y-1 pl-5 text-sm">{children}</ul>,
   ol: ({ children }) => <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm">{children}</ol>,
   a: ({ children, href }) => (
-    <a href={href} className="underline" style={linkStyle} target="_blank" rel="noopener noreferrer">
+    <a
+      href={href}
+      className="underline"
+      style={linkStyle}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
       {children}
     </a>
   ),
