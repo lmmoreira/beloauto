@@ -7,6 +7,10 @@ import { CreateBookingError, createBooking } from '@/lib/api/bookings';
 import { fetchAvailability, fetchAvailabilitySummary } from '@/lib/api/schedule';
 import { BookingForm } from './BookingForm';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 vi.mock('@/lib/api/bookings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/bookings')>();
   return {
@@ -113,11 +117,12 @@ describe('BookingForm', () => {
     expect(screen.getByText('15/06/2026 às 09:00')).toBeInTheDocument();
   });
 
-  it('shows the pickup address section in Step 3 when a selected service requires it', async () => {
+  it('shows the pickup address section in Step 1 when a selected service requires it', async () => {
     const user = userEvent.setup();
     const service = makeService({ requiresPickupAddress: true });
 
-    await advanceToStep3(user, [service]);
+    render(<BookingForm slug="lavacar-beloauto" services={[service]} />);
+    await user.click(screen.getByRole('checkbox'));
 
     expect(screen.getByText('Endereço de coleta')).toBeInTheDocument();
   });
@@ -146,7 +151,7 @@ describe('BookingForm', () => {
       expect.objectContaining({
         contactName: 'Maria Silva',
         contactEmail: 'maria@example.com',
-        contactPhone: '11999999999',
+        contactPhone: '(11) 99999-9999',
         scheduledAt: slot.startsAt,
         serviceIds: ['svc-1'],
       }),

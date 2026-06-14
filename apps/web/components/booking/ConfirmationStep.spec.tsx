@@ -31,6 +31,7 @@ describe('ConfirmationStep', () => {
 
     render(
       <ConfirmationStep
+        slug="lavacar-beloauto"
         services={[service]}
         selectedServiceIds={[service.id]}
         selectedDate="2026-06-15"
@@ -54,6 +55,7 @@ describe('ConfirmationStep', () => {
 
     render(
       <ConfirmationStep
+        slug="lavacar-beloauto"
         services={[service]}
         selectedServiceIds={[service.id]}
         selectedDate="2026-06-15"
@@ -77,6 +79,7 @@ describe('ConfirmationStep', () => {
 
     render(
       <ConfirmationStep
+        slug="lavacar-beloauto"
         services={[service]}
         selectedServiceIds={[service.id]}
         selectedDate="2026-06-15"
@@ -98,6 +101,7 @@ describe('ConfirmationStep', () => {
 
     render(
       <ConfirmationStep
+        slug="lavacar-beloauto"
         services={[service]}
         selectedServiceIds={[service.id]}
         selectedDate="2026-06-15"
@@ -118,6 +122,7 @@ describe('ConfirmationStep', () => {
 
     render(
       <ConfirmationStep
+        slug="lavacar-beloauto"
         services={[service]}
         selectedServiceIds={[service.id]}
         selectedDate="2026-06-15"
@@ -139,6 +144,7 @@ describe('ConfirmationStep', () => {
 
     render(
       <ConfirmationStep
+        slug="lavacar-beloauto"
         services={[service]}
         selectedServiceIds={[service.id]}
         selectedDate="2026-06-15"

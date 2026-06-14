@@ -11,11 +11,9 @@ vi.mock('@/lib/api/bookings', () => ({
 }));
 
 function Wrapper({
-  requiresPickupAddress = false,
   onNext = vi.fn(),
   onBack = vi.fn(),
 }: {
-  readonly requiresPickupAddress?: boolean;
   readonly onNext?: () => void;
   readonly onBack?: () => void;
 }) {
@@ -25,7 +23,6 @@ function Wrapper({
       slug="lavacar-beloauto"
       value={value}
       onChange={setValue}
-      requiresPickupAddress={requiresPickupAddress}
       onNext={onNext}
       onBack={onBack}
     />
@@ -39,19 +36,6 @@ describe('PersonalInfoStep', () => {
     expect(screen.getByLabelText('Nome')).toBeInTheDocument();
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
     expect(screen.getByLabelText('Telefone')).toBeInTheDocument();
-  });
-
-  it('does not show the pickup address section by default', () => {
-    const { container } = render(<Wrapper />);
-
-    expect(container.querySelector('#pickup-address-street')).not.toBeInTheDocument();
-  });
-
-  it('shows the pickup address section when a selected service requires it', () => {
-    const { container } = render(<Wrapper requiresPickupAddress />);
-
-    expect(screen.getByText('Endereço de coleta')).toBeInTheDocument();
-    expect(container.querySelector('#pickup-address-street')).toBeInTheDocument();
   });
 
   it('keeps the contact address section collapsed until toggled', async () => {
@@ -88,22 +72,6 @@ describe('PersonalInfoStep', () => {
     expect(screen.getByTestId('personal-info-error')).toHaveTextContent(
       'Informe um e-mail válido.',
     );
-  });
-
-  it('requires the pickup address to be filled when requiresPickupAddress is true', async () => {
-    const user = userEvent.setup();
-    const onNext = vi.fn();
-    render(<Wrapper requiresPickupAddress onNext={onNext} />);
-
-    await user.type(screen.getByLabelText('Nome'), 'Maria Silva');
-    await user.type(screen.getByLabelText('E-mail'), 'maria@example.com');
-    await user.type(screen.getByLabelText('Telefone'), '11999999999');
-    await user.click(screen.getByRole('button', { name: 'Próximo' }));
-
-    expect(screen.getByTestId('personal-info-error')).toHaveTextContent(
-      'Informe o endereço de coleta.',
-    );
-    expect(onNext).not.toHaveBeenCalled();
   });
 
   it('calls onNext when all required fields are filled', async () => {

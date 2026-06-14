@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { HotsiteServiceResponse } from '@beloauto/types';
+import { emptyAddress } from '@/lib/booking/personal-info';
 import { ServiceSelectionStep } from './ServiceSelectionStep';
 
 function makeService(overrides?: Partial<HotsiteServiceResponse>): HotsiteServiceResponse {
@@ -20,6 +21,13 @@ function makeService(overrides?: Partial<HotsiteServiceResponse>): HotsiteServic
   };
 }
 
+const defaultPickupProps = {
+  requiresPickupAddress: false,
+  pickupAddress: emptyAddress(),
+  onPickupAddressChange: vi.fn(),
+  onBack: vi.fn(),
+};
+
 describe('ServiceSelectionStep', () => {
   it('renders a card for each service with name, price and duration', () => {
     const service = makeService();
@@ -29,6 +37,7 @@ describe('ServiceSelectionStep', () => {
         selectedServiceIds={[]}
         onToggleService={vi.fn()}
         onNext={vi.fn()}
+        {...defaultPickupProps}
       />,
     );
 
@@ -49,6 +58,7 @@ describe('ServiceSelectionStep', () => {
         selectedServiceIds={[]}
         onToggleService={onToggleService}
         onNext={vi.fn()}
+        {...defaultPickupProps}
       />,
     );
 
@@ -64,6 +74,7 @@ describe('ServiceSelectionStep', () => {
         selectedServiceIds={[]}
         onToggleService={vi.fn()}
         onNext={vi.fn()}
+        {...defaultPickupProps}
       />,
     );
 
@@ -78,6 +89,7 @@ describe('ServiceSelectionStep', () => {
         selectedServiceIds={[service.id]}
         onToggleService={vi.fn()}
         onNext={vi.fn()}
+        {...defaultPickupProps}
       />,
     );
 
@@ -103,6 +115,7 @@ describe('ServiceSelectionStep', () => {
         selectedServiceIds={[serviceA.id, serviceB.id]}
         onToggleService={vi.fn()}
         onNext={vi.fn()}
+        {...defaultPickupProps}
       />,
     );
 
@@ -116,6 +129,7 @@ describe('ServiceSelectionStep', () => {
         selectedServiceIds={[]}
         onToggleService={vi.fn()}
         onNext={vi.fn()}
+        {...defaultPickupProps}
       />,
     );
 
@@ -133,6 +147,7 @@ describe('ServiceSelectionStep', () => {
         selectedServiceIds={[service.id]}
         onToggleService={vi.fn()}
         onNext={onNext}
+        {...defaultPickupProps}
       />,
     );
 
