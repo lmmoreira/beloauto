@@ -1,9 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { formatBRL } from '../../../../../shared/utils/money-format';
-import {
-  utcDateToLocalDate,
-  utcDateToLocalHHMM,
-} from '../../../../../shared/utils/calendar-date';
+import { utcDateToLocalDate, utcDateToLocalHHMM } from '../../../../../shared/utils/calendar-date';
 import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
