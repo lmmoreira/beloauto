@@ -3,6 +3,7 @@ import type { ContactModuleData, HotsiteModuleType, ServiceListModuleData } from
 import { fetchManifest } from '@/lib/api/platform';
 import { fetchServices } from '@/lib/api/services';
 import { AboutModule } from '@/components/hotsite/AboutModule';
+import { BookingCtaModule } from '@/components/hotsite/BookingCtaModule';
 import { ContactModule } from '@/components/hotsite/ContactModule';
 import { Footer } from '@/components/hotsite/Footer';
 import { GalleryModule } from '@/components/hotsite/GalleryModule';
@@ -26,6 +27,7 @@ const MODULE_MAP: Partial<Record<HotsiteModuleType, ModuleComponent>> = {
   HERO: HeroModule as unknown as ModuleComponent,
   GALLERY: GalleryModule as unknown as ModuleComponent,
   TESTIMONIALS: TestimonialsModule as unknown as ModuleComponent,
+  BOOKING_CTA: BookingCtaModule as unknown as ModuleComponent,
   ABOUT: AboutModule as unknown as ModuleComponent,
 };
 

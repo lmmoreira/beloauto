@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type {
   AboutModuleData,
+  BookingCtaModuleData,
   ContactModuleData,
   GalleryImage,
   GalleryModuleData,
@@ -63,6 +64,14 @@ export const TestimonialsModuleDataSchema = z.object({
   layout: z.enum(['grid', 'carousel']),
 }) satisfies z.ZodType<TestimonialsModuleData>;
 
+// Mirrors BookingCtaModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
+export const BookingCtaModuleDataSchema = z.object({
+  title: z.string(),
+  subtitle: z.string().optional(),
+  ctaLabel: z.string(),
+  backgroundImageUrl: z.string().optional(),
+}) satisfies z.ZodType<BookingCtaModuleData>;
+
 // Mirrors AboutModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const AboutModuleDataSchema = z.object({
   title: z.string(),
@@ -86,6 +95,7 @@ const MODULE_DATA_SCHEMAS: Partial<Record<HotsiteModuleType, z.ZodType>> = {
   SERVICE_LIST: ServiceListModuleDataSchema,
   GALLERY: GalleryModuleDataSchema,
   TESTIMONIALS: TestimonialsModuleDataSchema,
+  BOOKING_CTA: BookingCtaModuleDataSchema,
   ABOUT: AboutModuleDataSchema,
   CONTACT: ContactModuleDataSchema,
 };
