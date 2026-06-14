@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Address } from '@beloauto/types';
 import type { AddressLookup } from '@/lib/address/address-lookup.port';
 import { viaCepAddressLookup } from '@/lib/address/viacep-address-lookup.adapter';
@@ -11,6 +11,7 @@ interface AddressFieldsProps {
   readonly onChange: (address: Address) => void;
   readonly idPrefix: string;
   readonly addressLookup?: AddressLookup;
+  readonly required?: boolean;
 }
 
 interface TextFieldProps {
@@ -66,9 +67,11 @@ export function AddressFields({
   onChange,
   idPrefix,
   addressLookup = viaCepAddressLookup,
+  required = true,
 }: AddressFieldsProps) {
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [lookupFailed, setLookupFailed] = useState(false);
+  const lookupSeqRef = useRef(0);
 
   async function handleZipCodeChange(zipCode: string) {
     const digits = digitsOnly(zipCode);
@@ -77,16 +80,24 @@ export function AddressFields({
 
     if (digits.length !== 8) return;
 
+    const seq = ++lookupSeqRef.current;
     setIsLookingUp(true);
-    const result = await addressLookup.lookup(digits);
-    setIsLookingUp(false);
 
-    if (!result) {
-      setLookupFailed(true);
-      return;
+    try {
+      const result = await addressLookup.lookup(digits);
+      if (seq !== lookupSeqRef.current) return;
+
+      if (!result) {
+        setLookupFailed(true);
+        return;
+      }
+
+      onChange({ ...value, zipCode: digits, ...result });
+    } catch {
+      if (seq === lookupSeqRef.current) setLookupFailed(true);
+    } finally {
+      if (seq === lookupSeqRef.current) setIsLookingUp(false);
     }
-
-    onChange({ ...value, zipCode: digits, ...result });
   }
 
   return (
@@ -100,7 +111,7 @@ export function AddressFields({
           inputMode="numeric"
           maxLength={9}
           placeholder="00000-000"
-          required
+          required={required}
         />
         {isLookingUp && (
           <p className="mt-1 text-sm opacity-75" data-testid={`${idPrefix}-lookup-loading`}>
@@ -120,7 +131,7 @@ export function AddressFields({
           label="Rua"
           value={value.street}
           onChange={(street) => onChange({ ...value, street })}
-          required
+          required={required}
         />
       </div>
 
@@ -130,7 +141,7 @@ export function AddressFields({
           label="Número"
           value={value.number}
           onChange={(number) => onChange({ ...value, number })}
-          required
+          required={required}
         />
       </div>
 
@@ -149,7 +160,7 @@ export function AddressFields({
           label="Bairro"
           value={value.neighborhood}
           onChange={(neighborhood) => onChange({ ...value, neighborhood })}
-          required
+          required={required}
         />
       </div>
 
@@ -159,7 +170,7 @@ export function AddressFields({
           label="Cidade"
           value={value.city}
           onChange={(city) => onChange({ ...value, city })}
-          required
+          required={required}
         />
       </div>
 
@@ -170,7 +181,7 @@ export function AddressFields({
           value={value.state}
           onChange={(state) => onChange({ ...value, state })}
           maxLength={2}
-          required
+          required={required}
         />
       </div>
     </div>

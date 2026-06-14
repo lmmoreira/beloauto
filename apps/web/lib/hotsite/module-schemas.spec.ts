@@ -13,7 +13,7 @@ const validHeroData = {
   variant: 'centered',
   title: 'Bem-vindo à Lavacar',
   ctaLabel: 'Agendar agora',
-  ctaTarget: 'booking',
+  ctaTarget: 'booking-form',
 };
 
 const validServiceListData = {

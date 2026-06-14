@@ -43,7 +43,7 @@ export function SlotPicker({
     return <p>Não foi possível carregar os horários. Tente novamente.</p>;
   }
 
-  if (!result || result.date !== date) {
+  if (result?.date !== date) {
     return <p>Carregando horários...</p>;
   }
 
@@ -54,7 +54,7 @@ export function SlotPicker({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
       {slots.map((slot) => {
         const isSelected = selectedSlot?.startsAt === slot.startsAt;
         return (
@@ -63,10 +63,11 @@ export function SlotPicker({
             type="button"
             onClick={() => onSelectSlot(slot)}
             aria-pressed={isSelected}
-            className="border px-4 py-2"
+            className="w-full border py-2 text-center text-sm font-medium transition-colors"
             style={{
               borderRadius: 'var(--ba-radius)',
               backgroundColor: isSelected ? 'var(--ba-primary)' : undefined,
+              borderColor: isSelected ? 'var(--ba-primary)' : 'var(--ba-secondary)',
               color: isSelected ? 'var(--ba-btn-text)' : 'var(--ba-text)',
             }}
           >

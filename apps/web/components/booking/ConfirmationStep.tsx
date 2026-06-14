@@ -7,6 +7,7 @@ import { formatBRL } from '@/lib/hotsite/format-money';
 export type BookingSubmissionStatus = 'idle' | 'submitting' | 'success' | 'error';
 
 interface ConfirmationStepProps {
+  readonly slug: string;
   readonly services: readonly HotsiteServiceResponse[];
   readonly selectedServiceIds: readonly string[];
   readonly selectedDate: string;
@@ -25,6 +26,7 @@ const btnStyle: React.CSSProperties = {
 };
 
 export function ConfirmationStep({
+  slug,
   services,
   selectedServiceIds,
   selectedDate,
@@ -47,6 +49,17 @@ export function ConfirmationStep({
         <p data-testid="confirmation-success">
           Solicitação enviada! Aguarde a confirmação por email.
         </p>
+        <a
+          href={`/${slug}`}
+          className="mt-6 inline-block border px-6 py-3"
+          style={{
+            borderRadius: 'var(--ba-radius)',
+            borderColor: 'var(--ba-secondary)',
+            color: 'var(--ba-text)',
+          }}
+        >
+          Voltar para o site
+        </a>
       </div>
     );
   }

@@ -87,7 +87,7 @@ describe('Platform repositories (integration)', () => {
             variant: 'centered',
             title: 'Bem-vindo',
             ctaLabel: 'Agendar',
-            ctaTarget: 'booking',
+            ctaTarget: 'booking-form',
           },
         },
         {

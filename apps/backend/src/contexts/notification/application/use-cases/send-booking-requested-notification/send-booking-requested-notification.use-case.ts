@@ -1,5 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { formatBRL } from '../../../../../shared/utils/money-format';
+import {
+  utcDateToLocalDate,
+  utcDateToLocalHHMM,
+} from '../../../../../shared/utils/calendar-date';
 import { NotificationTemplateKey } from '../../../domain/notification-template-key.enum';
 import {
   ITransactionManager,
@@ -72,9 +76,16 @@ export class SendBookingRequestedNotificationUseCase extends BaseNotificationUse
       this.tenantPort.getTenantInfo(dto.tenantId),
     ]);
 
+    const timezone = tenantInfo?.timezone ?? 'America/Sao_Paulo';
+    const scheduledDate = new Date(dto.scheduledAt);
+    const localDate = utcDateToLocalDate(scheduledDate, timezone);
+    const localTime = utcDateToLocalHHMM(scheduledDate, timezone);
+    const [year, month, day] = localDate.split('-') as [string, string, string];
+    const formattedScheduledAt = `${day}/${month}/${year} às ${localTime}`;
+
     const variables: Record<string, string> = {
       contactName: dto.contactName,
-      scheduledAt: dto.scheduledAt,
+      scheduledAt: formattedScheduledAt,
       serviceNames,
       totalPrice: formattedPrice,
       pickupAddress: dto.pickupAddress ? JSON.stringify(dto.pickupAddress) : '',

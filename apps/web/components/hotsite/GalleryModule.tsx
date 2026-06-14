@@ -27,6 +27,7 @@ export function GalleryModule({ data, slug: _ }: GalleryModuleProps) {
 
   return (
     <section
+      id="gallery"
       style={{
         backgroundColor: 'var(--ba-background)',
         color: 'var(--ba-text)',

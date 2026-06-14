@@ -7,7 +7,7 @@ import { Unavailable } from '@/components/hotsite/Unavailable';
 export const revalidate = 300;
 
 interface BookingPageProps {
-  params: Promise<{ slug: string }>;
+  readonly params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: BookingPageProps): Promise<Metadata> {

@@ -71,6 +71,7 @@ export function AboutModule({ data, slug: _ }: AboutModuleProps) {
 
   return (
     <section
+      id="about"
       style={{
         backgroundColor: 'var(--ba-background)',
         color: 'var(--ba-text)',

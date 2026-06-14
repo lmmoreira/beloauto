@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { AvailableSlot, CreateBookingRequest, HotsiteServiceResponse } from '@beloauto/types';
 import { CreateBookingError, createBooking } from '@/lib/api/bookings';
 import {
@@ -48,6 +49,7 @@ function buildPayload(
 }
 
 export function BookingForm({ slug, services }: BookingFormProps) {
+  const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -65,11 +67,19 @@ export function BookingForm({ slug, services }: BookingFormProps) {
     setSelectedServiceIds((prev) =>
       prev.includes(serviceId) ? prev.filter((id) => id !== serviceId) : [...prev, serviceId],
     );
+    setSelectedDate(null);
+    setSelectedSlot(null);
   }
 
   function handleSelectDate(date: string) {
     setSelectedDate(date);
     setSelectedSlot(null);
+    setStep2Error(null);
+  }
+
+  function handleSelectSlot(slot: AvailableSlot) {
+    setSelectedSlot(slot);
+    setStep2Error(null);
   }
 
   async function handleSubmit() {
@@ -110,7 +120,13 @@ export function BookingForm({ slug, services }: BookingFormProps) {
           services={services}
           selectedServiceIds={selectedServiceIds}
           onToggleService={toggleService}
+          requiresPickupAddress={requiresPickupAddress}
+          pickupAddress={personalInfo.pickupAddress}
+          onPickupAddressChange={(address) =>
+            setPersonalInfo((prev) => ({ ...prev, pickupAddress: address }))
+          }
           onNext={() => setStep(2)}
+          onBack={() => router.push(`/${slug}`)}
         />
       )}
 
@@ -134,7 +150,7 @@ export function BookingForm({ slug, services }: BookingFormProps) {
                 serviceIds={selectedServiceIds}
                 date={selectedDate}
                 selectedSlot={selectedSlot}
-                onSelectSlot={setSelectedSlot}
+                onSelectSlot={handleSelectSlot}
               />
             </div>
           )}
@@ -181,7 +197,6 @@ export function BookingForm({ slug, services }: BookingFormProps) {
           slug={slug}
           value={personalInfo}
           onChange={setPersonalInfo}
-          requiresPickupAddress={requiresPickupAddress}
           onNext={() => setStep(4)}
           onBack={() => setStep(2)}
         />
@@ -189,6 +204,7 @@ export function BookingForm({ slug, services }: BookingFormProps) {
 
       {step === 4 && selectedDate && selectedSlot && (
         <ConfirmationStep
+          slug={slug}
           services={services}
           selectedServiceIds={selectedServiceIds}
           selectedDate={selectedDate}

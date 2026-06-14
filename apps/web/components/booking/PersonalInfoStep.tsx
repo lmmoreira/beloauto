@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import type React from 'react';
-import type { Address } from '@beloauto/types';
-import { isAddressFilled, type PersonalInfoValue } from '@/lib/booking/personal-info';
+import { z } from 'zod';
+import type { PersonalInfoValue } from '@/lib/booking/personal-info';
+import { formatPhoneBR } from '@/lib/utils';
 import { AddressFields } from './AddressFields';
 import { PhotoUpload } from './PhotoUpload';
 
@@ -11,14 +12,13 @@ interface PersonalInfoStepProps {
   readonly slug: string;
   readonly value: PersonalInfoValue;
   readonly onChange: (value: PersonalInfoValue) => void;
-  readonly requiresPickupAddress: boolean;
   readonly onNext: () => void;
   readonly onBack: () => void;
 }
 
 const inputStyle = { borderRadius: 'var(--ba-radius)', borderColor: 'var(--ba-secondary)' };
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_SCHEMA = z.email();
 
 const btnStyle: React.CSSProperties = {
   backgroundColor: 'var(--ba-btn-bg)',
@@ -27,39 +27,25 @@ const btnStyle: React.CSSProperties = {
   borderRadius: 'var(--ba-radius)',
 };
 
-function validate(value: PersonalInfoValue, requiresPickupAddress: boolean): string | null {
+function validate(value: PersonalInfoValue): string | null {
   if (!value.contactName.trim()) return 'Informe seu nome.';
-  if (!EMAIL_PATTERN.test(value.contactEmail)) return 'Informe um e-mail válido.';
+  if (!EMAIL_SCHEMA.safeParse(value.contactEmail).success) return 'Informe um e-mail válido.';
   if (!value.contactPhone.trim()) return 'Informe seu telefone.';
-  if (requiresPickupAddress && !isAddressFilled(value.pickupAddress)) {
-    return 'Informe o endereço de coleta.';
-  }
   return null;
 }
 
-export function PersonalInfoStep({
-  slug,
-  value,
-  onChange,
-  requiresPickupAddress,
-  onNext,
-  onBack,
-}: PersonalInfoStepProps) {
+export function PersonalInfoStep({ slug, value, onChange, onNext, onBack }: PersonalInfoStepProps) {
   const [showContactAddress, setShowContactAddress] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function handleNext() {
-    const validationError = validate(value, requiresPickupAddress);
+    const validationError = validate(value);
     if (validationError) {
       setError(validationError);
       return;
     }
     setError(null);
     onNext();
-  }
-
-  function updateAddress(field: 'contactAddress' | 'pickupAddress', address: Address) {
-    onChange({ ...value, [field]: address });
   }
 
   return (
@@ -115,15 +101,33 @@ export function PersonalInfoStep({
           >
             Telefone
           </label>
-          <input
-            id="contact-phone"
-            type="tel"
-            required
-            value={value.contactPhone}
-            onChange={(e) => onChange({ ...value, contactPhone: e.target.value })}
-            className="w-full border px-3 py-2"
-            style={inputStyle}
-          />
+          <div className="flex">
+            <span
+              className="flex items-center border border-r-0 bg-gray-50 px-3 text-sm font-medium"
+              style={{
+                borderRadius: 'var(--ba-radius) 0 0 var(--ba-radius)',
+                borderColor: 'var(--ba-secondary)',
+                color: 'var(--ba-text)',
+              }}
+            >
+              +55
+            </span>
+            <input
+              id="contact-phone"
+              type="tel"
+              inputMode="numeric"
+              required
+              maxLength={15}
+              placeholder="(11) 91234-5678"
+              value={formatPhoneBR(value.contactPhone)}
+              onChange={(e) => onChange({ ...value, contactPhone: formatPhoneBR(e.target.value) })}
+              className="min-w-0 flex-1 border px-3 py-2"
+              style={{
+                borderRadius: '0 var(--ba-radius) var(--ba-radius) 0',
+                borderColor: 'var(--ba-secondary)',
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -141,25 +145,13 @@ export function PersonalInfoStep({
           <div className="mt-3">
             <AddressFields
               value={value.contactAddress}
-              onChange={(address) => updateAddress('contactAddress', address)}
+              onChange={(address) => onChange({ ...value, contactAddress: address })}
               idPrefix="contact-address"
+              required={false}
             />
           </div>
         )}
       </div>
-
-      {requiresPickupAddress && (
-        <div className="mt-6">
-          <h3 className="mb-2 text-lg font-semibold" style={{ color: 'var(--ba-text)' }}>
-            Endereço de coleta
-          </h3>
-          <AddressFields
-            value={value.pickupAddress}
-            onChange={(address) => updateAddress('pickupAddress', address)}
-            idPrefix="pickup-address"
-          />
-        </div>
-      )}
 
       <div className="mt-6">
         <PhotoUpload

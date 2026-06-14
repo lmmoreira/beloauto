@@ -1,13 +1,22 @@
+'use client';
+
+import { useState } from 'react';
 import type React from 'react';
-import type { HotsiteServiceResponse } from '@beloauto/types';
+import type { Address, HotsiteServiceResponse } from '@beloauto/types';
 import { formatDuration } from '@/lib/hotsite/format-duration';
 import { formatBRL } from '@/lib/hotsite/format-money';
+import { isAddressFilled } from '@/lib/booking/personal-info';
+import { AddressFields } from './AddressFields';
 
 interface ServiceSelectionStepProps {
   readonly services: readonly HotsiteServiceResponse[];
   readonly selectedServiceIds: readonly string[];
   readonly onToggleService: (serviceId: string) => void;
+  readonly requiresPickupAddress: boolean;
+  readonly pickupAddress: Address;
+  readonly onPickupAddressChange: (address: Address) => void;
   readonly onNext: () => void;
+  readonly onBack: () => void;
 }
 
 const btnStyle: React.CSSProperties = {
@@ -28,12 +37,28 @@ export function ServiceSelectionStep({
   services,
   selectedServiceIds,
   onToggleService,
+  requiresPickupAddress,
+  pickupAddress,
+  onPickupAddressChange,
   onNext,
+  onBack,
 }: ServiceSelectionStepProps) {
+  const [error, setError] = useState<string | null>(null);
+
   const selected = services.filter((service) => selectedServiceIds.includes(service.id));
   const totalAmount = selected.reduce((sum, service) => sum + service.price.amount, 0);
   const totalDuration = selected.reduce((sum, service) => sum + service.durationMinutes, 0);
   const serviceWord = selected.length === 1 ? 'serviço' : 'serviços';
+
+  function handleNext() {
+    if (selected.length === 0) return;
+    if (requiresPickupAddress && !isAddressFilled(pickupAddress)) {
+      setError('Informe o endereço de coleta para continuar.');
+      return;
+    }
+    setError(null);
+    onNext();
+  }
 
   return (
     <div>
@@ -86,15 +111,51 @@ export function ServiceSelectionStep({
         </p>
       )}
 
-      <button
-        type="button"
-        disabled={selected.length === 0}
-        onClick={onNext}
-        style={btnStyle}
-        className="mt-6 border-2 px-8 py-3 font-semibold transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        Próximo
-      </button>
+      {requiresPickupAddress && (
+        <div className="mt-6">
+          <h3 className="mb-2 text-lg font-semibold" style={{ color: 'var(--ba-text)' }}>
+            Endereço de coleta
+          </h3>
+          <AddressFields
+            value={pickupAddress}
+            onChange={(address) => {
+              onPickupAddressChange(address);
+              setError(null);
+            }}
+            idPrefix="pickup-address"
+          />
+        </div>
+      )}
+
+      {error && (
+        <p className="mt-4 text-sm" data-testid="step1-error" style={{ color: 'var(--ba-text)' }}>
+          {error}
+        </p>
+      )}
+
+      <div className="mt-6 flex gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="border px-6 py-3"
+          style={{
+            borderRadius: 'var(--ba-radius)',
+            borderColor: 'var(--ba-secondary)',
+            color: 'var(--ba-text)',
+          }}
+        >
+          Voltar
+        </button>
+        <button
+          type="button"
+          disabled={selected.length === 0}
+          onClick={handleNext}
+          style={btnStyle}
+          className="border-2 px-8 py-3 font-semibold transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Próximo
+        </button>
+      </div>
     </div>
   );
 }

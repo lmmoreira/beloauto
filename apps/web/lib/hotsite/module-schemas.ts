@@ -19,7 +19,14 @@ export const HeroModuleDataSchema = z.object({
   subtitle: z.string().optional(),
   backgroundImageUrl: z.string().optional(),
   ctaLabel: z.string(),
-  ctaTarget: z.enum(['booking', 'service-list']),
+  ctaTarget: z.enum([
+    'booking-form',
+    'service-list',
+    'gallery',
+    'testimonials',
+    'about',
+    'contact',
+  ]),
 }) satisfies z.ZodType<HeroModuleData>;
 
 // Mirrors ServiceListModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
@@ -66,6 +73,7 @@ export const TestimonialsModuleDataSchema = z.object({
 
 // Mirrors BookingCtaModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const BookingCtaModuleDataSchema = z.object({
+  variant: z.enum(['centered', 'left-aligned']).optional(),
   title: z.string(),
   subtitle: z.string().optional(),
   ctaLabel: z.string(),
