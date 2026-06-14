@@ -1,3 +1,4 @@
+import { digitsOnly } from '@/lib/utils';
 import type { AddressLookup, AddressLookupResult } from './address-lookup.port';
 
 interface ViaCepResponse {
@@ -6,10 +7,6 @@ interface ViaCepResponse {
   localidade?: string;
   uf?: string;
   erro?: boolean;
-}
-
-function digitsOnly(value: string): string {
-  return value.replace(/\D/g, '');
 }
 
 export const viaCepAddressLookup: AddressLookup = {

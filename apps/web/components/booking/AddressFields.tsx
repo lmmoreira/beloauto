@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Address } from '@beloauto/types';
 import type { AddressLookup } from '@/lib/address/address-lookup.port';
 import { viaCepAddressLookup } from '@/lib/address/viacep-address-lookup.adapter';
+import { digitsOnly } from '@/lib/utils';
 
 interface AddressFieldsProps {
   readonly value: Address;
@@ -21,10 +22,6 @@ interface TextFieldProps {
   readonly maxLength?: number;
   readonly inputMode?: 'text' | 'numeric';
   readonly placeholder?: string;
-}
-
-function digitsOnly(value: string): string {
-  return value.replace(/\D/g, '');
 }
 
 const inputStyle = { borderRadius: 'var(--ba-radius)', borderColor: 'var(--ba-secondary)' };
