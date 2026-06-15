@@ -34,7 +34,10 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "@grpc/grpc-js": "1.14.4"
+    }
   },
   "devDependencies": {
     "eslint": "^10.3.0",

@@ -9,7 +9,7 @@ function makeData(overrides?: Partial<HeroModuleData>): HeroModuleData {
     variant: 'centered',
     title: 'Bem-vindo à Lavacar',
     ctaLabel: 'Agendar agora',
-    ctaTarget: 'booking',
+    ctaTarget: 'booking-form',
     ...overrides,
   };
 }
@@ -29,8 +29,8 @@ describe('HeroModule', () => {
       expect(container.querySelector('[data-variant="centered"]')).toBeInTheDocument();
     });
 
-    it('CTA href targets #booking-form when ctaTarget is booking', () => {
-      render(<HeroModule data={makeData({ ctaTarget: 'booking' })} slug="tenant" />);
+    it('CTA href targets #booking-form when ctaTarget is booking-form', () => {
+      render(<HeroModule data={makeData({ ctaTarget: 'booking-form' })} slug="tenant" />);
 
       expect(screen.getByRole('link', { name: 'Agendar agora' })).toHaveAttribute(
         'href',

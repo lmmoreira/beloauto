@@ -553,13 +553,159 @@ interface ContactModuleData {
 ### M12-S07 — BOOKING_CTA module + booking form page
 
 **Agent:** `frontend-ts`  
-**Complexity:** L  
-**Docs to load:** `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` § BOOKING_CTA module, `docs/04-USE_CASES.md` § UC-001, UC-011
+**Complexity:** XL  
+**Docs to load:** `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` § BOOKING_CTA module, `docs/04-USE_CASES.md` § UC-001, UC-011, `docs/14-API_CONTRACTS.md` § Bookings, § Schedule Availability
 
 **Description:**  
-Implement the BOOKING_CTA module and the full booking form page — the most interactive part of the hotsite. The form is a multi-step flow: (1) select services, (2) pick date/slot, (3) fill personal info, (4) submit. Calls UC-001 (guest booking) and UC-011 (availability).
+Implement the BOOKING_CTA module and the full booking form page — the most interactive part of the hotsite. The form is a 4-step flow: (1) select services, (2) pick a day from a horizontal availability carousel then a time slot, (3) fill personal info (contact + optional contact address + conditional pickup address + optional before-service photos), (4) submit. Calls UC-001 (guest booking) and UC-011 (availability, two-phase).
 
-**`BookingCtaModule.tsx`**
+This story also retires the stale, unused `@beloauto/types` booking/schedule contracts (replacing them with shapes that mirror the BFF's `bookings.types.ts` / `schedule.types.ts`) and introduces a ports-and-adapters address-lookup abstraction (ViaCEP today, swappable for Google or another provider later without touching callers).
+
+---
+
+**1. `@beloauto/types` — replace stale contracts**
+
+All current exports of `booking.dto.ts` and `schedule.dto.ts` have zero usages in `apps/` — safe full replacement.
+
+`packages/types/src/money.ts` — add:
+```typescript
+export interface MoneyAmount {
+  amount: number;
+  currency: string;
+}
+```
+
+`packages/types/src/schedule.dto.ts` — full replacement:
+```typescript
+export interface AvailableSlot {
+  startsAt: string; // ISO-8601 datetime
+  endsAt: string;   // ISO-8601 datetime
+}
+
+export interface AvailabilityResponse {
+  date: string;     // YYYY-MM-DD
+  slots: AvailableSlot[];
+  available: boolean;
+}
+
+export interface DaySummary {
+  date: string;     // YYYY-MM-DD
+  available: boolean;
+  slotCount: number;
+}
+
+export type AvailabilitySummaryResponse = DaySummary[];
+```
+
+`packages/types/src/booking.dto.ts` — full replacement:
+```typescript
+import type { Address } from './address';
+import type { MoneyAmount } from './money';
+
+export interface CreateBookingRequest {
+  contactEmail: string;
+  contactName: string;
+  contactPhone: string;
+  contactAddress?: Address;
+  pickupAddress?: Address;
+  scheduledAt: string; // ISO-8601 datetime
+  serviceIds: string[];
+  beforeServicePhotoUrls?: string[];
+}
+
+export interface BookingLineResponse {
+  lineId: string;
+  serviceId: string;
+  priceAtBooking: MoneyAmount;
+  durationMinsAtBooking: number;
+  pointsValueAtBooking: number;
+  requiresPickupAddressAtBooking: boolean;
+}
+
+export interface BookingResponse {
+  bookingId: string;
+  status: string;
+  scheduledAt: string;
+  totalPrice: MoneyAmount;
+  totalDurationMins: number;
+  pickupAddress: Address | null;
+  beforeServicePhotoUrls: string[];
+  lines: BookingLineResponse[];
+}
+
+export interface AttachmentSignedUrlRequest {
+  fileName: string;
+  contentType: 'image/jpeg' | 'image/png';
+  tenantSlug: string;
+}
+
+export interface AttachmentSignedUrlResponse {
+  signedUrl: string;
+  filePath: string;
+  expiresAt: string;
+}
+```
+`CompleteBookingRequest` / `RescheduleBookingRequest` / `RequestMoreInfoRequest` / `SubmitInfoRequest` are dropped — unused dashboard-side booking-management types. They'll be re-added mirroring the BFF's actual shapes when that dashboard story is built.
+
+---
+
+**2. New API fetchers (`apps/web/lib/api/`)**
+
+Client-side fetchers — no `next: { revalidate }` (availability and booking data must always be fresh):
+
+`schedule.ts`:
+- `fetchAvailabilitySummary(slug, from, to, serviceIds): Promise<AvailabilitySummaryResponse>` → `GET /schedule/availability/summary?from=&to=&serviceIds=`
+- `fetchAvailability(slug, date, serviceIds): Promise<AvailabilityResponse>` → `GET /schedule/availability?date=&serviceIds=`
+
+`bookings.ts`:
+- `createBooking(slug, payload: CreateBookingRequest): Promise<BookingResponse>` → `POST /bookings`
+- `createAttachmentSignedUrl(slug, fileName, contentType): Promise<AttachmentSignedUrlResponse>` → `POST /bookings/attachments/signed-url` (body includes `tenantSlug: slug` — anonymous-guest scenario)
+
+Both send `X-Tenant-Slug: slug`. `serviceIds` is joined as a comma-separated string.
+
+---
+
+**3. Address lookup — ports & adapters (`apps/web/lib/address/`)**
+
+```typescript
+// address-lookup.port.ts
+export interface AddressLookupResult {
+  street: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
+
+export interface AddressLookup {
+  lookup(cep: string): Promise<AddressLookupResult | null>;
+}
+```
+
+```typescript
+// viacep-address-lookup.adapter.ts
+export const viaCepAddressLookup: AddressLookup = {
+  async lookup(cep) {
+    // GET https://viacep.com.br/ws/${digitsOnly(cep)}/json/
+    // returns null on network error or { erro: true } (CEP not found)
+  },
+};
+```
+
+```typescript
+// in-memory-address-lookup.ts (test double)
+export class InMemoryAddressLookup implements AddressLookup {
+  constructor(private readonly results: Record<string, AddressLookupResult | null>) {}
+  async lookup(cep: string) {
+    return this.results[cep] ?? null;
+  }
+}
+```
+
+`AddressFields` takes `addressLookup: AddressLookup = viaCepAddressLookup` as a prop. Swapping to a Google-based adapter later means writing a new adapter implementing `AddressLookup` and changing the default — zero changes to `AddressFields` or its callers. Tests inject `InMemoryAddressLookup`.
+
+---
+
+**4. `BookingCtaModule.tsx`**
 ```typescript
 interface BookingCtaModuleData {
   title: string;
@@ -570,37 +716,68 @@ interface BookingCtaModuleData {
 ```
 - CTA button links to `/<slug>/booking`
 - Section anchor: `id="booking-form"`
+- Add `BookingCtaModuleDataSchema` to `lib/hotsite/module-schemas.ts`, register in `MODULE_MAP`
 
-**Booking form (`app/[slug]/booking/page.tsx`) — 4-step flow:**
+---
+
+**5. Booking form architecture (`app/[slug]/booking/`)**
+- `page.tsx` — server component, fetches `services` via `fetchServices(slug)`, renders `<BookingForm slug={slug} services={services} />`. Not unit-tested (page rule — Playwright only).
+- `components/booking/BookingForm.tsx` — `'use client'`, owns step state + form state, orchestrates Steps 1-4.
+- `components/booking/ServiceSelectionStep.tsx` — Step 1.
+- `components/booking/AvailabilityCarousel.tsx` — Step 2, Phase 1 (day cards).
+- `components/booking/SlotPicker.tsx` — Step 2, Phase 2 (time-slot buttons).
+- `components/booking/AddressFields.tsx` — CEP input + autofill, reused for `contactAddress` and `pickupAddress`.
+- `components/booking/PhotoUpload.tsx` — optional multi-photo upload (signed-URL flow).
+- `components/booking/PersonalInfoStep.tsx` — Step 3, composes the above.
+- `components/booking/ConfirmationStep.tsx` — Step 4.
+
+Each component (except `page.tsx`) gets a `*.spec.tsx` (Vitest + RTL, `// @vitest-environment jsdom`, `vi.spyOn(globalThis, 'fetch')`).
+
+---
 
 **Step 1 — Service Selection:**
 - Renders service cards with checkbox/toggle
 - Shows running total: `"2 serviços — R$ 300,00 — 2h"`
 - "Próximo" disabled until ≥1 service selected
 
-**Step 2 — Date & Slot Picker:**
-- Calendar date picker
-- On date select → calls `GET /v1/schedule/availability?date=&serviceIds=` → available slots as buttons
-- Loading state while fetching; `"Nenhum horário disponível"` if empty
+**Step 2 — Date & Slot Picker (two-phase, horizontal carousel):**
+
+*Phase 1* — on step entry, `fetchAvailabilitySummary(slug, today, today+13d, serviceIds)` → 14-day `DaySummary[]` (well within the default `max_booking_advance_days: 90`). Render as a horizontal scrollable carousel of day-cards (◀ ▶ scroll controls on desktop, native swipe on mobile):
+- Each card shows weekday abbreviation (pt-BR: Dom/Seg/Ter/Qua/Qui/Sex/Sáb) + day number; first card labelled "Hoje"
+- `available: true` → enabled; selected card highlighted with `var(--ba-primary)`
+- `available: false` → disabled/greyed, not clickable
+
+*Phase 2* — on day-card selection, `fetchAvailability(slug, date, serviceIds)` → render `slots` as time buttons (`startsAt`–`endsAt` formatted `HH:mm`). Loading state while fetching; `slots: []` → `"Nenhum horário disponível"`.
+
+"Próximo" disabled until a slot is selected.
 
 **Step 3 — Personal Info:**
-- Fields: name, email, phone, address (only if a selected service has `requiresPickupAddress: true`)
-- All labels in pt-BR; client-side validation before submit
+- `contactName`, `contactEmail`, `contactPhone` — always required
+- `contactAddress` — optional, collapsible "Endereço de contato (opcional)" section using `AddressFields`
+- `pickupAddress` — shown and required only if a selected service has `requiresPickupAddress: true`, using `AddressFields`
+- `AddressFields` CEP flow: on 8-digit CEP entry → `addressLookup.lookup(cep)` autofills street/neighborhood/city/state (editable); `number`/`complement` always manual; lookup failure leaves fields editable with no blocking error
+- Optional "Fotos do veículo (opcional)" via `PhotoUpload` — for each selected image: (1) `createAttachmentSignedUrl(slug, file.name, file.type)` → `{signedUrl, filePath}`, (2) `PUT` file to `signedUrl`, (3) collect `filePath` into `beforeServicePhotoUrls`
+- All labels in pt-BR; client-side validation before "Próximo"
 
 **Step 4 — Submit & Confirmation:**
-- Calls `POST /v1/bookings` with contact data
+- Calls `createBooking(slug, { contactEmail, contactName, contactPhone, contactAddress?, pickupAddress?, scheduledAt, serviceIds, beforeServicePhotoUrls? })`
 - `201` → `"Solicitação enviada! Aguarde a confirmação por email."`
 - `409` (slot taken) → back to Step 2 with `"Horário indisponível, escolha outro"`
 - Other error → generic pt-BR message
 
 **Acceptance criteria:**
+- [ ] `@beloauto/types`: `booking.dto.ts` / `schedule.dto.ts` / `money.ts` updated as above; monorepo `pnpm type-check` passes
+- [ ] `BookingCtaModule` section has `id="booking-form"` anchor; CTA links to `/<slug>/booking`; `BookingCtaModuleDataSchema` registered
 - [ ] Full 4-step flow works end-to-end against local backend
-- [ ] Slot picker shows real availability from the API (not mocked)
-- [ ] `409` conflict returns to Step 2 with error message
-- [ ] Address fields shown only when a selected service has `requiresPickupAddress: true`
+- [ ] Carousel: `available: false` days are disabled/unselectable; selecting an `available: true` day fetches and renders its slots
+- [ ] Empty slots → `"Nenhum horário disponível"`
+- [ ] `pickupAddress` fields appear and are required only when a selected service has `requiresPickupAddress: true`
+- [ ] Valid 8-digit CEP autofills street/neighborhood/city/state via `AddressLookup`; invalid/not-found CEP leaves fields editable
+- [ ] Photo upload completes the 3-step signed-URL flow; resulting `filePath`s are included in `beforeServicePhotoUrls`
+- [ ] `409` conflict on submit returns to Step 2 with error message
 - [ ] All labels, placeholders, error messages in pt-BR
-- [ ] `BookingCtaModule` section has `id="booking-form"` anchor
-- [ ] Component test: mock API responses and assert step transitions
+- [ ] Component tests (Vitest + RTL): `AvailabilityCarousel` (enabled/disabled days, selection), `SlotPicker` (slots render, empty state), `AddressFields` (CEP autofill via `InMemoryAddressLookup`, lookup failure), `PhotoUpload` (signed-URL flow mocked), `BookingForm` (step transitions, mocked API)
+- [ ] Playwright E2E for the full happy-path flow is deferred to M16-S06 (not part of this story)
 
 **Dependencies:** M12-S03, M07-S04, M06-S04
 

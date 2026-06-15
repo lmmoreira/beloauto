@@ -15,7 +15,7 @@ const DEFAULT_LAYOUT: HotsiteModule[] = [
       variant: 'centered',
       title: 'Cuidado completo para o seu carro',
       ctaLabel: 'Agendar agora',
-      ctaTarget: 'booking',
+      ctaTarget: 'booking-form',
     },
   },
 ];

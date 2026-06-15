@@ -61,7 +61,7 @@ describe('TypeOrmHotsiteConfigRepository', () => {
             variant: 'centered' as const,
             title: 'Bem-vindo',
             ctaLabel: 'Agendar',
-            ctaTarget: 'booking' as const,
+            ctaTarget: 'booking-form' as const,
           },
         },
       ];

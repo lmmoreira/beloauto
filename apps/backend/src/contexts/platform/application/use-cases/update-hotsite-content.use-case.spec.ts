@@ -123,7 +123,7 @@ describe('UpdateHotsiteContentUseCase', () => {
           title: 'Cuidado completo para o seu carro',
           backgroundImageUrl: imagePath,
           ctaLabel: 'Agendar agora',
-          ctaTarget: 'booking',
+          ctaTarget: 'booking-form',
         },
       },
     ];
