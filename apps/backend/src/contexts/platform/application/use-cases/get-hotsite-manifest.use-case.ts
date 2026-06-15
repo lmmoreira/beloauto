@@ -5,7 +5,7 @@ import {
   HotsiteNotFoundError,
   TenantNotFoundError,
 } from '../../domain/errors/platform-domain.error';
-import { HotsiteBranding, HotsiteModule } from '../../domain/hotsite-config.aggregate';
+import { HotsiteBranding, HotsiteModule, HotsiteSeo } from '../../domain/hotsite-config.aggregate';
 import { HotsiteImageUrlResolver } from '../../domain/services/hotsite-image-url-resolver.service';
 import { BusinessInfo } from '../../domain/value-objects/tenant-settings.vo';
 import {
@@ -44,6 +44,7 @@ export interface HotsiteLocalization {
 export interface GetHotsiteManifestUseCaseResult {
   branding: HotsiteBranding;
   layout: HotsiteModule[];
+  seo: HotsiteSeo;
   isPublished: boolean;
   business: HotsiteBusinessInfo;
   localization: HotsiteLocalization;
@@ -87,6 +88,7 @@ export class GetHotsiteManifestUseCase {
       return {
         branding,
         layout: [],
+        seo: config.seo,
         isPublished: false,
         business: emptyBusinessInfo(),
         localization: defaultLocalization(),
@@ -105,6 +107,7 @@ export class GetHotsiteManifestUseCase {
     return {
       branding,
       layout,
+      seo: config.seo,
       isPublished: config.isPublished,
       business: this.mapBusinessInfo(tenant.settings.business_info),
       localization: { language: tenant.settings.localization.language },

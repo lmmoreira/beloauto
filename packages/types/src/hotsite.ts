@@ -98,9 +98,15 @@ export interface HotsiteBrandingResponse {
   buttonTextColor?: string;
 }
 
+export interface HotsiteSeoResponse {
+  title: string | null;
+  description: string | null;
+}
+
 export interface HotsiteResponse {
   branding: HotsiteBrandingResponse;
   layout: HotsiteModuleResponse[];
+  seo: HotsiteSeoResponse;
   isPublished: boolean;
 }
 

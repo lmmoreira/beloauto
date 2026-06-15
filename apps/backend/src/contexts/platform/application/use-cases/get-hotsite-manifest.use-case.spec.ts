@@ -69,6 +69,7 @@ describe('GetHotsiteManifestUseCase', () => {
       socialLinks: null,
     });
     expect(result.localization).toEqual({ language: 'pt-BR' });
+    expect(result.seo).toEqual({ title: null, description: null });
   });
 
   it('returns branding, layout, and isPublished for a published hotsite', async () => {
@@ -80,6 +81,21 @@ describe('GetHotsiteManifestUseCase', () => {
     expect(result.isPublished).toBe(true);
     expect(result.branding).toEqual(config.branding);
     expect(result.layout).toEqual(config.layout);
+  });
+
+  it('returns the tenant-configured seo title and description for a published hotsite', async () => {
+    const config = new HotsiteConfigBuilder()
+      .withTenantId(TENANT_A)
+      .withSeo({ title: 'Lavacar Estrela — Agendamento Online', description: 'Agende já.' })
+      .buildPublished();
+    await repo.save(config);
+
+    const result = await useCase.execute();
+
+    expect(result.seo).toEqual({
+      title: 'Lavacar Estrela — Agendamento Online',
+      description: 'Agende já.',
+    });
   });
 
   it('throws TenantNotFoundError when the tenant aggregate does not exist', async () => {

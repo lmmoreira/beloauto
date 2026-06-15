@@ -40,6 +40,7 @@ export class TypeOrmHotsiteConfigRepository implements IHotsiteConfigRepository 
       tenantId: entity.tenantId,
       branding: entity.branding,
       layout: entity.layout,
+      seo: entity.seo,
       isPublished: entity.isPublished,
       updatedAt: entity.updatedAt,
     });
@@ -51,6 +52,7 @@ export class TypeOrmHotsiteConfigRepository implements IHotsiteConfigRepository 
     entity.tenantId = config.tenantId;
     entity.branding = config.branding;
     entity.layout = config.layout;
+    entity.seo = config.seo;
     entity.isPublished = config.isPublished;
     entity.updatedAt = config.updatedAt;
     return entity;

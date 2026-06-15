@@ -23,6 +23,7 @@ function makeManifest(overrides: Partial<HotsiteManifestResponse> = {}): Hotsite
       buttonStyle: 'filled',
     },
     layout: [],
+    seo: { title: null, description: null },
     isPublished: true,
     business: {
       phone: null,
@@ -169,6 +170,35 @@ describe('buildHotsiteMetadata', () => {
     const metadata = buildHotsiteMetadata({ manifest, slug: 'lavacar-bh' });
 
     expect(metadata.openGraph).toMatchObject({ locale: 'en_US' });
+  });
+
+  it('uses the tenant-configured seo.title and seo.description when present', () => {
+    const manifest = makeManifest({
+      seo: {
+        title: 'Lavacar Estrela — Agendamento Online em São Paulo',
+        description: 'Agende sua lavagem na Lavacar Estrela. Rápido, fácil e online.',
+      },
+    });
+
+    const metadata = buildHotsiteMetadata({ manifest, slug: 'lavacar-bh' });
+
+    expect(metadata.title).toBe('Lavacar Estrela — Agendamento Online em São Paulo');
+    expect(metadata.description).toBe(
+      'Agende sua lavagem na Lavacar Estrela. Rápido, fácil e online.',
+    );
+    expect(metadata.openGraph).toMatchObject({
+      title: 'Lavacar Estrela — Agendamento Online em São Paulo',
+      description: 'Agende sua lavagem na Lavacar Estrela. Rápido, fácil e online.',
+    });
+  });
+
+  it('falls back to the generated title/description when seo fields are null', () => {
+    const manifest = makeManifest({ seo: { title: null, description: null } });
+
+    const metadata = buildHotsiteMetadata({ manifest, slug: 'lavacar-bh' });
+
+    expect(metadata.title).toBe('Lavacar BH — Agendamento Online');
+    expect(metadata.description).toBe('Agende seu serviço na Lavacar BH. Rápido, fácil e online.');
   });
 });
 

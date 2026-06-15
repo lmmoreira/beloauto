@@ -28,12 +28,14 @@ export function buildHotsiteMetadata({
   const location = manifest.business.address
     ? `${manifest.business.address.city}, ${manifest.business.address.state}`
     : null;
-  const title = location
+  const defaultTitle = location
     ? `${manifest.tenant.name} — Agendamento Online em ${location}`
     : `${manifest.tenant.name} — Agendamento Online`;
-  const description = location
+  const defaultDescription = location
     ? `Agende seu serviço na ${manifest.tenant.name}, em ${location}. Rápido, fácil e online.`
     : `Agende seu serviço na ${manifest.tenant.name}. Rápido, fácil e online.`;
+  const title = manifest.seo.title ?? defaultTitle;
+  const description = manifest.seo.description ?? defaultDescription;
   const locale = manifest.localization.language.replaceAll('-', '_');
 
   return {

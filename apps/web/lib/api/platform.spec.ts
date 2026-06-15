@@ -35,6 +35,7 @@ function makeManifest(): HotsiteManifestResponse {
       buttonStyle: 'filled',
     },
     layout: [],
+    seo: { title: null, description: null },
     isPublished: true,
     business: {
       phone: null,
