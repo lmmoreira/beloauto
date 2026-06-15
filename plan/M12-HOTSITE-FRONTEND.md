@@ -953,7 +953,7 @@ export default function robots(): MetadataRoute.Robots {
 - [ ] `/[slug]` `<title>` is `"[Tenant Name] — Agendamento Online"` — not generic `"BeloAuto"`
 - [ ] `/[slug]` `og:image` uses `manifest.branding.logoUrl` when available
 - [ ] `/[slug]` `og:locale` is `pt_BR`
-- [ ] `/[slug]` has JSON-LD `<script type="application/ld+json">` with `LocalBusiness` schema in `<head>`
+- [ ] `/[slug]` has JSON-LD `<script type="application/ld+json">` with `LocalBusiness` schema in the rendered document
 - [ ] `/[slug]` unpublished → `<meta name="robots" content="noindex, nofollow">`
 - [ ] `/[slug]` `canonical` URL is `${SITE_URL}/[slug]`
 - [ ] `/[slug]/booking` always has `<meta name="robots" content="noindex, nofollow">`, regardless of `isPublished`

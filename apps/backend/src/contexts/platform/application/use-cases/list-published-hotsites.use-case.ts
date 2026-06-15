@@ -23,10 +23,12 @@ export class ListPublishedHotsitesUseCase {
 
   async execute(): Promise<ListPublishedHotsitesUseCaseResult> {
     const tenants = await this.tenantRepo.findAllActive();
+    const configs = await this.hotsiteConfigRepo.findByTenantIds(tenants.map((t) => t.id));
+    const configByTenantId = new Map(configs.map((config) => [config.tenantId, config]));
 
     const items: PublishedHotsiteResult[] = [];
     for (const tenant of tenants) {
-      const config = await this.hotsiteConfigRepo.findByTenantId(tenant.id);
+      const config = configByTenantId.get(tenant.id);
       if (config?.isPublished) {
         items.push({ slug: tenant.slug.value, updatedAt: config.updatedAt.toISOString() });
       }
