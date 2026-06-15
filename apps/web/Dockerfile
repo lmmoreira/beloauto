@@ -16,7 +16,7 @@ COPY packages/ packages/
 COPY apps/web/ apps/web/
 
 RUN pnpm --filter @beloauto/web build \
-    && pnpm --filter @beloauto/web deploy --prod /standalone
+    && pnpm --filter @beloauto/web deploy --prod /standalone --legacy
 
 
 # ─── Stage 2: Run ────────────────────────────────────────────────────────────

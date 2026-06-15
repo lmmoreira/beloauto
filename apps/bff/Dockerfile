@@ -16,7 +16,7 @@ COPY packages/ packages/
 COPY apps/bff/ apps/bff/
 
 RUN pnpm --filter @beloauto/bff build \
-    && pnpm --filter @beloauto/bff deploy --prod /standalone
+    && pnpm --filter @beloauto/bff deploy --prod /standalone --legacy
 
 
 # ─── Stage 2: Run ────────────────────────────────────────────────────────────

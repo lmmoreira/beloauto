@@ -18,7 +18,7 @@ COPY packages/ packages/
 COPY apps/backend/ apps/backend/
 
 RUN pnpm --filter @beloauto/backend build \
-    && pnpm --filter @beloauto/backend deploy --prod /standalone
+    && pnpm --filter @beloauto/backend deploy --prod /standalone --legacy
 
 
 # ─── Stage 2: Run ────────────────────────────────────────────────────────────
