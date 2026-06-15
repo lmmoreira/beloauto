@@ -25,8 +25,16 @@ export function buildHotsiteMetadata({
   path = '',
 }: BuildHotsiteMetadataParams): Metadata {
   const url = `${SITE_URL}/${slug}${path}`;
-  const title = `${manifest.tenant.name} — Agendamento Online`;
-  const description = `Agende seu serviço na ${manifest.tenant.name}. Rápido, fácil e online.`;
+  const location = manifest.business.address
+    ? `${manifest.business.address.city}, ${manifest.business.address.state}`
+    : null;
+  const title = location
+    ? `${manifest.tenant.name} — Agendamento Online em ${location}`
+    : `${manifest.tenant.name} — Agendamento Online`;
+  const description = location
+    ? `Agende seu serviço na ${manifest.tenant.name}, em ${location}. Rápido, fácil e online.`
+    : `Agende seu serviço na ${manifest.tenant.name}. Rápido, fácil e online.`;
+  const locale = manifest.localization.language.replaceAll('-', '_');
 
   return {
     title,
@@ -37,7 +45,7 @@ export function buildHotsiteMetadata({
       description,
       url,
       siteName: 'BeloAuto',
-      locale: 'pt_BR',
+      locale,
       type: 'website',
       images: manifest.branding.logoUrl
         ? [{ url: manifest.branding.logoUrl, width: 1200, height: 630 }]
@@ -74,5 +82,6 @@ export function buildLocalBusinessJsonLd({
 // Escapes "<" so a "</script>" sequence in JSON-LD data cannot break out of the
 // surrounding <script type="application/ld+json"> tag (< is valid inside a JSON string).
 export function toJsonLdScript(data: unknown): string {
-  return JSON.stringify(data).replace(/</g, '\\u003c');
+  const backslash = String.fromCharCode(92);
+  return JSON.stringify(data).replaceAll('<', `${backslash}u003c`);
 }

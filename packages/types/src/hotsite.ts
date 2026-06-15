@@ -127,9 +127,14 @@ export interface HotsiteBusinessInfoResponse {
   socialLinks: HotsiteBusinessInfoSocialLinks | null;
 }
 
+export interface HotsiteLocalizationResponse {
+  language: string;
+}
+
 export interface HotsiteManifestResponse extends HotsiteResponse {
   tenant: TenantInfoResponse;
   business: HotsiteBusinessInfoResponse;
+  localization: HotsiteLocalizationResponse;
 }
 
 export interface HotsiteAdminContentResponse extends HotsiteResponse {

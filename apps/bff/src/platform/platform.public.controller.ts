@@ -4,6 +4,7 @@ import { BackendHttpService } from '../shared/http/backend-http.service';
 import { TenantInfoResponse } from '../shared/types/backend-responses';
 import {
   HotsiteBusinessInfoResponse,
+  HotsiteLocalizationResponse,
   HotsiteManifestResponse,
   HotsiteResponse,
   HotsiteSitemapEntryListResponse,
@@ -21,7 +22,10 @@ export class PlatformPublicController {
       `/internal/tenants/by-slug/${slug}`,
     );
     const hotsite = await this.backendHttp.getForPublic<
-      HotsiteResponse & { business: HotsiteBusinessInfoResponse }
+      HotsiteResponse & {
+        business: HotsiteBusinessInfoResponse;
+        localization: HotsiteLocalizationResponse;
+      }
     >('/hotsite', tenant.id);
     return { tenant, ...hotsite };
   }

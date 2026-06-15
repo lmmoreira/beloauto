@@ -42,6 +42,9 @@ function makeManifest(): HotsiteManifestResponse {
       address: null,
       socialLinks: null,
     },
+    localization: {
+      language: 'pt-BR',
+    },
   };
 }
 

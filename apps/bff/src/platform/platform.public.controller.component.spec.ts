@@ -1,6 +1,10 @@
 import { HttpException, INestApplication } from '@nestjs/common';
 import { MockBackendHttpService, createTestApp, request } from '../test/component-test.helpers';
-import { HotsiteBusinessInfoResponse, HotsiteResponse } from '@beloauto/types';
+import {
+  HotsiteBusinessInfoResponse,
+  HotsiteLocalizationResponse,
+  HotsiteResponse,
+} from '@beloauto/types';
 
 const tenantInfo = { id: 'tenant-uuid', slug: 'lavacar-bh', name: 'Lavacar BH' };
 
@@ -18,7 +22,12 @@ const businessInfo: HotsiteBusinessInfoResponse = {
   socialLinks: null,
 };
 
-const hotsiteResponse: HotsiteResponse & { business: HotsiteBusinessInfoResponse } = {
+const localization: HotsiteLocalizationResponse = { language: 'pt-BR' };
+
+const hotsiteResponse: HotsiteResponse & {
+  business: HotsiteBusinessInfoResponse;
+  localization: HotsiteLocalizationResponse;
+} = {
   branding: {
     primaryColor: '#2563eb',
     secondaryColor: '#eff6ff',
@@ -46,13 +55,18 @@ const hotsiteResponse: HotsiteResponse & { business: HotsiteBusinessInfoResponse
   ],
   isPublished: true,
   business: businessInfo,
+  localization,
 };
 
-const unpublishedHotsiteResponse: HotsiteResponse & { business: HotsiteBusinessInfoResponse } = {
+const unpublishedHotsiteResponse: HotsiteResponse & {
+  business: HotsiteBusinessInfoResponse;
+  localization: HotsiteLocalizationResponse;
+} = {
   branding: hotsiteResponse.branding,
   layout: [],
   isPublished: false,
   business: { phone: null, email: null, address: null, socialLinks: null },
+  localization,
 };
 
 describe('PlatformPublicController (component)', () => {

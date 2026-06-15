@@ -30,6 +30,9 @@ function makeManifest(overrides: Partial<HotsiteManifestResponse> = {}): Hotsite
       address: null,
       socialLinks: null,
     },
+    localization: {
+      language: 'pt-BR',
+    },
     ...overrides,
   };
 }
@@ -133,6 +136,39 @@ describe('buildHotsiteMetadata', () => {
     const metadata = buildHotsiteMetadata({ manifest, slug: 'lavacar-bh' });
 
     expect(metadata.openGraph?.images).toEqual([]);
+  });
+
+  it('includes the city and state from business_info.address in title and description when present', () => {
+    const manifest = makeManifest({
+      business: {
+        phone: null,
+        email: null,
+        address: {
+          street: 'Av. Paulista',
+          number: '1000',
+          neighborhood: 'Bela Vista',
+          city: 'São Paulo',
+          state: 'SP',
+          zipCode: '01310100',
+        },
+        socialLinks: null,
+      },
+    });
+
+    const metadata = buildHotsiteMetadata({ manifest, slug: 'lavacar-bh' });
+
+    expect(metadata.title).toBe('Lavacar BH — Agendamento Online em São Paulo, SP');
+    expect(metadata.description).toBe(
+      'Agende seu serviço na Lavacar BH, em São Paulo, SP. Rápido, fácil e online.',
+    );
+  });
+
+  it('derives the Open Graph locale from settings.localization.language', () => {
+    const manifest = makeManifest({ localization: { language: 'en-US' } });
+
+    const metadata = buildHotsiteMetadata({ manifest, slug: 'lavacar-bh' });
+
+    expect(metadata.openGraph).toMatchObject({ locale: 'en_US' });
   });
 });
 

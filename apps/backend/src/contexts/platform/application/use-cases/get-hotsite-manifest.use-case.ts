@@ -37,11 +37,16 @@ export interface HotsiteBusinessInfo {
   socialLinks: HotsiteBusinessInfoSocialLinks | null;
 }
 
+export interface HotsiteLocalization {
+  language: string;
+}
+
 export interface GetHotsiteManifestUseCaseResult {
   branding: HotsiteBranding;
   layout: HotsiteModule[];
   isPublished: boolean;
   business: HotsiteBusinessInfo;
+  localization: HotsiteLocalization;
 }
 
 function emptyBusinessInfo(): HotsiteBusinessInfo {
@@ -51,6 +56,12 @@ function emptyBusinessInfo(): HotsiteBusinessInfo {
     address: null,
     socialLinks: null,
   };
+}
+
+// Matches TenantSettings.default().localization.language — used only for the
+// unpublished/minimal payload, where the tenant aggregate is not loaded.
+function defaultLocalization(): HotsiteLocalization {
+  return { language: 'pt-BR' };
 }
 
 @Injectable()
@@ -73,7 +84,13 @@ export class GetHotsiteManifestUseCase {
       const { branding } = this.imageUrlResolver.resolve(config.branding, [], (storagePath) =>
         this.storageService.getPublicUrl(storagePath),
       );
-      return { branding, layout: [], isPublished: false, business: emptyBusinessInfo() };
+      return {
+        branding,
+        layout: [],
+        isPublished: false,
+        business: emptyBusinessInfo(),
+        localization: defaultLocalization(),
+      };
     }
 
     const tenant = await this.tenantRepo.findById(tenantId);
@@ -90,6 +107,7 @@ export class GetHotsiteManifestUseCase {
       layout,
       isPublished: config.isPublished,
       business: this.mapBusinessInfo(tenant.settings.business_info),
+      localization: { language: tenant.settings.localization.language },
     };
   }
 

@@ -2,6 +2,7 @@ import { makeBackendHttp } from '../test/backend-http.mock';
 import { PlatformPublicController } from './platform.public.controller';
 import {
   HotsiteBusinessInfoResponse,
+  HotsiteLocalizationResponse,
   HotsiteResponse,
   HotsiteSitemapEntryListResponse,
 } from '@beloauto/types';
@@ -22,7 +23,12 @@ const businessInfo: HotsiteBusinessInfoResponse = {
   socialLinks: null,
 };
 
-const hotsiteResponse: HotsiteResponse & { business: HotsiteBusinessInfoResponse } = {
+const localization: HotsiteLocalizationResponse = { language: 'pt-BR' };
+
+const hotsiteResponse: HotsiteResponse & {
+  business: HotsiteBusinessInfoResponse;
+  localization: HotsiteLocalizationResponse;
+} = {
   branding: {
     primaryColor: '#2563eb',
     secondaryColor: '#eff6ff',
@@ -50,13 +56,18 @@ const hotsiteResponse: HotsiteResponse & { business: HotsiteBusinessInfoResponse
   ],
   isPublished: true,
   business: businessInfo,
+  localization,
 };
 
-const unpublishedHotsiteResponse: HotsiteResponse & { business: HotsiteBusinessInfoResponse } = {
+const unpublishedHotsiteResponse: HotsiteResponse & {
+  business: HotsiteBusinessInfoResponse;
+  localization: HotsiteLocalizationResponse;
+} = {
   branding: hotsiteResponse.branding,
   layout: [],
   isPublished: false,
   business: { phone: null, email: null, address: null, socialLinks: null },
+  localization,
 };
 
 describe('PlatformPublicController', () => {
