@@ -82,6 +82,6 @@ export function buildLocalBusinessJsonLd({
 // Escapes "<" so a "</script>" sequence in JSON-LD data cannot break out of the
 // surrounding <script type="application/ld+json"> tag (< is valid inside a JSON string).
 export function toJsonLdScript(data: unknown): string {
-  const backslash = String.fromCharCode(92);
+  const backslash = String.fromCodePoint(92);
   return JSON.stringify(data).replaceAll('<', `${backslash}u003c`);
 }
