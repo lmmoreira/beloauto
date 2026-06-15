@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import type React from 'react';
 import type { BookingCtaModuleData } from '@beloauto/types';
 import { sectionHeadingFont } from '@/lib/hotsite/module-styles';
@@ -41,13 +42,13 @@ function BookingCtaContent({
           {data.subtitle}
         </p>
       )}
-      <a
+      <Link
         href={`/${slug}/booking`}
         style={btnStyle}
         className="inline-block border-2 px-8 py-3 font-semibold transition-all hover:bg-[var(--ba-btn-hover-bg)] hover:opacity-90"
       >
         {data.ctaLabel}
-      </a>
+      </Link>
     </>
   );
 }
