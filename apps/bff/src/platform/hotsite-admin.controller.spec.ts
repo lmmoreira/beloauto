@@ -30,7 +30,7 @@ const hotsiteContentResponse: HotsiteAdminContentResponse = {
         variant: 'centered',
         title: 'Bem-vindo',
         ctaLabel: 'Agendar agora',
-        ctaTarget: 'booking',
+        ctaTarget: 'booking-form',
       },
     },
   ],

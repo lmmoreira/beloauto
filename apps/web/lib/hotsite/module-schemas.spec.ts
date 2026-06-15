@@ -67,7 +67,10 @@ describe('HeroModuleDataSchema', () => {
   });
 
   it('rejects missing required fields', () => {
-    const result = HeroModuleDataSchema.safeParse({ variant: 'centered', ctaTarget: 'booking' });
+    const result = HeroModuleDataSchema.safeParse({
+      variant: 'centered',
+      ctaTarget: 'booking-form',
+    });
 
     expect(result.success).toBe(false);
   });

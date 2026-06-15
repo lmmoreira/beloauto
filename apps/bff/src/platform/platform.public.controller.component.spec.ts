@@ -40,7 +40,7 @@ const hotsiteResponse: HotsiteResponse & { business: HotsiteBusinessInfoResponse
         variant: 'centered',
         title: 'Bem-vindo',
         ctaLabel: 'Agendar agora',
-        ctaTarget: 'booking',
+        ctaTarget: 'booking-form',
       },
     },
   ],
