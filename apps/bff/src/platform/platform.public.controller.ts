@@ -6,6 +6,7 @@ import {
   HotsiteBusinessInfoResponse,
   HotsiteManifestResponse,
   HotsiteResponse,
+  HotsiteSitemapEntryListResponse,
 } from '@beloauto/types';
 
 @Controller('platform')
@@ -23,5 +24,14 @@ export class PlatformPublicController {
       HotsiteResponse & { business: HotsiteBusinessInfoResponse }
     >('/hotsite', tenant.id);
     return { tenant, ...hotsite };
+  }
+
+  @Get('published-hotsites')
+  @Public()
+  @Header('Cache-Control', 'public, max-age=300')
+  getPublishedHotsites(): Promise<HotsiteSitemapEntryListResponse> {
+    return this.backendHttp.get<HotsiteSitemapEntryListResponse>(
+      '/internal/tenants/published-hotsites',
+    );
   }
 }

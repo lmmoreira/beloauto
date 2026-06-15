@@ -1,6 +1,10 @@
 import { makeBackendHttp } from '../test/backend-http.mock';
 import { PlatformPublicController } from './platform.public.controller';
-import { HotsiteBusinessInfoResponse, HotsiteResponse } from '@beloauto/types';
+import {
+  HotsiteBusinessInfoResponse,
+  HotsiteResponse,
+  HotsiteSitemapEntryListResponse,
+} from '@beloauto/types';
 
 const tenantInfo = { id: 'tenant-uuid', slug: 'lavacar-bh', name: 'Lavacar BH' };
 
@@ -90,6 +94,21 @@ describe('PlatformPublicController', () => {
       const result = await controller.getManifest('lavacar-bh');
 
       expect(result).toEqual({ tenant: tenantInfo, ...unpublishedHotsiteResponse });
+    });
+  });
+
+  describe('getPublishedHotsites()', () => {
+    it('returns the list of published hotsites from the backend', async () => {
+      const response: HotsiteSitemapEntryListResponse = {
+        items: [{ slug: 'lavacar-bh', updatedAt: '2026-06-10T12:00:00.000Z' }],
+      };
+      const backendHttp = makeBackendHttp({ get: jest.fn().mockResolvedValue(response) });
+      const controller = new PlatformPublicController(backendHttp);
+
+      const result = await controller.getPublishedHotsites();
+
+      expect(backendHttp.get).toHaveBeenCalledWith('/internal/tenants/published-hotsites');
+      expect(result).toEqual(response);
     });
   });
 });

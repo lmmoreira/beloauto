@@ -173,3 +173,14 @@ export interface HotsiteServiceResponse {
 export interface HotsiteServiceListResponse {
   items: HotsiteServiceResponse[];
 }
+
+// ─── Published hotsites listing (sitemap.xml — M12-S09) ───────────────────────
+
+export interface HotsiteSitemapEntryResponse {
+  slug: string;
+  updatedAt: string;
+}
+
+export interface HotsiteSitemapEntryListResponse {
+  items: HotsiteSitemapEntryResponse[];
+}
