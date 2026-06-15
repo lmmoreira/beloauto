@@ -820,7 +820,7 @@ Implement the hotsite edge cases: a 404 page for unknown slugs, and an "Em breve
 
 ---
 
-### M12-S09 — Hotsite SEO: meta tags, Open Graph, structured data
+### M12-S09 — Hotsite SEO: meta tags, Open Graph, structured data ✅ Done
 
 **Agent:** `backend-ts` + `bff-ts` + `frontend-ts`  
 **Complexity:** M  
