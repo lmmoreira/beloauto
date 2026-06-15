@@ -12,7 +12,7 @@ import { ServiceListModule } from '@/components/hotsite/ServiceListModule';
 import { TestimonialsModule } from '@/components/hotsite/TestimonialsModule';
 import { Unavailable } from '@/components/hotsite/Unavailable';
 import { isValidModuleData } from '@/lib/hotsite/module-schemas';
-import { buildHotsiteMetadata, buildLocalBusinessJsonLd } from '@/lib/hotsite/seo';
+import { buildHotsiteMetadata, buildLocalBusinessJsonLd, toJsonLdScript } from '@/lib/hotsite/seo';
 
 // Next.js statically analyses segment config exports — imported variables are not resolved.
 // Must be a literal. Keep in sync with HOTSITE_REVALIDATE_SECONDS in lib/hotsite/revalidate.ts.
@@ -63,7 +63,7 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
     <main>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toJsonLdScript(localBusinessJsonLd) }}
       />
       {manifest.layout
         .filter((m) => m.enabled)

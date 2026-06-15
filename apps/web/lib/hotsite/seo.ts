@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import type { HotsiteManifestResponse } from '@beloauto/types';
 
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(
+  /\/+$/,
+  '',
+);
 
 export interface BuildHotsiteMetadataParams {
   readonly manifest: HotsiteManifestResponse;
@@ -59,4 +62,10 @@ export function buildLocalBusinessJsonLd({
     name: manifest.tenant.name,
     url: `${SITE_URL}/${slug}`,
   };
+}
+
+// Escapes "<" so a "</script>" sequence in JSON-LD data cannot break out of the
+// surrounding <script type="application/ld+json"> tag (< is valid inside a JSON string).
+export function toJsonLdScript(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, '\\u003c');
 }

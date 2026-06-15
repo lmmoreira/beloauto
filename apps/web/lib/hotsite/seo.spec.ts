@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { HotsiteManifestResponse } from '@beloauto/types';
-import { SITE_URL, buildHotsiteMetadata, buildLocalBusinessJsonLd } from './seo';
+import { SITE_URL, buildHotsiteMetadata, buildLocalBusinessJsonLd, toJsonLdScript } from './seo';
 
 function makeManifest(overrides: Partial<HotsiteManifestResponse> = {}): HotsiteManifestResponse {
   return {
@@ -40,12 +40,29 @@ describe('SITE_URL', () => {
     vi.resetModules();
   });
 
-  it('falls back to http://localhost:3000 when NEXT_PUBLIC_SITE_URL is unset', () => {
-    expect(SITE_URL).toBe('http://localhost:3000');
+  it('falls back to http://localhost:3000 when NEXT_PUBLIC_SITE_URL is unset', async () => {
+    const original = process.env.NEXT_PUBLIC_SITE_URL;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    vi.resetModules();
+
+    const { SITE_URL: freshSiteUrl } = await import('./seo');
+
+    expect(freshSiteUrl).toBe('http://localhost:3000');
+
+    if (original !== undefined) process.env.NEXT_PUBLIC_SITE_URL = original;
   });
 
   it('reads NEXT_PUBLIC_SITE_URL when set', async () => {
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://beloauto.com');
+    vi.resetModules();
+
+    const { SITE_URL: stubbedSiteUrl } = await import('./seo');
+
+    expect(stubbedSiteUrl).toBe('https://beloauto.com');
+  });
+
+  it('strips a trailing slash from NEXT_PUBLIC_SITE_URL', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://beloauto.com/');
     vi.resetModules();
 
     const { SITE_URL: stubbedSiteUrl } = await import('./seo');
@@ -131,5 +148,23 @@ describe('buildLocalBusinessJsonLd', () => {
       name: 'Lavacar BH',
       url: `${SITE_URL}/lavacar-bh`,
     });
+  });
+});
+
+describe('toJsonLdScript', () => {
+  it('serializes data as JSON', () => {
+    const result = toJsonLdScript({ '@type': 'LocalBusiness', name: 'Lavacar BH' });
+
+    expect(JSON.parse(result.replace(/\\u003c/g, '<'))).toEqual({
+      '@type': 'LocalBusiness',
+      name: 'Lavacar BH',
+    });
+  });
+
+  it('escapes "<" so a "</script>" sequence cannot break out of the script tag', () => {
+    const result = toJsonLdScript({ name: 'Foo</script><script>alert(1)</script>' });
+
+    expect(result).not.toContain('</script>');
+    expect(result).toContain('\\u003c/script>');
   });
 });
