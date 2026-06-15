@@ -1,9 +1,16 @@
 import type { Metadata } from 'next';
 import type { HotsiteManifestResponse } from '@beloauto/types';
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(
-  /\/+$/,
-  '',
+function stripTrailingSlashes(value: string): string {
+  let result = value;
+  while (result.endsWith('/')) {
+    result = result.slice(0, -1);
+  }
+  return result;
+}
+
+export const SITE_URL = stripTrailingSlashes(
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
 );
 
 export interface BuildHotsiteMetadataParams {
