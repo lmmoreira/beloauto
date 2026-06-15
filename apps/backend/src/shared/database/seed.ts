@@ -162,7 +162,7 @@ async function seedHotsites(q: ReturnType<DataSource['createQueryRunner']>): Pro
         variant: 'centered',
         title: 'Cuidado completo para o seu carro',
         ctaLabel: 'Agendar agora',
-        ctaTarget: 'booking',
+        ctaTarget: 'booking-form',
       },
     },
     {
@@ -184,7 +184,7 @@ async function seedHotsites(q: ReturnType<DataSource['createQueryRunner']>): Pro
         variant: 'centered',
         title: 'Seu carro impecável',
         ctaLabel: 'Agendar agora',
-        ctaTarget: 'booking',
+        ctaTarget: 'booking-form',
       },
     },
     {

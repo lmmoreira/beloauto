@@ -53,7 +53,7 @@ function HeroTextContent({
 }
 
 export function HeroModule({ data, slug: _ }: HeroModuleProps) {
-  const ctaHref = data.ctaTarget === 'booking' ? '#booking-form' : '#service-list';
+  const ctaHref = `#${data.ctaTarget}`;
   const bgUrl = data.backgroundImageUrl;
 
   if (data.variant === 'centered') {

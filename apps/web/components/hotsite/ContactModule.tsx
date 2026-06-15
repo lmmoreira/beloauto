@@ -49,6 +49,7 @@ export function ContactModule({ data, business, slug: _ }: ContactModuleProps) {
 
   return (
     <section
+      id="contact"
       style={{
         backgroundColor: 'var(--ba-background)',
         color: 'var(--ba-text)',

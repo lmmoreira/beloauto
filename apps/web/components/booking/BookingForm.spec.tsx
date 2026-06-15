@@ -1,0 +1,189 @@
+// @vitest-environment jsdom
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AvailabilityResponse, DaySummary, HotsiteServiceResponse } from '@beloauto/types';
+import { CreateBookingError, createBooking } from '@/lib/api/bookings';
+import { fetchAvailability, fetchAvailabilitySummary } from '@/lib/api/schedule';
+import { BookingForm } from './BookingForm';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('@/lib/api/bookings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/bookings')>();
+  return {
+    ...actual,
+    createBooking: vi.fn(),
+    createAttachmentSignedUrl: vi.fn(),
+  };
+});
+
+vi.mock('@/lib/api/schedule', () => ({
+  fetchAvailabilitySummary: vi.fn(),
+  fetchAvailability: vi.fn(),
+}));
+
+function makeService(overrides?: Partial<HotsiteServiceResponse>): HotsiteServiceResponse {
+  return {
+    id: 'svc-1',
+    name: 'Lavagem Completa',
+    description: 'Lavagem externa e interna',
+    price: { amount: 150, currency: 'BRL', formatted: 'R$ 150,00' },
+    durationMinutes: 60,
+    loyaltyPointsValue: 10,
+    requiresPickupAddress: false,
+    isActive: true,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+const day: DaySummary = { date: '2026-06-15', available: true, slotCount: 1 };
+const slot = { startsAt: '2026-06-15T12:00:00.000Z', endsAt: '2026-06-15T13:00:00.000Z' };
+const availability: AvailabilityResponse = { date: '2026-06-15', available: true, slots: [slot] };
+
+async function advanceToStep3(
+  user: ReturnType<typeof userEvent.setup>,
+  services: HotsiteServiceResponse[],
+) {
+  vi.mocked(fetchAvailabilitySummary).mockResolvedValue([day]);
+  vi.mocked(fetchAvailability).mockResolvedValue(availability);
+
+  render(<BookingForm slug="lavacar-beloauto" services={services} />);
+
+  await user.click(screen.getByRole('checkbox'));
+  await user.click(screen.getByRole('button', { name: 'Próximo' }));
+
+  await user.click(await screen.findByTestId('day-card-2026-06-15'));
+  await user.click(await screen.findByText('09:00–10:00'));
+  await user.click(screen.getByRole('button', { name: 'Próximo' }));
+
+  await screen.findByLabelText('Nome');
+}
+
+async function fillContactFields(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText('Nome'), 'Maria Silva');
+  await user.type(screen.getByLabelText('E-mail'), 'maria@example.com');
+  await user.type(screen.getByLabelText('Telefone'), '11999999999');
+  await user.click(screen.getByRole('button', { name: 'Próximo' }));
+}
+
+describe('BookingForm', () => {
+  afterEach(() => {
+    vi.mocked(fetchAvailabilitySummary).mockReset();
+    vi.mocked(fetchAvailability).mockReset();
+    vi.mocked(createBooking).mockReset();
+  });
+
+  it('renders Step 1 with the service list', () => {
+    render(<BookingForm slug="lavacar-beloauto" services={[makeService()]} />);
+
+    expect(screen.getByText('Escolha os serviços')).toBeInTheDocument();
+    expect(screen.getByText('Passo 1 de 4')).toBeInTheDocument();
+  });
+
+  it('moves to Step 2 after selecting a service', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetchAvailabilitySummary).mockResolvedValue([day]);
+
+    render(<BookingForm slug="lavacar-beloauto" services={[makeService()]} />);
+
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Próximo' }));
+
+    expect(screen.getByText('Escolha data e horário')).toBeInTheDocument();
+    expect(screen.getByText('Passo 2 de 4')).toBeInTheDocument();
+  });
+
+  it('moves to Step 3 after selecting a date and slot', async () => {
+    const user = userEvent.setup();
+
+    await advanceToStep3(user, [makeService()]);
+
+    expect(screen.getByText('Seus dados')).toBeInTheDocument();
+    expect(screen.getByText('Passo 3 de 4')).toBeInTheDocument();
+  });
+
+  it('moves to Step 4 with a booking summary after filling personal info', async () => {
+    const user = userEvent.setup();
+
+    await advanceToStep3(user, [makeService()]);
+    await fillContactFields(user);
+
+    expect(screen.getByText('Confirme seu agendamento')).toBeInTheDocument();
+    expect(screen.getByText('Passo 4 de 4')).toBeInTheDocument();
+    expect(screen.getByText('15/06/2026 às 09:00')).toBeInTheDocument();
+  });
+
+  it('shows the pickup address section in Step 1 when a selected service requires it', async () => {
+    const user = userEvent.setup();
+    const service = makeService({ requiresPickupAddress: true });
+
+    render(<BookingForm slug="lavacar-beloauto" services={[service]} />);
+    await user.click(screen.getByRole('checkbox'));
+
+    expect(screen.getByText('Endereço de coleta')).toBeInTheDocument();
+  });
+
+  it('submits the booking and shows the success message', async () => {
+    const user = userEvent.setup();
+    vi.mocked(createBooking).mockResolvedValue({
+      bookingId: 'booking-1',
+      status: 'PENDING',
+      scheduledAt: slot.startsAt,
+      totalPrice: { amount: 150, currency: 'BRL' },
+      totalDurationMins: 60,
+      pickupAddress: null,
+      beforeServicePhotoUrls: [],
+      lines: [],
+    });
+
+    await advanceToStep3(user, [makeService()]);
+    await fillContactFields(user);
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar agendamento' }));
+
+    expect(await screen.findByTestId('confirmation-success')).toBeInTheDocument();
+    expect(createBooking).toHaveBeenCalledWith(
+      'lavacar-beloauto',
+      expect.objectContaining({
+        contactName: 'Maria Silva',
+        contactEmail: 'maria@example.com',
+        contactPhone: '(11) 99999-9999',
+        scheduledAt: slot.startsAt,
+        serviceIds: ['svc-1'],
+      }),
+    );
+  });
+
+  it('returns to Step 2 with an error message when the slot is no longer available (409)', async () => {
+    const user = userEvent.setup();
+    vi.mocked(createBooking).mockRejectedValue(new CreateBookingError(409, 'Conflict'));
+
+    await advanceToStep3(user, [makeService()]);
+    await fillContactFields(user);
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar agendamento' }));
+
+    expect(await screen.findByTestId('step2-error')).toHaveTextContent(
+      'Horário indisponível, escolha outro',
+    );
+    expect(screen.getByText('Escolha data e horário')).toBeInTheDocument();
+  });
+
+  it('shows a generic error message for other submission failures', async () => {
+    const user = userEvent.setup();
+    vi.mocked(createBooking).mockRejectedValue(new Error('network error'));
+
+    await advanceToStep3(user, [makeService()]);
+    await fillContactFields(user);
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar agendamento' }));
+
+    expect(await screen.findByTestId('confirmation-error')).toHaveTextContent(
+      'Não foi possível enviar sua solicitação. Tente novamente.',
+    );
+  });
+});

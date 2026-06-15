@@ -39,7 +39,7 @@ describe('HotsiteImagePathsService', () => {
           title: 'Title',
           backgroundImageUrl: 'tenants/t1/hotsite/hero/u1/bg.jpg',
           ctaLabel: 'Book',
-          ctaTarget: 'booking',
+          ctaTarget: 'booking-form',
         },
       },
       {

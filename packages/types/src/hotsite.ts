@@ -12,7 +12,7 @@ export interface HeroModuleData {
   subtitle?: string;
   backgroundImageUrl?: string;
   ctaLabel: string;
-  ctaTarget: 'booking' | 'service-list';
+  ctaTarget: 'booking-form' | 'service-list' | 'gallery' | 'testimonials' | 'about' | 'contact';
 }
 
 export interface ServiceListModuleData {
@@ -51,6 +51,7 @@ export interface TestimonialsModuleData {
 }
 
 export interface BookingCtaModuleData {
+  variant?: 'centered' | 'left-aligned';
   title: string;
   subtitle?: string;
   ctaLabel: string;

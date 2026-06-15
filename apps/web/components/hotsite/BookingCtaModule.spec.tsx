@@ -1,0 +1,67 @@
+// @vitest-environment jsdom
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import type { BookingCtaModuleData } from '@beloauto/types';
+import { BookingCtaModule } from './BookingCtaModule';
+
+function makeData(overrides?: Partial<BookingCtaModuleData>): BookingCtaModuleData {
+  return {
+    title: 'Agende seu horário',
+    ctaLabel: 'Agendar agora',
+    ...overrides,
+  };
+}
+
+describe('BookingCtaModule', () => {
+  it('renders title and CTA link to the booking page', () => {
+    render(<BookingCtaModule data={makeData()} slug="lavacar-beloauto" />);
+
+    expect(screen.getByRole('heading', { name: 'Agende seu horário' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Agendar agora' })).toHaveAttribute(
+      'href',
+      '/lavacar-beloauto/booking',
+    );
+  });
+
+  it('renders a section with id="booking-form"', () => {
+    const { container } = render(<BookingCtaModule data={makeData()} slug="lavacar-beloauto" />);
+
+    expect(container.querySelector('section#booking-form')).toBeInTheDocument();
+  });
+
+  it('renders subtitle when provided', () => {
+    render(
+      <BookingCtaModule
+        data={makeData({ subtitle: 'Vagas limitadas para hoje' })}
+        slug="lavacar-beloauto"
+      />,
+    );
+
+    expect(screen.getByText('Vagas limitadas para hoje')).toBeInTheDocument();
+  });
+
+  it('does not render subtitle element when absent', () => {
+    const { container } = render(<BookingCtaModule data={makeData()} slug="lavacar-beloauto" />);
+
+    expect(container.querySelector('[data-testid="booking-cta-subtitle"]')).not.toBeInTheDocument();
+  });
+
+  it('renders img with correct src when backgroundImageUrl is provided', () => {
+    const { container } = render(
+      <BookingCtaModule
+        data={makeData({ backgroundImageUrl: 'https://storage.example.com/cta.jpg' })}
+        slug="lavacar-beloauto"
+      />,
+    );
+
+    const img = container.querySelector('img');
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('src', 'https://storage.example.com/cta.jpg');
+  });
+
+  it('does not render img when backgroundImageUrl is absent', () => {
+    const { container } = render(<BookingCtaModule data={makeData()} slug="lavacar-beloauto" />);
+
+    expect(container.querySelector('img')).not.toBeInTheDocument();
+  });
+});

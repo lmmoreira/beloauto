@@ -23,6 +23,7 @@ export function TestimonialsModule({ data, slug: _ }: TestimonialsModuleProps) {
 
   return (
     <section
+      id="testimonials"
       style={{
         backgroundColor: 'var(--ba-background)',
         color: 'var(--ba-text)',

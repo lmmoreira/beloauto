@@ -1,64 +1,45 @@
-import type { BookingStatus, BookingType } from './enums';
-import type { Money } from './money';
 import type { Address } from './address';
-import type { ServiceResponse } from './service.dto';
+import type { MoneyAmount } from './money';
 
 export interface CreateBookingRequest {
-  serviceId: string;
-  scheduledAt: string; // ISO-8601 datetime
-  vehiclePlate: string;
-  vehicleModel?: string;
+  contactEmail: string;
+  contactName: string;
+  contactPhone: string;
+  contactAddress?: Address;
   pickupAddress?: Address;
-  notes?: string;
-  // For guest bookings
-  contactName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
+  scheduledAt: string; // ISO-8601 datetime
+  serviceIds: string[];
+  beforeServicePhotoUrls?: string[];
 }
 
 export interface BookingLineResponse {
-  id: string;
-  service: ServiceResponse;
-  price: Money;
-  loyaltyPointsEarned: number;
+  lineId: string;
+  serviceId: string;
+  priceAtBooking: MoneyAmount;
+  durationMinsAtBooking: number;
+  pointsValueAtBooking: number;
+  requiresPickupAddressAtBooking: boolean;
 }
 
 export interface BookingResponse {
-  id: string;
-  tenantId: string;
-  type: BookingType;
-  status: BookingStatus;
+  bookingId: string;
+  status: string;
   scheduledAt: string;
-  vehiclePlate: string;
-  vehicleModel?: string;
-  pickupAddress?: Address;
-  notes?: string;
-  infoRequest?: string;
+  totalPrice: MoneyAmount;
+  totalDurationMins: number;
+  pickupAddress: Address | null;
+  beforeServicePhotoUrls: string[];
   lines: BookingLineResponse[];
-  total: Money;
-  beforePhotoUrls: string[];
-  afterPhotoUrls: string[];
-  createdAt: string;
-  updatedAt: string;
-  // Guest fields
-  contactName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
 }
 
-export interface CompleteBookingRequest {
-  afterPhotoKeys: string[];
+export interface AttachmentSignedUrlRequest {
+  fileName: string;
+  contentType: 'image/jpeg' | 'image/png';
+  tenantSlug: string;
 }
 
-export interface RescheduleBookingRequest {
-  scheduledAt: string; // ISO-8601 datetime
-  reason?: string;
-}
-
-export interface RequestMoreInfoRequest {
-  message: string;
-}
-
-export interface SubmitInfoRequest {
-  response: string;
+export interface AttachmentSignedUrlResponse {
+  signedUrl: string;
+  filePath: string;
+  expiresAt: string;
 }
