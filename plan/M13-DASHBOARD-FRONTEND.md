@@ -51,10 +51,10 @@ Set up TanStack Query (React Query) as the global data-fetching layer and create
 
 **Agent:** `frontend-ts`  
 **Complexity:** M  
-**Docs to load:** `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` § auth pages, `docs/04-USE_CASES.md` § UC-021, UC-022, UC-023
+**Docs to load:** `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` § auth pages, `docs/04-USE_CASES.md` § UC-021 (incl. A3), UC-022, UC-023, UC-002 (A11)
 
 **Description:**  
-Implement the three authentication pages in Next.js. These are the user-facing entry points for the auth flows from M03.
+Implement the four authentication pages in Next.js. These are the user-facing entry points for the auth flows from M03.
 
 **Pages to create:**
 
@@ -67,12 +67,22 @@ Implement the three authentication pages in Next.js. These are the user-facing e
 - Handles OAuth redirect back from BFF
 - Reads JWT from cookie or query param
 - If tenant selection needed → redirects to `/select-tenant`
-- If direct login → redirects to `/dashboard`
+- Otherwise → proceeds to the profile check below
 
 `app/select-tenant/page.tsx` (UC-021 case B):
 - Shown when customer has 2+ tenants
 - Lists tenants with tenant name + active loyalty points
-- "Entrar" button per tenant → calls `POST /v1/auth/token` → stores JWT → redirects to `/dashboard`
+- "Entrar" button per tenant → calls `POST /v1/auth/token` → stores JWT → proceeds to the profile check below
+
+**Profile check (UC-021 A3, CUSTOMER role only):**
+- After the JWT is issued (single-tenant direct login, or after `/select-tenant`), call `GET /v1/customers/me`
+- If `phone` is null/empty → redirect to `/auth/complete-profile`; otherwise → redirect to `/dashboard`
+- STAFF/MANAGER sessions skip this check entirely and go straight to `/dashboard`
+
+`app/auth/complete-profile/page.tsx` (CUSTOMER only — resolves UC-002 A11's phone precondition):
+- One-time "Complete seu perfil" form collecting `phone`
+- On submit → `PATCH /v1/customers/me { phone }` → redirect to `/dashboard`
+- Never shown again once `phone` is set
 
 **Middleware update (`middleware.ts`):**
 - Protect `/dashboard/*` — redirect to `/auth/login` if no valid JWT cookie
@@ -83,7 +93,10 @@ Implement the three authentication pages in Next.js. These are the user-facing e
 - [ ] "Entrar com Google" button navigates to BFF OAuth URL
 - [ ] Tenant selection page shows all tenants with active point counts
 - [ ] After tenant selection, JWT is stored as an HTTP-only cookie (not localStorage)
-- [ ] Selecting a tenant on `/select-tenant` page redirects to `/dashboard`
+- [ ] Selecting a tenant on `/select-tenant` page proceeds to the profile check
+- [ ] CUSTOMER with `phone = null` is redirected to `/auth/complete-profile` before reaching `/dashboard`; submitting the form calls `PATCH /v1/customers/me` and redirects to `/dashboard`
+- [ ] CUSTOMER with `phone` already set skips `/auth/complete-profile` entirely
+- [ ] STAFF/MANAGER sessions never see `/auth/complete-profile`
 - [ ] JWT expiry detected on page load → redirect to `/auth/login` (not infinite redirect loop)
 
 **Dependencies:** M13-S01, M03-S06, M03-S07

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passo 3 — Revisar pedido (autenticado)</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+</head>
+<body>
+  <!--
+    COMPONENT (GAP): AuthenticatedBookingReviewStep
+    FILE (TO CREATE): apps/web/components/booking/AuthenticatedBookingReviewStep.tsx
+    STORY:           M13-S02 or new story
+
+    KEY DIFFERENCE vs PersonalInfoStep (guest):
+      ✅ NO name / email / phone form — customer is authenticated; data comes from JWT cookie
+      ✅ Services + date/time shown as READ-ONLY summary (for context before confirming)
+      ✅ Pickup address PRE-FILLED from customer.defaultAddress (fetched via GET /customers/me)
+      ✅ PhotoUpload reused unchanged
+
+    PROPS:
+      slug:               string
+      services:           HotsiteServiceResponse[]
+      selectedServiceIds: string[]
+      selectedDate:       string
+      selectedSlot:       AvailableSlot
+      requiresPickupAddress: boolean
+      pickupAddress:      Address  (pre-filled from customer.defaultAddress)
+      onPickupAddressChange: (address: Address) => void
+      value:              { photoFilePaths: string[] }
+      onChange:           (v: { photoFilePaths: string[] }) => void
+      onNext:             () => void
+      onBack:             () => void
+
+    DATA FETCH (on mount):
+      GET /customers/me  — returns customer profile including defaultAddress
+      Header: Authorization: Bearer <jwt>  (sent automatically by BFF from cookie)
+      Shows skeleton/loading state while fetching
+      On error: show inline error, disable "Próximo"
+
+    OPEN QUESTION: Does GET /customers/me exist in BFF? Check apps/bff/src/ before implementing.
+  -->
+
+  <!-- AUTH HEADER BAR -->
+  <div class="auth-bar">
+    <a href="../../../shared/login.html" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none; color: var(--ba-text);">
+      <div class="auth-avatar">JS</div>
+      <span>João Silva</span>
+    </a>
+  </div>
+
+  <div class="step-container">
+    <p class="step-indicator">Passo 3 de 4</p>
+    <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--ba-text)">Revisar pedido</h2>
+
+    <!--
+      READ-ONLY SUMMARY CARD — service + date/time (gives context before confirming)
+      shadcn: Card  (or plain div.card with --ba-* tokens, consistent with existing components)
+    -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <p style="font-size: 0.75rem; font-weight: 600; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Serviço</p>
+      <p style="font-weight: 600; color: var(--ba-text)">Lavagem Simples</p>
+      <p style="font-size: 0.875rem; color: var(--ba-primary); margin-top: 0.125rem;">R$ 60,00 — 30 min</p>
+
+      <hr style="border: none; border-top: 1px solid var(--ba-secondary); margin: 0.875rem 0;">
+
+      <p style="font-size: 0.75rem; font-weight: 600; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">Data e horário</p>
+      <p style="font-weight: 600; color: var(--ba-text)">Quarta-feira, 18 de junho às 10:00</p>
+    </div>
+
+    <!--
+      PICKUP ADDRESS — conditional: only when requiresPickupAddress = true
+      Pre-filled from customer.defaultAddress via GET /customers/me
+      Customer can edit before submitting.
+      COMPONENT: AddressFields (apps/web/components/booking/AddressFields.tsx — reuse unchanged)
+
+      Uncomment to preview the pickup address state:
+    -->
+    <!--
+    <div style="margin-bottom: 1.5rem;">
+      <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--ba-text)">Endereço de coleta</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div style="grid-column: span 2;">
+          <label class="form-label" for="zip">CEP</label>
+          <input id="zip" class="form-input" type="text" value="01310-100">
+        </div>
+        <div style="grid-column: span 2;">
+          <label class="form-label" for="street">Rua</label>
+          <input id="street" class="form-input" type="text" value="Av. Paulista">
+        </div>
+        <div>
+          <label class="form-label" for="number">Número</label>
+          <input id="number" class="form-input" type="text" value="1000">
+        </div>
+        <div>
+          <label class="form-label" for="complement">Complemento</label>
+          <input id="complement" class="form-input" type="text" placeholder="Opcional">
+        </div>
+        <div>
+          <label class="form-label" for="neighborhood">Bairro</label>
+          <input id="neighborhood" class="form-input" type="text" value="Bela Vista">
+        </div>
+        <div>
+          <label class="form-label" for="city">Cidade</label>
+          <input id="city" class="form-input" type="text" value="São Paulo">
+        </div>
+        <div>
+          <label class="form-label" for="state">UF</label>
+          <input id="state" class="form-input" type="text" value="SP" maxlength="2">
+        </div>
+      </div>
+    </div>
+    -->
+
+    <!--
+      PHOTO UPLOAD (optional) — reused unchanged
+      COMPONENT: PhotoUpload  (apps/web/components/booking/PhotoUpload.tsx)
+      Same upload flow as guest: POST /bookings/attachments/signed-url → PUT to GCS
+      NOTE: for authenticated customer, POST /bookings/attachments/signed-url
+            sends Authorization header (JWT), not tenantSlug in body (see Scenario 1 in BFF)
+    -->
+    <div style="margin-bottom: 1.5rem;">
+      <p class="form-label">Fotos do veículo (opcional)</p>
+      <div class="upload-area">
+        <p style="opacity: 0.75; font-size: 0.875rem;">Clique para adicionar fotos</p>
+        <p style="font-size: 0.75rem; opacity: 0.5; margin-top: 0.25rem;">JPG ou PNG</p>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <a class="btn-secondary" href="02-calendar-slot.html">Voltar</a>
+      <a class="btn-primary" href="04-confirmation.html">Próximo</a>
+    </div>
+  </div>
+</body>
+</html>

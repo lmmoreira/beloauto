@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protótipo — GUEST: Agendar Serviço</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    body { padding: 2rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p { margin-bottom: 1rem; font-size: 0.9375rem; }
+    ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; margin: 1.25rem 0; }
+    li { display: flex; align-items: center; gap: 0.75rem; }
+    li a { color: var(--ba-primary); font-weight: 500; }
+    .tag {
+      font-size: 0.75rem; font-weight: 600; padding: 0.125rem 0.5rem;
+      border-radius: 4px; white-space: nowrap;
+    }
+    .tag-green  { background: #dcfce7; color: #15803d; }
+    .tag-red    { background: #fee2e2; color: #dc2626; }
+    .note {
+      background: var(--ba-secondary);
+      border-radius: var(--ba-radius);
+      padding: 1rem 1.25rem;
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+    hr { border: none; border-top: 1px solid var(--ba-secondary); margin: 1.25rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Protótipo — GUEST: Agendar Serviço</h1>
+  <p>Fluxo de 4 passos. Todos os componentes já existem em <code>apps/web/components/booking/</code> (M12-S07). Este protótipo é para revisão de UX — nenhum código novo é necessário para o caminho do guest.</p>
+
+  <ul>
+    <li>
+      <a href="00-hotsite.html">Tela 0 — Hotsite (ponto de entrada)</a>
+      <span class="tag tag-green">EXISTS: HeroModule + ServiceListModule + BookingCtaModule</span>
+    </li>
+    <li>
+      <a href="01-service-selection.html">Passo 1 — Escolha os serviços</a>
+      <span class="tag tag-green">EXISTS: ServiceSelectionStep</span>
+    </li>
+    <li>
+      <a href="02-calendar-slot.html">Passo 2 — Calendário e horário</a>
+      <span class="tag tag-green">EXISTS: AvailabilityCarousel + SlotPicker</span>
+    </li>
+    <li>
+      <a href="03-personal-info.html">Passo 3 — Seus dados</a>
+      <span class="tag tag-green">EXISTS: PersonalInfoStep</span>
+    </li>
+    <li>
+      <a href="04-confirmation.html">Passo 4 — Confirmar agendamento</a>
+      <span class="tag tag-green">EXISTS: ConfirmationStep</span>
+    </li>
+  </ul>
+
+  <hr>
+
+  <div class="note">
+    <strong>O que este protótipo valida:</strong><br>
+    ✅ Sequência de 4 passos faz sentido para o guest?<br>
+    ✅ Pickup address no passo 1 (antes do calendário) é o lugar certo?<br>
+    ✅ Formulário de dados pessoais no passo 3 está claro e completo?<br>
+    ✅ Resumo do passo 4 contém todas as informações necessárias para confirmar?<br>
+    ✅ Tokens de branding (<code>--ba-*</code>) são os mesmos que o hotsite usa?<br>
+    <br>
+    <strong>Ver também:</strong> caminho do cliente autenticado →
+    <a href="../../customer/prototypes/book-a-service/index.html">customer/prototypes/book-a-service/</a><br>
+    <strong>Dev notes</strong> (shadcn mapping, API, validações) → <a href="dev-notes.md">dev-notes.md</a>
+  </div>
+</body>
+</html>

@@ -91,7 +91,7 @@ UC-XXX: [Use Case Name]
   - Same A1–A8 as UC-001 (invalid services, slot unavailable, invalid pickup address, etc.).
   - **A9: Customer has no defaultAddress and selects pickup service** → pickup address field shown empty; customer must fill it in manually.
   - **A10: Customer views past bookings** → System shows COMPLETED / CANCELLED history with each booking's line list and pickup address if applicable.
-  - **A11: Customer has no phone set on their profile** → System returns `422 customer-phone-not-set`. UI prompts the customer to update their profile (`PATCH /customers/me`) before booking.
+  - **A11: Customer has no phone set on their profile** → System returns `422 customer-phone-not-set`. UI prompts the customer to update their profile (`PATCH /customers/me`) before booking. In practice this is handled proactively by the post-login flow (UC-021 A3); this 422 is a defensive backend check.
 
 - **Postconditions:** Booking created with ≥ 1 lines (and `pickupAddress` if applicable), linked to customer. `type = CUSTOMER`. No loyalty effect yet.
 - **Events Triggered:** `BookingRequested`
@@ -788,6 +788,7 @@ Returns:
 - **Alternative Flows:**
   - **A1: No existing bookings in any tenant** → Customer can choose any tenant to start booking
   - **A2: First time customer** → System creates Customer record in selected tenant
+  - **A3: Customer's profile has no phone number** → After tenant resolution (Case A or B), before redirecting to the dashboard, system shows a one-time "Complete seu perfil" prompt collecting `phone`. Submits via `PATCH /customers/me`. Once set, this step is skipped on all future logins. (Unblocks UC-002's phone precondition — see UC-002 A11.)
 
 - **Postconditions:** Customer logged in to one tenant. Session scoped to that tenant.
 - **Events Triggered:** None (read operation)
@@ -948,7 +949,7 @@ Returns:
 
 ### **UC-027: Tenant Admin Manages Hotsite Content & Branding**
 
-- **Actor:** Tenant admin (ADMIN role for that tenant). Super admin can also edit.
+- **Actor:** Staff member with `MANAGER` role.
 - **Preconditions:** Admin is authenticated. `hotsite_configs` row exists for this tenant (created on tenant onboarding or first access).
 - **Trigger:** Admin clicks "Branding" or "Hotsite" in the dashboard
 - **Main Flow:**
@@ -961,13 +962,14 @@ Returns:
       - Font family (dropdown or text)
       - Hero image (upload)
       
-      **Section B: Layout / Modules** (drag-drop list of module types)
-      - [x] HERO (title, subtitle, image) — toggle on/off
-      - [x] SERVICE_LIST (shows services from catalog) — toggle on/off
-      - [x] GALLERY (customer photos) — toggle on/off + limit (6 default)
-      - [x] BOOKING_FORM (integrated form) — toggle on/off
-      - [x] TESTIMONIALS (free-text/structured) — optional for MVP
-      - [x] FAQ (free-text) — optional for MVP
+      **Section B: Layout / Modules** (drag-drop list of module types — the 7 types built in M12)
+      - [x] HERO (title, subtitle, optional background image) — toggle on/off
+      - [x] SERVICE_LIST (services from catalog, with price/points badges) — toggle on/off
+      - [x] GALLERY (booking after-photos + curated images) — toggle on/off + limit (6 default)
+      - [x] BOOKING_CTA (call-to-action linking to the booking page) — toggle on/off
+      - [x] TESTIMONIALS (author, text, optional rating; grid or carousel) — toggle on/off
+      - [x] ABOUT (markdown body + optional image, configurable position) — toggle on/off
+      - [x] CONTACT (address/phone/email/WhatsApp/map, each independently toggleable) — toggle on/off
 
       **Section C: SEO** (M12-S09)
       - Title (text input, max 70 chars) — overrides the generated `<title>` for search results and social sharing
@@ -990,7 +992,6 @@ Returns:
 - **Alternative Flows:**
    - **A1: Invalid color (not hex)** → System shows error and prevents save
    - **A2: Image upload fails** → System falls back to URL input
-   - **A3: Super admin edits** → Same flow, but with elevated permissions (can force-update any tenant)
 
 - **Postconditions:** `hotsite_configs` updated. Hotsite public page reflects new branding and layout immediately (cached at edge if needed).
 - **Events Triggered:** None
@@ -1056,11 +1057,11 @@ Returns:
 | UC-007 | Customer cancels booking | Customer | APPROVED (with time window) \| PENDING \| INFO_REQUESTED → CANCELLED |
 | UC-008 | Admin cancels / reschedules booking | Admin | APPROVED/PENDING/INFO_REQUESTED → CANCELLED (`BookingCancelled`) or scheduledAt updated (`BookingRescheduled`) |
 | UC-009 | Mark booking complete | Staff | APPROVED → COMPLETED + photos + N LoyaltyEntry rows (one per line) |
-| UC-010 | Close schedule | Admin | ScheduleClosure created |
+| UC-010 | Manage schedule closures/openings | Admin | ScheduleClosure or ScheduleOpening created/removed |
 | UC-011 | View calendar | Any | Read available slots filtered by basket's total duration |
 | UC-012 | Create service | Admin | Service created with points value |
 | UC-013 | Edit service | Admin | Service updated |
-| UC-016 | View loyalty metrics | Customer/Admin | Read-only aggregation of `loyalty_entries` — total active points + per-service breakdown + completions count |
+| UC-016 | View loyalty metrics | Customer/Admin | Read-only: `current_points` (O(1) balance), next expiry date/points, paginated earning entries + redemptions |
 | UC-016b | Weekly loyalty expiry warning | System (cron) | Monday 06:00 UTC — emit `PointsExpiringSoon` per customer with expiring points; Notification context sends email |
 | UC-017 | View analytics | Admin | Future feature |
 | UC-018 | Admin receives daily schedule | System | Scheduled reminder email at 6 AM |
@@ -1069,7 +1070,7 @@ Returns:
 | UC-021 | Customer login with tenant selection | Customer | OAuth + tenant selection if multiple |
 | UC-022 | Staff login (no selection) | Staff | OAuth (direct to single tenant) |
 | UC-023 | Customer switches tenant | Customer | Switch session to different tenant |
-| UC-024 | Developer provisions new tenant (CLI) | Developer | `tenants` row + first MANAGER staff row; invite email sent |
+| UC-024 | Platform operator provisions new tenant (REST API) | Platform operator | `tenants` row + first MANAGER staff row; invite email sent |
 | UC-025 | Admin first login (accepts invite) | Invited staff | `staff.is_active = true`, `google_oauth_id` set |
 | UC-026 | Admin edits tenant settings | MANAGER staff | `tenants.settings` JSONB updated |
 | UC-027 | Admin manages hotsite content | MANAGER staff | `hotsite_configs` updated + published |

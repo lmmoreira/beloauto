@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passo 4 — Confirmar agendamento</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+</head>
+<body>
+  <!--
+    COMPONENT: ConfirmationStep
+    FILE:      apps/web/components/booking/ConfirmationStep.tsx  (EXISTS — no changes needed)
+    STATUS:    BookingSubmissionStatus = 'idle' | 'submitting' | 'success' | 'error'
+    MANAGED:   BookingForm (parent) owns status + errorMessage state
+
+    ON SUBMIT — calls createBooking(slug, payload) from lib/api/bookings.ts:
+      POST /bookings
+      Header: X-Tenant-Slug: {slug}
+      Content-Type: application/json
+      Body: CreateBookingRequest (@beloauto/types)
+        {
+          contactName:            string,
+          contactEmail:           string,
+          contactPhone:           string,       // 10–11 digits
+          scheduledAt:            string,       // ISO-8601, e.g. "2026-06-18T10:00:00.000Z"
+          serviceIds:             string[],     // uuid[]
+          contactAddress?:        Address,      // optional
+          pickupAddress?:         Address,      // optional, only if requiresPickupAddress
+          beforeServicePhotoUrls?: string[],    // optional, GCS keys
+        }
+
+    RESPONSES:
+      201 Created → status = 'success' → render success view
+      409 Conflict → setStep(2) + setStep2Error('Horário indisponível, escolha outro')
+      Other 4xx/5xx → status = 'error' + errorMessage = 'Não foi possível enviar sua solicitação. Tente novamente.'
+  -->
+  <!-- GUEST LOGIN BAR -->
+  <div style="
+    background: var(--ba-secondary); padding: 0.5rem 1.5rem;
+    display: flex; align-items: center; justify-content: flex-end;
+  ">
+    <a href="../../../shared/login.html" style="
+      display: flex; align-items: center; gap: 0.375rem;
+      font-size: 0.875rem; font-weight: 500;
+      color: var(--ba-primary); text-decoration: none;
+    ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>
+      Entrar
+    </a>
+  </div>
+
+  <div class="step-container">
+    <p class="step-indicator">Passo 4 de 4</p>
+    <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--ba-text)">Confirme seu agendamento</h2>
+
+    <!-- SERVICES SUMMARY — selected services with price -->
+    <ul style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.25rem; list-style: none; padding: 0;">
+      <li style="display: flex; justify-content: space-between; font-size: 0.875rem; color: var(--ba-text);">
+        <span>Lavagem Simples</span>
+        <span>R$ 60,00</span>
+      </li>
+    </ul>
+
+    <!-- TOTALS — formatBRL(totalAmount) + formatDuration(totalDuration) -->
+    <p style="font-weight: 600; color: var(--ba-text); margin-bottom: 0.5rem;">Total: R$ 60,00 — 30 min</p>
+
+    <!-- DATE + TIME — formatDateBR(selectedDate) + formatTimeBR(selectedSlot.startsAt) -->
+    <p style="color: var(--ba-text);">Quarta-feira, 18 de junho às 10:00</p>
+
+    <!--
+      ERROR STATE — status = 'error'
+      data-testid="confirmation-error"
+      Uncomment to preview:
+    -->
+    <!--
+    <p style="margin-top: 1rem; color: #dc2626;" data-testid="confirmation-error">
+      Não foi possível enviar sua solicitação. Tente novamente.
+    </p>
+    -->
+
+    <!--
+      SUCCESS STATE — status = 'success' — entire step replaced with this view
+      data-testid="confirmation-success"
+      Uncomment to preview:
+    -->
+    <!--
+    <div>
+      <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--ba-text)">Solicitação enviada!</h2>
+      <p data-testid="confirmation-success">Solicitação enviada! Aguarde a confirmação por email.</p>
+      <a href="../../index.html"
+        style="display: inline-block; margin-top: 1.5rem; padding: 0.75rem 1.5rem;
+               border: 1px solid var(--ba-secondary); border-radius: var(--ba-radius);
+               color: var(--ba-text); text-decoration: none;">
+        Voltar para o site
+      </a>
+    </div>
+    -->
+
+    <div class="nav-buttons">
+      <!-- Disabled when status = 'submitting' -->
+      <a class="btn-secondary" href="03-personal-info.html">Voltar</a>
+      <!--
+        On click: setStatus('submitting') → button text changes to "Enviando..."
+        → button disabled until response
+      -->
+      <button class="btn-primary">Confirmar agendamento</button>
+    </div>
+  </div>
+</body>
+</html>

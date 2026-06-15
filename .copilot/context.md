@@ -155,14 +155,14 @@ CANCELLED      (terminal)
 | UC-021 | Customer login + tenant selection | Active (canonical) |
 | UC-022 | Staff login — single tenant | Active (canonical) |
 | UC-023 | Customer switches tenant | Active |
-| UC-024 | Developer provisions new tenant (CLI) | Active |
+| UC-024 | Platform operator provisions new tenant (REST API) | Active |
 | UC-025 | Admin first login / accepts invite | Active |
 | UC-026 | Admin edits tenant settings | Active |
 | UC-027 | Admin manages hotsite content | Active |
 | UC-028 | Admin invites new staff member | Active |
 | UC-029 | Admin deactivates staff member | Active |
 
-**Missing UCs (do not implement until documented):** Customer profile edit, audit log view, notification template management, failed-notification retry.
+**Missing UCs (do not implement until documented):** Customer profile edit beyond the minimal phone-collection step (UC-021 A3 / M13-S02), audit log view, notification template management, failed-notification retry.
 
 ---
 
@@ -470,6 +470,7 @@ If every story in the milestone is now `✅ Done`, see §15 item 9 for the two w
 | Working on M12+ (NotificationTemplate/Log, Pub/Sub DLQ, cron reminders, processed_events) | `plan/M11-NOTIFICATIONS-CRON_IMPLEMENTATION_DETAILS_IA.md` | 5 |
 | Working on M13+ (dashboard frontend; hotsite module system, branding tokens, ISR/revalidation, booking form, SEO, public/private storage) | `plan/M12-HOTSITE-FRONTEND_IMPLEMENTATION_DETAILS_IA.md` | 11 |
 | Working on M115 (GCS signed-URL, dev-login, InternalApiGuard, `contact*` rename) | `plan/M115-PRODUCTION-READINESS_IMPLEMENTATION_DETAILS_IA.md` | 3 |
+| Writing new journeys or prototypes (`plan/journey/`) | `plan/journey/README.md` | 3 |
 
 **Anti-patterns reference:** `docs/ANTI_PATTERNS.md` — full table; loaded automatically by `/pre-pr`.
 
@@ -523,6 +524,7 @@ Commands live in `.claude/commands/`. Claude Code auto-discovers them — type `
 | `/domain-audit [context-path]` | `.claude/commands/domain-audit.md` | Structural VO/builder scan. Called automatically by `/pre-pr`. |
 | `/mark-done M0X-SYY` | `.claude/commands/mark-done.md` | **After merge to main** — marks story done, commits, alerts if milestone complete. |
 | `/story-discovery M0X-SYY` | `.claude/commands/story-discovery.md` | **Before starting a story** — checks doc clarity, dep symbols, and consistency; asks targeted questions; proposes doc patches; emits READY / NOT READY verdict. |
+| `/uc-audit [UC-XXX\|M0X]` | `.claude/commands/uc-audit.md` | **Before drafting any `plan/journey/` file or new milestone** — audits `docs/04-USE_CASES.md` for staleness vs. code (roles, endpoints, entities, frontend pages) and internal inconsistencies; proposes doc fixes; lists IA gaps. |
 
 **Adding new commands:** create `.claude/commands/<name>.md`. Use `$ARGUMENTS` for optional user-typed arguments. Document it in this table.
 
