@@ -14,6 +14,12 @@
 - [M12-S04–S06 (cont.) — The Islands Pattern, LCP, Client/Server Split](#m12-islands)
 - [M12-S04–S06 (cont.) — Next.js Caching Deep Dive](#m12-caching)
 - [M12-S04–S06 (cont.) — Data Validation Gate, Social Links Architecture](#m12-validation)
+- [M12-S07 — Booking Form: Multi-Step State, Controlled Inputs, Adapters, Uploads, Errors](#m12-s07)
+- [M12-S08 — 404 vs "Coming Soon": Two Kinds of "Not Ready"](#m12-s08)
+- [M12-S09 — SEO: Metadata, Open Graph, JSON-LD, Sitemap, Robots](#m12-s09)
+- [M12-S10 — Storage: Public vs Private Buckets, Cross-Service Revalidation](#m12-s10)
+- [M12-S11 — Extending a Design-Token System Without Breaking Old Tenants](#m12-s11)
+- [M12-S12 — Linting React: react-hooks and jsx-a11y](#m12-s12)
 
 ---
 
@@ -1162,4 +1168,535 @@ private static validateSocialLinks(socialLinks: SocialLinks | null): void {
 
 ---
 
-*Next update: M12-S07 — Booking form: controlled inputs, multi-step state, form submission, error handling.*
+<a name="m12-s07"></a>
+## M12-S07 — Booking Form: Multi-Step State, Controlled Inputs, Adapters, Uploads, Errors
+
+---
+
+### 36. Lifting State Up — Multi-Step Forms
+
+The booking form has four steps: pick services, pick a date/time, enter personal info, confirm. Each step is its own component (`ServiceSelectionStep`, `AvailabilityCarousel`+`SlotPicker`, `PersonalInfoStep`, `ConfirmationStep`) — but none of them holds its own state. **`BookingForm.tsx` owns everything**:
+
+```tsx
+type Step = 1 | 2 | 3 | 4;
+
+export function BookingForm({ slug, services }: BookingFormProps) {
+  const [step, setStep] = useState<Step>(1);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
+  const [personalInfo, setPersonalInfo] = useState<PersonalInfoValue>(emptyPersonalInfo());
+  const [status, setStatus] = useState<BookingSubmissionStatus>('idle');
+
+  return (
+    <div>
+      {step === 1 && (
+        <ServiceSelectionStep
+          services={services}
+          selectedServiceIds={selectedServiceIds}
+          onToggleService={toggleService}
+          onNext={() => setStep(2)}
+        />
+      )}
+      {step === 3 && (
+        <PersonalInfoStep value={personalInfo} onChange={setPersonalInfo} onNext={() => setStep(4)} />
+      )}
+      {/* ...steps 2 and 4 */}
+    </div>
+  );
+}
+```
+
+Each step component is a **pure function of its props**: given `services` + `selectedServiceIds` + a couple of callbacks, `ServiceSelectionStep` always renders the same thing. It never reaches "sideways" into another step's data, and it never remembers anything between renders that `BookingForm` doesn't already know.
+
+This is called **"lifting state up"** — when two or more components need to share or coordinate state, you move that state to their nearest common parent (here, all four steps share `personalInfo`, `selectedServiceIds`, etc., so it all lives in `BookingForm`).
+
+**Backend analogy:** Think of `BookingForm` as a saga/orchestrator and each step as a stage in a workflow. The orchestrator holds the *entire workflow context* (like a transaction or a process-manager's state); each stage receives only the slice of context it needs, does its work, and reports back ("call `onNext`" ≈ "emit a `StageCompleted` signal"). The stage itself is stateless between invocations — exactly like a stateless use case that receives everything it needs as DTO fields.
+
+---
+
+### 37. Controlled Inputs — The Component's State IS the Source of Truth
+
+Every `<input>` in `PersonalInfoStep`/`AddressFields` looks like this:
+
+```tsx
+<input
+  type="email"
+  value={value.contactEmail}
+  onChange={(e) => onChange({ ...value, contactEmail: e.target.value })}
+/>
+```
+
+This is a **controlled input**. The displayed value (`value={value.contactEmail}`) always comes from React state — never from the DOM itself. Every keystroke fires `onChange`, which produces a *new* `PersonalInfoValue` object and hands it to `setPersonalInfo` (via the `onChange` prop chain back to `BookingForm`). React re-renders, the input's `value` prop is the new string, and the loop continues.
+
+The opposite — an **uncontrolled input** — lets the DOM hold the value (you'd read it later via a `ref`). BeloAuto's forms are controlled throughout, because controlled state is what lets `BookingForm` answer questions like "is Step 3 valid yet?" or "does any selected service require a pickup address?" by just *looking at state* — no querying the DOM.
+
+`PersonalInfoValue` (`lib/booking/personal-info.ts`) is the shape of that state:
+
+```ts
+interface PersonalInfoValue {
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  contactAddress: Address;       // all fields default to '', "filled" checked via isAddressFilled()
+  pickupAddress: Address;
+  photoFilePaths: string[];
+}
+```
+
+**Backend analogy:** A controlled input is like binding a single field of an incoming request directly onto a DTO as it's parsed — except here "parsing" happens on every keystroke, and the "DTO" is *also* what's rendered back to the screen immediately, before any submission happens. There's no separate "form model" vs. "display model" — they're the same object.
+
+---
+
+### 38. The Adapter Pattern on the Frontend — `AddressLookup`
+
+The CEP (Brazilian postal code) autofill needs to call ViaCEP, a third-party API. Rather than calling `fetch('https://viacep.com.br/...')` directly inside `AddressFields`, the codebase defines a **port**:
+
+```ts
+// lib/address/address-lookup.port.ts
+export interface AddressLookup {
+  lookup(cep: string): Promise<AddressLookupResult | null>;
+}
+```
+
+...and an **adapter** that implements it against the real API:
+
+```ts
+// lib/address/viacep-address-lookup.adapter.ts
+export const viaCepAddressLookup: AddressLookup = {
+  async lookup(cep) {
+    const digits = digitsOnly(cep);
+    if (digits.length !== 8) return null;
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.erro || !data.logradouro) return null;
+      return { street: data.logradouro, neighborhood: data.bairro ?? '', city: data.localidade ?? '', state: data.uf ?? '' };
+    } catch {
+      return null;   // network error → "couldn't autofill", never a blocking error
+    }
+  },
+};
+```
+
+`AddressFields` depends on the **port**, with the real adapter as a default value:
+
+```tsx
+interface AddressFieldsProps {
+  readonly addressLookup?: AddressLookup;   // defaults to viaCepAddressLookup
+  // ...
+}
+
+export function AddressFields({ addressLookup = viaCepAddressLookup, ...rest }: AddressFieldsProps) {
+  // calls addressLookup.lookup(cep) when an 8-digit CEP is entered
+}
+```
+
+**Backend analogy:** This is exactly `IStorageService` / `GcsSignedUrlAdapter` — an interface plus a concrete implementation, swappable without touching the consumer. The difference is *how* the swap happens. On the backend, NestJS's DI container resolves a token (`STORAGE_SERVICE`) to a class at module-wiring time. The frontend has **no DI container** — so the "wiring" is just a default-valued function parameter. Production code calls `<AddressFields />` and gets `viaCepAddressLookup` for free; tests call `<AddressFields addressLookup={new InMemoryAddressLookup({...})} />` and get deterministic, network-free results. If BeloAuto later adds a paid/Google-based lookup, only the adapter file and the default change — `AddressFields` and every caller stay untouched.
+
+Notice the **error contract**: every failure mode (network error, CEP not found, malformed response) collapses to `null`. The caller's rule is simple — `null` means "couldn't autofill, the user types it manually." CEP lookup is a convenience, never a blocker.
+
+---
+
+### 39. The Signed-URL Upload Dance
+
+`PhotoUpload` lets a customer attach "before" photos of their vehicle. The naive approach — `<input type="file">` → send the file bytes to your own backend → backend forwards to cloud storage — works, but doubles the data transfer (browser → your server → GCS) and ties up a backend request for however long the upload takes.
+
+Instead, BeloAuto reuses the **signed-URL upload pattern** already established for booking attachments (`docs/14-API_CONTRACTS.md`) — three requests for one file:
+
+```ts
+// 1. Ask the backend for a place to put the file (no file bytes sent yet)
+const { signedUrl, filePath } = await createAttachmentSignedUrl(slug, file.name, file.type);
+
+// 2. Upload the file bytes DIRECTLY to cloud storage — bypasses the backend entirely
+await fetch(signedUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+
+// 3. Tell the backend "this file exists at this path" by including filePath in the booking payload
+beforeServicePhotoUrls.push(filePath);
+```
+
+Step 1's `signedUrl` is a URL with an embedded, time-limited cryptographic signature — GCS will accept a `PUT` to that exact URL for a short window (~15 minutes), without any other authentication. Step 2 goes **straight from the browser to GCS** — your backend's bandwidth and request-handling capacity are never involved in the actual file transfer. Step 3 is just metadata: the backend later validates (via `IStorageService.exists()`) that the file really was uploaded before trusting `filePath`.
+
+**Backend analogy:** This is the same shape as a pre-signed S3/GCS upload URL in any backend system — the server's job is to *authorize* an upload, not to *proxy* it. The frontend's job is just sequencing: don't call step 3 until step 2 succeeds, and don't call step 2 until step 1 returns.
+
+---
+
+### 40. Typed Errors from `fetch()`
+
+A crucial `fetch()` quirk: **it does not throw on HTTP error statuses.** A `404` or `409` response is a perfectly successful `fetch()` call — `res.ok` is `false`, but no exception is thrown. If you want a `409` to behave like an error in your code (so `try`/`catch` can route it), *you* have to throw.
+
+`createBooking()` does exactly that, with a **custom error class** carrying the status code:
+
+```ts
+export class CreateBookingError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+export async function createBooking(slug: string, payload: CreateBookingRequest) {
+  const res = await fetch(`${BFF_URL}/bookings`, { method: 'POST', /* ... */ });
+  if (!res.ok) throw new CreateBookingError(res.status, 'Failed to create booking');
+  return res.json();
+}
+```
+
+`BookingForm`'s submit handler then branches on **type and status together**:
+
+```tsx
+try {
+  await createBooking(slug, payload);
+  setStatus('success');
+} catch (err) {
+  if (err instanceof CreateBookingError && err.status === 409) {
+    setStep2Error('Horário indisponível, escolha outro');
+    setStep(2);                 // send the user back to re-pick a slot
+    return;
+  }
+  setStatus('error');           // generic pt-BR message for everything else
+}
+```
+
+A `409` here means "someone else booked this slot between Step 2 and Step 4" — it's *actionable*, so the UI routes the user back to the exact step where they can fix it. Every other failure gets a generic "try again" message.
+
+**Backend analogy:** This is the mirror image of `mapXxxError(err: unknown): never` at your HTTP layer — except *inverted*. On the backend, you convert **domain errors → HTTP status codes**. Here, the frontend converts **HTTP status codes → typed errors**, which then drive **UI navigation** (which step to show) instead of an HTTP response. Same principle, opposite direction: a status code alone is too little information to act on; a typed error with an `instanceof` check is.
+
+---
+
+<a name="m12-s08"></a>
+## M12-S08 — 404 vs "Coming Soon": Two Kinds of "Not Ready"
+
+---
+
+### 41. `notFound()` and the `not-found.tsx` Boundary Rule
+
+Next.js gives you a function, `notFound()`, that you call from anywhere in a Server Component (a `page.tsx`, a `layout.tsx`, or a function they call) to say "render a 404 instead of whatever I was building":
+
+```ts
+// app/[slug]/layout.tsx
+const manifest = await fetchManifest(slug).catch((err) => {
+  if (err instanceof TenantNotFoundError) notFound();   // ⬅ stops rendering, signals "404"
+  throw err;
+});
+```
+
+Next.js then looks for the nearest `not-found.tsx` to render — but with one easy-to-miss rule: **a segment's own `not-found.tsx` cannot catch a `notFound()` thrown by that same segment's `layout.tsx`.** Only an *ancestor* segment's `not-found.tsx` can. Since the `notFound()` call above lives in `app/[slug]/layout.tsx`, a file at `app/[slug]/not-found.tsx` would **never** be reached for this case — it has to live at `app/not-found.tsx` (the parent of `[slug]`).
+
+```
+app/
+├── not-found.tsx       ← catches notFound() thrown by [slug]/layout.tsx ✅
+└── [slug]/
+    ├── layout.tsx       ← throws notFound() for unknown slugs
+    ├── not-found.tsx    ← would NOT catch the layout's notFound() ❌ (same segment)
+    └── page.tsx
+```
+
+`app/not-found.tsx` has no access to any tenant's branding (the manifest fetch is what failed) — it's a static, BeloAuto-branded page: `"Lavacar não encontrada"` + a link back to `beloauto.com`.
+
+**Backend analogy:** Picture a NestJS exception filter that's registered on a *parent module* but not the child module where the exception is thrown — and the rule is "only the parent's filter catches it, never a filter on the exact same module." The fix is the same instinct as exception filter placement: put the handler where it can actually intercept the signal, which sometimes means *up* a level, not at the same level.
+
+---
+
+### 42. Designing API Responses Around UI States, Not Just HTTP Codes
+
+Before this story, **two completely different situations** produced the exact same response:
+
+1. A visitor types a slug that has never existed → should be a `404`.
+2. A real tenant exists, has a hotsite, but the admin hasn't hit "Publish" yet → ...also a `404`.
+
+Both were `HotsiteNotPublishedError` → `404`. The problem: case 2 has *real branding data* (the admin already picked colors and fonts) that the frontend could use to render an on-brand "coming soon" page — but a `404` response throws that data away. The frontend literally cannot tell the two cases apart, so it can't render them differently.
+
+The fix wasn't "add a new HTTP status code" — it was **"return `200` with less data"**:
+
+```ts
+// get-hotsite-manifest.use-case.ts
+if (!config.isPublished) {
+  return {
+    branding: config.branding,     // real — needed for <Unavailable />'s var(--ba-*) tokens
+    layout: [],                     // empty — don't leak draft module content publicly
+    isPublished: false,
+    business: { phone: null, email: null, address: null, socialLinks: null },
+  };
+}
+```
+
+`[slug]/page.tsx` then branches on `manifest.isPublished`:
+
+```tsx
+{manifest.isPublished ? <ModuleList layout={manifest.layout} /> : <Unavailable />}
+```
+
+**The general lesson:** an HTTP status code is a very coarse signal — it can only mean one of a handful of standard things. When your frontend needs to render *differently* depending on *why* something isn't available, that distinction has to live in the **response body**, not the status line. `isPublished: false` is one bit of information that a `404` can never carry, because by the time you're returning a `404` there's no body left to put it in.
+
+**Backend analogy:** This is the same shape as choosing between throwing a domain error vs. returning a result object with a status field — sometimes "success, but here's why you can't do the thing" is more useful to the caller than an exception, because the caller (here, the page component) needs to *render something*, not just log a failure.
+
+---
+
+<a name="m12-s09"></a>
+## M12-S09 — SEO: Metadata, Open Graph, JSON-LD, Sitemap, Robots
+
+---
+
+### 43. `generateMetadata()` — Per-Page Metadata Computed at Request Time
+
+Every Next.js page can export metadata two ways. A **static** object:
+
+```ts
+export const metadata: Metadata = { title: 'Não encontrado — BeloAuto' };
+```
+
+...or an **async function**, when the title/description depend on data that has to be fetched:
+
+```ts
+// app/[slug]/page.tsx
+export async function generateMetadata({ params }: HotsitePageProps): Promise<Metadata> {
+  const { slug } = await params;                 // Next.js 16: params is a Promise
+  const manifest = await fetchManifest(slug);     // same call page.tsx's render makes
+  return buildHotsiteMetadata({ manifest, slug });
+}
+```
+
+Next.js calls `generateMetadata` *before* rendering the page, and injects the returned `<title>`, `<meta>`, `<link rel="canonical">`, etc. into the `<head>` — you never touch the `<head>` element directly.
+
+The crucial detail: `fetchManifest(slug)` uses `next: { revalidate: 300 }` (ISR — see §5/§6 earlier in this doc). Next.js's `fetch` cache means calling `fetchManifest(slug)` again — once from `generateMetadata`, once from the page component's render — **does not double the network request**. Both calls within the same request are deduplicated against the same cache entry.
+
+`buildHotsiteMetadata()` (`lib/hotsite/seo.ts`) computes a sensible default — `"<Tenant Name> — Agendamento Online em <City>, <State>"` — but lets the tenant override it via `manifest.seo.title`/`manifest.seo.description` (new `jsonb` columns, editable from the admin dashboard in M13). Defaults mean every tenant gets *something* reasonable; ambitious tenants can write their own copy.
+
+---
+
+### 44. Open Graph and JSON-LD — Speaking to Robots, Not Just Browsers
+
+Two pieces of metadata exist purely for **machines that aren't rendering your page for a human in real time**:
+
+**Open Graph (`og:*` meta tags)** control the preview card that WhatsApp, Facebook, etc. show when someone pastes your URL into a chat — title, description, and a 1200×630 image:
+
+```ts
+openGraph: {
+  title,
+  description,
+  url,
+  siteName: 'BeloAuto',
+  locale: 'pt_BR',
+  type: 'website',
+  images: manifest.branding.logoUrl ? [{ url: manifest.branding.logoUrl, width: 1200, height: 630 }] : [],
+}
+```
+
+For a car-wash business in Brazil, **link previews shared in WhatsApp groups are a primary discovery channel** — without `og:image`/`og:title`, a shared link shows as a bare URL.
+
+**JSON-LD (`<script type="application/ld+json">`)** is structured data search engines parse to build "rich results" (e.g. a business card in search results with hours, address, rating):
+
+```tsx
+<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: toJsonLdScript({
+  '@context': 'https://schema.org',
+  '@type': 'LocalBusiness',
+  name: manifest.tenant.name,
+  url: `${SITE_URL}/${slug}`,
+}) }} />
+```
+
+`dangerouslySetInnerHTML` is normally a red flag (it's React's escape hatch for injecting raw HTML, bypassing XSS protection) — which is exactly why `toJsonLdScript()` exists:
+
+```ts
+export function toJsonLdScript(data: unknown): string {
+  return JSON.stringify(data).replaceAll('<', '<');
+}
+```
+
+If a tenant's name contained the literal text `</script>`, plain `JSON.stringify` would emit it verbatim — and a browser parsing `<script type="application/ld+json">{"name":"</script><script>evil()"}</script>` would treat `</script>` as the **end of the JSON-LD block**, not as a string character, letting the rest become live, executable HTML. Escaping `<` to its Unicode form (`<`) is valid inside a JSON string but can never be interpreted as the start of a tag — the JSON-LD stays inert data.
+
+**Backend analogy:** treat any tenant-controlled string (`tenant.name`, `business_info.*`) that ends up embedded in HTML the same way you'd treat user input going into a SQL query — it needs an escaping/encoding step at the boundary where it crosses from "data" into "markup."
+
+---
+
+### 45. File-Convention Routes — `sitemap.ts` and `robots.ts`
+
+NestJS routes are explicit — `@Get('/something')`. Next.js has those too (`app/api/revalidate/route.ts` is one), but it **also** recognizes a handful of special filenames and turns them into specific, non-HTML response types automatically — no decorator, no registration:
+
+```ts
+// app/sitemap.ts → serves GET /sitemap.xml
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const { items } = await fetchPublishedHotsiteSlugs();
+  return items.map(({ slug, updatedAt }) => ({
+    url: `${SITE_URL}/${slug}`,
+    lastModified: updatedAt,
+  }));
+}
+
+// app/robots.ts → serves GET /robots.txt
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: { userAgent: '*', allow: '/', disallow: ['/dashboard', '/auth'] },
+    sitemap: `${SITE_URL}/sitemap.xml`,
+  };
+}
+```
+
+Next.js takes the returned JS object/array and serializes it into the XML/text format search engines expect. `fetchPublishedHotsiteSlugs()` calls a **new endpoint built for exactly this**, `GET /platform/published-hotsites` — backed by `ListPublishedHotsitesUseCase`, which joins `tenants` and `hotsite_configs` *within* the Platform context (same schema, not a cross-context join — see CLAUDE.md §7 "Cross-context data access") and filters to `is_active && is_published`.
+
+**The rule that ties this all together:** every absolute URL anywhere in this system — `canonical`, `og:url`, JSON-LD `url`, sitemap entries — is built from one constant, `SITE_URL` (`lib/hotsite/seo.ts`), itself derived from `NEXT_PUBLIC_SITE_URL` with trailing slashes stripped. One env var, one constant, every URL consistent — change `NEXT_PUBLIC_SITE_URL` once when moving from `localhost:3000` to `beloauto.com` and every generated URL updates.
+
+---
+
+<a name="m12-s10"></a>
+## M12-S10 — Storage: Public vs Private Buckets, Cross-Service Revalidation
+
+---
+
+### 46. Public vs Private Storage — Two Buckets, Two Lifetimes
+
+Up to this story, *every* uploaded image — a customer's "before" photo of their car, and a tenant's hero-section background image — went through the same pattern: private bucket, generate a **signed read URL** (time-limited, ~15 minutes) each time the image needs to be displayed.
+
+That's the right call for booking photos — they're genuinely private, customer-specific data. It's the **wrong** call for a hero background image, which is:
+- **Public by definition** — it's marketing material meant for anyone visiting the hotsite.
+- **Cached** — the manifest containing `branding.logoUrl` is ISR-cached for 5 minutes (`Cache-Control: public, max-age=300`).
+
+Put those two facts together and you get a real bug: a cached manifest response could embed a signed URL that **expires before the cache does**. A visitor hits the site during minute 4 of the cache window, gets a manifest with a signed URL generated at minute 0 — and the image is now a broken link, because the signature expired at minute ~15... actually worse, if the *signed URL itself* was generated once and cached, every subsequent cached response serves the *same* (eventually-expired) signature.
+
+The fix: hotsite images get their **own public bucket**, with permanent, non-expiring addresses:
+
+```ts
+// IStorageService — pure string template, zero GCS API calls, no expiry
+getPublicUrl(storagePath: string): string {
+  return `${GCS_PUBLIC_BASE_URL}/${GCS_PUBLIC_BUCKET_NAME}/${storagePath}`;
+}
+```
+
+| | Hotsite images (logo, hero bg, gallery) | Booking photos (before/after) |
+|---|---|---|
+| Bucket | **Public** (`allUsers: roles/storage.objectViewer`) | Private |
+| URL | Permanent, computed via string template | Signed, regenerated, ~15 min expiry |
+| Plays well with ISR? | Yes — URL never changes | N/A — never served through a cached response |
+
+**Backend analogy:** this is the classic "two different consistency/access models for two different kinds of data" decision — like choosing eventual-consistency caching for a public read model but strong consistency for a private one. The *shape* of the data (an image URL) looks identical either way; the *guarantees* you need from it (does it expire? is it cacheable?) are completely different, and conflating them is where the bug hid.
+
+---
+
+### 47. Cross-Service Calls — The Backend Calling the Frontend
+
+Normally data flows one way: browser → frontend → BFF → backend. This story adds a call going the **opposite direction**: when an admin publishes or unpublishes a hotsite, the **backend calls the frontend**, to tell Next.js "the cached page for this tenant is now stale, throw it away immediately" — rather than waiting up to 5 minutes for ISR's normal revalidation.
+
+The frontend exposes a tiny API route for this:
+
+```ts
+// app/api/revalidate/route.ts
+export async function GET(request: NextRequest) {
+  const secret = request.headers.get('x-revalidate-secret');
+  if (!secret || secret !== process.env.HOTSITE_REVALIDATE_SECRET) {
+    return NextResponse.json({ message: 'Invalid or missing secret' }, { status: 401 });
+  }
+  const slug = request.nextUrl.searchParams.get('slug');
+  if (!slug) return NextResponse.json({ message: 'Missing slug' }, { status: 400 });
+
+  revalidatePath(`/${slug}`, 'page');   // ← purges this page from Next.js's ISR cache
+  return NextResponse.json({ revalidated: true, slug });
+}
+```
+
+`revalidatePath` is the imperative counterpart to the `revalidate: 300` you've seen throughout this doc — instead of "stale after 300 seconds," it's "stale **right now**."
+
+The backend's adapter (`FrontendRevalidationAdapter`) calls this route with a shared secret (`HOTSITE_REVALIDATE_SECRET`, same value configured on both sides — same convention as `PLATFORM_ADMIN_KEY`):
+
+```ts
+async revalidate(slug: string): Promise<void> {
+  const url = new URL('/api/revalidate', this.frontendUrl);
+  url.searchParams.set('slug', slug);
+  try {
+    const response = await fetch(url, {
+      headers: { 'x-revalidate-secret': this.secret },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) this.logger.warn(`Hotsite revalidation failed for '${slug}'`, { status: response.status });
+  } catch (err) {
+    this.logger.warn(`Hotsite revalidation errored for '${slug}'`);
+    // never rethrow — see below
+  }
+}
+```
+
+**The most important line in that snippet is the one that's *not* there: a `throw`.** `PublishHotsiteUseCase` calls `revalidate()` **after** persisting the publish — and the publish must succeed *regardless* of whether this call works. If the frontend is down, or the secret is misconfigured, or (as actually happened — M12-S10 shipped before M12-S03's route existed) the route doesn't exist yet and returns `404`, the admin's "Publish" click must still succeed. ISR's 5-minute fallback is the safety net; on-demand revalidation is purely an optimization for the common case.
+
+**Backend analogy:** this is a **best-effort side effect with logging**, the same category as "send a Slack notification when an order ships" — if the notification fails, the order is still shipped. You log the failure for visibility, but a non-critical downstream call must never roll back or block the critical operation it's attached to.
+
+---
+
+<a name="m12-s11"></a>
+## M12-S11 — Extending a Design-Token System Without Breaking Old Tenants
+
+---
+
+### 48. Additive Optional Fields — The Safe Way to Evolve a JSONB Schema
+
+Recall from earlier in this doc: `HotsiteBranding` is a JSONB column, and `applyBranding()` maps its fields onto `--ba-*` CSS variables. This story adds two **new, optional** fields — `buttonBackgroundColor` and `buttonTextColor` — to fix a real visual bug (a `filled` button on a `var(--ba-primary)`-colored section background became invisible, because the button's fill matched its surroundings).
+
+Two things make this addition "safe":
+
+**1. No migration required.** Existing rows in `hotsite_configs` simply don't have these keys in their `branding` JSONB. `branding.buttonBackgroundColor` is `undefined` for every tenant that existed before this story — which is a perfectly valid value for an `?:` optional TypeScript field.
+
+**2. Every code path has an explicit "unset" fallback that reproduces the old behavior exactly:**
+
+```ts
+function deriveButtonTokens(branding: HotsiteBrandingResponse): ButtonTokens {
+  const base = BTN_STYLES[branding.buttonStyle] ?? BTN_STYLES.filled;
+  const { buttonBackgroundColor, buttonTextColor } = branding;
+  const isFilled = branding.buttonStyle === 'filled';
+  const isOutline = branding.buttonStyle === 'outline';
+
+  const bg = isFilled && buttonBackgroundColor ? buttonBackgroundColor : base.bg;
+  const text = buttonTextColor ?? base.text;
+  const hoverBg = isFilled ? bg : (buttonBackgroundColor ?? 'transparent');
+  // ...
+}
+```
+
+Read the `bg` line as: "if this is a `filled` button **and** the admin set an override, use it — **otherwise**, do exactly what we did before (`base.bg`)." Same for `text` (`?? base.text`) and `hoverBg` (`'transparent'` is today's resting-state value for non-`filled` buttons). Every existing tenant — whose `branding` object has neither field — produces **byte-identical CSS variable output** to before this story shipped. The new behavior only activates for tenants who *opt in* by setting a value through the admin dashboard.
+
+This "optional field + explicit fallback that reproduces the old default" pattern is the general-purpose way to add a feature to a shared, persisted, schema-less (JSONB) structure without a migration and without a feature flag — the *absence of the field* **is** the feature flag.
+
+**One sharp edge this story hit:** the value travels Frontend ⇄ **BFF** ⇄ Backend, and the BFF has its **own** `.partial()` Zod schema (`HotsiteBrandingBodySchema`) that re-validates the `PATCH` body before forwarding it on. Zod objects silently **strip unrecognized keys** by default. Add a field to the backend's schema and to `@beloauto/types`, but forget the BFF's separate schema, and `buttonBackgroundColor` vanishes at the BFF hop — backend tests pass (never see the field), frontend tests pass (it sends the field), and only an end-to-end "round trips through `PATCH` → `GET`" test catches the gap. **Whenever a shape crosses the BFF, there are usually two schemas describing it — both need updating together.**
+
+---
+
+<a name="m12-s12"></a>
+## M12-S12 — Linting React: `react-hooks` and `jsx-a11y`
+
+---
+
+### 49. Linting React — Rules of Hooks and Accessibility
+
+Two ESLint plugins were added to `apps/web/eslint.config.js` — both catch bug categories that are invisible to `tsc` (TypeScript happily compiles broken React code) and easy to miss in code review.
+
+**`eslint-plugin-react-hooks`** enforces the "Rules of Hooks": hooks (`useState`, `useEffect`, `useMemo`, etc.) must be called unconditionally, at the top level, in the same order on every render — never inside an `if`, a loop, or after an early `return`. It also checks **dependency arrays**:
+
+```tsx
+useEffect(() => {
+  fetchAvailability(slug, selectedDate, serviceIds).then(setSlots);
+}, [slug, selectedDate]);  // ⚠️ react-hooks/exhaustive-deps: missing 'serviceIds'
+```
+
+Without this rule, `serviceIds` could change (the user goes back and toggles a service) without re-triggering the effect — `SlotPicker` would silently show slots for the *old* service selection. This is exactly the class of bug that's likely once `BookingForm`'s state (M12-S07) and M13's TanStack Query hooks get more complex — the rule catches it at lint time instead of "it works on my machine, breaks after the third click."
+
+**`eslint-plugin-jsx-a11y`** checks accessibility: missing `alt` on images, buttons/links with no accessible text, invalid `aria-*` attributes, click handlers on non-interactive elements (`<div onClick>`  instead of `<button>`). BeloAuto hotsites are public-facing pages for small businesses who will never run their own accessibility audit — catching these issues in CI is the only safety net they get.
+
+```js
+// apps/web/eslint.config.js
+const reactHooks = require('eslint-plugin-react-hooks');
+const jsxA11y = require('eslint-plugin-jsx-a11y');
+
+module.exports = [
+  ...baseConfig,
+  { files: ['**/*.ts', '**/*.tsx'], ...reactHooks.configs.flat.recommended },
+  { files: ['**/*.ts', '**/*.tsx'], ...jsxA11y.flatConfigs.recommended },
+  { ignores: ['next-env.d.ts'] },
+];
+```
+
+Both are added **only** to `apps/web/eslint.config.js`, not the shared `packages/config/eslint-base.js` — the backend and BFF have no JSX and no hooks, so these rules would be pure noise (and false positives) there. This is the same "scope the config to where it's relevant" instinct as `sonar.coverage.exclusions` differing between `apps/web` and the backend.
+
+Per CLAUDE.md's "no `// eslint-disable`" rule, any violation these plugins surfaced in existing code (missing `alt` text, a `useEffect` with an incomplete dependency array) was **fixed**, not suppressed.
+
+---
+
+*Next update: M13-S01 — TanStack Query setup + typed BFF client.*

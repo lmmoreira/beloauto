@@ -5,7 +5,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-06-10 (§7 new "BFF module & controller naming" subsection — bounded-context module names, `<context>.controller.ts`/`<context>.public.controller.ts` audience split, `Hotsite<Resource>Response` naming, frontend fetcher mirroring; `docs/24-BFF_ARCHITECTURE.md` gains a "Module & Controller Naming Conventions" section + `services/` tree entry; `docs/ANTI_PATTERNS.md` and `docs/CODE_STANDARDS.md` updated to match — codifies the M12-S05 `tenants/` → `platform/` rename pattern)
+**Last updated:** 2026-06-15 (M12 Hotsite Frontend milestone complete — all 12 stories ✅ Done; added §10 row for `plan/M12-HOTSITE-FRONTEND_IMPLEMENTATION_DETAILS_IA.md`; wrap-up docs `plan/M12-HOTSITE-FRONTEND_IMPLEMENTATION_DETAILS_IA.md` + `_DEVELOPER.md` created; `docs/lean/WEB_LEAN.md` extended with M12-S07–S12 sections (36-49))
 
 ---
 
@@ -468,6 +468,7 @@ If every story in the milestone is now `✅ Done`, see §15 item 9 for the two w
 | Working on M10+ (customer/admin cancel, reschedule, BookingCancelled/Rescheduled events, BaseNotificationUseCase) | `plan/M09-CANCELLATION-RESCHEDULING_IMPLEMENTATION_DETAILS_IA.md` | 4 |
 | Working on M11+ (LoyaltyEntry/Balance/Redemption, balance expiry HTTP trigger, ILoyaltyTenantSettingsPort) | `plan/M10-COMPLETION-LOYALTY_IMPLEMENTATION_DETAILS_IA.md` | 5 |
 | Working on M12+ (NotificationTemplate/Log, Pub/Sub DLQ, cron reminders, processed_events) | `plan/M11-NOTIFICATIONS-CRON_IMPLEMENTATION_DETAILS_IA.md` | 5 |
+| Working on M13+ (dashboard frontend; hotsite module system, branding tokens, ISR/revalidation, booking form, SEO, public/private storage) | `plan/M12-HOTSITE-FRONTEND_IMPLEMENTATION_DETAILS_IA.md` | 11 |
 | Working on M115 (GCS signed-URL, dev-login, InternalApiGuard, `contact*` rename) | `plan/M115-PRODUCTION-READINESS_IMPLEMENTATION_DETAILS_IA.md` | 3 |
 
 **Anti-patterns reference:** `docs/ANTI_PATTERNS.md` — full table; loaded automatically by `/pre-pr`.
