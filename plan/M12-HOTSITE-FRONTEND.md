@@ -550,7 +550,7 @@ interface ContactModuleData {
 
 ---
 
-### M12-S07 — BOOKING_CTA module + booking form page
+### M12-S07 — BOOKING_CTA module + booking form page ✅ Done
 
 **Agent:** `frontend-ts`  
 **Complexity:** XL  
