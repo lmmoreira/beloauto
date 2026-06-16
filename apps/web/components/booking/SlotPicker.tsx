@@ -63,7 +63,10 @@ export function SlotPicker({
 
   if (slots.length === 0) {
     return (
-      <output className="flex items-start gap-2.5 border border-amber-300 bg-amber-50 p-3" style={{ borderRadius: 'var(--ba-radius)' }}>
+      <output
+        className="flex items-start gap-2.5 border border-amber-300 bg-amber-50 p-3"
+        style={{ borderRadius: 'var(--ba-radius)' }}
+      >
         <svg
           width="16"
           height="16"
