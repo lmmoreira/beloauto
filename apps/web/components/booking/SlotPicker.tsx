@@ -63,11 +63,7 @@ export function SlotPicker({
 
   if (slots.length === 0) {
     return (
-      <div
-        role="status"
-        className="flex items-start gap-2.5 border border-amber-300 bg-amber-50 p-3"
-        style={{ borderRadius: 'var(--ba-radius)' }}
-      >
+      <output className="flex items-start gap-2.5 border border-amber-300 bg-amber-50 p-3" style={{ borderRadius: 'var(--ba-radius)' }}>
         <svg
           width="16"
           height="16"
@@ -87,7 +83,7 @@ export function SlotPicker({
         <span className="text-sm font-medium text-amber-700">
           Nenhum horário disponível para este dia. Escolha outra data.
         </span>
-      </div>
+      </output>
     );
   }
 
