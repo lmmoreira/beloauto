@@ -140,7 +140,7 @@ Every journey must show at minimum: **(1)** the happy-path terminal state, **(2)
 
 ### Journey workflow
 
-0. **Validate source docs**: run `/uc-audit` scoped to the relevant UCs. Resolve findings before proceeding — journeys built on stale UC text cause rework.
+0. **Validate source docs**: run `/docs-audit` scoped to the relevant UCs. Resolve findings before proceeding — journeys built on stale UC text cause rework.
 1. **Inventory**: every UC assigned to a folder's `use-cases.md` by primary actor.
 2. **Group into journeys**: cluster related UCs by goal. Update the inventory's "Journey file" column.
 3. **Draw the flow**: every screen the actor sees, in order, with decisions and gaps marked.
@@ -484,7 +484,7 @@ It must also include a "what this prototype validates" block — 4–6 specific 
 
 ## Part 3 — Workflow (end to end)
 
-1. Run `/uc-audit` on the relevant UCs.
+1. Run `/docs-audit` on the relevant UCs.
 2. Write the journey `.md` file — mermaid flow, pages table, gaps.
 3. Update `use-cases.md` — set "Journey file" column.
 4. Update `README.md` Index table.
@@ -539,7 +539,7 @@ Leaving all error/loading/empty/submission states as commented-out HTML blocks i
 
 Creating HTML prototype files before `<actor>/<slug>.md` exists. The journey `.md` is the specification — it defines navigation scope, maps IA gaps, and documents open questions. Without it, the prototype may answer the wrong questions or miss gaps entirely.
 
-**Fix:** Always complete Part 3 steps 1–4 first (run `/uc-audit`, write `<actor>/<slug>.md`, update `use-cases.md` journey column, update README index). Only then create any file under `<actor>/prototypes/<slug>/`.
+**Fix:** Always complete Part 3 steps 1–4 first (run `/docs-audit`, write `<actor>/<slug>.md`, update `use-cases.md` journey column, update README index). Only then create any file under `<actor>/prototypes/<slug>/`.
 
 ### ❌ Using `.topbar-avatar` for dashboard avatars (hidden on desktop)
 

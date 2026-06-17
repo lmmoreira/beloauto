@@ -372,6 +372,8 @@ Full list in `docs/ANTI_PATTERNS.md` (checked by `/pre-pr`). Silent-failure patt
 >
 > ci:fast passing does NOT mean integration tests passed. SonarCloud issues, missing .http files, VO violations, and cross-tenant leaks are only caught by `/pre-pr`. Skipping it has caused repeated CI failures and user frustration.
 
+**Before the first story of a new milestone:** ask the user whether to run `/docs-audit M0X` first, scoped to that milestone, to catch stale/inconsistent docs before implementation starts. This is an offer, not a forced block like the journey hard-stop above — proceed either way based on their answer.
+
 ### Step 1 — Create feature branch (BEFORE writing any code)
 `git checkout -b feat/M0X-SYY-<short-description>`
 
@@ -525,11 +527,11 @@ Commands live in `.claude/commands/`. Claude Code auto-discovers them — type `
 
 | Command | File | When to use |
 |---|---|---|
-| `/pre-pr` | `.claude/commands/pre-pr.md` | **Before every PR** — runs all 14 checks + domain-audit. Must report zero issues. |
-| `/domain-audit [context-path]` | `.claude/commands/domain-audit.md` | Structural VO/builder scan. Called automatically by `/pre-pr`. |
+| `/pre-pr` | `.claude/commands/pre-pr.md` | **Before every PR** — runs all checks + bad-smell-audit. Must report zero issues. |
+| `/bad-smell-audit [backend\|bff\|web]` | `.claude/commands/bad-smell-audit.md` | Full-stack bad-smell scan — backend VOs/builders, BFF structure, web security/props. Run on demand or scoped to one layer. |
 | `/mark-done M0X-SYY` | `.claude/commands/mark-done.md` | **After merge to main** — marks story done, commits, alerts if milestone complete. |
 | `/story-discovery M0X-SYY` | `.claude/commands/story-discovery.md` | **Before starting a story** — checks doc clarity, dep symbols, and consistency; asks targeted questions; proposes doc patches; emits READY / NOT READY verdict. |
-| `/uc-audit [UC-XXX\|M0X]` | `.claude/commands/uc-audit.md` | **Before drafting any `plan/journey/` file or new milestone** — audits `docs/04-USE_CASES.md` for staleness vs. code (roles, endpoints, entities, frontend pages) and internal inconsistencies; proposes doc fixes; lists IA gaps. |
+| `/docs-audit [UC-XXX\|M0X\|actor/slug\|doc-path]` | `.claude/commands/docs-audit.md` | **Before drafting any `plan/journey/` file, before starting a new milestone, or any time docs may have drifted** — audits `docs/`, `plan/M0X-*.md`, `plan/journey/` (journeys + prototypes), and `CLAUDE.md` itself for staleness vs. code, internal inconsistency, and confusing/missing info; proposes doc fixes; lists IA gaps. Scope by UC, milestone, journey, or single doc to keep cost proportional — blank scope audits everything and is expensive, use deliberately. |
 
 **Adding new commands:** create `.claude/commands/<name>.md`. Use `$ARGUMENTS` for optional user-typed arguments. Document it in this table.
 
@@ -541,30 +543,15 @@ Commands live in `.claude/commands/`. Claude Code auto-discovers them — type `
 
 > ❗ **NON-NEGOTIABLE HARD STOP — READ BEFORE TOUCHING ANY `plan/journey/` FILE**
 >
-> **`/uc-audit` MUST run and report a clean baseline BEFORE writing any journey `.md` file or prototype HTML.**
+> **`/docs-audit` MUST run and report a clean baseline BEFORE writing any journey `.md` file or prototype HTML.**
 > The sequence is always:
-> 1. `/uc-audit <UC-XXX>` → resolve every stale/conflicting finding → confirmed baseline
+> 1. `/docs-audit <UC-XXX>` (or `/docs-audit <actor>/<slug>` once the journey already exists) → resolve every stale/conflicting finding → confirmed baseline
 > 2. Write `<actor>/<slug>.md` — mermaid flow, pages table, open questions
 > 3. Update `<actor>/use-cases.md` journey column
 > 4. Update `plan/journey/README.md` index table
 > 5. **Only then** create any file under `<actor>/prototypes/<slug>/`
 >
-> Skipping `/uc-audit` and going straight to the journey file (or worse, straight to HTML) is a workflow violation. A journey built on stale UC text causes rework in both the prototype and the eventual implementation story.
-
-### Folder structure
-
-```
-plan/journey/<actor>/
-├── use-cases.md            ← UC inventory
-├── <slug>.md               ← journey spec (mermaid, pages table, gaps)
-└── prototypes/
-    └── <slug>/
-        ├── index.html      ← navigation hub + dry-run checklist
-        ├── 00-*.html … 01-*.html …
-        └── dev-notes.md    ← implementation handoff
-```
-
-Prototype files **always** reference `../../../shared/tokens.css` — never a local copy.
+> Skipping `/docs-audit` and going straight to the journey file (or worse, straight to HTML) is a workflow violation. A journey built on stale UC text causes rework in both the prototype and the eventual implementation story.
 
 ### Folder structure
 

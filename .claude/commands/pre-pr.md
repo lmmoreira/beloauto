@@ -9,7 +9,7 @@ Run:
 bash scripts/pre-pr.sh
 ```
 
-This single call covers checks 1, 5, 6, 7, 11, 12, 14, 15, 16, 17, 18, W1 (web vitest setup entrypoint) and domain-audit checks DA-2, DA-3, DA-4, DA-5, DA-7.
+This single call covers checks 1, 5, 6, 7, 11, 12, 14, 15, 16, 17, 18 (backend + bff + web tsx), W1 (vitest setup entrypoint), WEB-1/WEB-4/WEB-6 (web), and bad-smell-audit backend checks BE-2–BE-5, BE-7.
 
 If the script exits with issues, fix them and re-run before continuing. Do not proceed to Step 2 with script failures outstanding.
 
@@ -17,7 +17,7 @@ If the script exits with issues, fix them and re-run before continuing. Do not p
 
 ## Step 2 — Compiler checks (compact output)
 
-Identify which apps have changed files (`apps/backend/`, `apps/bff/`, `apps/web/`) and run only the relevant ones.
+Identify which apps have changed files (`apps/backend/`, `apps/bff/`, `apps/web/`). Fire all relevant commands in parallel — multiple Bash calls in a single response, one per app. Do not wait for one to finish before starting the next.
 
 ```bash
 # backend
@@ -39,25 +39,7 @@ Empty output = clean. Any `error TS` line = failure; report it and stop.
 
 ## Step 3 — Agent checks (require reading changed files)
 
-Every numbered check below belongs to this project's master checklist (#1–#20; **#9 was retired** — its content was folded into #10, and the number was never reassigned, so don't go looking for it). Items covered by the script in Step 1 are not repeated here:
-
-| # | Check | Covered in |
-|---|---|---|
-| 1, 5, 6, 7, 11, 12, 14–18, W1 | grep/file-existence checks (HTTP imports, infra tokens, `any`, Zod v3, `.spec.ts`, DI registration, `.skip`/`.only`, `console.*`, barrels, vitest setup entrypoint) | Step 1 (script) |
-| 2 | Multi-aggregate writes wrapped in `ITransactionManager.run()` | Step 3 below |
-| 3 | Every new REST endpoint has a `.http` request block | Step 3 below |
-| 4 | Every public controller/service method has an explicit return type | Step 3 below |
-| 8 | `@Global()` modules have an explanatory comment | Step 3 below |
-| 9 | _retired — folded into #10_ | — |
-| 10 | Aggregate fields use VO types; getters return the VO (also subsumes domain-audit `DA-1`) | Step 3 below |
-| 13 | Static routes declared before dynamic routes | Step 3 below |
-| 19 | PATCH body schemas with all-optional fields use `.default({})` | Step 3 below |
-| 20 | Integration test setup steps only call implemented endpoints | Step 3 below |
-| 21 | All new `<Image fill>` in changed `.tsx` files have a `sizes` prop | Step 3 below |
-
-Domain-audit checks `DA-2`–`DA-5` and `DA-7` run mechanically in Step 1; `DA-6` requires agent reasoning and is listed below. `DA-1` is covered by #10 (see that entry) — not repeated as its own item.
-
-Read the changed files once, then check all of the following.
+Read the changed files once, then check all of the following. Script checks from Step 1 are not repeated here.
 
 ### 2. Multi-aggregate writes wrapped in ITransactionManager.run()
 
@@ -65,17 +47,17 @@ Read each changed use case file (`*.use-case.ts`). If it calls `save()` on two o
 
 ### 3. Every new REST endpoint has a .http request block
 
-For every new `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete` route in changed controller files, check that a corresponding block exists in `apps/backend/http/<context>/<resource>.http`. The block must cover the happy path AND at least the main error cases.
+For every new `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete` route in changed controller files, check that a corresponding block exists in `apps/backend/http/<context>/<resource>.http` (backend) or `apps/bff/http/<module>/<resource>.http` (BFF). The block must cover the happy path AND at least the main error cases.
 
 ### 4. Every public controller and service method has an explicit return type
 
-Check changed `*.controller.ts` and `*.service.ts` files for public methods missing `: Promise<...>` or `: Type` return annotations.
+Check changed `*.controller.ts` and `*.service.ts` files (backend and BFF) for public methods missing `: Promise<...>` or `: Type` return annotations.
 
 ### 8. @Global() modules have an explanatory comment
 
 For each `@Global()` occurrence in changed `*.module.ts` files, verify the line or a nearby comment explains why it is global and where it is imported.
 
-### 10. Aggregate fields use VO types; getters return the VO (subsumes DA-1)
+### 10. Aggregate fields use VO types; getters return the VO (subsumes BE-1)
 
 Read changed `*.aggregate.ts` files. Check that:
 - Props interfaces use VO types — not `string` or `number` — for known VO candidates:
@@ -87,13 +69,13 @@ Read changed `*.aggregate.ts` files. Check that:
   - `open` / `close` / `opens_at` / `closes_at` (in business-hours-like structures) → `TimeOfDay`
 - Getter return types match the VO (e.g. `get email(): Email`, not `get email(): string`)
 
-This is the changed-files version of domain-audit `DA-1`; the full-codebase scan still runs via `/domain-audit`.
+This is the changed-files version of bad-smell-audit `BE-1`; the full-codebase scan (all layers) still runs via `/bad-smell-audit`.
 
 ### 13. Static routes declared before dynamic routes in the same controller
 
 Read changed controller files. Verify that all `@Get('literal-path')` decorators appear before any `@Get(':param')` decorators in declaration order within each controller class.
 
-### DA-6. No utility functions duplicated outside src/shared/utils/
+### BE-6. No utility functions duplicated outside src/shared/utils/
 
 Grep for duplicated implementations — do not rely on reading alone. Check for:
 - `deepMerge` implemented inline (not imported from `src/shared/utils/deep-merge`)
@@ -119,6 +101,23 @@ Common values:
 - Full-width background/hero: `sizes="100vw"`
 - Half-column (two-column layout): `sizes="(min-width: 640px) 50vw, 100vw"`
 - Card thumbnail / third-column: `sizes="(min-width: 768px) 33vw, 100vw"`
+
+### WEB-1. Verify dangerouslySetInnerHTML sanitization (web only)
+
+If the script flagged any `dangerouslySetInnerHTML` occurrences in changed files, read those files and verify the value passed to `__html` is sanitized before use (e.g. `DOMPurify.sanitize()` or equivalent). Passing raw, un-sanitized input is an XSS vulnerability.
+
+### WEB-2. Non-`readonly` props in changed React components (SonarCloud S6759, web only)
+
+For changed `*.tsx` files in `apps/web/components/`, find `interface` or `type` declarations used as component props (the function parameter type or `React.FC` first type argument). Report any field not marked `readonly`. Every field in a component props interface must be `readonly`.
+
+### Full-codebase coverage (advisory)
+
+The checks above target **changed files only**. BFF structural checks (BFF-1–BFF-4) and web checks beyond WEB-1/WEB-4/WEB-6 (e.g. WEB-2 on unchanged components, WEB-3, WEB-5, WEB-7) are only caught by the full-codebase scan. For PRs that touch BFF or web broadly, also run:
+
+```
+/bad-smell-audit bff    # BFF structure scan
+/bad-smell-audit web    # full web scan
+```
 
 ---
 
@@ -155,32 +154,25 @@ If all Step 1–3 checks pass, output:
 
 ## Step 4 — Integration test gate (MANDATORY — blocks PR open)
 
-> **HARD RULE: STOP. Do not open the PR yet.** Ask the user exactly this:
+The user has authorized autonomous execution of this step. Run the tests directly — do not ask for permission or request the user to paste output.
 
-> ⚠️ **Integration test gate — required before PR**
->
-> All automated checks passed. The pre-push hook only runs unit tests, so integration tests must be verified manually before opening the PR.
->
-> Please run:
-> ```bash
-> { pnpm --filter @beloauto/backend test:integration && pnpm --filter @beloauto/bff test:component; } 2>&1 | tail -50
-> ```
-> Paste the output here. I will open the PR only after you confirm it passes.
-
-Wait for the user's response. Open the PR **only** if:
-1. The pasted output shows `Test Suites: X passed, X total` with 0 failed suites and 0 failed tests.
-2. The user explicitly says to proceed.
-
-Output when waiting:
-```
-### Step 4 — Integration test gate
-⏸ WAITING — paste `{ pnpm --filter @beloauto/backend test:integration && pnpm --filter @beloauto/bff test:component; } 2>&1 | tail -50` output to proceed
+```bash
+{ pnpm --filter @beloauto/backend test:integration && pnpm --filter @beloauto/bff test:component; } 2>&1 | tail -50
 ```
 
-Output when gate clears:
-```
-### Step 4 — Integration test gate
-✅ PASS — integration tests confirmed by user
-```
+Use a 600 000 ms timeout (10 min). Integration tests are slow.
 
-Once Step 4 clears, open the PR following the template in CLAUDE.md §9 Step 8.
+**If all tests pass** (`Test Suites: X passed, X total` — 0 failed suites, 0 failed tests) → proceed immediately to open the PR following CLAUDE.md §9 Step 8.
+
+**If any test fails** → report the failing suite and test names, do NOT open the PR, and wait for user guidance.
+
+```
+### Step 4 — Integration tests
+✅ PASS — X suites, Y tests → opening PR
+```
+or:
+```
+### Step 4 — Integration tests
+❌ FAIL — [failing test names]
+Blocked: fix failures before opening the PR.
+```

@@ -7,7 +7,7 @@
 
 ## Supersession note
 
-This file replaces six previously separate draft milestone files — `M124-LOGIN.md`, `M125-STAFF-DASHBOARD.md`, `M126-CUSTOMER-MINHA-CONTA.md`, `M127-MANAGER-WORKSPACE.md`, `M128-STAFF-LOYALTY.md`, `M129-GUEST-SUBMIT-INFO.md` — plus the original coarse-grained draft of this file. None of the 47 stories across those 7 files had been implemented. They have been consolidated here, renumbered into one dependency-ordered sequence, with one cross-milestone gap closed (`S29`'s loyalty conversion-rate dependency) and a few small AC additions folded in where the journey-prototype audit found a concrete missing piece. Every story below carries a "(formerly M1xx-Sxx)" note for traceability back to the original drafts (recoverable via git history).
+This file replaces six previously separate draft milestone files — `M124-LOGIN.md`, `M125-STAFF-DASHBOARD.md`, `M126-CUSTOMER-MINHA-CONTA.md`, `M127-MANAGER-WORKSPACE.md`, `M128-STAFF-LOYALTY.md`, `M129-GUEST-SUBMIT-INFO.md` — plus the original coarse-grained draft of this file. None of the 47 stories across those 7 files had been implemented. They have been consolidated here, renumbered into one dependency-ordered sequence, with one cross-milestone gap closed (`M13-S29`'s loyalty conversion-rate dependency) and a few small AC additions folded in where the journey-prototype audit found a concrete missing piece. Every story below carries a "(formerly M1xx-Sxx)" note for traceability back to the original drafts (recoverable via git history).
 
 **Key reordering decision:** stories with zero frontend-shell dependency (pure backend or BFF work) are pulled into one early "Backend & BFF readiness" wave (Phase 1) regardless of which feature area they originally belonged to. This means no later frontend phase ever blocks waiting on a backend/BFF story that "belonged" to a milestone sequenced after it — the old M126/M128 split, for example, would have shipped the customer loyalty page before the conversion-rate field it displays existed; pulling both BFF stories forward removes that gap entirely instead of patching around it.
 
@@ -19,7 +19,7 @@ This file replaces six previously separate draft milestone files — `M124-LOGIN
 
 **Two separate API client layers — do not unify them:**
 - `apps/web/lib/api/platform.ts` (built in M12-S03) — `fetch()`-based, unauthenticated, ISR-cached (`next: { revalidate: 300 }`), for the **public hotsite manifest**.
-- `apps/web/lib/api/bff-client.ts` (built in `S01` below) — Axios instance, JWT cookie + `X-Tenant-Slug` interceptors, client-side, TanStack Query, for the **authenticated dashboard**. Don't route the public hotsite fetch through this client (it would attach auth headers unnecessarily to a cacheable public request).
+- `apps/web/lib/api/bff-client.ts` (built in `M13-S01` below) — Axios instance, JWT cookie + `X-Tenant-Slug` interceptors, client-side, TanStack Query, for the **authenticated dashboard**. Don't route the public hotsite fetch through this client (it would attach auth headers unnecessarily to a cacheable public request).
 
 **TanStack Query conventions:**
 - Every `queryKey` array includes `tenantId` (from JWT) to prevent cross-tenant cache pollution.
@@ -33,7 +33,7 @@ This file replaces six previously separate draft milestone files — `M124-LOGIN
 
 **Multi-tenant support:** tenant selection happens at `/select-tenant` (2+ tenants at login); `TenantSwitcher`/`/switch-tenant` lets a logged-in customer change tenant context without re-doing OAuth.
 
-**Booking form / calendar reuse:** the `AvailabilityCalendar` component built for the guest/customer booking flow (UC-011, M12) is reused for staff's reschedule action (`S19`) — verify it's extracted in a way that doesn't pull in basket/duration-recompute logic specific to the booking flow.
+**Booking form / calendar reuse:** the `AvailabilityCalendar` component built for the guest/customer booking flow (UC-011, M12) is reused for staff's reschedule action (`M13-S19`) — verify it's extracted in a way that doesn't pull in basket/duration-recompute logic specific to the booking flow.
 
 **`dashboard-shell.html` CSS classes — do not invent new ones, use what's in `shared/tokens.css`:** `.dashboard-topbar`, `.topbar-page-title`, `.topbar-date`, `.dashboard-layout`, `.sidebar`, `.sidebar-header`, `.sidebar-nav`/`.sidebar-nav-item`/`.sidebar-nav-icon`, `.sidebar-section-label`, `.sidebar-footer`, `.main-content`, `.dashboard-body`, `.bottom-nav`, `.auth-avatar` (NOT `.topbar-avatar` — hidden on desktop), `.role-badge`/`.role-badge-manager`, `.status-badge` + `.status-*`.
 
@@ -43,16 +43,16 @@ This file replaces six previously separate draft milestone files — `M124-LOGIN
 
 | Phase | Stories | Theme |
 |---|---|---|
-| 0 | S01 | Frontend foundation (TanStack Query + typed client) |
-| 1 | S02–S12 | Backend & BFF readiness (zero frontend dependency) |
-| 2 | S13–S14 | Auth frontend |
-| 3 | S15–S16 | Dashboard shells |
-| 4 | S17–S20 | Staff booking core |
-| 5 | S21–S24 | Staff schedule & services |
-| 6 | S25–S26 | Staff loyalty frontend |
-| 7 | S27–S30 | Customer Minha Conta |
-| 8 | S31–S37 | Manager workspace |
-| 9 | S38–S40 | Guest submit-info |
+| 0 | M13-S01 | Frontend foundation (TanStack Query + typed client) |
+| 1 | M13-S02–M13-S12 | Backend & BFF readiness (zero frontend dependency) |
+| 2 | M13-S13–M13-S14 | Auth frontend |
+| 3 | M13-S15–M13-S16 | Dashboard shells |
+| 4 | M13-S17–M13-S20 | Staff booking core |
+| 5 | M13-S21–M13-S24 | Staff schedule & services |
+| 6 | M13-S25–M13-S26 | Staff loyalty frontend |
+| 7 | M13-S27–M13-S30 | Customer Minha Conta |
+| 8 | M13-S31–M13-S37 | Manager workspace |
+| 9 | M13-S38–M13-S40 | Guest submit-info |
 
 ---
 
@@ -60,7 +60,7 @@ This file replaces six previously separate draft milestone files — `M124-LOGIN
 
 ---
 
-### S01 — TanStack Query setup + typed BFF client
+### M13-S01 — TanStack Query setup + typed BFF client
 
 *(formerly M13-S01)*
 
@@ -104,7 +104,7 @@ Set up TanStack Query (React Query) as the global data-fetching layer and create
 
 ---
 
-### S02 — BFF: fix auth cookie on `POST /auth/token` + `POST /auth/switch-tenant`; fix customer redirect
+### M13-S02 — BFF: fix auth cookie on `POST /auth/token` + `POST /auth/switch-tenant`; fix customer redirect
 
 *(formerly M124-S01)*
 
@@ -175,7 +175,7 @@ export interface TenantOption {
 }
 ```
 
-`TenantOption` is consumed by the `/select-tenant` page (`S14`). `IssueTokenResponse` and `SwitchTenantResponse` replace the old `{ accessToken, expiresIn }` shape — since neither endpoint has a frontend consumer yet (those pages are built in `S13`/`S14`), this is a safe breaking change.
+`TenantOption` is consumed by the `/select-tenant` page (`M13-S14`). `IssueTokenResponse` and `SwitchTenantResponse` replace the old `{ accessToken, expiresIn }` shape — since neither endpoint has a frontend consumer yet (those pages are built in `M13-S13`/`M13-S14`), this is a safe breaking change.
 
 **Tests to update:**
 
@@ -198,7 +198,7 @@ export interface TenantOption {
 
 ---
 
-### S03 — BFF: staff booking list endpoint
+### M13-S03 — BFF: staff booking list endpoint
 
 *(formerly M125-S02)*
 
@@ -264,7 +264,7 @@ interface StaffBookingListResponse {
 
 ---
 
-### S04 — BFF: booking detail endpoint for staff
+### M13-S04 — BFF: booking detail endpoint for staff
 
 *(formerly M125-S04)*
 
@@ -302,7 +302,7 @@ interface StaffBookingDetailResponse {
   // Loyalty (null for guest bookings)
   customerId: string | null;
   loyaltyBalance: number | null;     // current active points
-  loyaltyConversionRate: number;     // points_per_currency_unit (added in S12 — see S26's note)
+  loyaltyConversionRate: number;     // points_per_currency_unit (added in M13-S12 — see M13-S26's note)
 
   // Lines
   lines: StaffBookingLineResponse[];
@@ -330,7 +330,7 @@ interface StaffBookingLineResponse {
 }
 ```
 
-> **Note (added during consolidation):** `loyaltyConversionRate` is listed here so `S26` (loyalty redemption strip in Mark Complete) doesn't need a second BFF call on mount. It depends on `S12` having landed (which adds `points_per_currency_unit` enrichment) — since `S12` is also in Phase 1, this is satisfied by construction regardless of which order S04/S12 land in within the phase. If `S04` is implemented before `S12`, add the field as a follow-up patch rather than blocking.
+> **Note (added during consolidation):** `loyaltyConversionRate` is listed here so `M13-S26` (loyalty redemption strip in Mark Complete) doesn't need a second BFF call on mount. It depends on `M13-S12` having landed (which adds `points_per_currency_unit` enrichment) — since `M13-S12` is also in Phase 1, this is satisfied by construction regardless of which order M13-S04/M13-S12 land in within the phase. If `M13-S04` is implemented before `M13-S12`, add the field as a follow-up patch rather than blocking.
 
 **BFF orchestration:**
 
@@ -358,7 +358,7 @@ Before-service photo URLs: call `IStorageService.getSignedReadUrl(path)` per pho
 
 ---
 
-### S05 — BFF: staff service management endpoints
+### M13-S05 — BFF: staff service management endpoints
 
 *(formerly M125-S07)*
 
@@ -436,7 +436,7 @@ export interface UpdateServiceRequest {
 
 ---
 
-### S06 — BFF: customer booking list + loyalty balance endpoints
+### M13-S06 — BFF: customer booking list + loyalty balance endpoints
 
 *(formerly M126-S02)*
 
@@ -481,7 +481,7 @@ export interface CustomerLoyaltyBalanceResponse {
   currentPoints: number;
   nextExpiryDate: string | null;   // ISO-8601 date
   nextExpiryPoints: number | null;
-  conversionRate: number;          // points_per_currency_unit — see S12; 0 = redemption disabled
+  conversionRate: number;          // points_per_currency_unit — see M13-S12; 0 = redemption disabled
 }
 ```
 
@@ -492,8 +492,8 @@ export interface CustomerLoyaltyBalanceResponse {
 **Acceptance criteria:**
 - [ ] `GET /v1/bookings` with CUSTOMER JWT returns only that customer's bookings for the tenant
 - [ ] Response items include `status`, `scheduledAt`, `lines`, `totalPrice`, `notes`
-- [ ] `GET /v1/bookings` with STAFF JWT → still works (no regression to `S03`)
-- [ ] `GET /v1/loyalty/balance` with CUSTOMER JWT → `CustomerLoyaltyBalanceResponse`, including `conversionRate` (see `S12`; if `S12` hasn't landed yet within Phase 1, default to `0` and patch when it does)
+- [ ] `GET /v1/bookings` with STAFF JWT → still works (no regression to `M13-S03`)
+- [ ] `GET /v1/loyalty/balance` with CUSTOMER JWT → `CustomerLoyaltyBalanceResponse`, including `conversionRate` (see `M13-S12`; if `M13-S12` hasn't landed yet within Phase 1, default to `0` and patch when it does)
 - [ ] Tenant isolation: Customer A cannot retrieve Customer B's bookings
 - [ ] `CustomerBookingListResponse`, `CustomerBookingListItem`, `CustomerLoyaltyBalanceResponse` in `packages/types/`
 - [ ] `.http` request blocks added/updated in `apps/bff/http/bookings/bookings.http` and `apps/bff/http/loyalty/loyalty.http`
@@ -502,7 +502,7 @@ export interface CustomerLoyaltyBalanceResponse {
 
 ---
 
-### S07 — BFF: customer booking detail endpoint
+### M13-S07 — BFF: customer booking detail endpoint
 
 *(formerly M126-S04)*
 
@@ -521,7 +521,7 @@ export interface CustomerBookingDetailResponse {
   bookingId: string;
   status: BookingStatus;
   scheduledAt: string | null;
-  lines: CustomerBookingLineItem[];   // reuse from S06
+  lines: CustomerBookingLineItem[];   // reuse from M13-S06
   totalPrice: MoneyAmount;
   notes: string | null;               // customer's own notes at time of request
 
@@ -542,7 +542,7 @@ export interface CustomerBookingDetailResponse {
 **Acceptance criteria:**
 - [ ] `GET /v1/bookings/:id` with CUSTOMER JWT (owner) → `200 CustomerBookingDetailResponse`
 - [ ] `GET /v1/bookings/:id` with CUSTOMER JWT (not the owner) → `403`
-- [ ] `GET /v1/bookings/:id` with STAFF JWT → `200` (no regression to `S04`)
+- [ ] `GET /v1/bookings/:id` with STAFF JWT → `200` (no regression to `M13-S04`)
 - [ ] `infoRequestMessage` populated when booking is INFO_REQUESTED or beyond
 - [ ] `afterServicePhotoUrls` non-empty only when `status === COMPLETED`
 - [ ] Tenant isolation: `customerId` from Tenant A cannot retrieve Tenant B's bookings
@@ -553,7 +553,7 @@ export interface CustomerBookingDetailResponse {
 
 ---
 
-### S08 — BFF: customer loyalty entries + redemptions
+### M13-S08 — BFF: customer loyalty entries + redemptions
 
 *(formerly M126-S06)*
 
@@ -608,7 +608,7 @@ export interface CustomerLoyaltyRedemptionsResponse {
 - [ ] `GET /v1/loyalty/redemptions` with CUSTOMER JWT → only that customer's redemptions
 - [ ] Entries include `expired: true` when `expiresAt < now`
 - [ ] Tenant isolation: Customer A cannot retrieve Customer B's entries
-- [ ] STAFF JWT on these endpoints still works (no regression to `S12`)
+- [ ] STAFF JWT on these endpoints still works (no regression to `M13-S12`)
 - [ ] Types in `packages/types/`
 - [ ] `.http` blocks updated in `apps/bff/http/loyalty/loyalty.http`
 
@@ -616,7 +616,7 @@ export interface CustomerLoyaltyRedemptionsResponse {
 
 ---
 
-### S09 — Backend: add `GET /tenants/settings`
+### M13-S09 — Backend: add `GET /tenants/settings`
 
 *(formerly M127-S01)*
 
@@ -646,7 +646,7 @@ Add a read endpoint for tenant settings. Today the only way to read `tenants.set
 
 ---
 
-### S10 — BFF: proxy `GET`/`PATCH /tenants/settings` (camelCase translation layer)
+### M13-S10 — BFF: proxy `GET`/`PATCH /tenants/settings` (camelCase translation layer)
 
 *(formerly M127-S02)*
 
@@ -714,11 +714,11 @@ export interface UpdateTenantSettingsRequest {
 - [ ] `.http` blocks added for both routes
 - [ ] `tsc --noEmit` passes across the monorepo (the `packages/types` change touches multiple consumers)
 
-**Dependencies:** S09
+**Dependencies:** M13-S09
 
 ---
 
-### S11 — Backend: `points_per_currency_unit` + `discountByPoints` in booking completion
+### M13-S11 — Backend: `points_per_currency_unit` + `discountByPoints` in booking completion
 
 *(formerly M128-S01)*
 
@@ -860,7 +860,7 @@ Update the `PATCH /bookings/:id/complete` request block to include an example wi
 
 ---
 
-### S12 — BFF: customer search + balance enrichment + complete body update
+### M13-S12 — BFF: customer search + balance enrichment + complete body update
 
 *(formerly M128-S02)*
 
@@ -875,7 +875,7 @@ Three additions to the BFF: a new staff-facing customer search endpoint, enrichi
 > - Read `apps/bff/src/customers/customers.controller.ts` — confirm there is no `STAFF|MANAGER`-accessible GET route yet. The only routes are `GET /me` and `PATCH /me` (CUSTOMER-only).
 > - Check `apps/backend/src/contexts/customer/infrastructure/` for an existing staff-facing customer list/search endpoint. If it exists (`GET /customers?search=`), the BFF just proxies it. If not, this story adds it to the backend as a thin read — check the customer controller in the backend too.
 > - Read `apps/bff/src/loyalty/loyalty.types.ts` — confirm `LoyaltyBalanceResponse` shape.
-> - Confirm `points_per_currency_unit` is accessible from `TenantContext` in the BFF after `S11` ships.
+> - Confirm `points_per_currency_unit` is accessible from `TenantContext` in the BFF after `M13-S11` ships.
 
 ---
 
@@ -922,7 +922,7 @@ export interface CustomerSearchListResponse {
 
 #### Part B — Balance response enrichment
 
-Update `apps/bff/src/loyalty/loyalty.controller.ts` `getBalanceAdmin()` (and `getBalance()` for the customer-facing route — feeds `S06`'s `conversionRate` field too):
+Update `apps/bff/src/loyalty/loyalty.controller.ts` `getBalanceAdmin()` (and `getBalance()` for the customer-facing route — feeds `M13-S06`'s `conversionRate` field too):
 
 After fetching balance from backend, read `points_per_currency_unit` from tenant context and append it:
 
@@ -942,7 +942,7 @@ async getBalanceAdmin(
 }
 ```
 
-Similarly enrich `getBalance()` (customer-own route) — `S06`'s loyalty strip and `S29`'s Fidelidade page both need `conversionRate` there too.
+Similarly enrich `getBalance()` (customer-own route) — `M13-S06`'s loyalty strip and `M13-S29`'s Fidelidade page both need `conversionRate` there too.
 
 `@beloauto/types` — fix and extend (`packages/types/src/loyalty.dto.ts`):
 ```typescript
@@ -993,7 +993,7 @@ export interface PaginatedLoyaltyRedemptionsResponse {
 
 > **Breaking change:** `LoyaltyBalanceResponse` shape changes. Since no frontend currently consumes it (loyalty frontend doesn't exist yet), this is safe. The BFF's `loyalty.types.ts` local type must also be aligned.
 
-Also extend `UpdateTenantSettingsRequest` (defined in `S10`) with `pointsPerCurrencyUnit?: number` so `S31` (Configurações form) can save it.
+Also extend `UpdateTenantSettingsRequest` (defined in `M13-S10`) with `pointsPerCurrencyUnit?: number` so `M13-S31` (Configurações form) can save it.
 
 ---
 
@@ -1044,10 +1044,10 @@ export interface CompleteBookingRequest {
 - [ ] `GET /v1/customers/:id/loyalty/balance` response includes `conversionRate` field (0 when disabled)
 - [ ] `PATCH /v1/bookings/:id/complete` forwards `discountByPoints` to backend when present
 - [ ] `LoyaltyBalanceResponse`, `EnrichedLoyaltyBalanceResponse`, `LoyaltyEntryItem`, `LoyaltyRedemptionItem`, `PaginatedLoyaltyEntriesResponse`, `PaginatedLoyaltyRedemptionsResponse`, `CompleteBookingRequest`, `CustomerSearchResult`, `CustomerSearchListResponse` all exported from `packages/types/src/index.ts`
-- [ ] `UpdateTenantSettingsRequest` (from `S10`) extended with `pointsPerCurrencyUnit?: number`
+- [ ] `UpdateTenantSettingsRequest` (from `M13-S10`) extended with `pointsPerCurrencyUnit?: number`
 - [ ] `tsc --noEmit` passes across monorepo (breaking type change handled everywhere)
 
-**Dependencies:** S11
+**Dependencies:** M13-S11
 
 ---
 
@@ -1055,7 +1055,7 @@ export interface CompleteBookingRequest {
 
 ---
 
-### S13 — Staff login frontend: `/dashboard/login`, `/auth/first-login`, `/auth/error`
+### M13-S13 — Staff login frontend: `/dashboard/login`, `/auth/first-login`, `/auth/error`
 
 *(formerly M124-S02)*
 
@@ -1066,7 +1066,7 @@ export interface CompleteBookingRequest {
 **Description:**
 Three static server-component pages covering the complete staff authentication surface (UC-022 and UC-025). All BFF redirects for staff already land in the right places; this story just creates the pages those redirects point to.
 
-> 🔍 **Discover before starting:** Check `apps/web/app/dashboard/` — a `page.tsx` stub may exist; read it. Check `apps/web/app/auth/login/page.tsx` — a 3-line stub exists at the wrong route; delete it in this story (nothing links to `/auth/login`). Verify `apps/web/middleware.ts` does NOT exist yet (it is created in `S15`). If it does exist, read it before touching any route.
+> 🔍 **Discover before starting:** Check `apps/web/app/dashboard/` — a `page.tsx` stub may exist; read it. Check `apps/web/app/auth/login/page.tsx` — a 3-line stub exists at the wrong route; delete it in this story (nothing links to `/auth/login`). Verify `apps/web/middleware.ts` does NOT exist yet (it is created in `M13-S15`). If it does exist, read it before touching any route.
 
 **Prototype references:**
 - `plan/journey/staff/prototypes/login/00-staff-login.html` → `plan/journey/shared/staff-login.html` (staff login screen)
@@ -1136,11 +1136,11 @@ These are `app/**/page.tsx` server components — do not write Vitest unit tests
 - [ ] `apps/web/app/auth/login/page.tsx` deleted
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S02 not strictly required (staff redirects already correct), but sequenced after it to keep story order clean — can be developed in parallel.
+**Dependencies:** M13-S02 not strictly required (staff redirects already correct), but sequenced after it to keep story order clean — can be developed in parallel.
 
 ---
 
-### S14 — Customer login frontend: `/{slug}/login`, `/select-tenant`, phone completion
+### M13-S14 — Customer login frontend: `/{slug}/login`, `/select-tenant`, phone completion
 
 *(formerly M124-S03)*
 
@@ -1149,14 +1149,14 @@ These are `app/**/page.tsx` server components — do not write Vitest unit tests
 **Docs to load:** `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md`, `docs/04-USE_CASES.md` § UC-021 UC-023, `plan/journey/customer/prototypes/login/dev-notes.md`, `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md`
 
 **Description:**
-Three customer-facing auth pages: the tenant-branded login screen, the multi-tenant selection screen (UC-021 Case B), and an inline phone completion prompt (UC-021 A3). All BFF endpoints already exist after `S02` is applied.
+Three customer-facing auth pages: the tenant-branded login screen, the multi-tenant selection screen (UC-021 Case B), and an inline phone completion prompt (UC-021 A3). All BFF endpoints already exist after `M13-S02` is applied.
 
 > 🔍 **Discover before starting:**
-> - Confirm `S02` is merged (cookie fix + customer redirect to `/{slug}`)
+> - Confirm `M13-S02` is merged (cookie fix + customer redirect to `/{slug}`)
 > - Read `apps/web/app/[slug]/layout.tsx` — phone prompt goes here
 > - Read `apps/web/lib/api/` to understand existing fetcher conventions before adding new ones
 > - Verify the BFF route prefix for auth: is it `/api/auth/...` or `/v1/auth/...`? Check `apps/web/` next.config or API route proxying to confirm
-> - Confirm `TenantOption` is in `@beloauto/types` (added in `S02`)
+> - Confirm `TenantOption` is in `@beloauto/types` (added in `M13-S02`)
 
 **Prototype references:**
 - `plan/journey/shared/login.html` (customer login screen)
@@ -1216,7 +1216,7 @@ Renders (per `01-select-tenant.html`):
 
 On `POST /api/auth/token` success: `{ tenantSlug }` → `router.push(`/${tenantSlug}`)`.
 
-`@beloauto/types` addition (if not already in `S02`): `TenantOption` must include `primaryColor?: string` if the BFF selection token carries it — verify and add the field if present.
+`@beloauto/types` addition (if not already in `M13-S02`): `TenantOption` must include `primaryColor?: string` if the BFF selection token carries it — verify and add the field if present.
 
 ---
 
@@ -1303,7 +1303,7 @@ Follow the naming and error-handling pattern of existing fetchers in `apps/web/l
 - [ ] `pnpm lint` zero warnings
 - [ ] No new `any` types introduced
 
-**Dependencies:** S02 (cookie fix must be deployed; customer redirect must land on `/{slug}`)
+**Dependencies:** M13-S02 (cookie fix must be deployed; customer redirect must land on `/{slug}`)
 
 ---
 
@@ -1311,7 +1311,7 @@ Follow the naming and error-handling pattern of existing fetchers in `apps/web/l
 
 ---
 
-### S15 — Dashboard shell: layout, middleware, auth guard (staff + manager)
+### M13-S15 — Dashboard shell: layout, middleware, auth guard (staff + manager)
 
 *(formerly M125-S01)*
 
@@ -1348,10 +1348,10 @@ The shell matches `plan/journey/shared/dashboard-shell.html` and `plan/journey/s
 
 `apps/web/components/dashboard/Sidebar.tsx`:
 - Logo block (tenant name + slug)
-- Nav items: Agenda, Horários, Serviços, **Fidelidade** (STAFF + MANAGER — links to `/dashboard/loyalty`, see `S25`)
+- Nav items: Agenda, Horários, Serviços, **Fidelidade** (STAFF + MANAGER — links to `/dashboard/loyalty`, see `M13-S25`)
 - "Somente Gerente" label + Equipe + Configurações + **Hotsite** (MANAGER only — hidden for STAFF)
 
-> **Fix folded in during consolidation:** the original draft of this story only listed "Equipe + Configurações" under "Somente Gerente", omitting Hotsite — even though `dashboard-shell.html` and every manager prototype include it as a third item (caught during the `S35`–`S37` cross-file audit). Include all three from the start: Equipe, Configurações, Hotsite.
+> **Fix folded in during consolidation:** the original draft of this story only listed "Equipe + Configurações" under "Somente Gerente", omitting Hotsite — even though `dashboard-shell.html` and every manager prototype include it as a third item (caught during the `M13-S35`–`M13-S37` cross-file audit). Include all three from the start: Equipe, Configurações, Hotsite.
 
 `apps/web/components/dashboard/Topbar.tsx`:
 - Back arrow + title (drill-down pages)
@@ -1392,23 +1392,23 @@ The shell matches `plan/journey/shared/dashboard-shell.html` and `plan/journey/s
 - [ ] `auth-avatar` (not `topbar-avatar`) used for all avatar elements — avatar is visible on both mobile and desktop
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** M03 (JWT structure), S13 (staff login sets cookie)
+**Dependencies:** M03 (JWT structure), M13-S13 (staff login sets cookie)
 
 ---
 
-### S16 — Customer shell: layout, auth guard, route protection
+### M13-S16 — Customer shell: layout, auth guard, route protection
 
 *(formerly M126-S01)*
 
 **Agent:** `frontend-ts`
 **Complexity:** S
 **Docs to load:** `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md`, `docs/REPOSITORY_STRUCTURE.md`
-**Parallel with:** S06–S08 (already landed in Phase 1, so no actual blocking here)
+**Parallel with:** M13-S06–M13-S08 (already landed in Phase 1, so no actual blocking here)
 
 **Description:**
 Implement the foundational shell for the customer area. All `/{slug}/minha-conta/**` routes require a valid CUSTOMER JWT — unauthenticated users must be redirected to login. The visual shell matches `plan/journey/shared/customer-dashboard.html` and `plan/journey/customer/prototypes/minha-conta/01-minha-conta.html`.
 
-> 🔍 **Discover before starting:** Check `apps/web/app/[slug]/` for any existing `minha-conta/` folder or `layout.tsx`. Check `apps/web/middleware.ts` — read it in full before extending it; the staff guard (added in `S15`) must not be broken. Read `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` for the canonical folder structure before placing any files.
+> 🔍 **Discover before starting:** Check `apps/web/app/[slug]/` for any existing `minha-conta/` folder or `layout.tsx`. Check `apps/web/middleware.ts` — read it in full before extending it; the staff guard (added in `M13-S15`) must not be broken. Read `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md` for the canonical folder structure before placing any files.
 
 **What to create:**
 
@@ -1449,17 +1449,17 @@ Extend `apps/web/middleware.ts` — add protection for `/{slug}/minha-conta/**`:
 - [ ] Bottom nav visible at `<1024px`; desktop tab nav visible at `≥1024px`; never both at once
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S02 (cookie set on login), S14 (`/{slug}/login` route exists)
+**Dependencies:** M13-S02 (cookie set on login), M13-S14 (`/{slug}/login` route exists)
 
 ---
 
 ## Phase 4 — Staff booking core
 
-> **Discovery note (applies to this entire phase):** Several details will only be resolved when implementation begins — particularly what BFF endpoints already exist vs. what needs adding, and which `@beloauto/types` booking types survived M12. Explicit "🔍 Discover before starting" callouts mark every assumption that must be verified before writing code. Do not skip these — acting on a wrong assumption here caused two CI failures in M12. For `S19`/`S20` specifically: the UC-008/UC-009 audit already confirmed `cancel-admin`, `reschedule`, and `complete` backend+BFF endpoints are fully implemented (not just planned) — these two stories are frontend-only.
+> **Discovery note (applies to this entire phase):** Several details will only be resolved when implementation begins — particularly what BFF endpoints already exist vs. what needs adding, and which `@beloauto/types` booking types survived M12. Explicit "🔍 Discover before starting" callouts mark every assumption that must be verified before writing code. Do not skip these — acting on a wrong assumption here caused two CI failures in M12. For `M13-S19`/`M13-S20` specifically: the UC-008/UC-009 audit already confirmed `cancel-admin`, `reschedule`, and `complete` backend+BFF endpoints are fully implemented (not just planned) — these two stories are frontend-only.
 
 ---
 
-### S17 — Booking queue page (`/dashboard/bookings`)
+### M13-S17 — Booking queue page (`/dashboard/bookings`)
 
 *(formerly M125-S03)*
 
@@ -1470,7 +1470,7 @@ Extend `apps/web/middleware.ts` — add protection for `/{slug}/minha-conta/**`:
 **Description:**
 Implement the booking queue — grouped by **urgency, not date** (resolved 2026-06-16, see `plan/journey/staff/agenda.md` "Queue scope"): "Precisa de ação" (all PENDING + INFO_REQUESTED, any date), "Hoje" (today's APPROVED, actionable), "Próximos dias" (future APPROVED, read-only glance). This is the first page a staff member sees after logging in.
 
-> 🔍 **Discover before starting:** Verify the exact path of `fetchStaffBookings` — it must call `GET /v1/bookings` with `X-Actor-*` headers forwarded, three times with different query params (see `S03`). Check whether a `lib/api/dashboard/` directory exists or if fetchers live flat in `lib/api/`. Follow whatever convention is already there.
+> 🔍 **Discover before starting:** Verify the exact path of `fetchStaffBookings` — it must call `GET /v1/bookings` with `X-Actor-*` headers forwarded, three times with different query params (see `M13-S03`). Check whether a `lib/api/dashboard/` directory exists or if fetchers live flat in `lib/api/`. Follow whatever convention is already there.
 
 **Prototype reference:** `plan/journey/staff/prototypes/agenda/00-agenda.html`
 **Route:** `/dashboard/bookings`
@@ -1501,7 +1501,7 @@ fetchStaffBookings(params: { status: string; date?: string; from?: string; page?
 - Total price + duration
 - Status badge (`.status-pending` / `.status-info` / `.status-approved`)
 - INFO_REQUESTED card has blue left border (matches prototype `border-left: 3px solid var(--ba-primary)`)
-- "Hoje" section cards show "Marcar concluído" as the primary quick action (links into `S20`'s flow) instead of "Aprovar"
+- "Hoje" section cards show "Marcar concluído" as the primary quick action (links into `M13-S20`'s flow) instead of "Aprovar"
 - "Próximos dias" section cards have **no quick actions at all** — read-only, nothing to do until the day arrives (matches prototype's `opacity: 0.7`, non-link card)
 - Entire card is a link → `/dashboard/bookings/:bookingId` (except "Próximos dias" cards, which are not links)
 
@@ -1515,14 +1515,14 @@ fetchStaffBookings(params: { status: string; date?: string; from?: string; page?
 - [ ] Empty state renders pt-BR message per section (not a JS error)
 - [ ] Each actionable card links to `/dashboard/bookings/:bookingId`
 - [ ] Customer name with long text is truncated (ellipsis) — does not break card layout
-- [ ] Page is protected by `S15` middleware — unauthenticated access redirects
+- [ ] Page is protected by `M13-S15` middleware — unauthenticated access redirects
 - [ ] No decorative filter tabs (Pendentes/Confirmados/Todos) — removed in the 2026-06-16 redesign; the sections themselves are the filter
 
-**Dependencies:** S15, S03
+**Dependencies:** M13-S15, M13-S03
 
 ---
 
-### S18 — Booking detail page + all action flows (`/dashboard/bookings/[id]`)
+### M13-S18 — Booking detail page + all action flows (`/dashboard/bookings/[id]`)
 
 *(formerly M125-S05)*
 
@@ -1659,11 +1659,11 @@ requestMoreInfo(bookingId: string, message: string): Promise<void>
 - [ ] `ApproveBookingRequest`, `RejectBookingRequest`, `RequestMoreInfoRequest`, `ApproveBookingResponse`, `SlotConflictError`, `SlotConflictSuggestion` added to `packages/types/src/booking.dto.ts`
 - [ ] `tsc --noEmit` passes across monorepo
 
-**Dependencies:** S15, S04
+**Dependencies:** M13-S15, M13-S04
 
 ---
 
-### S19 — Booking lifecycle: cancel + reschedule (UC-008)
+### M13-S19 — Booking lifecycle: cancel + reschedule (UC-008)
 
 *(formerly M125-S11)*
 
@@ -1672,7 +1672,7 @@ requestMoreInfo(bookingId: string, message: string): Promise<void>
 **Docs to load:** `docs/04-USE_CASES.md` § UC-008, `plan/journey/staff/prototypes/agenda/03-booking-detail-approved.html`, `05-reschedule.html`, `05b-reschedule-conflict.html`, `dev-notes.md`
 
 **Description:**
-Extends `BookingDetailPage` (`S18`) with a second action panel — `BookingLifecyclePanel` — rendered when `booking.status === 'APPROVED'` instead of `BookingActionPanel`. Staff can cancel an approved booking (optional reason, no enforced minimum) or reschedule it to a new slot. Booking stays `APPROVED` after a reschedule — it is not a status transition. Backend + BFF endpoints already exist and were verified in the 2026-06-16 UC audit (`cancel-admin`, `reschedule` — both fully implemented, not just planned).
+Extends `BookingDetailPage` (`M13-S18`) with a second action panel — `BookingLifecyclePanel` — rendered when `booking.status === 'APPROVED'` instead of `BookingActionPanel`. Staff can cancel an approved booking (optional reason, no enforced minimum) or reschedule it to a new slot. Booking stays `APPROVED` after a reschedule — it is not a status transition. Backend + BFF endpoints already exist and were verified in the 2026-06-16 UC audit (`cancel-admin`, `reschedule` — both fully implemented, not just planned).
 
 > 🔍 **Discover before starting:** Confirm `PATCH /v1/bookings/:id/cancel` (BFF dispatches to backend `/cancel-admin` for STAFF|MANAGER) and `PATCH /v1/bookings/:id/reschedule` are wired exactly as found in the audit (`apps/bff/src/bookings/bookings.controller.ts` lines ~306–337 at time of audit — re-verify line numbers). Confirm whether the booking flow's `AvailabilityCalendar` component (built for the guest/customer booking flow, UC-011) is extracted in a way `RescheduleBookingCalendar` can reuse without pulling in basket/duration-recompute logic — reschedule duration is frozen at the existing booking's `totalDurationMins`. Decide: nested routes (`/dashboard/bookings/[id]/reschedule`) vs. a modal/sheet over `[id]` — the prototype models both cancel (sheet) and reschedule (full screen) but doesn't mandate the production routing approach.
 
@@ -1683,7 +1683,7 @@ Extends `BookingDetailPage` (`S18`) with a second action panel — `BookingLifec
 - `plan/journey/staff/prototypes/agenda/05b-reschedule-conflict.html` — 409 conflict + adjacent slot suggestions
 - `plan/journey/staff/prototypes/agenda/05c-reschedule-success.html` — reschedule success inline state (booking stays APPROVED, panel returns)
 
-**Route:** `/dashboard/bookings/[id]` (same route as `S18`, branched by status) + reschedule sub-route (TBD — see discovery)
+**Route:** `/dashboard/bookings/[id]` (same route as `M13-S18`, branched by status) + reschedule sub-route (TBD — see discovery)
 
 **`@beloauto/types` additions (`packages/types/src/booking.dto.ts`):**
 ```typescript
@@ -1702,15 +1702,15 @@ rescheduleBooking(bookingId: string, scheduledAt: string, adminNotes?: string): 
 
 **What to create:**
 
-`apps/web/components/dashboard/bookings/BookingLifecyclePanel.tsx` — Marcar concluído (primary, links into `S20`) / Reagendar (secondary) / Cancelar (secondary) buttons. Renders in `BookingDetailPage`'s desktop aside / mobile action bar, replacing `BookingActionPanel` when `status === 'APPROVED'`.
+`apps/web/components/dashboard/bookings/BookingLifecyclePanel.tsx` — Marcar concluído (primary, links into `M13-S20`) / Reagendar (secondary) / Cancelar (secondary) buttons. Renders in `BookingDetailPage`'s desktop aside / mobile action bar, replacing `BookingActionPanel` when `status === 'APPROVED'`.
 
 `apps/web/components/dashboard/bookings/AdminCancelBookingSheet.tsx` — bottom sheet: reason textarea, **optional**, no minimum length (unlike Reject's required ≥10 chars — confirmed in the UC audit against `CancelBookingAsAdminBody`). On confirm: calls `cancelBookingAsAdmin()`; success → parent `actionState = 'cancelled'`.
 
 `apps/web/components/dashboard/bookings/RescheduleBookingCalendar.tsx` — reuses `AvailabilityCalendar` (day-pill/slot-btn UI from UC-011). "Revisar reagendamento" summary panel (De/Para slot comparison, live-updates as a new slot is picked) per the README's "Summary card" convention. On confirm: calls `rescheduleBooking()`.
 
-`apps/web/components/dashboard/bookings/RescheduleConflictAlert.tsx` — same pattern as `SlotConflictAlert` (`S18`), reused for the reschedule confirm's 409 response.
+`apps/web/components/dashboard/bookings/RescheduleConflictAlert.tsx` — same pattern as `SlotConflictAlert` (`M13-S18`), reused for the reschedule confirm's 409 response.
 
-**`actionState` additions to `BookingDetailPage`** (extends `S18`'s machine):
+**`actionState` additions to `BookingDetailPage`** (extends `M13-S18`'s machine):
 ```typescript
 type ActionState = /* ...existing... */
   | 'cancelled'           // UC-008 success — red banner, terminal
@@ -1730,14 +1730,14 @@ type ActionState = /* ...existing... */
 - [ ] `409` → `RescheduleConflictAlert` with adjacent slot suggestions; picking one retries the reschedule
 
 *Layout:*
-- [ ] Same `detail-layout` two-column / `mobile-action-bar` shell as `S18` — no bespoke layout
+- [ ] Same `detail-layout` two-column / `mobile-action-bar` shell as `M13-S18` — no bespoke layout
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S15, S18, M12 (`AvailabilityCalendar` component — verify it exists and is reusable)
+**Dependencies:** M13-S15, M13-S18, M12 (`AvailabilityCalendar` component — verify it exists and is reusable)
 
 ---
 
-### S20 — Mark booking complete (UC-009)
+### M13-S20 — Mark booking complete (UC-009)
 
 *(formerly M125-S12)*
 
@@ -1746,15 +1746,15 @@ type ActionState = /* ...existing... */
 **Docs to load:** `docs/04-USE_CASES.md` § UC-009, `plan/journey/staff/prototypes/agenda/04-mark-complete.html`, `04b-complete-success.html`
 
 **Description:**
-The "Marcar concluído" action from `BookingLifecyclePanel` (`S19`) — staff confirm a completed wash, optionally adjusting the actual price charged per line (discount/waiver — defaults to the quoted `priceAtBooking`), uploading after-service photos, and adding notes. Triggers loyalty point earning server-side (computed from `pointsValueAtBooking`, unaffected by `actualPriceCharged`). Backend + BFF endpoint already exist (verified in the 2026-06-16 UC audit — `PATCH /v1/bookings/:id/complete` is fully implemented).
+The "Marcar concluído" action from `BookingLifecyclePanel` (`M13-S19`) — staff confirm a completed wash, optionally adjusting the actual price charged per line (discount/waiver — defaults to the quoted `priceAtBooking`), uploading after-service photos, and adding notes. Triggers loyalty point earning server-side (computed from `pointsValueAtBooking`, unaffected by `actualPriceCharged`). Backend + BFF endpoint already exist (verified in the 2026-06-16 UC audit — `PATCH /v1/bookings/:id/complete` is fully implemented).
 
-> 🔍 **Discover before starting:** Same routing question as `S19` (nested route vs. modal/sheet over `[id]`) — decide once, apply to both stories consistently. Confirm the after-service photo upload reuses the same GCS signed-URL upload component/pattern as the guest/customer "before" photos (M115-S01), not a new implementation.
+> 🔍 **Discover before starting:** Same routing question as `M13-S19` (nested route vs. modal/sheet over `[id]`) — decide once, apply to both stories consistently. Confirm the after-service photo upload reuses the same GCS signed-URL upload component/pattern as the guest/customer "before" photos (M115-S01), not a new implementation.
 
 **Prototype references:**
 - `plan/journey/staff/prototypes/agenda/04-mark-complete.html` — per-line price editor + photo upload + notes
 - `plan/journey/staff/prototypes/agenda/04b-complete-success.html` — completion success inline state (cotado vs. cobrado summary)
 
-**Route:** `/dashboard/bookings/[id]/complete` (TBD — see `S19` discovery)
+**Route:** `/dashboard/bookings/[id]/complete` (TBD — see `M13-S19` discovery)
 
 **`@beloauto/types` additions (`packages/types/src/booking.dto.ts`):**
 ```typescript
@@ -1770,7 +1770,7 @@ export interface CompleteBookingResponse {
 }
 ```
 
-> Note: `S12` extends `CompleteBookingRequest` with an optional `discountByPoints` field for the loyalty redemption strip — see `S26`.
+> Note: `M13-S12` extends `CompleteBookingRequest` with an optional `discountByPoints` field for the loyalty redemption strip — see `M13-S26`.
 
 **API fetcher additions (`apps/web/lib/api/dashboard/bookings.ts`):**
 ```typescript
@@ -1797,10 +1797,10 @@ completeBooking(body: CompleteBookingRequest): Promise<CompleteBookingResponse>
 - [ ] Confirming with all lines unchanged sends `actualPriceCharged === priceAtBooking` for every line (not omitted)
 - [ ] Photos are optional — confirming with zero photos succeeds (UC-009 A3)
 - [ ] `200` → inline green banner: per-line quoted-vs-charged + total quoted-vs-charged + "ganhou N pontos de fidelidade"; badge → CONCLUÍDO; no further actions (terminal)
-- [ ] Primary action button lives in sticky aside (desktop) / fixed bottom bar (mobile), matching `S18`/`S19`'s shell
+- [ ] Primary action button lives in sticky aside (desktop) / fixed bottom bar (mobile), matching `M13-S18`/`M13-S19`'s shell
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S15, S18, S19 (entry point), M115-S01 (photo upload pattern)
+**Dependencies:** M13-S15, M13-S18, M13-S19 (entry point), M115-S01 (photo upload pattern)
 
 ---
 
@@ -1808,7 +1808,7 @@ completeBooking(body: CompleteBookingRequest): Promise<CompleteBookingResponse>
 
 ---
 
-### S21 — Horários: schedule management page + closure/opening flows
+### M13-S21 — Horários: schedule management page + closure/opening flows
 
 *(formerly M125-S06)*
 
@@ -1819,7 +1819,7 @@ completeBooking(body: CompleteBookingRequest): Promise<CompleteBookingResponse>
 **Description:**
 Implement the Horários section of the staff dashboard — a weekly schedule view where staff can see approved bookings on a time grid and manage schedule closures (UC-010a, UC-010b) and special openings (UC-010c, UC-010d). All backend and BFF endpoints for this section are already implemented; this is a **frontend-only story**.
 
-> 🔍 **Discover before starting:** Verify that `GET /v1/schedule/closures`, `POST /v1/schedule/closures`, `DELETE /v1/schedule/closures/:id`, `GET /v1/schedule/openings`, `POST /v1/schedule/openings`, and `DELETE /v1/schedule/openings/:id` exist in `apps/bff/src/` and return the shapes described below. Check `GET /v1/bookings?status=APPROVED&from=...&to=...` — this likely exists from `S03`; confirm the `from`/`to` filter params work for a date range. Verify `apps/bff/http/schedule/` exists; if `schedule-openings.http` or `availability.http` are missing, create them as part of this story.
+> 🔍 **Discover before starting:** Verify that `GET /v1/schedule/closures`, `POST /v1/schedule/closures`, `DELETE /v1/schedule/closures/:id`, `GET /v1/schedule/openings`, `POST /v1/schedule/openings`, and `DELETE /v1/schedule/openings/:id` exist in `apps/bff/src/` and return the shapes described below. Check `GET /v1/bookings?status=APPROVED&from=...&to=...` — this likely exists from `M13-S03`; confirm the `from`/`to` filter params work for a date range. Verify `apps/bff/http/schedule/` exists; if `schedule-openings.http` or `availability.http` are missing, create them as part of this story.
 
 **Prototype reference:** `plan/journey/staff/prototypes/horarios/` (10 screens — `00-schedule.html` through `06-remove-opening.html`)
 **Route:** `/dashboard/schedule`
@@ -1833,7 +1833,7 @@ Implement the Horários section of the staff dashboard — a weekly schedule vie
 
 `apps/web/components/schedule/ScheduleView.tsx` — `'use client'`:
 - Holds `ScheduleState` (see below)
-- Renders `<WeekNav>` (imported from `components/dashboard/WeekNav.tsx` — created in `S17`) above the week strip
+- Renders `<WeekNav>` (imported from `components/dashboard/WeekNav.tsx` — created in `M13-S17`) above the week strip
 - Week strip: Mon–Sun day buttons; selected day shown in time grid below
 - Time grid: slots from `businessHours[dayOfWeek].open` to `.close`; closed days → empty state + "Abrir dia especial" CTA
 - Booking blocks: blue left border + `--ba-secondary` bg; link to `/dashboard/bookings/[id]`
@@ -1903,7 +1903,7 @@ fetchOpenings(params: { from: string; to: string }): Promise<{ openings: Schedul
 createOpening(body: CreateOpeningRequest): Promise<ScheduleOpening>
 deleteOpening(id: string): Promise<void>
 ```
-Approved bookings for the schedule grid reuse `fetchStaffBookings({ status: 'APPROVED', from, to })` from `lib/api/bookings-staff.ts` (`S03`).
+Approved bookings for the schedule grid reuse `fetchStaffBookings({ status: 'APPROVED', from, to })` from `lib/api/bookings-staff.ts` (`M13-S03`).
 
 **BFF `.http` gaps (create in this story if missing):**
 - `apps/bff/http/schedule/schedule-openings.http` — `POST` and `DELETE /v1/schedule/openings` request blocks
@@ -1974,11 +1974,11 @@ export interface CreateOpeningRequest {
 - [ ] Horários item active in sidebar and bottom nav
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S15 (shell), S03 (`fetchStaffBookings` with APPROVED filter), S17 (`WeekNav` component)
+**Dependencies:** M13-S15 (shell), M13-S03 (`fetchStaffBookings` with APPROVED filter), M13-S17 (`WeekNav` component)
 
 ---
 
-### S22 — Serviços: service list page (`/dashboard/services`)
+### M13-S22 — Serviços: service list page (`/dashboard/services`)
 
 *(formerly M125-S08)*
 
@@ -2033,11 +2033,11 @@ fetchStaffServices(): Promise<StaffServiceListResponse>
 - [ ] Serviços item active in sidebar and bottom nav
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S15 (shell), S05 (BFF endpoints + types)
+**Dependencies:** M13-S15 (shell), M13-S05 (BFF endpoints + types)
 
 ---
 
-### S23 — Serviços: create service page (`/dashboard/services/new`)
+### M13-S23 — Serviços: create service page (`/dashboard/services/new`)
 
 *(formerly M125-S09)*
 
@@ -2097,11 +2097,11 @@ createService(body: CreateServiceRequest): Promise<StaffServiceResponse>
 - [ ] Bottom nav visible (mobile); Serviços item active
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S15 (shell), S05 (BFF endpoints + `CreateServiceRequest` type)
+**Dependencies:** M13-S15 (shell), M13-S05 (BFF endpoints + `CreateServiceRequest` type)
 
 ---
 
-### S24 — Serviços: edit + deactivate service (`/dashboard/services/[id]/edit`)
+### M13-S24 — Serviços: edit + deactivate service (`/dashboard/services/[id]/edit`)
 
 *(formerly M125-S10)*
 
@@ -2142,7 +2142,7 @@ deactivateService(serviceId: string): Promise<void>
 - Price field shows inline warning `.form-warn`: "Só afeta novos agendamentos" (triangle icon, amber colour — exact text from prototype)
 - On submit: calls `updateService()`
   - `200` → `router.push('/dashboard/services')` + `revalidatePath`
-  - `409` → name field error state (same pattern as `S23`)
+  - `409` → name field error state (same pattern as `M13-S23`)
   - Other error → toast
 - **Danger zone** section (bottom of form, separated by red border-top):
   - Heading: "Zona de perigo"
@@ -2184,7 +2184,7 @@ deactivateService(serviceId: string): Promise<void>
 - [ ] Both pages: back arrow in topbar; bottom nav visible; Serviços active in nav
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S15 (shell), S05 (BFF endpoints + types), S22 (`revalidatePath` target)
+**Dependencies:** M13-S15 (shell), M13-S05 (BFF endpoints + types), M13-S22 (`revalidatePath` target)
 
 ---
 
@@ -2192,7 +2192,7 @@ deactivateService(serviceId: string): Promise<void>
 
 ---
 
-### S25 — Frontend: `/dashboard/loyalty` — customer search + loyalty detail pages
+### M13-S25 — Frontend: `/dashboard/loyalty` — customer search + loyalty detail pages
 
 *(formerly M128-S03)*
 
@@ -2204,7 +2204,7 @@ deactivateService(serviceId: string): Promise<void>
 Two pages under a new `/dashboard/loyalty` route. The search page lets staff find any customer by name/email; the detail page shows their active balance (with currency equivalent), earning history tab (active vs. expired entries), and redemption history tab.
 
 > 🔍 **Discover before starting:**
-> - Confirm `S12` has shipped: `GET /v1/customers?search=` and enriched balance response exist.
+> - Confirm `M13-S12` has shipped: `GET /v1/customers?search=` and enriched balance response exist.
 > - Check `apps/web/app/dashboard/` structure — place new route at `loyalty/`.
 > - Confirm `apps/web/lib/api/dashboard/` convention (flat files or per-module folders).
 
@@ -2283,11 +2283,11 @@ interface Props {
 - [ ] Fidelidade item active in sidebar navigation
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S12, S15 (dashboard shell + sidebar Fidelidade nav item — already included from the start per `S15`'s fix note)
+**Dependencies:** M13-S12, M13-S15 (dashboard shell + sidebar Fidelidade nav item — already included from the start per `M13-S15`'s fix note)
 
 ---
 
-### S26 — Frontend: loyalty strip in `MarkCompleteSheet` (UC-009 A6)
+### M13-S26 — Frontend: loyalty strip in `MarkCompleteSheet` (UC-009 A6)
 
 *(formerly M128-S04)*
 
@@ -2296,12 +2296,12 @@ interface Props {
 **Docs to load:** `docs/04-USE_CASES.md` § UC-009 A6, `plan/journey/staff/prototypes/agenda/04-mark-complete.html`
 
 **Description:**
-Extends the `MarkCompleteSheet` component (built in `S20`) with the loyalty redemption strip. Visible only when `booking.customerId != null` AND `conversionRate > 0`. Staff enters points to use (or clicks "Usar todos"), sees the BRL discount live, and the discount is included in the completion request body.
+Extends the `MarkCompleteSheet` component (built in `M13-S20`) with the loyalty redemption strip. Visible only when `booking.customerId != null` AND `conversionRate > 0`. Staff enters points to use (or clicks "Usar todos"), sees the BRL discount live, and the discount is included in the completion request body.
 
 > 🔍 **Discover before starting:**
-> - Confirm `S20` shipped `MarkCompleteSheet`. Read it in full before adding anything.
-> - Confirm `StaffBookingDetailResponse` (from `S04`) includes `loyaltyBalance: number | null` and `loyaltyConversionRate: number` (added per `S04`'s note, sourced from `S12`).
-> - Read `apps/web/lib/api/dashboard/bookings.ts` `completeBooking()` fetcher — confirm it accepts `CompleteBookingRequest` from `@beloauto/types` and that `discountByPoints` is now in the type (added in `S12`).
+> - Confirm `M13-S20` shipped `MarkCompleteSheet`. Read it in full before adding anything.
+> - Confirm `StaffBookingDetailResponse` (from `M13-S04`) includes `loyaltyBalance: number | null` and `loyaltyConversionRate: number` (added per `M13-S04`'s note, sourced from `M13-S12`).
+> - Read `apps/web/lib/api/dashboard/bookings.ts` `completeBooking()` fetcher — confirm it accepts `CompleteBookingRequest` from `@beloauto/types` and that `discountByPoints` is now in the type (added in `M13-S12`).
 
 **Prototype reference:** `plan/journey/staff/prototypes/agenda/04-mark-complete.html` (loyalty strip section)
 
@@ -2351,17 +2351,17 @@ On confirm: pass `discountByPoints` to `completeBooking()` fetcher.
 - [ ] Completion success banner shows loyalty discount row when discount was applied
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S20 (base `MarkCompleteSheet`), S12 (`CompleteBookingRequest` type with `discountByPoints`)
+**Dependencies:** M13-S20 (base `MarkCompleteSheet`), M13-S12 (`CompleteBookingRequest` type with `discountByPoints`)
 
 ---
 
 ## Phase 7 — Customer Minha Conta
 
-> **Discovery note (applies to this entire phase):** Several BFF endpoints were built in M08/M09 for guest/admin flows and may already serve the CUSTOMER role. Every story that touches the BFF (already covered in Phase 1's `S06`–`S08`) had a "🔍 Discover before starting" callout. Read the existing controller before writing new code — the story scope may have shrunk to type additions only.
+> **Discovery note (applies to this entire phase):** Several BFF endpoints were built in M08/M09 for guest/admin flows and may already serve the CUSTOMER role. Every story that touches the BFF (already covered in Phase 1's `M13-S06`–`M13-S08`) had a "🔍 Discover before starting" callout. Read the existing controller before writing new code — the story scope may have shrunk to type additions only.
 
 ---
 
-### S27 — Minha Conta home + booking list page (`/{slug}/minha-conta`)
+### M13-S27 — Minha Conta home + booking list page (`/{slug}/minha-conta`)
 
 *(formerly M126-S03)*
 
@@ -2376,7 +2376,7 @@ On confirm: pass `discountByPoints` to `completeBooking()` fetcher.
 **Description:**
 The customer's home — a single route with two tab views. The "Início" tab shows summary stats and a preview of upcoming/pending bookings. The "Agendamentos" tab shows the full sectioned list. Both views are rendered client-side from the same server-fetched data.
 
-> 🔍 **Discover before starting:** Confirm that `CustomerBookingListResponse` and `CustomerLoyaltyBalanceResponse` from `S06` are available in `packages/types/`. Verify `apps/web/lib/api/` — check whether a customer fetcher file already exists (`customer.ts`, `minha-conta.ts`). Follow the convention already in place.
+> 🔍 **Discover before starting:** Confirm that `CustomerBookingListResponse` and `CustomerLoyaltyBalanceResponse` from `M13-S06` are available in `packages/types/`. Verify `apps/web/lib/api/` — check whether a customer fetcher file already exists (`customer.ts`, `minha-conta.ts`). Follow the convention already in place.
 
 **What to create:**
 
@@ -2452,11 +2452,11 @@ const canCancel = new Date() < deadline;
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 - [ ] Vitest unit test for the client-side section-split logic (pure function)
 
-**Dependencies:** S16, S06
+**Dependencies:** M13-S16, M13-S06
 
 ---
 
-### S28 — Booking detail page + cancel flow + info submit (`/{slug}/minha-conta/agendamentos/[id]`)
+### M13-S28 — Booking detail page + cancel flow + info submit (`/{slug}/minha-conta/agendamentos/[id]`)
 
 *(formerly M126-S05)*
 
@@ -2473,11 +2473,11 @@ const canCancel = new Date() < deadline;
 **Description:**
 The booking detail page for a customer. The page adapts based on status: APPROVED/PENDING show a cancel action; INFO_REQUESTED shows an info-submit form; COMPLETED/CANCELLED/REJECTED are read-only. Cancel confirmation is a dedicated sub-page (not a JS overlay — static prototype informed this decision).
 
-> 🔍 **Discover before starting:** Confirm `CustomerBookingDetailResponse` from `S07` is available in types. Check `apps/bff/src/bookings/bookings.controller.ts` for `PATCH /v1/bookings/:id/cancel` and `PATCH /v1/bookings/:id/submit-info` — verify both accept CUSTOMER role and return the expected shapes. Check `tenants.settings.booking.cancellation_window_hours` is accessible from the JWT or a BFF settings endpoint; if not, default to `48`.
+> 🔍 **Discover before starting:** Confirm `CustomerBookingDetailResponse` from `M13-S07` is available in types. Check `apps/bff/src/bookings/bookings.controller.ts` for `PATCH /v1/bookings/:id/cancel` and `PATCH /v1/bookings/:id/submit-info` — verify both accept CUSTOMER role and return the expected shapes. Check `tenants.settings.booking.cancellation_window_hours` is accessible from the JWT or a BFF settings endpoint; if not, default to `48`.
 
 **What to create:**
 
-`apps/web/lib/api/minha-conta.ts` (extend from `S27`):
+`apps/web/lib/api/minha-conta.ts` (extend from `M13-S27`):
 ```typescript
 fetchCustomerBookingDetail(bookingId: string): Promise<CustomerBookingDetailResponse>
 // GET /v1/bookings/:id
@@ -2563,11 +2563,11 @@ submitInfo(bookingId: string, message: string): Promise<void>
 - [ ] `cancelBooking`, `submitInfo` fetchers in `apps/web/lib/api/minha-conta.ts`
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S16, S27, S07
+**Dependencies:** M13-S16, M13-S27, M13-S07
 
 ---
 
-### S29 — Frontend: Fidelidade page (`/{slug}/minha-conta/fidelidade`)
+### M13-S29 — Frontend: Fidelidade page (`/{slug}/minha-conta/fidelidade`)
 
 *(formerly M126-S07)*
 
@@ -2581,17 +2581,17 @@ submitInfo(bookingId: string, message: string): Promise<void>
 **Description:**
 The customer's own loyalty history page — a full view of their balance, earning entries, and redemption history. Accessed by tapping the loyalty strip on the Minha Conta home page or the "Fidelidade" tab in the nav bar.
 
-> **Dependency fix applied during consolidation:** the original draft listed this story's data dependencies as just the balance + entries/redemptions BFF calls (`S06`, `S08`), which would have let it ship before the loyalty conversion-rate field existed — its own "10 pts = R$ 1,00" conversion row would have had nothing real to read. `S12` (which adds `conversionRate` to the balance response) is now an explicit dependency; since `S12` is in Phase 1, it's already satisfied by the time this phase starts.
+> **Dependency fix applied during consolidation:** the original draft listed this story's data dependencies as just the balance + entries/redemptions BFF calls (`M13-S06`, `M13-S08`), which would have let it ship before the loyalty conversion-rate field existed — its own "10 pts = R$ 1,00" conversion row would have had nothing real to read. `M13-S12` (which adds `conversionRate` to the balance response) is now an explicit dependency; since `M13-S12` is in Phase 1, it's already satisfied by the time this phase starts.
 
 > 🔍 **Discover before starting:**
-> - Confirm `S08` types (`CustomerLoyaltyEntriesResponse`, `CustomerLoyaltyRedemptionsResponse`) are in `packages/types/`.
-> - Confirm `CustomerLoyaltyBalanceResponse` from `S06` (including `conversionRate` from `S12`) is available.
+> - Confirm `M13-S08` types (`CustomerLoyaltyEntriesResponse`, `CustomerLoyaltyRedemptionsResponse`) are in `packages/types/`.
+> - Confirm `CustomerLoyaltyBalanceResponse` from `M13-S06` (including `conversionRate` from `M13-S12`) is available.
 > - Check `apps/web/lib/api/minha-conta.ts` — extend it rather than creating a new file.
 > - The "10 pts = R$ 1,00" conversion row's UI was carried over from the prototype with only an inline comment caveat — the journey-prototype audit flagged it should be explicitly verified against UC-016's actual MVP scope (CLAUDE.md describes the loyalty MVP as points-balance only). Confirm with product before shipping the conversion row as-is; it is gated on `conversionRate > 0` either way, so tenants with redemption disabled never see it.
 
 **What to create:**
 
-`apps/web/lib/api/minha-conta.ts` (extend from `S27`):
+`apps/web/lib/api/minha-conta.ts` (extend from `M13-S27`):
 ```typescript
 fetchLoyaltyEntries(limit?: number): Promise<CustomerLoyaltyEntriesResponse>
 // GET /v1/loyalty/entries?limit=50
@@ -2622,7 +2622,7 @@ fetchLoyaltyRedemptions(limit?: number): Promise<CustomerLoyaltyRedemptionsRespo
   - "Nenhum ponto acumulado ainda" + CTA "Agendar agora" → `/{slug}/booking`
 - Vitest unit test: `MinhaFidelidadePage.spec.tsx` — key cases: renders balance, tabs switch correctly, empty state shown when both entries and balance are zero
 
-**`CustomerShell` update** (`S16`):
+**`CustomerShell` update** (`M13-S16`):
 - "Fidelidade" tab nav link (desktop) and bottom-nav item (mobile) must link to `/{slug}/minha-conta/fidelidade`
 - Loyalty strip on Minha Conta home (`01-minha-conta.html`) is a link → this page
 
@@ -2637,11 +2637,11 @@ fetchLoyaltyRedemptions(limit?: number): Promise<CustomerLoyaltyRedemptionsRespo
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 - [ ] Vitest unit tests pass
 
-**Dependencies:** S16 (shell), S06 (`fetchLoyaltyBalance`), S08 (entries + redemptions BFF), S12 (`conversionRate` enrichment)
+**Dependencies:** M13-S16 (shell), M13-S06 (`fetchLoyaltyBalance`), M13-S08 (entries + redemptions BFF), M13-S12 (`conversionRate` enrichment)
 
 ---
 
-### S30 — Frontend: UC-023 tenant switch trigger + page
+### M13-S30 — Frontend: UC-023 tenant switch trigger + page
 
 *(formerly M126-S08)*
 
@@ -2653,10 +2653,10 @@ fetchLoyaltyRedemptions(limit?: number): Promise<CustomerLoyaltyRedemptionsRespo
 - `plan/journey/customer/prototypes/login/01-select-tenant.html` — reference for card pattern
 
 **Description:**
-Completes UC-023: a logged-in customer who belongs to multiple tenants can switch their active tenant from the avatar dropdown in the customer shell. The BFF already issues a new cookie-set JWT on `POST /v1/auth/switch-tenant` (fixed in `S02`); this story adds the tenant-list endpoint and the UI.
+Completes UC-023: a logged-in customer who belongs to multiple tenants can switch their active tenant from the avatar dropdown in the customer shell. The BFF already issues a new cookie-set JWT on `POST /v1/auth/switch-tenant` (fixed in `M13-S02`); this story adds the tenant-list endpoint and the UI.
 
 > 🔍 **Discover before starting:**
-> - Confirm `S02` is deployed: `POST /v1/auth/switch-tenant` sets the `access_token` httpOnly cookie and returns `{ tenantSlug, expiresIn }`.
+> - Confirm `M13-S02` is deployed: `POST /v1/auth/switch-tenant` sets the `access_token` httpOnly cookie and returns `{ tenantSlug, expiresIn }`.
 > - Check `apps/bff/src/customers/customers.controller.ts` — does `GET /v1/customers/tenants` exist? If not, it must be added (see BFF part below).
 > - Check `apps/web/app/switch-tenant/page.tsx` — this is separate from `/select-tenant` (login flow). Same visual, different endpoint and context.
 > - In the JWT payload, check if `tenantCount` or a list of tenant IDs is included. If not, the frontend must always call the BFF endpoint (cannot short-circuit based on JWT alone).
@@ -2676,20 +2676,20 @@ getCustomerTenants(
 }
 ```
 
-`TenantOption` is already in `@beloauto/types` (added in `S02`). Confirm it contains: `{ id, name, slug, loyaltyPoints }`. If `loyaltyPoints` is not available from the internal tenant endpoint, call `GET /internal/customers/{customerId}/loyalty-balance?tenantId={id}` per tenant or set to `0` for now (note the limitation in dev-notes).
+`TenantOption` is already in `@beloauto/types` (added in `M13-S02`). Confirm it contains: `{ id, name, slug, loyaltyPoints }`. If `loyaltyPoints` is not available from the internal tenant endpoint, call `GET /internal/customers/{customerId}/loyalty-balance?tenantId={id}` per tenant or set to `0` for now (note the limitation in dev-notes).
 
-**`@beloauto/types` addition** (if not already in `S02`):
+**`@beloauto/types` addition** (if not already in `M13-S02`):
 ```typescript
 // packages/types/src/auth.dto.ts
 export interface SwitchTenantRequest {
   readonly targetTenantId: string;
 }
-// SwitchTenantResponse already defined in S02: { tenantSlug, expiresIn }
+// SwitchTenantResponse already defined in M13-S02: { tenantSlug, expiresIn }
 ```
 
 **Frontend part:**
 
-`apps/web/lib/api/auth.ts` (extend from `S14`):
+`apps/web/lib/api/auth.ts` (extend from `M13-S14`):
 ```typescript
 fetchCustomerTenants(): Promise<TenantOption[]>
 // GET /api/customers/tenants — returns other tenants (current excluded)
@@ -2727,17 +2727,17 @@ switchTenant(targetTenantId: string): Promise<SwitchTenantResponse>
 - [ ] `.http` block added for `GET /v1/customers/tenants`
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S02 (switch-tenant cookie fix), S14 (`TenantOption` type + `/select-tenant` visual pattern), S16 (CustomerShell exists)
+**Dependencies:** M13-S02 (switch-tenant cookie fix), M13-S14 (`TenantOption` type + `/select-tenant` visual pattern), M13-S16 (CustomerShell exists)
 
 ---
 
 ## Phase 8 — Manager workspace
 
-> **Discovery note (applies to this entire phase):** Equipe and Hotsite were confirmed fully backend+BFF-ready by direct code inspection on 2026-06-16 — `GET /staff` already returns active+inactive members, and Hotsite already has every CRUD/publish/image-upload route it needs. Configurações was the exception (no GET endpoint existed for tenant settings) — that gap is already closed by `S09`/`S10` in Phase 1, so by the time this phase starts, all three sub-areas have their backend/BFF readiness in place.
+> **Discovery note (applies to this entire phase):** Equipe and Hotsite were confirmed fully backend+BFF-ready by direct code inspection on 2026-06-16 — `GET /staff` already returns active+inactive members, and Hotsite already has every CRUD/publish/image-upload route it needs. Configurações was the exception (no GET endpoint existed for tenant settings) — that gap is already closed by `M13-S09`/`M13-S10` in Phase 1, so by the time this phase starts, all three sub-areas have their backend/BFF readiness in place.
 
 ---
 
-### S31 — Configurações: settings form page (`/dashboard/settings`)
+### M13-S31 — Configurações: settings form page (`/dashboard/settings`)
 
 *(formerly M127-S03, folds in M128-S05)*
 
@@ -2748,7 +2748,7 @@ switchTenant(targetTenantId: string): Promise<SwitchTenantResponse>
 **Description:**
 The settings form — five sections matching the prototype: Geral, Agendamento, Fidelidade, Horário de funcionamento, Contato. Scope is exactly what's in the prototype and UC-026 — the backend supports additional fields (`auto_approve_enabled`, `slot_granularity_minutes`, `localization`, etc.) that are **explicitly out of scope** here; see the consolidated open-questions section at the end of this file.
 
-> 🔍 **Discover before starting:** Confirm the exact `TenantSettingsResponse`/`UpdateTenantSettingsRequest` field names against what `S10`/`S12` actually shipped — don't build the form against the UC text or this plan's draft shape, the landed BFF types are the source of truth.
+> 🔍 **Discover before starting:** Confirm the exact `TenantSettingsResponse`/`UpdateTenantSettingsRequest` field names against what `M13-S10`/`M13-S12` actually shipped — don't build the form against the UC text or this plan's draft shape, the landed BFF types are the source of truth.
 
 **Prototype reference:** `plan/journey/manager/prototypes/configuracoes/01-settings-form.html` (happy path), `01b-validation-error.html`, `01c-saved-success.html`
 
@@ -2772,7 +2772,7 @@ updateTenantSettings(body: UpdateTenantSettingsRequest): Promise<TenantSettingsR
 | Horário de funcionamento | `timezone` select + 7 day-rows (open/close time pickers + "Fechado" checkbox per day) |
 | Contato | `phone`, `email`, `address` (street/number/complement/neighborhood/city/state/zipCode) — all optional |
 
-> **Field folded in during consolidation (formerly a separate story, M128-S05):** `pointsPerCurrencyUnit` is added directly to the Fidelidade section here rather than as a follow-up story that would touch this same file again right after it ships. Hint text: "Quantos pontos equivalem a 1 unidade monetária (ex: 10 = 10 pts → R$1). Zero desativa o desconto por pontos." Value `0` is accepted (disables the feature); `> 10000` shows inline validation error "Máximo 10000". The field is included in `UpdateTenantSettingsRequest` as of `S12`.
+> **Field folded in during consolidation (formerly a separate story, M128-S05):** `pointsPerCurrencyUnit` is added directly to the Fidelidade section here rather than as a follow-up story that would touch this same file again right after it ships. Hint text: "Quantos pontos equivalem a 1 unidade monetária (ex: 10 = 10 pts → R$1). Zero desativa o desconto por pontos." Value `0` is accepted (disables the feature); `> 10000` shows inline validation error "Máximo 10000". The field is included in `UpdateTenantSettingsRequest` as of `M13-S12`.
 
 - `SettingsFormSchema` (Zod) mirrors the backend's validation ranges exactly (see table in dev-notes.md)
 - On submit: `200` → inline toast "Configurações salvas com sucesso." (stays on page, no redirect — matches `01c-saved-success.html`); `422` → the offending field gets `has-error` styling + inline message, other fields keep their values (matches `01b-validation-error.html`)
@@ -2786,11 +2786,11 @@ updateTenantSettings(body: UpdateTenantSettingsRequest): Promise<TenantSettingsR
 - [ ] Successful save shows a toast and the user stays on `/dashboard/settings`
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S10, S15 (shell + manager-only route guard — see `S32`'s note on extending the middleware), S12 (`pointsPerCurrencyUnit` in `UpdateTenantSettingsRequest`)
+**Dependencies:** M13-S10, M13-S15 (shell + manager-only route guard — see `M13-S32`'s note on extending the middleware), M13-S12 (`pointsPerCurrencyUnit` in `UpdateTenantSettingsRequest`)
 
 ---
 
-### S32 — Equipe: team list page (`/dashboard/team`)
+### M13-S32 — Equipe: team list page (`/dashboard/team`)
 
 *(formerly M127-S04)*
 
@@ -2826,7 +2826,7 @@ fetchTeam(): Promise<StaffListResponse>
   }
   ```
 - The logged-in admin's own row (`member.staffId === currentStaffId`) never renders a "Desativar" action (server-side guard already exists via `StaffSelfDeactivationError`; this is the UX nicety, not the safety net)
-- A `pending` row shows "Reenviar convite" instead of "Desativar" — reopens the invite form (`S33`) pre-filled with the same email
+- A `pending` row shows "Reenviar convite" instead of "Desativar" — reopens the invite form (`M13-S33`) pre-filled with the same email
 - Desktop create button + mobile FAB → `/dashboard/team/invite`
 
 `apps/web/components/dashboard/team/MemberRow.tsx`:
@@ -2841,14 +2841,14 @@ fetchTeam(): Promise<StaffListResponse>
 - [ ] The current admin's own row has no "Desativar" action
 - [ ] A pending row's action is "Reenviar convite", not "Desativar"
 - [ ] Create entry points (FAB mobile, button desktop) link to `/dashboard/team/invite`
-- [ ] Page is `MANAGER`-only — `STAFF` role hitting `/dashboard/team` redirects (extend `S15`'s middleware: add `/dashboard/team`, `/dashboard/settings`, `/dashboard/hotsite` to the manager-only route list — coordinate this as one shared middleware change across `S31`/`S32`/`S35`, not three separate edits)
+- [ ] Page is `MANAGER`-only — `STAFF` role hitting `/dashboard/team` redirects (extend `M13-S15`'s middleware: add `/dashboard/team`, `/dashboard/settings`, `/dashboard/hotsite` to the manager-only route list — coordinate this as one shared middleware change across `M13-S31`/`M13-S32`/`M13-S35`, not three separate edits)
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S15
+**Dependencies:** M13-S15
 
 ---
 
-### S33 — Equipe: invite member form (`/dashboard/team/invite`)
+### M13-S33 — Equipe: invite member form (`/dashboard/team/invite`)
 
 *(formerly M127-S05)*
 
@@ -2894,11 +2894,11 @@ inviteStaff(body: InviteStaffRequest): Promise<InviteStaffResponse>
 - [ ] Back arrow returns to `/dashboard/team` without submitting
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S32
+**Dependencies:** M13-S32
 
 ---
 
-### S34 — Equipe: deactivate member flow
+### M13-S34 — Equipe: deactivate member flow
 
 *(formerly M127-S06)*
 
@@ -2926,7 +2926,7 @@ deactivateStaff(staffId: string): Promise<DeactivateStaffResponse>
 - Warning box: 3 bullets (loses access immediately / past actions stay in history / can be re-invited later) — matches `03-deactivate-confirm.html`
 - "Confirmar desativação" (`btn-danger`) → calls `deactivateStaff()`
   - `200` → `router.push('/dashboard/team')` + `revalidatePath('/dashboard/team')`; member now shows "Inativo"
-  - `403` → render `<SelfDeactivationError>` inline (matches `03b-deactivate-self-error.html`, using the `detail-layout`/`detail-aside` grid like `03-deactivate-confirm.html` for visual consistency) — should be unreachable via normal navigation since `S32` hides the action on the admin's own row, but the page must still handle it defensively
+  - `403` → render `<SelfDeactivationError>` inline (matches `03b-deactivate-self-error.html`, using the `detail-layout`/`detail-aside` grid like `03-deactivate-confirm.html` for visual consistency) — should be unreachable via normal navigation since `M13-S32` hides the action on the admin's own row, but the page must still handle it defensively
   - `409` → render `<LastManagerError>` inline (matches `03c-deactivate-lastmanager-error.html`, same grid pattern)
 - "Cancelar" → `router.back()`
 
@@ -2938,11 +2938,11 @@ deactivateStaff(staffId: string): Promise<DeactivateStaffResponse>
 - [ ] "Cancelar" returns to the previous page without calling the API
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S32
+**Dependencies:** M13-S32
 
 ---
 
-### S35 — Hotsite: editor shell + Branding tab
+### M13-S35 — Hotsite: editor shell + Branding tab
 
 *(formerly M127-S07)*
 
@@ -2975,8 +2975,8 @@ requestImageUploadUrl(fileName: string, contentType: string): Promise<GenerateHo
 
 `apps/web/components/dashboard/hotsite/HotsiteEditor.tsx` — `'use client'`:
 - Tab state: `'branding' | 'layout' | 'seo'` (client-side only, matches prototype's `showTab()`)
-- Holds the full draft config in local state; `S36`/`S37` extend this same component with the Layout/SEO tab bodies and the Preview/Publish actions
-- "Publicar alterações" button always visible regardless of active tab — calls `updateHotsiteConfig()` then `POST /tenants/hotsite/publish` (full publish flow wired in `S37`; this story stubs the button disabled until `S37` lands, or implements just the `PATCH` half — confirm sequencing at discovery)
+- Holds the full draft config in local state; `M13-S36`/`M13-S37` extend this same component with the Layout/SEO tab bodies and the Preview/Publish actions
+- "Publicar alterações" button always visible regardless of active tab — calls `updateHotsiteConfig()` then `POST /tenants/hotsite/publish` (full publish flow wired in `M13-S37`; this story stubs the button disabled until `M13-S37` lands, or implements just the `PATCH` half — confirm sequencing at discovery)
 
 `apps/web/components/dashboard/hotsite/BrandingTab.tsx` — grouped into 4 sub-sections (Cores, Logo, Tipografia, Forma e estilo), per the prototype:
 
@@ -2997,11 +2997,11 @@ requestImageUploadUrl(fileName: string, contentType: string): Promise<GenerateHo
 - [ ] Logo upload failure shows the URL fallback input (simulate by forcing the upload call to reject)
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S15, S32 (shared middleware extension for manager-only routes — or land independently if `S32` hasn't merged yet; confirm at discovery to avoid a circular dependency)
+**Dependencies:** M13-S15, M13-S32 (shared middleware extension for manager-only routes — or land independently if `M13-S32` hasn't merged yet; confirm at discovery to avoid a circular dependency)
 
 ---
 
-### S36 — Hotsite: Layout tab (module toggle/reorder + Hero config)
+### M13-S36 — Hotsite: Layout tab (module toggle/reorder + Hero config)
 
 *(formerly M127-S08)*
 
@@ -3010,7 +3010,7 @@ requestImageUploadUrl(fileName: string, contentType: string): Promise<GenerateHo
 **Docs to load:** `docs/04-USE_CASES.md` § UC-027 Section B, `plan/journey/manager/prototypes/hotsite/01-hotsite-editor.html` (Layout tab), `01d-module-config-hero.html`
 
 **Description:**
-Extends `HotsiteEditor` (`S35`) with the Layout tab — the 7-module toggle/reorder list, plus a per-module config drill-down. **Only the HERO module's config panel is in scope here**; the other 6 (`SERVICE_LIST`, `GALLERY`, `BOOKING_CTA`, `TESTIMONIALS`, `ABOUT`, `CONTACT`) are explicitly deferred — see the consolidated open-questions section at the end of this file.
+Extends `HotsiteEditor` (`M13-S35`) with the Layout tab — the 7-module toggle/reorder list, plus a per-module config drill-down. **Only the HERO module's config panel is in scope here**; the other 6 (`SERVICE_LIST`, `GALLERY`, `BOOKING_CTA`, `TESTIMONIALS`, `ABOUT`, `CONTACT`) are explicitly deferred — see the consolidated open-questions section at the end of this file.
 
 > 🔍 **Discover before starting:** Decide how "Configurar" should present the per-module panel — modal, slide-over, or a full route. The prototype doesn't mandate one; pick whichever the rest of the dashboard already establishes a precedent for (check if Phase 4/5 introduced a `Sheet`/`Dialog` pattern) and reuse it rather than inventing a new interaction.
 
@@ -3022,7 +3022,7 @@ Extends `HotsiteEditor` (`S35`) with the Layout tab — the 7-module toggle/reor
 - "Configurar" is only wired for HERO in this story; for the other 6 modules render the link disabled with a tooltip "Em breve" rather than a broken link
 
 `apps/web/components/dashboard/hotsite/modules/HeroConfigPanel.tsx`:
-- Fields: `title` (required), `subtitle` (optional), layout (`centered`/`left-aligned`), CTA target (`booking`/`service-list`), optional background image (reuses the same signed-URL upload pattern as the Logo field in `S35`)
+- Fields: `title` (required), `subtitle` (optional), layout (`centered`/`left-aligned`), CTA target (`booking`/`service-list`), optional background image (reuses the same signed-URL upload pattern as the Logo field in `M13-S35`)
 - "Aplicar" commits the draft back into `HotsiteEditor`'s local state (no network call — persisted only on "Publicar alterações")
 
 **Acceptance criteria:**
@@ -3032,11 +3032,11 @@ Extends `HotsiteEditor` (`S35`) with the Layout tab — the 7-module toggle/reor
 - [ ] "Configurar" on the other 6 modules is visibly disabled, not a dead link
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S35
+**Dependencies:** M13-S35
 
 ---
 
-### S37 — Hotsite: SEO tab + Preview + Publish/Unpublish
+### M13-S37 — Hotsite: SEO tab + Preview + Publish/Unpublish
 
 *(formerly M127-S09)*
 
@@ -3062,7 +3062,7 @@ Closes out the Hotsite editor: the SEO tab, the Preview action, and the Publish/
 - Reads color/branding values directly from `HotsiteEditor`'s in-memory `draft` state (passed as a prop) — NOT from `localStorage` or any other out-of-band channel (see preview fidelity note above)
 - Opened from the editor's "Preview" button — overlay or new route, confirm at discovery
 
-**`HotsiteEditor` (`S35`) additions:**
+**`HotsiteEditor` (`M13-S35`) additions:**
 - "Publicar alterações": `updateHotsiteConfig(draft)` → `200` → `POST /tenants/hotsite/publish` → `200` → toast "Hotsite atualizado e no ar." (matches `03-publish-success.html`)
 - Danger-zone "Despublicar hotsite": `POST /tenants/hotsite/unpublish` → `200` → toast confirming the hotsite is offline (matches `03b-unpublish-success.html`)
 
@@ -3073,7 +3073,7 @@ Closes out the Hotsite editor: the SEO tab, the Preview action, and the Publish/
 - [ ] "Despublicar hotsite" is visually separated in a danger-zone section and requires no extra confirmation step beyond the click itself (matches prototype — no confirmation dialog was prototyped for this action; flag if product wants one added)
 - [ ] `tsc --noEmit` passes; `pnpm lint` zero warnings
 
-**Dependencies:** S35, S36
+**Dependencies:** M13-S35, M13-S36
 
 ---
 
@@ -3081,17 +3081,17 @@ Closes out the Hotsite editor: the SEO tab, the Preview action, and the Publish/
 
 > This phase is a fully independent vertical slice — it touches no dashboard code and could in principle be built anytime after M08. It's sequenced last purely because it's the smallest, most isolated piece, not because anything in Phases 1–8 blocks it.
 
-> **Deployment constraint — `S38` must ship in the same deployment as `S40`:** `S38` renames the email link from `/bookings/:id/responder` to `/bookings/:id/submit-info`. If `S38` ships without `S40`, new emails will link to a 404. If `S40` ships without `S38`, the page exists but no email links to it. Ship them together. Existing emails (already sent, pointing to `/responder`) will 404 after `S38` — acceptable given the 7-day token TTL.
+> **Deployment constraint — `M13-S38` must ship in the same deployment as `M13-S40`:** `M13-S38` renames the email link from `/bookings/:id/responder` to `/bookings/:id/submit-info`. If `M13-S38` ships without `M13-S40`, new emails will link to a 404. If `M13-S40` ships without `M13-S38`, the page exists but no email links to it. Ship them together. Existing emails (already sent, pointing to `/responder`) will 404 after `M13-S38` — acceptable given the 7-day token TTL.
 
 ---
 
-### S38 — Backend: rename email link URL (`responder` → `submit-info`)
+### M13-S38 — Backend: rename email link URL (`responder` → `submit-info`)
 
 *(formerly M129-S01)*
 
 **Agent:** `backend-ts`
 **Complexity:** XS (2 files, ~3 line changes)
-**Must co-deploy with:** S40
+**Must co-deploy with:** M13-S40
 **Docs to load:** none beyond this file
 
 **Description:**
@@ -3124,13 +3124,13 @@ Update the assertion that checks the constructed link. Grep for `responder` in t
 
 ---
 
-### S39 — BFF: guest booking read endpoint (optional — enhances S40)
+### M13-S39 — BFF: guest booking read endpoint (optional — enhances M13-S40)
 
 *(formerly M129-S02)*
 
 **Agent:** `bff-ts`
 **Complexity:** S
-**Optional:** `S40` can ship without this. Without it, the form shows no booking summary card (graceful degradation). Implement if time allows — it meaningfully improves UX.
+**Optional:** `M13-S40` can ship without this. Without it, the form shows no booking summary card (graceful degradation). Implement if time allows — it meaningfully improves UX.
 **Docs to load:** `docs/24-BFF_ARCHITECTURE.md`, `docs/14-API_CONTRACTS.md` (bookings section), `plan/M08-BOOKING-APPROVAL_IMPLEMENTATION_DETAILS_IA.md`
 
 **Description:**
@@ -3196,13 +3196,13 @@ GET {{bffUrl}}/v1/bookings/{{bookingId}}/guest?token={{guestToken}}
 
 ---
 
-### S40 — Frontend: `SubmitInfoPage` + `SubmitInfoForm`
+### M13-S40 — Frontend: `SubmitInfoPage` + `SubmitInfoForm`
 
 *(formerly M129-S03)*
 
 **Agent:** `web-ts`
 **Complexity:** M
-**Must co-deploy with:** S38; S39 optional (degrade gracefully if absent)
+**Must co-deploy with:** M13-S38; M13-S39 optional (degrade gracefully if absent)
 **Docs to load:** `docs/16-DASHBOARD_FRONTEND_ARCHITECTURE.md`, `plan/M12-HOTSITE-FRONTEND_IMPLEMENTATION_DETAILS_IA.md`
 **Prototype:** `plan/journey/guest/prototypes/submit-info/` — read `dev-notes.md` in full before starting
 
@@ -3251,7 +3251,7 @@ export default async function SubmitInfoPage({ params, searchParams }: Props) {
     return <InvalidLinkView reason="invalid" />;
   }
 
-  // 3. Optional: fetch booking summary (if S39 shipped)
+  // 3. Optional: fetch booking summary (if M13-S39 shipped)
   const summary = await fetchGuestBookingSummary(params.id, token).catch(() => null);
   // If summary?.status is not INFO_REQUESTED → render InvalidLinkView with reason="processed"
 
@@ -3259,7 +3259,7 @@ export default async function SubmitInfoPage({ params, searchParams }: Props) {
     <SubmitInfoForm
       bookingId={params.id}
       token={token}
-      summary={summary}  // null if S39 not available
+      summary={summary}  // null if M13-S39 not available
     />
   );
 }
@@ -3373,7 +3373,7 @@ Use `vi.mock` for `fetch`. Do NOT test `page.tsx` — server component, Playwrig
 - [ ] `tsc --noEmit` zero errors
 - [ ] No `[slug]/` route captures `/bookings/` — verify by opening `localhost:3000/bookings/some-id/submit-info?token=test` and confirming it does not render the hotsite
 
-**Dependencies:** S38 (must co-deploy), S39 (optional)
+**Dependencies:** M13-S38 (must co-deploy), M13-S39 (optional)
 
 ---
 
@@ -3381,62 +3381,62 @@ Use `vi.mock` for `fetch`. Do NOT test `page.tsx` — server component, Playwrig
 
 > Consolidated from all 7 source files' "Open questions" and "Future discovery" sections. Items already resolved by a decision made during this consolidation (or that turned out to already be in scope) are marked `[x]` with a one-line resolution; genuinely open items are marked `[ ]` and reference the story they block.
 
-### Auth (Phase 1–2, S02/S13/S14)
+### Auth (Phase 1–2, M13-S02/M13-S13/M13-S14)
 
-- [ ] **BFF API route prefix in `apps/web`:** is auth called via `/api/auth/...` (Next.js API route proxy) or directly as `/v1/auth/...` (direct BFF call)? Verify before `S13`/`S14`. Check `next.config.js` rewrites or `apps/web/app/api/` route handlers.
-- [ ] **Selection token decode strategy:** does `issueSelectionToken` encode the tenant list (decode on frontend) or only `{ googleOAuthId }` (requires a separate BFF `GET /auth/tenants?token=...` endpoint)? If the endpoint is missing, add it to `S02`'s scope. Resolve before `S14`.
+- [ ] **BFF API route prefix in `apps/web`:** is auth called via `/api/auth/...` (Next.js API route proxy) or directly as `/v1/auth/...` (direct BFF call)? Verify before `M13-S13`/`M13-S14`. Check `next.config.js` rewrites or `apps/web/app/api/` route handlers.
+- [ ] **Selection token decode strategy:** does `issueSelectionToken` encode the tenant list (decode on frontend) or only `{ googleOAuthId }` (requires a separate BFF `GET /auth/tenants?token=...` endpoint)? If the endpoint is missing, add it to `M13-S02`'s scope. Resolve before `M13-S14`.
 - [ ] **`TenantOption.primaryColor`:** does the BFF selection token carry the tenant's `primaryColor`? If yes, include the field and use it for the initial avatar background in `/select-tenant`. If no, use a neutral placeholder.
 - [x] **Post-login redirect from customer area:** confirmed — the customer lands on `/{slug}` (the hotsite), which already reads the `access_token` cookie server-side (M12) and shows the logged-in nav bar. No follow-up story needed.
-- [ ] **Staff login Google button href prefix:** `/api/auth/google` (Next.js proxy) or `/v1/auth/google` (direct BFF)? Must match what the BFF OAuth callback `redirectUri` expects. Resolve before `S13` AC sign-off.
+- [ ] **Staff login Google button href prefix:** `/api/auth/google` (Next.js proxy) or `/v1/auth/google` (direct BFF)? Must match what the BFF OAuth callback `redirectUri` expects. Resolve before `M13-S13` AC sign-off.
 - [ ] **Staff logout:** no logout endpoint designed yet. Current MVP behavior: JWT expiry → redirect to `/dashboard/login`. An explicit logout button is post-MVP — not scoped in any story above.
-- [ ] **"Bem-vindo(a)!" first-login banner (UC-025 step 8):** would need the BFF to append `?welcome=1` to the `/dashboard` redirect, and the dashboard to render a one-time dismissible banner. Not scoped in any story above — fold into `S15` or a follow-up patch if product wants it.
+- [ ] **"Bem-vindo(a)!" first-login banner (UC-025 step 8):** would need the BFF to append `?welcome=1` to the `/dashboard` redirect, and the dashboard to render a one-time dismissible banner. Not scoped in any story above — fold into `M13-S15` or a follow-up patch if product wants it.
 - [ ] **Playwright E2E suite:** login flows need full E2E coverage (M16, out of this milestone's scope).
 
-### Staff booking core (Phase 4, S17–S20)
+### Staff booking core (Phase 4, M13-S17–M13-S20)
 
-- [x] **Does the admin stay on the detail page after approve, or navigate back to the queue?** Resolved — stays, inline banner, manual "Voltar à agenda" link. Confirmed as the system-wide convention for approve/reject/info/cancel/complete/reschedule alike (see `S18`/`S19`/`S20`'s descriptions).
-- [ ] **Slot conflict suggestions source:** should the backend's `409` response body already include suggested alternate slots, or does the BFF need to call availability separately and compose them? Resolve before `S18`.
-- [ ] **Photo URL strategy:** GCS signed read URLs generated by the BFF at detail-fetch time, or a Next.js image proxy? M115-S01's pattern used signed URLs — recommend the same here (already assumed in `S04`/`S18`/`S20`).
-- [ ] **Real-time queue updates:** polling interval vs. WebSocket — two staff members might view the same booking simultaneously. Not scoped in `S17`; decide at a Phase-4 retrospective, don't add silently.
+- [x] **Does the admin stay on the detail page after approve, or navigate back to the queue?** Resolved — stays, inline banner, manual "Voltar à agenda" link. Confirmed as the system-wide convention for approve/reject/info/cancel/complete/reschedule alike (see `M13-S18`/`M13-S19`/`M13-S20`'s descriptions).
+- [ ] **Slot conflict suggestions source:** should the backend's `409` response body already include suggested alternate slots, or does the BFF need to call availability separately and compose them? Resolve before `M13-S18`.
+- [ ] **Photo URL strategy:** GCS signed read URLs generated by the BFF at detail-fetch time, or a Next.js image proxy? M115-S01's pattern used signed URLs — recommend the same here (already assumed in `M13-S04`/`M13-S18`/`M13-S20`).
+- [ ] **Real-time queue updates:** polling interval vs. WebSocket — two staff members might view the same booking simultaneously. Not scoped in `M13-S17`; decide at a Phase-4 retrospective, don't add silently.
 
-### Customer Minha Conta (Phase 7, S27–S30)
+### Customer Minha Conta (Phase 7, M13-S27–M13-S30)
 
-- [ ] **`cancellation_window_hours` availability:** is this value accessible to the frontend without a dedicated settings endpoint? MVP default is to hardcode `48` and read from real settings later (used by `S27`/`S28`).
-- [ ] **"Total washes completed" stat (UC-006 step 6):** not available from `GET /v1/loyalty/balance`. Drop from MVP Minha Conta, or derive client-side from `items.filter(b => b.status === 'COMPLETED').length`? Decide before `S27`.
-- [x] **After-cancel destination (UC-007):** resolved — redirect to `/{slug}/minha-conta` list after successful cancel; booking appears in Histórico as CANCELLED on next load. Implemented in `S28`.
-- [ ] **`infoResponseMessage` already filled:** if the customer already responded to an info request once (status returned to PENDING, then re-requested), should `InfoSubmitForm` show again or just display the previous response? Recommendation carried into `S28`: hide the form when `infoResponseMessage != null`.
-- [x] **`GET /v1/bookings` pagination for MVP:** resolved — load all bookings with `limit=50`, display all, no infinite scroll. Implemented in `S27`.
-- [ ] **Loyalty conversion-rate UI scope (verify against UC-016):** `S29`'s "10 pts = R$ 1,00" conversion row was carried over from the prototype with only an inline-comment caveat in the original draft. CLAUDE.md describes the loyalty MVP as points-balance only — confirm with product whether the conversion display is actually in scope before shipping `S29`'s conversion row, even though it's gated behind `conversionRate > 0`.
+- [ ] **`cancellation_window_hours` availability:** is this value accessible to the frontend without a dedicated settings endpoint? MVP default is to hardcode `48` and read from real settings later (used by `M13-S27`/`M13-S28`).
+- [ ] **"Total washes completed" stat (UC-006 step 6):** not available from `GET /v1/loyalty/balance`. Drop from MVP Minha Conta, or derive client-side from `items.filter(b => b.status === 'COMPLETED').length`? Decide before `M13-S27`.
+- [x] **After-cancel destination (UC-007):** resolved — redirect to `/{slug}/minha-conta` list after successful cancel; booking appears in Histórico as CANCELLED on next load. Implemented in `M13-S28`.
+- [ ] **`infoResponseMessage` already filled:** if the customer already responded to an info request once (status returned to PENDING, then re-requested), should `InfoSubmitForm` show again or just display the previous response? Recommendation carried into `M13-S28`: hide the form when `infoResponseMessage != null`.
+- [x] **`GET /v1/bookings` pagination for MVP:** resolved — load all bookings with `limit=50`, display all, no infinite scroll. Implemented in `M13-S27`.
+- [ ] **Loyalty conversion-rate UI scope (verify against UC-016):** `M13-S29`'s "10 pts = R$ 1,00" conversion row was carried over from the prototype with only an inline-comment caveat in the original draft. CLAUDE.md describes the loyalty MVP as points-balance only — confirm with product whether the conversion display is actually in scope before shipping `M13-S29`'s conversion row, even though it's gated behind `conversionRate > 0`.
 
-### Manager workspace (Phase 8, S31–S37)
+### Manager workspace (Phase 8, M13-S31–M13-S37)
 
-- [ ] **Extra tenant-settings fields** (`auto_approve_enabled`, `max_booking_advance_days`, `min_booking_advance_hours`, `slot_granularity_minutes`, `localization` currency/language, `notification.from_email`, `business_info.social_links`): the backend already supports these, but neither UC-026 nor the Configurações prototype mention them. Needs an explicit scope decision before a story is written for them — don't add silently to `S31`.
-- [ ] **Per-module config panels for `SERVICE_LIST`, `GALLERY`, `BOOKING_CTA`, `TESTIMONIALS`, `ABOUT`, `CONTACT`:** only HERO was prototyped as a representative example (`S36`). Each of the other 6 needs its own UX pass — `GALLERY` in particular already has a `feature-booking-photo` BFF endpoint wired that none of the stories above use yet.
-- [ ] **BFF-token-based hotsite preview (pixel-exact production-path render):** `S37` ships a pragmatic client-side render instead. Revisit only if the simplified preview proves insufficient in practice.
-- [x] **Sidebar "Fidelidade" and "Hotsite" nav items:** both confirmed included from the start in `S15` (the original M125 draft's sidebar spec omitted Hotsite — caught during the manager-workspace cross-file audit and folded into `S15` directly rather than a separate patch).
-- [ ] **Per-module "Configurar" UX:** modal, slide-over, or full route? Pick whichever precedent Phase 4/5 already established (`S36` discovery).
-- [ ] **`GET /staff` exposing `googleOAuthId`/`deactivatedBy`:** confirm at `S32` discovery; add whichever is missing.
-- [x] **Coordinating `/dashboard/settings`, `/dashboard/team`, `/dashboard/hotsite` middleware additions:** resolved by sequencing — `S32` is the first manager-only route story and owns the middleware extension; `S31`/`S35` land after and reuse it rather than each editing `middleware.ts` independently (see `S32`'s AC note).
+- [ ] **Extra tenant-settings fields** (`auto_approve_enabled`, `max_booking_advance_days`, `min_booking_advance_hours`, `slot_granularity_minutes`, `localization` currency/language, `notification.from_email`, `business_info.social_links`): the backend already supports these, but neither UC-026 nor the Configurações prototype mention them. Needs an explicit scope decision before a story is written for them — don't add silently to `M13-S31`.
+- [ ] **Per-module config panels for `SERVICE_LIST`, `GALLERY`, `BOOKING_CTA`, `TESTIMONIALS`, `ABOUT`, `CONTACT`:** only HERO was prototyped as a representative example (`M13-S36`). Each of the other 6 needs its own UX pass — `GALLERY` in particular already has a `feature-booking-photo` BFF endpoint wired that none of the stories above use yet.
+- [ ] **BFF-token-based hotsite preview (pixel-exact production-path render):** `M13-S37` ships a pragmatic client-side render instead. Revisit only if the simplified preview proves insufficient in practice.
+- [x] **Sidebar "Fidelidade" and "Hotsite" nav items:** both confirmed included from the start in `M13-S15` (the original M125 draft's sidebar spec omitted Hotsite — caught during the manager-workspace cross-file audit and folded into `M13-S15` directly rather than a separate patch).
+- [ ] **Per-module "Configurar" UX:** modal, slide-over, or full route? Pick whichever precedent Phase 4/5 already established (`M13-S36` discovery).
+- [ ] **`GET /staff` exposing `googleOAuthId`/`deactivatedBy`:** confirm at `M13-S32` discovery; add whichever is missing.
+- [x] **Coordinating `/dashboard/settings`, `/dashboard/team`, `/dashboard/hotsite` middleware additions:** resolved by sequencing — `M13-S32` is the first manager-only route story and owns the middleware extension; `M13-S31`/`M13-S35` land after and reuse it rather than each editing `middleware.ts` independently (see `M13-S32`'s AC note).
 
-### Staff loyalty (Phase 1 + Phase 6, S11/S12/S25/S26)
+### Staff loyalty (Phase 1 + Phase 6, M13-S11/M13-S12/M13-S25/M13-S26)
 
-- [x] **`loyaltyConversionRate` in booking detail response:** resolved — added to `StaffBookingDetailResponse` (`S04`'s note), sourced from `S12`, so `S26`'s `MarkCompleteSheet` doesn't need a second BFF call on mount.
-- [ ] **"Clientes recentes" query:** does `GET /v1/customers?search=&limit=5` with empty `search` return the 5 most recently active customers (sorted by last booking `completedAt`)? Confirm the backend query plan at `S25`, or simplify to alphabetical sort for MVP.
-- [ ] **Redemption notes field in UI:** `RecordRedemptionUseCase` accepts optional `notes`; the prototype auto-fills "Desconto na conclusão do agendamento" (already implemented this way in `S11`). MVP recommendation: auto-fill only, no extra staff-facing input — revisit only if requested.
-- [x] **`conversionRate` in the customer-facing balance route too:** resolved — `S12` enriches both the staff (`getBalanceAdmin`) and customer (`getBalance`) routes, so `S29` (customer Fidelidade page) can use the field once it ships.
+- [x] **`loyaltyConversionRate` in booking detail response:** resolved — added to `StaffBookingDetailResponse` (`M13-S04`'s note), sourced from `M13-S12`, so `M13-S26`'s `MarkCompleteSheet` doesn't need a second BFF call on mount.
+- [ ] **"Clientes recentes" query:** does `GET /v1/customers?search=&limit=5` with empty `search` return the 5 most recently active customers (sorted by last booking `completedAt`)? Confirm the backend query plan at `M13-S25`, or simplify to alphabetical sort for MVP.
+- [ ] **Redemption notes field in UI:** `RecordRedemptionUseCase` accepts optional `notes`; the prototype auto-fills "Desconto na conclusão do agendamento" (already implemented this way in `M13-S11`). MVP recommendation: auto-fill only, no extra staff-facing input — revisit only if requested.
+- [x] **`conversionRate` in the customer-facing balance route too:** resolved — `M13-S12` enriches both the staff (`getBalanceAdmin`) and customer (`getBalance`) routes, so `M13-S29` (customer Fidelidade page) can use the field once it ships.
 
-### Guest submit-info (Phase 9, S38–S40)
+### Guest submit-info (Phase 9, M13-S38–M13-S40)
 
-- [ ] **`jsonwebtoken` vs. `jose`:** does `jsonwebtoken` work server-side in Next.js 16 (Node.js runtime only, not Edge)? Or should `jose` (Web Crypto API, Edge-compatible) be used for `verifyGuestToken()`? Resolve before `S40`.
-- [ ] **Presigned-URL BFF endpoint for unauthenticated guests:** does it exist? Determines whether photo upload is in scope for `S40` (MVP default: text-only, omit upload zone if missing).
-- [ ] **Tenant branding on the submit-info page:** the guest token contains `tenantId` but not `tenantSlug`; adding `tenantSlug` to the JWT payload would let the page call `GET /[slug]` for branding. Cosmetic, affects guest trust — not scoped in `S40`, tracked as a post-MVP enhancement.
-- [x] **What happens if the guest opens the link after the booking was already approved/rejected/cancelled:** resolved — the API returns `409`/non-`INFO_REQUESTED`, and `S40`'s invalid-link view gets a `reason="processed"` variant with copy "este agendamento já foi processado."
+- [ ] **`jsonwebtoken` vs. `jose`:** does `jsonwebtoken` work server-side in Next.js 16 (Node.js runtime only, not Edge)? Or should `jose` (Web Crypto API, Edge-compatible) be used for `verifyGuestToken()`? Resolve before `M13-S40`.
+- [ ] **Presigned-URL BFF endpoint for unauthenticated guests:** does it exist? Determines whether photo upload is in scope for `M13-S40` (MVP default: text-only, omit upload zone if missing).
+- [ ] **Tenant branding on the submit-info page:** the guest token contains `tenantId` but not `tenantSlug`; adding `tenantSlug` to the JWT payload would let the page call `GET /[slug]` for branding. Cosmetic, affects guest trust — not scoped in `M13-S40`, tracked as a post-MVP enhancement.
+- [x] **What happens if the guest opens the link after the booking was already approved/rejected/cancelled:** resolved — the API returns `409`/non-`INFO_REQUESTED`, and `M13-S40`'s invalid-link view gets a `reason="processed"` variant with copy "este agendamento já foi processado."
 
 ### Non-goals confirmed out of scope for this milestone
 
-- Photo upload on the guest submit-info form, unless the presigned-URL guest endpoint is confirmed to exist (`S39`/`S40`)
-- Email template changes — only the link URL changes (`S38`), not the email body
-- A BFF preview-token for pixel-exact hotsite preview (`S37` ships the simpler client-side version)
-- Per-module config panels for the 6 non-HERO hotsite modules (`S36`)
+- Photo upload on the guest submit-info form, unless the presigned-URL guest endpoint is confirmed to exist (`M13-S39`/`M13-S40`)
+- Email template changes — only the link URL changes (`M13-S38`), not the email body
+- A BFF preview-token for pixel-exact hotsite preview (`M13-S37` ships the simpler client-side version)
+- Per-module config panels for the 6 non-HERO hotsite modules (`M13-S36`)
 - Staff explicit logout button, "Bem-vindo" first-login banner, real-time queue updates (all noted above as deferred, not silently dropped)
 
