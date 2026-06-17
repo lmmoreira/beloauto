@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acesso Pendente — BeloAuto</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+</head>
+<body>
+
+  <!--
+    PAGE (GAP): apps/web/app/auth/first-login/page.tsx
+    ROUTE:      /auth/first-login
+    When shown: UC-022 Case B — BFF found the staff record but is_active = false
+                (invite was sent via UC-024/UC-028 but staff hasn't clicked the invite link yet)
+    Query param: ?staffId=<uuid>  (BFF encodes this so the page can show the invited email)
+
+    COMPONENT (GAP): FirstLoginPage
+    FILE: apps/web/app/auth/first-login/page.tsx
+    This is a static server component — no BFF call needed on load.
+    The invite link in the email goes directly to GET /v1/auth/google?state=__staff__:{slug}
+    so staff don't need a form here — just an explanation.
+  -->
+
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f9fafb;">
+    <div class="card" style="width: 100%; max-width: 26rem; padding: 2.25rem; text-align: center;">
+
+      <!-- Icon: envelope -->
+      <div style="
+        width: 3.5rem; height: 3.5rem;
+        background: #eff6ff; border-radius: 50%;
+        margin: 0 auto 1.25rem;
+        display: flex; align-items: center; justify-content: center;
+      ">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2"/>
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+        </svg>
+      </div>
+
+      <h1 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--ba-text)">
+        Acesso ainda não ativado
+      </h1>
+      <p style="font-size: 0.875rem; color: var(--ba-text); opacity: 0.65; line-height: 1.5; margin-bottom: 1.75rem;">
+        Sua conta Google foi reconhecida, mas seu acesso ainda não está ativo.
+        Para ativá-lo, use o link enviado no <strong>e-mail de convite</strong>.
+      </p>
+
+      <div style="
+        background: #eff6ff; border-radius: var(--ba-radius);
+        padding: 1rem; text-align: left; margin-bottom: 1.5rem;
+        font-size: 0.875rem; color: var(--ba-text);
+      ">
+        <p style="font-weight: 600; margin-bottom: 0.375rem;">Como ativar sua conta:</p>
+        <ol style="margin: 0; padding-left: 1.25rem; line-height: 1.7;">
+          <li>Abra o e-mail com o assunto <em>"Você foi convidado(a)…"</em></li>
+          <li>Clique no botão de convite</li>
+          <li>Faça login com sua conta Google</li>
+        </ol>
+      </div>
+
+      <p style="font-size: 0.8125rem; color: var(--ba-text); opacity: 0.55; margin-bottom: 1.25rem;">
+        Não recebeu o e-mail? Peça ao gerente que reenvie o convite.
+      </p>
+
+      <a href="./00-staff-login.html"
+         style="font-size: 0.875rem; color: var(--ba-primary); text-decoration: none; font-weight: 500;">
+        ← Voltar ao login
+      </a>
+
+    </div>
+  </div>
+
+</body>
+</html>

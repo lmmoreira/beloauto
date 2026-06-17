@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protótipo — CUSTOMER: Login</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 2rem 1.5rem; color: var(--ba-text); background: var(--ba-background); }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.125rem; font-weight: 600; margin: 1.75rem 0 0.75rem; }
+    ul { padding-left: 1.25rem; line-height: 1.8; }
+    a { color: var(--ba-primary); }
+    .tag { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.125rem 0.5rem; border-radius: 99px; margin-left: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tag-green { background: #dcfce7; color: #166534; }
+    .tag-red { background: #fee2e2; color: #991b1b; }
+    .tag-yellow { background: #fef9c3; color: #92400e; }
+    .checklist { background: var(--ba-secondary); border-radius: var(--ba-radius); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+  </style>
+</head>
+<body>
+
+  <h1>Protótipo — CUSTOMER: Login</h1>
+  <p style="opacity: 0.65; margin-bottom: 0.25rem;">UCs cobertos: <strong>UC-021</strong> (login + seleção de tenant) · <strong>UC-023</strong> (trocar tenant)</p>
+  <p style="opacity: 0.65;">Journey: <code>customer/login.md</code> · Stories: M124-S02</p>
+
+  <hr style="border: none; border-top: 1px solid var(--ba-secondary); margin: 1.5rem 0;">
+
+  <h2>Fluxo principal — 1 tenant (Caso A)</h2>
+  <ul>
+    <li>
+      <a href="./00-hotsite.html">00 — Hotsite do estabelecimento</a>
+      <span class="tag tag-green">EXISTS: M12</span>
+      — entry: botão "Entrar" (com ?redirect=/{slug}/booking)
+    </li>
+    <li>
+      <a href="./00-login.html">01 — Tela de login do cliente</a>
+      <span class="tag tag-yellow">GAP: /{tenantSlug}/login</span>
+      — shared/login.html
+    </li>
+    <li>
+      <a href="./02-phone-completion.html">02 — Completar perfil (sem telefone)</a>
+      <span class="tag tag-yellow">GAP: prompt pós-login</span>
+      — UC-021 A3 — one-time
+    </li>
+    <li>
+      <a href="../book-a-service/01-service-selection.html">03 — Agendamento — Passo 1 (escolha de serviço)</a>
+      <span class="tag tag-green">EXISTS: ServiceSelectionStep</span>
+      — destino pós-login: retoma o fluxo de booking
+    </li>
+  </ul>
+
+  <h2>Fluxo alternativo — +1 tenants (Caso B)</h2>
+  <ul>
+    <li>
+      <a href="./00-login.html">00 — Login genérico</a>
+      <span class="tag tag-yellow">GAP: /auth/login</span>
+    </li>
+    <li>
+      <a href="./01-select-tenant.html">01 — Selecionar estabelecimento</a>
+      <span class="tag tag-yellow">GAP: /select-tenant</span>
+      — UC-021 Caso B — mostra pontos por tenant
+    </li>
+    <li>→ Após seleção: mesmo fluxo do Caso A (phone check → agendamento passo 1)</li>
+  </ul>
+
+  <h2>Estados alternativos (unhappy paths)</h2>
+  <ul>
+    <li>
+      <a href="./01b-error.html">01b — Erro de autenticação</a>
+      <span class="tag tag-yellow">GAP: /auth/error</span>
+      — no-tenant / tenant-deactivated (compartilhado com staff)
+    </li>
+  </ul>
+
+  <hr style="border: none; border-top: 1px solid var(--ba-secondary); margin: 1.5rem 0;">
+
+  <h2>O que este protótipo valida</h2>
+  <div class="checklist">
+    <ul style="list-style: none; padding: 0;">
+      <li>☐ A tela de seleção de tenant (Caso B) mostra os pontos de cada estabelecimento claramente — o cliente consegue decidir sem dificuldade?</li>
+      <li>☐ A seleção de tenant precisa de confirmação ("Você selecionou AutoWash Pro — Continuar?") ou é direta (clique → login)?</li>
+      <li>☐ O prompt de telefone (UC-021 A3) parece intrusivo? Deve ser uma página separada ou um modal/banner na primeira tela pós-login?</li>
+      <li>☐ Onde o cliente aterrissa após o login bem-sucedido — hotsite logado, /minha-conta, ou de volta ao booking form?</li>
+      <li>☐ A mensagem de erro "no-tenant" orienta o cliente a acessar o hotsite correto?</li>
+    </ul>
+  </div>
+
+  <h2>Arquitetura</h2>
+  <ul>
+    <li><strong>shared/login.html</strong> → produção: <code>apps/web/app/[tenantSlug]/login/page.tsx</code> (GAP, M124-S02)</li>
+    <li><strong>01-select-tenant.html</strong> → produção: <code>apps/web/app/select-tenant/page.tsx</code> (GAP, M124-S02)</li>
+    <li><strong>02-phone-completion.html</strong> → produção: prompt inline pós-login (GAP, M124-S02)</li>
+    <li><strong>01b-error.html</strong> → produção: <code>apps/web/app/auth/error/page.tsx</code> (GAP, M124-S01)</li>
+    <li>Backend/BFF: todos os endpoints de auth já implementados em M03 ✓</li>
+  </ul>
+
+</body>
+</html>

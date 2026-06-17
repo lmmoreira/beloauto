@@ -40,6 +40,7 @@ Controls how the loyalty system behaves for this tenant.
 | `expiry_days` | integer | 180 | 1 | 3650 | Days until loyalty points expire after earning |
 | `enable_notifications` | boolean | true | — | — | Send email when points expiring soon |
 | `expiry_warning_days` | integer | 7 | 1 | 90 | Look-ahead window for expiring-soon check (weekly cron) |
+| `points_per_currency_unit` | integer | 0 | 0 | 10000 | How many points equal 1 currency unit (e.g. `10` = 10 pts → R$1 / $1). `0` = loyalty redemption feature disabled — the discount strip will not appear during booking completion (UC-009 A6). |
 
 **Example:**
 ```json
@@ -47,7 +48,8 @@ Controls how the loyalty system behaves for this tenant.
   "loyalty": {
     "expiry_days": 180,
     "enable_notifications": true,
-    "expiry_warning_days": 7
+    "expiry_warning_days": 7,
+    "points_per_currency_unit": 10
   }
 }
 ```
@@ -56,6 +58,7 @@ Controls how the loyalty system behaves for this tenant.
 - `expiry_days` must be between 1 and 3650 (1 year to 10 years)
 - `expiry_warning_days` must be > 0 and < `expiry_days`
 - `enable_notifications` must be boolean
+- `points_per_currency_unit` must be 0–10000 (`0` disables redemption)
 
 ---
 
@@ -292,7 +295,8 @@ Public-facing contact details for the tenant's hotsite (M12-S06 `CONTACT` module
   "loyalty": {
     "expiry_days": 180,
     "enable_notifications": true,
-    "expiry_warning_days": 7
+    "expiry_warning_days": 7,
+    "points_per_currency_unit": 0
   },
   "booking": {
     "cancellation_window_hours": 48,
@@ -348,7 +352,8 @@ When a developer provisions a new tenant (UC-024), if settings are not provided,
   "loyalty": {
     "expiry_days": 180,
     "enable_notifications": true,
-    "expiry_warning_days": 7
+    "expiry_warning_days": 7,
+    "points_per_currency_unit": 0
   },
   "booking": {
     "cancellation_window_hours": 48,

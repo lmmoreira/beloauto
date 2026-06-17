@@ -100,9 +100,10 @@ UC-XXX: [Use Case Name]
 
 ### **UC-003: Admin Approves Booking**
 
-- **Actor:** Staff/Admin
+- **Actor:** STAFF | MANAGER
 - **Preconditions:** Booking in PENDING or INFO_REQUESTED state. Admin is authenticated. Admin has access to dashboard.
 - **Trigger:** Admin clicks "Approve" on a pending booking
+- **Endpoint:** `PATCH /v1/bookings/:id/approve` (STAFF | MANAGER)
 - **Main Flow:**
   1. Admin opens the booking request. The dashboard shows:
      - Customer name, email, phone (or guest contact details).
@@ -131,9 +132,10 @@ UC-XXX: [Use Case Name]
 
 ### **UC-004: Admin Rejects Booking**
 
-- **Actor:** Staff/Admin
+- **Actor:** STAFF | MANAGER
 - **Preconditions:** Booking in PENDING or INFO_REQUESTED state
 - **Trigger:** Admin clicks "Reject"
+- **Endpoint:** `PATCH /v1/bookings/:id/reject` (STAFF | MANAGER)
 - **Main Flow:**
   1. Admin selects booking
   2. Admin clicks "Reject"
@@ -154,16 +156,19 @@ UC-XXX: [Use Case Name]
 
 ### **UC-005: Admin Requests More Information**
 
-- **Actor:** Staff/Admin (Main Flow); Customer/Guest (Alternative Flow A2 — info submission)
+- **Actor:** STAFF | MANAGER (Main Flow); CUSTOMER | GUEST (Alternative Flow A2 — info submission)
 - **Preconditions:** Booking in PENDING state
 - **Trigger:** Admin clicks "Request More Info"
+- **Endpoint (main flow):** `PATCH /v1/bookings/:id/request-info` (STAFF | MANAGER)
+- **Endpoint (A2 — authenticated customer):** `PATCH /v1/bookings/:id/submit-info` (CUSTOMER)
+- **Endpoint (A2 — guest):** `PATCH /v1/bookings/:id/submit-info/guest` (guest token)
 - **Main Flow:**
   1. Admin selects pending booking
   2. Admin clicks "Request More Info"
   3. Admin enters message (e.g., "Please provide car photos")
   4. Admin clicks "Submit"
   5. System transitions booking: PENDING → INFO_REQUESTED
-  6. System records `infoRequestedAt`, `infoRequestedBy`, `informationNeeded`
+  6. System records `infoRequestedAt`, `infoRequestedBy`, `infoRequestMessage` (required, max 200 chars)
   7. System publishes `BookingInfoRequested` event
   8. Admin sees confirmation
 
@@ -174,7 +179,7 @@ UC-XXX: [Use Case Name]
     2. Customer / guest provides the requested data (photos, notes, corrections)
     3. System validates input
     4. System transitions booking: INFO_REQUESTED → PENDING
-    5. System records `infoSubmittedAt`, `infoSubmittedBy` (customerId or guest email), `infoPayload`
+    5. System records `infoSubmittedAt`, `infoResponseMessage`
     6. System publishes `BookingInfoSubmitted` event → Notification re-notifies admin: "[name] replied with the requested info"
     7. Customer / guest sees confirmation: "Thanks — we'll review and confirm shortly."
   - **A3: Admin acts on the info offline (no return to PENDING needed)** → Admin can directly APPROVE / REJECT / CANCEL from INFO_REQUESTED (UC-003 / UC-004 / UC-008 are valid transitions out of INFO_REQUESTED).
@@ -189,6 +194,8 @@ UC-XXX: [Use Case Name]
 - **Actor:** Authenticated Customer
 - **Preconditions:** Customer is logged in
 - **Trigger:** Customer clicks "My Bookings" or "Booking History"
+- **Endpoint (list):** `GET /v1/bookings` (CUSTOMER | STAFF | MANAGER — filtered to the customer's own bookings when role = CUSTOMER)
+- **Endpoint (detail):** `GET /v1/bookings/:id` (CUSTOMER | STAFF | MANAGER — ownership enforced for CUSTOMER)
 - **Main Flow:**
   1. System displays customer's bookings in sections:
      - **Upcoming:** APPROVED bookings with date ≥ today
@@ -205,7 +212,7 @@ UC-XXX: [Use Case Name]
 
 - **Alternative Flows:**
   - **A1: No bookings** → System shows "You haven't booked yet"
-  - **A2: Cancellation not eligible** → Cancel button hidden with note: "Cancellation available up to `tenants.settings.cancellation_window_hours` hours before your appointment"
+  - **A2: Cancellation not eligible** → Cancel button hidden with note: "Cancellation available up to `tenants.settings.booking.cancellation_window_hours` hours before your appointment"
 
 - **Postconditions:** Customer sees booking history and loyalty status
 - **Events Triggered:** None (read operation)
@@ -216,11 +223,12 @@ UC-XXX: [Use Case Name]
 
 - **Actor:** Authenticated Customer
 - **Preconditions:** Booking belongs to the customer and is in APPROVED, PENDING, or INFO_REQUESTED state.
-  - For APPROVED bookings: time to booking ≥ `tenants.settings.cancellation_window_hours`.
+  - For APPROVED bookings: time to booking ≥ `tenants.settings.booking.cancellation_window_hours`.
   - For PENDING / INFO_REQUESTED bookings: no time restriction — customer may cancel a pending request at any time.
 - **Trigger:** Customer clicks "Cancel Booking" (APPROVED) or "Cancel Request" (PENDING / INFO_REQUESTED)
+- **Endpoint:** `PATCH /v1/bookings/:id/cancel` (CUSTOMER | STAFF | MANAGER — BFF dispatches to `/cancel-customer` for CUSTOMER, `/cancel-admin` for staff)
 - **Main Flow:**
-  1. If booking is APPROVED: System validates that `scheduledAt − now() ≥ tenants.settings.cancellation_window_hours`. If not, returns error (A1).
+  1. If booking is APPROVED: System validates that `scheduledAt − now() ≥ tenants.settings.booking.cancellation_window_hours`. If not, returns error (A1).
   2. If booking is PENDING or INFO_REQUESTED: no time validation needed — proceed directly.
   3. Customer sees confirmation: "Cancelar este agendamento?"
   4. Customer clicks "Confirmar"
@@ -230,7 +238,7 @@ UC-XXX: [Use Case Name]
   8. System shows success: "Agendamento cancelado."
 
 - **Alternative Flows:**
-  - **A1: Inside cancellation window (APPROVED bookings only)** → System shows error: "Cancelamentos devem ser feitos com pelo menos `tenants.settings.cancellation_window_hours` horas de antecedência."
+  - **A1: Inside cancellation window (APPROVED bookings only)** → System shows error: "Cancelamentos devem ser feitos com pelo menos `tenants.settings.booking.cancellation_window_hours` horas de antecedência."
   - **A2: Booking is COMPLETED, REJECTED, or CANCELLED** → System shows error: "Este agendamento não pode ser cancelado."
 
 - **Postconditions:** Booking is CANCELLED. Customer receives cancellation confirmation email. Admin notified.
@@ -240,16 +248,18 @@ UC-XXX: [Use Case Name]
 
 ### **UC-008: Admin Cancels or Reschedules Booking**
 
-- **Actor:** Staff/Admin
+- **Actor:** STAFF | MANAGER
 - **Preconditions:** Booking is APPROVED, PENDING, or INFO_REQUESTED
 - **Trigger:** Admin clicks "Cancel" or "Reschedule" in dashboard
+- **Endpoint (cancel):** `PATCH /v1/bookings/:id/cancel` (STAFF | MANAGER — BFF dispatches to backend `/cancel-admin`)
+- **Endpoint (reschedule — A1):** `PATCH /v1/bookings/:id/reschedule` (STAFF | MANAGER)
 - **Main Flow:**
   1. Admin selects booking
   2. Admin clicks "Cancel Booking"
   3. Admin enters reason (e.g., "Emergency closure", "Staff unavailable")
   4. Admin clicks "Confirm"
   5. System transitions: APPROVED/PENDING → CANCELLED
-  6. System records cancelledBy (staff email) and reason
+  6. System records cancelledBy (staff UUID) and reason
   7. System publishes `BookingCancelled` event (with isBusiness = true)
   8. Admin sees success confirmation
 
@@ -259,7 +269,7 @@ UC-XXX: [Use Case Name]
      2. Admin selects new date/time from calendar
      3. System validates the new slot is available (same duration check as original booking)
      4. System updates `scheduledAt` to the new date/time
-     5. System adds internal note: "Rescheduled by [admin name] on [date]"
+     5. Admin may optionally enter a note explaining the reschedule (stored as freeform `adminNotes` — not auto-generated)
      6. System transitions booking: APPROVED → APPROVED (stays approved, time updated, no status change)
      7. System sends customer email: "Your booking has been rescheduled to [new date/time]"
      8. Admin sees success: "Booking rescheduled"
@@ -271,9 +281,10 @@ UC-XXX: [Use Case Name]
 
 ### **UC-009: Admin Marks Booking Complete**
 
-- **Actor:** Staff/Admin (after completing wash)
+- **Actor:** STAFF | MANAGER (after completing wash)
 - **Preconditions:** Booking is APPROVED. Scheduled time has passed (or is current).
 - **Trigger:** Admin/Staff clicks "Mark Complete" or "Wash Done" in the dashboard
+- **Endpoint:** `PATCH /v1/bookings/:id/complete` (STAFF | MANAGER)
 - **Main Flow:**
   1. Staff/Admin opens the booking. The dashboard shows the full line list (all services that were performed), with each line's quoted `priceAtBooking`.
   2. Staff/Admin clicks "Mark as Completed".
@@ -305,6 +316,14 @@ UC-XXX: [Use Case Name]
   - **A3: Photo upload fails** → System allows completion without photos (optional).
   - **A4: Guest booking** → Booking is marked COMPLETED but no `LoyaltyEntry` is created (no `customerId`). Notification still sends a "thanks" email to the guest with the actual amounts.
   - **A5: All lines charged at full price** → Staff leaves all fields unchanged. `actualPriceCharged = priceAtBooking` for every line. `totalActualPrice = totalPrice`.
+  - **A6: Customer has loyalty points and `tenants.settings.loyalty.points_per_currency_unit > 0`** → Staff applies a points-based discount during completion:
+    1. System shows a loyalty strip: customer's active balance + currency equivalent (e.g. "João tem 350 pontos = R$ 35,00", based on `points_per_currency_unit = 10`).
+    2. Staff enters how many points to use, or clicks "Usar todos". Points capped at `min(currentPoints, totalActualPrice × points_per_currency_unit)` so the discount never exceeds the booking total.
+    3. System shows live discount: "Desconto (200 pts): − R$ 20,00 · Total a cobrar: R$ 40,00".
+    4. Staff clicks "Confirmar conclusão". System calls `PATCH /bookings/:id/complete` (body includes `discountByPoints: { pointsUsed, amountDeducted }`) and then `POST /loyalty/redeem { customerId, pointsToRedeem, bookingId }`.
+    5. Customer's balance is decremented. Redemption recorded linked to the booking.
+    6. Completion summary shows per-line charges plus the loyalty discount row.
+    - Only shown when `customerId != null` AND `points_per_currency_unit > 0`. Not available for guest bookings (A4).
 
 - **Postconditions:** Booking is COMPLETED. `actualPriceCharged` set on every line; `totalActualPrice` cached on the booking. For authenticated customers: N new `LoyaltyEntry` rows (N = number of lines, points based on `pointsValueAtBooking` regardless of price). Notification email shows both quoted and actual amounts.
 - **Events Triggered:** `BookingCompleted` (once), `ServicePointsEarned` (once per line, only when `customerId != null`).
@@ -313,11 +332,12 @@ UC-XXX: [Use Case Name]
 
 ## Schedule Management Use Cases
 
-### **UC-010: Admin Manages Schedule Closures and Openings**
+### **UC-010: Staff Manages Schedule Closures and Openings**
 
-#### **UC-010a: Admin Creates a Schedule Closure (Full Day or Partial)**
+#### **UC-010a: Staff/Manager Creates a Schedule Closure (Full Day or Partial)**
 
 - **Actor:** Staff/Manager
+- **Endpoint:** `POST /v1/schedule/closures`
 - **Preconditions:** Admin is authenticated. Date is not in the past.
 - **Trigger:** Admin clicks "Close Schedule" in the dashboard.
 - **Main Flow (Full-Day Closure):**
@@ -351,9 +371,10 @@ UC-XXX: [Use Case Name]
 
 ---
 
-#### **UC-010b: Admin Removes a Schedule Closure**
+#### **UC-010b: Staff/Manager Removes a Schedule Closure**
 
 - **Actor:** Staff/Manager
+- **Endpoint:** `DELETE /v1/schedule/closures/:id`
 - **Preconditions:** Closure exists and belongs to the tenant.
 - **Trigger:** Admin clicks "Remove" on a closure entry.
 - **Main Flow:**
@@ -367,11 +388,12 @@ UC-XXX: [Use Case Name]
 
 ---
 
-#### **UC-010c: Admin Opens a Normally-Closed Day (Schedule Opening)**
+#### **UC-010c: Staff/Manager Opens a Normally-Closed Day (Schedule Opening)**
 
 Used when `business_hours[dayOfWeek] = null` (e.g., Sunday is always closed) but the business wants to open on a specific date (e.g., a special event on a Sunday).
 
 - **Actor:** Staff/Manager
+- **Endpoint:** `POST /v1/schedule/openings`
 - **Preconditions:** Admin is authenticated. The day-of-week for the selected date is closed in `business_hours`.
 - **Trigger:** Admin clicks "Open Schedule" on a normally-closed day in the calendar.
 - **Main Flow:**
@@ -394,9 +416,10 @@ Used when `business_hours[dayOfWeek] = null` (e.g., Sunday is always closed) but
 
 ---
 
-#### **UC-010d: Admin Removes a Schedule Opening**
+#### **UC-010d: Staff/Manager Removes a Schedule Opening**
 
 - **Actor:** Staff/Manager
+- **Endpoint:** `DELETE /v1/schedule/openings/:id`
 - **Preconditions:** Opening exists and belongs to the tenant.
 - **Trigger:** Admin clicks "Remove" on an opening entry.
 - **Main Flow:**
@@ -558,7 +581,7 @@ Returns:
      - Duration (minutes)
      - Loyalty points value
      - **Requires pickup address** (toggle, default off) — enable for services that require the customer to provide a pickup location (e.g. "Coleta e Entrega", "Busca em domicílio")
-     - Status (ACTIVE/INACTIVE)
+     - `isActive` flag (default: `true`; set `false` to create as inactive)
   2. Admin clicks "Create"
   3. System validates: name unique within tenant, price ≥ 0, duration > 0
   4. System creates Service aggregate with `requiresPickupAddress` flag
@@ -586,7 +609,7 @@ Returns:
   5. Admin sees confirmation: "Serviço atualizado"
 
 - **Alternative Flows:**
-  - **A1: Deactivate service** → Admin sets status = INACTIVE → service hidden from booking page
+  - **A1: Deactivate service** → Admin calls deactivate (`DELETE /v1/services/:id`) → sets `isActive = false` → service hidden from booking page
   - **A2: Price change** → Past bookings unaffected (snapshots are immutable); future bookings use new price
   - **A3: Toggle `requiresPickupAddress`** → Only affects future bookings. Existing `booking_lines` retain their snapshotted `requiresPickupAddressAtBooking` value.
 
@@ -613,7 +636,7 @@ Returns:
   1. System reads `loyalty_balances.current_points` for the customer — O(1), no SUM needed (balance is maintained atomically by M10-S04 and M10-S08).
   2. System queries `loyalty_entries` to find the next expiry: `MIN(expires_at) WHERE expires_at > now()` and the sum of points expiring on that date.
   3. System returns `{ currentPoints, nextExpiryDate, nextExpiryPoints }`.
-  4. System separately returns paginated `loyalty_entries` (earning history) with `isActive` flag (`expiresAt > now()`). Service names are resolved via `IServiceCatalogPort`.
+  4. System separately returns paginated `loyalty_entries` (earning history) with `isActive` flag (`expiresAt > now()`). Service names are resolved via `ILoyaltyBookingPort`.
   5. System separately returns paginated `loyalty_redemptions` (redemption history).
 
 - **Main Flow (Admin/Staff — any customer):**
@@ -805,12 +828,14 @@ Returns:
   2. Staff logs in with Google account
   3. Google returns: googleOAuthId, email, name
   4. System queries: Which tenant does this staff member belong to?
-  5. **Case A: Staff found in exactly ONE tenant**
+  5. **Case A: Staff found in exactly ONE tenant and `is_active = true`**
      - Session automatically created for that tenant
      - Staff redirected to admin dashboard
      - No selection screen needed
-  6. **Case B: Staff not found in any tenant**
-     - Error: "Staff account not found. Contact your administrator."
+  6. **Case B: Staff found but invite not yet accepted (`is_active = false`)**
+     - System redirects to first-login flow (UC-025 handles activation from here).
+  7. **Case C: Staff not found in any tenant**
+     - System redirects to error: "Staff account not found. Contact your administrator."
 
 - **Alternative Flows:**
   - **A1: Staff tries to access multiple tenants** → Not possible (staff belongs to one tenant only)
@@ -824,13 +849,14 @@ Returns:
 
 - **Actor:** Authenticated customer (logged in)
 - **Preconditions:** Customer belongs to multiple tenants. Currently in one tenant.
-- **Trigger:** Customer clicks "Switch Car Wash" or "Switch Tenant"
+- **Trigger:** Customer clicks "Trocar empresa" in the avatar dropdown (only shown when JWT indicates 2+ tenants)
+- **Endpoint:** `POST /v1/auth/switch-tenant { targetTenantId }` (CUSTOMER)
 - **Main Flow:**
-  1. System shows list of other tenants customer belongs to
+  1. System shows list of other tenants customer belongs to (excluding current)
   2. Customer selects: "SuperClean"
-  3. Current session invalidated
-  4. New session created: {userId: customer_id, tenantId: "tenant_b"}
-  5. Customer redirected to SuperClean dashboard
+  3. Old JWT expires client-side — no active revocation (stateless JWT)
+  4. BFF validates customer belongs to target tenant; issues new JWT scoped to `tenant_b`
+  5. Customer redirected to SuperClean's hotsite or customer area
   6. Customer sees: SuperClean's bookings and SuperClean's loyalty (8 active points)
 
 - **Alternative Flows:**
@@ -958,12 +984,21 @@ Returns:
       
       **Section A: Branding**
       - Primary color (hex picker)
+      - Secondary color (hex picker)
+      - Background color (hex picker)
+      - Text color (hex picker)
       - Logo URL (text input or upload)
-      - Font family (dropdown or text)
-      - Hero image (upload)
+      - Heading font family (dropdown or text)
+      - Body font family (dropdown or text)
+      - Border radius (`sharp` | `rounded` | `pill`)
+      - Button style (`filled` | `outline` | `ghost`)
+      - Spacing (`compact` | `comfortable` | `spacious`)
+      - Shadow style (`none` | `subtle` | `strong`)
+      - Button background color (optional, overrides primary color on buttons)
+      - Button text color (optional)
       
       **Section B: Layout / Modules** (drag-drop list of module types — the 7 types built in M12)
-      - [x] HERO (title, subtitle, optional background image) — toggle on/off
+      - [x] HERO (title, subtitle, optional background image upload) — toggle on/off
       - [x] SERVICE_LIST (services from catalog, with price/points badges) — toggle on/off
       - [x] GALLERY (booking after-photos + curated images) — toggle on/off + limit (6 default)
       - [x] BOOKING_CTA (call-to-action linking to the booking page) — toggle on/off
@@ -1008,7 +1043,7 @@ Returns:
 - **Main Flow:**
    1. Admin enters: first name, last name, email address, role (`MANAGER` or `STAFF`).
    2. System validates: email format valid; no existing active `staff` row for this `(tenant_id, email)`.
-   3. System creates `staff` row: `email`, `first_name`, `last_name`, `role`, `tenant_id`, `is_active = false`.
+   3. System creates `staff` row: `email`, `name` (concatenated from first + last name input), `role`, `tenant_id`, `is_active = false`.
    4. System publishes `StaffInvited` event.
    5. Notification Context sends invitation email: "Você foi convidado(a) para gerenciar [Nome do Estabelecimento]. Clique aqui para aceitar."
    6. Admin sees: "Convite enviado para [email]."
@@ -1050,17 +1085,17 @@ Returns:
 |----|------|-------|----------------|
 | UC-001 | Guest requests booking | Guest | Creates PENDING booking with 1..N lines + photos |
 | UC-002 | Customer requests booking | Customer | Creates PENDING booking (auth'd) with 1..N lines |
-| UC-003 | Admin approves booking | Admin | PENDING|INFO_REQUESTED → APPROVED; line list frozen |
-| UC-004 | Admin rejects booking | Admin | PENDING \| INFO_REQUESTED → REJECTED |
-| UC-005 | Admin requests info | Admin | PENDING (awaiting info) |
+| UC-003 | Admin approves booking | STAFF \| MANAGER | PENDING\|INFO_REQUESTED → APPROVED; line list frozen |
+| UC-004 | Admin rejects booking | STAFF \| MANAGER | PENDING \| INFO_REQUESTED → REJECTED |
+| UC-005 | Admin requests info | STAFF \| MANAGER (main); CUSTOMER \| GUEST (A2) | PENDING → INFO_REQUESTED (main); INFO_REQUESTED → PENDING (A2) |
 | UC-006 | Customer views bookings | Customer | Read operation |
 | UC-007 | Customer cancels booking | Customer | APPROVED (with time window) \| PENDING \| INFO_REQUESTED → CANCELLED |
 | UC-008 | Admin cancels / reschedules booking | Admin | APPROVED/PENDING/INFO_REQUESTED → CANCELLED (`BookingCancelled`) or scheduledAt updated (`BookingRescheduled`) |
 | UC-009 | Mark booking complete | Staff | APPROVED → COMPLETED + photos + N LoyaltyEntry rows (one per line) |
-| UC-010 | Manage schedule closures/openings | Admin | ScheduleClosure or ScheduleOpening created/removed |
+| UC-010 | Manage schedule closures and openings | Staff / Manager | ScheduleClosure or ScheduleOpening created/removed |
 | UC-011 | View calendar | Any | Read available slots filtered by basket's total duration |
-| UC-012 | Create service | Admin | Service created with points value |
-| UC-013 | Edit service | Admin | Service updated |
+| UC-012 | Create service | Staff / Manager | Service created with points value |
+| UC-013 | Edit service | Staff / Manager | Service updated |
 | UC-016 | View loyalty metrics | Customer/Admin | Read-only: `current_points` (O(1) balance), next expiry date/points, paginated earning entries + redemptions |
 | UC-016b | Weekly loyalty expiry warning | System (cron) | Monday 06:00 UTC — emit `PointsExpiringSoon` per customer with expiring points; Notification context sends email |
 | UC-017 | View analytics | Admin | Future feature |

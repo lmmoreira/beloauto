@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview — Hotsite — BeloAuto</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+  <style>
+    .preview-banner {
+      position: sticky; top: 0; z-index: 10;
+      background: #111827; color: white; padding: 0.75rem 1.25rem;
+      display: flex; align-items: center; gap: 0.75rem; font-size: 0.875rem;
+    }
+    .preview-banner .btn-primary { padding: 0.4375rem 1rem; font-size: 0.8125rem; margin-left: auto; }
+    .preview-banner .btn-secondary { padding: 0.4375rem 1rem; font-size: 0.8125rem; color: white; border-color: rgba(255,255,255,0.3); }
+    .mock-hero { background: var(--ba-primary); color: white; text-align: center; padding: 4rem 1.5rem; }
+    .mock-hero h2 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .mock-hero p { opacity: 0.9; margin-bottom: 1.5rem; }
+    .mock-section { padding: 2.5rem 1.5rem; max-width: 960px; margin: 0 auto; }
+    .mock-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+  </style>
+</head>
+<body>
+
+  <!--
+    Engineering open question (see dev-notes.md): "Preview" must render
+    the DRAFT/unpublished hotsite state, but is_published gates what the
+    public route serves. This mock shows the intended UX; the actual
+    implementation needs either a client-side live preview or a
+    preview-mode BFF parameter/token. Not resolved here — flagged for
+    implementation discussion.
+  -->
+
+  <div class="preview-banner">
+    <span>👁️ Visualizando alterações não publicadas</span>
+    <a href="01-hotsite-editor.html" class="btn-secondary">Voltar a editar</a>
+    <a href="03-publish-success.html" class="btn-primary">Publicar agora</a>
+  </div>
+
+  <div class="mock-hero">
+    <h2>Seu carro impecável, sem complicação</h2>
+    <p>Agende em segundos e acompanhe tudo pelo celular</p>
+    <a href="#" class="btn-secondary" style="background:white;color:var(--ba-primary);border-color:white;">Agendar agora</a>
+  </div>
+
+  <div class="mock-section">
+    <h3 style="font-size:1.25rem;font-weight:700;text-align:center;margin-bottom:1.5rem;">Nossos serviços</h3>
+    <div class="mock-cards">
+      <div class="card"><strong>Lavagem Simples</strong><br><span style="opacity:0.6;">R$ 60,00 · 30 min</span></div>
+      <div class="card"><strong>Lavagem Completa</strong><br><span style="opacity:0.6;">R$ 120,00 · 60 min</span></div>
+      <div class="card"><strong>Polimento</strong><br><span style="opacity:0.6;">R$ 250,00 · 90 min</span></div>
+    </div>
+  </div>
+
+</body>
+</html>

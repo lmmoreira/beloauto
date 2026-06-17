@@ -12,6 +12,13 @@
     SHARED FILE — plan/journey/shared/dashboard-shell.html
     MASTER TEMPLATE for all staff / manager journey step files.
 
+    NOT a finished page — staff/prototypes/agenda/00-agenda.html is the current,
+    validated reference implementation for the Agenda screen specifically (urgency-based
+    "Precisa de ação / Hoje / Próximos dias" sections, working bottom sheets, etc.). Use
+    THIS file only as the generic starting shell when building a NEW staff page that
+    doesn't exist yet (e.g. a future Horários/Serviços home). Don't treat the example
+    cards below as the current Agenda design — copy the shell, replace the content.
+
     MOBILE-FIRST:
       <1024px  Bottom tab nav + full-width stacked cards (primary design)
       >=1024px Left sidebar, bottom nav hidden
@@ -63,7 +70,7 @@
       <!-- Mobile: user avatar (tapping opens profile / logout) -->
       <a href="./staff-login.html" class="topbar-avatar" title="Sair">AP</a>
       <!-- Desktop: date -->
-      <span class="topbar-date">Hoje, 15 de junho de 2026</span>
+      <span class="topbar-date">Hoje, 16 de junho de 2026</span>
     </div>
   </div>
 
@@ -161,11 +168,16 @@
 
         <!-- CONTENT -->
 
-        <!-- Status filter tabs -->
-        <div class="filter-tabs">
-          <button class="filter-tab active">Pendentes (3)</button>
-          <button class="filter-tab">Aprovados (2)</button>
-          <button class="filter-tab">Todos (8)</button>
+        <!--
+          Generic example only — NOT the current Agenda IA. The real Agenda groups by
+          urgency ("Precisa de ação" / "Hoje" / "Próximos dias"), not status filter tabs —
+          see staff/prototypes/agenda/00-agenda.html and its agenda.md "Queue scope" decision
+          (resolved 2026-06-16) before copying this pattern into a new page.
+        -->
+        <div class="day-group-header">
+          <span class="day-group-label">Exemplo de seção</span>
+          <span class="day-group-line"></span>
+          <span class="day-group-count">3 itens</span>
         </div>
 
         <!--
@@ -182,7 +194,7 @@
             <div class="booking-card-info">
               <p class="booking-card-name">João Silva</p>
               <p class="booking-card-meta">Lavagem Simples</p>
-              <p class="booking-card-meta">Segunda-feira, 15 de junho às 09:00</p>
+              <p class="booking-card-meta">Hoje · 09:00</p>
             </div>
             <span class="status-badge status-pending">Pendente</span>
           </div>
@@ -200,7 +212,7 @@
             <div class="booking-card-info">
               <p class="booking-card-name">Maria Oliveira</p>
               <p class="booking-card-meta">Polimento Completo</p>
-              <p class="booking-card-meta">Segunda-feira, 15 de junho às 11:00</p>
+              <p class="booking-card-meta">Hoje · 11:00</p>
             </div>
             <span class="status-badge status-pending">Pendente</span>
           </div>
@@ -211,18 +223,20 @@
           </div>
         </div>
 
-        <!-- Card 3 — INFO_REQUESTED -->
+        <!-- Card 3 — INFO_REQUESTED: Aprovar/Rejeitar stay available per UC-005 A3 (admin can act on the info offline, no need to wait for the customer reply) -->
         <div class="booking-card" style="border-left: 3px solid var(--ba-primary);">
           <div class="booking-card-header">
             <div class="auth-avatar" style="width:2.25rem;height:2.25rem;font-size:0.8125rem;flex-shrink:0;background:#0891b2;">CA</div>
             <div class="booking-card-info">
               <p class="booking-card-name">Carlos Andrade</p>
               <p class="booking-card-meta">Lavagem Completa</p>
-              <p class="booking-card-meta">Segunda-feira, 15 de junho às 14:00</p>
+              <p class="booking-card-meta">Hoje · 14:00</p>
             </div>
             <span class="status-badge status-info">Aguard. info</span>
           </div>
           <div class="booking-card-actions">
+            <button class="btn-primary">Aprovar</button>
+            <button class="btn-secondary">Rejeitar</button>
             <button class="btn-secondary" style="flex:none;">Ver detalhes</button>
           </div>
         </div>

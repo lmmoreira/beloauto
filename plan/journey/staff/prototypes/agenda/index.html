@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protótipo — STAFF: Agenda (Fila de Agendamentos + Ciclo de Vida)</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+  <style>
+    body { padding: 2rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p { margin-bottom: 1rem; font-size: 0.9375rem; }
+    ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; margin: 1.25rem 0; }
+    li { display: flex; align-items: center; gap: 0.75rem; }
+    li a { color: var(--ba-primary); font-weight: 500; }
+    .tag { font-size: 0.75rem; font-weight: 600; padding: 0.125rem 0.5rem; border-radius: 4px; white-space: nowrap; }
+    .tag-green { background: #dcfce7; color: #15803d; }
+    .tag-red   { background: #fee2e2; color: #dc2626; }
+    .note { background: var(--ba-secondary); border-radius: var(--ba-radius); padding: 1rem 1.25rem; margin-top: 1.5rem; font-size: 0.875rem; line-height: 1.6; }
+    hr { border: none; border-top: 1px solid var(--ba-secondary); margin: 1.25rem 0; }
+  </style>
+</head>
+<body>
+  <h1>Protótipo — STAFF: Agenda (Fila de Agendamentos + Ciclo de Vida)</h1>
+  <p>
+    Fluxo diário do staff/manager: visualizar a fila de agendamentos do dia, abrir o detalhe de um
+    agendamento e aprovar, rejeitar ou pedir mais informações (UC-003/004/005) — e, para um
+    agendamento já aprovado, marcar como concluído, reagendar ou cancelar (UC-008/009).
+    Mesma página de detalhe (<code>/dashboard/bookings/[id]</code>) em todos os casos — o conteúdo
+    e as ações mudam conforme o <code>status</code> do agendamento. Ator: Staff ou Manager.
+  </p>
+
+  <ul>
+    <li>
+      <a href="00-agenda.html">Tela 0 — Agenda (fila do dia)</a>
+      <span class="tag tag-red">GAP: /dashboard/bookings — novo page.tsx</span>
+    </li>
+    <li>
+      <a href="01-booking-detail.html">Tela 1 — Detalhe do agendamento (PENDING)</a>
+      <span class="tag tag-red">GAP: /dashboard/bookings/[id] — novo page.tsx</span>
+    </li>
+    <li>
+      <a href="02-approve-success.html">Tela 2 — Aprovação confirmada</a>
+      <span class="tag tag-red">GAP: estado de sucesso inline no detalhe</span>
+    </li>
+    <li>
+      <a href="01b-slot-conflict.html">Alt A1 — Conflito de horário (slot tomado ao aprovar)</a>
+      <span class="tag tag-red">GAP: estado de erro inline no detalhe</span>
+    </li>
+  </ul>
+
+  <hr>
+  <p style="font-size: 0.875rem; font-weight: 700; margin-bottom: 0.5rem;">Estados alternativos (UC-003/004/005)</p>
+  <ul>
+    <li>
+      <a href="01c-reject-success.html">Alt B — Agendamento rejeitado (estado inline)</a>
+      <span class="tag tag-red">GAP: actionState = 'rejected'</span>
+    </li>
+    <li>
+      <a href="01d-info-success.html">Alt C — Info solicitada (estado inline, UC-005)</a>
+      <span class="tag tag-red">GAP: actionState = 'info-requested'</span>
+    </li>
+  </ul>
+
+  <p style="font-size: 0.875rem; opacity: 0.7;">
+    <strong>Formulários de ação</strong> (rejeitar / pedir info) são bottom sheets interativos
+    dentro de <a href="01-booking-detail.html" style="color: var(--ba-primary);">Tela 1</a> —
+    não são páginas separadas. Teste no mobile ou redimensione o browser.
+  </p>
+
+  <hr>
+  <p style="font-size: 0.875rem; font-weight: 700; margin-bottom: 0.5rem;">Ciclo de vida pós-aprovação (UC-008, UC-009)</p>
+  <p style="font-size: 0.8125rem; opacity: 0.7;">
+    Entrada: card na seção "Hoje — confirmados" em <a href="00-agenda.html" style="color: var(--ba-primary);">Tela 0</a> →
+    <a href="03-booking-detail-approved.html" style="color: var(--ba-primary);">Tela 3</a>.
+  </p>
+  <ul>
+    <li>
+      <a href="03-booking-detail-approved.html">Tela 3 — Detalhe do agendamento (APPROVED)</a>
+      <span class="tag tag-red">GAP: mesma rota de Tela 1, ramo por status</span>
+    </li>
+    <li>
+      <a href="04-mark-complete.html">Tela 4 — Marcar concluído (UC-009)</a>
+      <span class="tag tag-red">GAP: MarkCompleteSheet — preço por linha + fidelidade (A6) + fotos + notas</span>
+      — <em>interativo: editar preços ou usar pontos atualiza o total em tempo real</em>
+    </li>
+    <li>
+      <a href="04b-complete-success.html">Tela 4b — Conclusão confirmada</a>
+      <span class="tag tag-red">GAP: estado de sucesso inline — cotado vs. cobrado</span>
+    </li>
+    <li>
+      <a href="05-reschedule.html">Tela 5 — Reagendar (UC-008 A1)</a>
+      <span class="tag tag-red">GAP: reusa o calendário de UC-011</span>
+    </li>
+    <li>
+      <a href="05c-reschedule-success.html">Tela 5c — Reagendamento confirmado</a>
+      <span class="tag tag-red">GAP: estado de sucesso inline — permanece APPROVED</span>
+    </li>
+  </ul>
+
+  <p style="font-size: 0.875rem; font-weight: 700; margin-bottom: 0.5rem; margin-top: 1rem;">Estados alternativos (UC-008/009)</p>
+  <ul>
+    <li>
+      <a href="03b-cancel-success.html">Alt D — Agendamento cancelado pelo staff (estado inline)</a>
+      <span class="tag tag-red">GAP: actionState = 'cancelled', isBusiness = true</span>
+      <br><span style="font-size: 0.75rem; opacity: 0.6;">
+        ↳ Este link mostra o resultado direto, sem clicar no botão. O gatilho real é
+        "Cancelar agendamento" em <a href="03-booking-detail-approved.html" style="color: var(--ba-primary);">Tela 3</a>.
+      </span>
+    </li>
+    <li>
+      <a href="05b-reschedule-conflict.html">Alt A2 — Novo horário ficou indisponível ao confirmar</a>
+      <span class="tag tag-red">GAP: estado de erro inline na tela de reagendar</span>
+    </li>
+  </ul>
+
+  <p style="font-size: 0.875rem; opacity: 0.7;">
+    <strong>Bottom sheet de cancelar</strong> é interativo dentro de
+    <a href="03-booking-detail-approved.html" style="color: var(--ba-primary);">Tela 3</a> —
+    motivo é opcional (sem mínimo de caracteres, diferente do Rejeitar).
+  </p>
+
+  <hr>
+
+  <div class="note">
+    <strong>O que este protótipo valida:</strong><br>
+    ✅ Layout da fila (cards) funciona bem em mobile e desktop?<br>
+    ✅ As 3 ações (aprovar / rejeitar / pedir info) cabem bem no card e no detalhe?<br>
+    ✅ Bottom sheet para rejeitar/pedir info/cancelar é o padrão certo em mobile?<br>
+    ✅ Detalhe mostra informações suficientes para o admin decidir sem abrir outra tela?<br>
+    ✅ Validação de motivo de rejeição (mín. 10 chars) é clara?<br>
+    ✅ Erro de conflito de slot (A1) comunica bem o que aconteceu e o que fazer?<br>
+    ✅ O editor de preço por linha (UC-009) é claro sobre cotado vs. cobrado?<br>
+    ✅ A faixa de fidelidade (UC-009 A6) fica clara — staff entende que pode usar pontos como desconto?<br>
+    ✅ O botão "Usar todos" e o campo de pontos são intuitivos? O desconto aparece de forma legível?<br>
+    ✅ Reagendar reusando o calendário de UC-011 é familiar para quem já viu o fluxo de booking?<br>
+    ✅ É claro que cancelar/reagendar/concluir só aparecem em um agendamento já Aprovado?<br>
+    <br>
+    <strong>UCs cobertos:</strong>
+    UC-003 (aprovar) · UC-004 (rejeitar) · UC-005 (pedir info) ·
+    UC-008 (cancelar/reagendar) · UC-009 (marcar concluído)<br>
+    <strong>Inicio do protótipo</strong> →
+    <a href="../../../shared/entry.html">shared/entry.html</a>
+  </div>
+</body>
+</html>

@@ -47,10 +47,12 @@
         Entre com sua conta Google para agendar
       </p>
 
-      <!--
+        <!--
         GOOGLE SIGN-IN BUTTON
-        Action: GET /api/auth/google?redirect=/{slug}/booking
-        In prototype: clicking goes to customer booking step 1 (simulates successful login)
+        Real action varies by entry point:
+          • Via "Agendar" CTA  → GET /api/auth/google?redirect=/{slug}/booking   → step 1
+          • Via "Entrar" (top) → GET /api/auth/google?redirect=/{slug}/minha-conta → dashboard
+        In prototype: choose destination below.
       -->
       <a
         href="../customer/prototypes/book-a-service/01-service-selection.html"
@@ -78,6 +80,24 @@
       <p style="margin-top: 1.5rem; font-size: 0.75rem; opacity: 0.45; color: var(--ba-text);">
         Ao entrar, você concorda com os termos de uso.
       </p>
+
+      <!-- PROTOTYPE NAVIGATION — two destinations depending on entry intent -->
+      <div style="margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--ba-secondary);">
+        <p style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+                  letter-spacing: 0.06em; opacity: 0.4; color: var(--ba-text); margin-bottom: 0.625rem;">
+          Protótipo — ir para:
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 0.375rem;">
+          <a href="../customer/prototypes/book-a-service/01-service-selection.html"
+             style="font-size: 0.8125rem; color: var(--ba-primary); text-decoration: none; font-weight: 500;">
+            → Agendamento (vindo do CTA "Agendar")
+          </a>
+          <a href="../customer/prototypes/minha-conta/01-minha-conta.html"
+             style="font-size: 0.8125rem; color: var(--ba-primary); text-decoration: none; font-weight: 500;">
+            → Minha conta (vindo do "Entrar" no topo)
+          </a>
+        </div>
+      </div>
 
       <p style="margin-top: 1rem; font-size: 0.75rem; opacity: 0.55; color: var(--ba-text);">
         ← <a href="./hotsite.html" style="color: var(--ba-primary);">Voltar ao site</a>

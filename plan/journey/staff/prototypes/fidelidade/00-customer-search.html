@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fidelidade — Buscar cliente — BeloAuto</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+  <style>
+    .customer-row {
+      display: flex; align-items: center; gap: 0.875rem;
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid var(--ba-secondary);
+      text-decoration: none; color: var(--ba-text);
+      transition: background 0.1s;
+    }
+    .customer-row:hover { background: var(--ba-secondary); }
+    .customer-avatar {
+      width: 2.5rem; height: 2.5rem; border-radius: 50%;
+      background: var(--ba-primary); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.9375rem; flex-shrink: 0;
+    }
+    .customer-info { flex: 1; min-width: 0; }
+    .customer-name { font-weight: 600; font-size: 0.9375rem; }
+    .customer-email { font-size: 0.8125rem; opacity: 0.6; margin-top: 0.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pts-badge {
+      font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.625rem;
+      border-radius: 99px; background: #dbeafe; color: #1d4ed8;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .pts-badge.zero { background: var(--ba-secondary); color: rgba(17,24,39,0.4); }
+  </style>
+</head>
+<body>
+
+  <!--
+    PAGE (GAP): apps/web/app/dashboard/loyalty/page.tsx
+    ROUTE:      /dashboard/loyalty
+    COMPONENT:  LoyaltySearchPage ('use client')
+    BFF CALL:   GET /v1/customers?search=:term  → CustomerSearchResponse[]
+    NOTE: Confirm this endpoint exists in apps/bff/src/. If not, it must be added.
+          See dev-notes.md "Customer search endpoint gap".
+  -->
+
+  <div class="dashboard-topbar">
+    <div style="display: flex; align-items: center; gap: 0.625rem;">
+      <div class="topbar-logo-mark" style="background: var(--ba-primary); color: white;
+           width: 2rem; height: 2rem; border-radius: 6px; display: flex; align-items: center;
+           justify-content: center; font-weight: 800; font-size: 0.875rem; flex-shrink: 0;">B</div>
+      <span class="topbar-brand" style="font-weight: 700; font-size: 1rem;">BeloAuto Demo</span>
+    </div>
+    <h1 class="topbar-page-title">Fidelidade</h1>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 0.75rem;">
+      <a href="../../../shared/staff-login.html" class="auth-avatar" title="Sair">AP</a>
+      <span class="topbar-date">Hoje, 16 de junho de 2026</span>
+    </div>
+  </div>
+
+  <div class="dashboard-layout">
+
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">B</div>
+        <div>
+          <p class="sidebar-tenant-name">BeloAuto Demo</p>
+          <p class="sidebar-tenant-slug">@beloauto</p>
+        </div>
+      </div>
+      <nav class="sidebar-nav" style="margin-top: 0.5rem;">
+        <a class="sidebar-nav-item" href="../agenda/00-agenda.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Agenda
+        </a>
+        <a class="sidebar-nav-item" href="../agenda/00-agenda.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Horários
+        </a>
+        <a class="sidebar-nav-item" href="../agenda/00-agenda.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          Serviços
+        </a>
+        <a class="sidebar-nav-item active" href="00-customer-search.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Fidelidade
+        </a>
+      </nav>
+      <p class="sidebar-section-label">Somente Gerente</p>
+      <nav class="sidebar-nav">
+        <a class="sidebar-nav-item" href="../agenda/00-agenda.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Equipe
+        </a>
+        <a class="sidebar-nav-item" href="../agenda/00-agenda.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Configurações
+        </a>
+        <a class="sidebar-nav-item" href="../agenda/00-agenda.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Hotsite
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="auth-avatar" style="flex-shrink: 0; width: 2rem; height: 2rem; font-size: 0.8125rem;">AP</div>
+        <div style="min-width: 0;">
+          <p class="sidebar-user-name">Ana Pereira</p>
+          <span class="role-badge role-badge-manager">Gerente</span>
+        </div>
+        <a class="sidebar-logout" href="../../../shared/staff-login.html" title="Sair">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </a>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="dashboard-body">
+
+        <!-- Search bar -->
+        <div style="position: relative; margin-bottom: 1.5rem;">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+               style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); opacity: 0.4;">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            class="form-input"
+            placeholder="Buscar cliente por nome ou e-mail…"
+            style="padding-left: 2.25rem;"
+            oninput="filterCustomers(this.value)"
+            id="search-input"
+          >
+        </div>
+
+        <!-- Results list (mock — represents API response) -->
+        <p style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+                  letter-spacing: 0.06em; opacity: 0.4; margin-bottom: 0.5rem;" id="results-label">
+          Clientes recentes
+        </p>
+
+        <div class="card" style="padding: 0; overflow: hidden;" id="customer-list">
+          <a class="customer-row" href="01-customer-loyalty.html">
+            <div class="customer-avatar">JS</div>
+            <div class="customer-info">
+              <p class="customer-name">João Silva</p>
+              <p class="customer-email">joao.silva@gmail.com</p>
+            </div>
+            <span class="pts-badge">350 pts</span>
+          </a>
+          <a class="customer-row" href="01-customer-loyalty.html">
+            <div class="customer-avatar" style="background: #7c3aed;">MC</div>
+            <div class="customer-info">
+              <p class="customer-name">Maria Costa</p>
+              <p class="customer-email">maria.costa@gmail.com</p>
+            </div>
+            <span class="pts-badge">120 pts</span>
+          </a>
+          <a class="customer-row" href="01-customer-loyalty.html">
+            <div class="customer-avatar" style="background: #0891b2;">LF</div>
+            <div class="customer-info">
+              <p class="customer-name">Lucas Ferreira</p>
+              <p class="customer-email">lucas.f@outlook.com</p>
+            </div>
+            <span class="pts-badge">80 pts</span>
+          </a>
+          <a class="customer-row" href="01b-no-entries.html">
+            <div class="customer-avatar" style="background: #d97706;">RO</div>
+            <div class="customer-info">
+              <p class="customer-name">Renata Oliveira</p>
+              <p class="customer-email">renata.o@gmail.com</p>
+            </div>
+            <span class="pts-badge zero">0 pts</span>
+          </a>
+          <a class="customer-row" href="01-customer-loyalty.html">
+            <div class="customer-avatar" style="background: #be185d;">PA</div>
+            <div class="customer-info">
+              <p class="customer-name">Pedro Alves</p>
+              <p class="customer-email">p.alves@gmail.com</p>
+            </div>
+            <span class="pts-badge">240 pts</span>
+          </a>
+        </div>
+
+        <!-- No results state (hidden by default, shown via JS or see 01c-no-results.html) -->
+        <div id="no-results" style="display: none; text-align: center; padding: 3rem 1rem; opacity: 0.5;">
+          <p style="font-weight: 600; margin-bottom: 0.25rem;">Nenhum cliente encontrado</p>
+          <p style="font-size: 0.875rem;">Verifique o nome ou e-mail e tente novamente.</p>
+          <p style="font-size: 0.8125rem; margin-top: 1rem;">
+            → <a href="01c-no-results.html" style="color: var(--ba-primary);">Ver estado completo "Nenhum resultado"</a>
+          </p>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    function filterCustomers(term) {
+      var label = document.getElementById('results-label');
+      var list  = document.getElementById('customer-list');
+      var noRes = document.getElementById('no-results');
+      if (term.trim() === '') {
+        label.textContent = 'Clientes recentes';
+        list.style.display = 'block';
+        noRes.style.display = 'none';
+        return;
+      }
+      label.textContent = 'Resultados para "' + term + '"';
+      // Prototype: simulate no-results for "xyz"
+      if (term.toLowerCase().indexOf('xyz') !== -1) {
+        list.style.display = 'none';
+        noRes.style.display = 'block';
+      } else {
+        list.style.display = 'block';
+        noRes.style.display = 'none';
+      }
+    }
+  </script>
+
+
+  <!-- BOTTOM NAV — mobile only -->
+  <nav class="bottom-nav">
+    <a class="bottom-nav-item" href="../agenda/00-agenda.html">
+      <svg class="bottom-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Agenda
+    </a>
+    <a class="bottom-nav-item" href="../horarios/00-schedule.html">
+      <svg class="bottom-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      Horários
+    </a>
+    <a class="bottom-nav-item" href="../servicos/01-servicos-list.html">
+      <svg class="bottom-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+      </svg>
+      Serviços
+    </a>
+    <a class="bottom-nav-item active" href="00-customer-search.html">
+      <svg class="bottom-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+      Fidelidade
+    </a>
+    <button class="bottom-nav-item" onclick="openSheet()">
+      <svg class="bottom-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+      </svg>
+      Mais
+    </button>
+  </nav>
+
+  <div class="sheet-backdrop" id="sheet-backdrop" onclick="closeSheet()"></div>
+  <div class="bottom-sheet" id="manager-sheet">
+    <div class="bottom-sheet-handle"></div>
+    <p class="bottom-sheet-label">Somente Gerente</p>
+    <a class="bottom-sheet-item" href="#">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Equipe
+    </a>
+    <a class="bottom-sheet-item" href="#">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Configurações
+    </a>
+    <a class="bottom-sheet-item" href="#">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Hotsite
+    </a>
+  </div>
+
+  <script>
+    function openSheet() {
+      document.getElementById('manager-sheet').classList.add('open');
+      document.getElementById('sheet-backdrop').classList.add('open');
+    }
+    function closeSheet() {
+      document.getElementById('manager-sheet').classList.remove('open');
+      document.getElementById('sheet-backdrop').classList.remove('open');
+    }
+  </script>
+
+</body>
+</html>

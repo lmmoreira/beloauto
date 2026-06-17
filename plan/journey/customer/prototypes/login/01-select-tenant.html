@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selecionar Estabelecimento — BeloAuto</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+</head>
+<body>
+
+  <!--
+    PAGE (GAP): apps/web/app/select-tenant/page.tsx
+    ROUTE:      /select-tenant?token=<selectionToken>
+    When shown: UC-021 Case B — customer belongs to 2+ tenants
+    Query param: ?token=<selectionToken>  (opaque token issued by BFF in handleMultiTenantLogin)
+
+    COMPONENT (GAP): SelectTenantPage
+    FILE: apps/web/app/select-tenant/page.tsx  ('use client' — calls POST /v1/auth/token)
+
+    On mount: decode the ?token param (or just display the tenants from the selection payload)
+    On select: POST /v1/auth/token { selectionToken, tenantId }
+               → BFF issues JWT → sets httpOnly cookie → redirect to /{tenantSlug} (or /minha-conta)
+
+    The BFF includes tenant name + slug + loyaltyPoints in the selection payload.
+    Display each tenant as a card with: logo initial, name, loyalty points balance.
+  -->
+
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center;
+              background: var(--ba-background); padding: 1.5rem;">
+    <div style="width: 100%; max-width: 28rem;">
+
+      <!-- Header -->
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <div style="
+          width: 3rem; height: 3rem;
+          background: var(--ba-primary); border-radius: var(--ba-radius);
+          margin: 0 auto 1.25rem;
+          display: flex; align-items: center; justify-content: center;
+        ">
+          <span style="color: white; font-weight: 700; font-size: 1.25rem;">B</span>
+        </div>
+        <h1 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.375rem; color: var(--ba-text)">
+          Qual lava-car deseja acessar?
+        </h1>
+        <p style="font-size: 0.875rem; opacity: 0.6; color: var(--ba-text)">
+          Sua conta está vinculada a mais de um estabelecimento.
+        </p>
+      </div>
+
+      <!-- Tenant cards — one per tenant in the selection token -->
+      <!-- In production: rendered from BFF selection payload { tenants: [{ id, name, slug, loyaltyPoints }] } -->
+
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+
+        <!-- Tenant A — 50 active points (prototype: clicks → phone completion if needed, or customer area) -->
+        <a
+          href="./02-phone-completion.html"
+          style="
+            display: flex; align-items: center; gap: 1rem;
+            padding: 1rem 1.25rem;
+            border: 2px solid var(--ba-secondary);
+            border-radius: var(--ba-radius);
+            text-decoration: none;
+            color: var(--ba-text);
+            background: white;
+            box-shadow: var(--ba-shadow);
+            transition: border-color 0.15s;
+          "
+        >
+          <div style="
+            width: 2.5rem; height: 2.5rem; flex-shrink: 0;
+            background: var(--ba-primary); border-radius: var(--ba-radius);
+            display: flex; align-items: center; justify-content: center;
+          ">
+            <span style="color: white; font-weight: 700; font-size: 1rem;">A</span>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <p style="font-weight: 600; font-size: 0.9375rem; margin-bottom: 0.125rem;">AutoWash Pro</p>
+            <p style="font-size: 0.8125rem; opacity: 0.6;">50 pontos ativos</p>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.4; flex-shrink: 0;">
+            <path d="m9 18 6-6-6-6"/>
+          </svg>
+        </a>
+
+        <!-- Tenant B — 8 active points -->
+        <a
+          href="./02-phone-completion.html"
+          style="
+            display: flex; align-items: center; gap: 1rem;
+            padding: 1rem 1.25rem;
+            border: 2px solid var(--ba-secondary);
+            border-radius: var(--ba-radius);
+            text-decoration: none;
+            color: var(--ba-text);
+            background: white;
+            box-shadow: var(--ba-shadow);
+          "
+        >
+          <div style="
+            width: 2.5rem; height: 2.5rem; flex-shrink: 0;
+            background: #7c3aed; border-radius: var(--ba-radius);
+            display: flex; align-items: center; justify-content: center;
+          ">
+            <span style="color: white; font-weight: 700; font-size: 1rem;">S</span>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <p style="font-weight: 600; font-size: 0.9375rem; margin-bottom: 0.125rem;">SuperClean</p>
+            <p style="font-size: 0.8125rem; opacity: 0.6;">8 pontos ativos</p>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.4; flex-shrink: 0;">
+            <path d="m9 18 6-6-6-6"/>
+          </svg>
+        </a>
+
+      </div>
+
+      <p style="margin-top: 1.75rem; text-align: center; font-size: 0.75rem; opacity: 0.4; color: var(--ba-text);">
+        Você pode trocar de estabelecimento a qualquer momento após entrar.
+      </p>
+
+    </div>
+  </div>
+
+</body>
+</html>

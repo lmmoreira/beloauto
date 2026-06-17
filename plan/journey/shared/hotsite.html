@@ -54,12 +54,25 @@
     Used by: all public-hotsite journeys (guest, customer)
     Do not duplicate per actor — link here via ../../../shared/hotsite.html
 
-    LOGIN BAR — unauthenticated state
-    "Entrar" → ./login.html (shared login, also in this folder)
+    AUTH BAR — unauthenticated state
+    LEFT  → "Área da Equipe" — PROTOTYPE ONLY. In production this link does not exist on the
+            hotsite; staff access /dashboard/login directly via a separate URL.
+    RIGHT → "Entrar" (customer login) — /auth/login?redirect=/{slug}/booking  (UC-021)
     In the real app: /{slug}/layout.tsx reads JWT cookie;
-    unauthenticated → "Entrar"; authenticated → customer name + avatar
+    unauthenticated → "Entrar"; authenticated → customer name + avatar.
   -->
-  <div class="auth-bar">
+  <div class="auth-bar" style="justify-content: space-between;">
+
+    <!-- PROTOTYPE ONLY — not rendered in production -->
+    <a href="./staff-login.html" style="display: flex; align-items: center; gap: 0.375rem;
+       font-size: 0.8125rem; font-weight: 500; color: rgba(17,24,39,0.4); text-decoration: none;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+      </svg>
+      Área da Equipe
+    </a>
+
     <a href="./login.html" style="display: flex; align-items: center; gap: 0.375rem;
        font-size: 0.875rem; font-weight: 500; color: var(--ba-primary); text-decoration: none;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -67,6 +80,7 @@
       </svg>
       Entrar
     </a>
+
   </div>
 
   <!--

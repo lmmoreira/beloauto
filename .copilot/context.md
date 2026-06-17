@@ -5,7 +5,7 @@
 **Symlinked as:** `claude.md`, `gemini.md`  
 **Audience:** Any AI coding agent (Claude Code, Copilot CLI, Cursor, Aider, etc.)  
 **Rule:** Read this file first on every conversation. Then use §10 to load only the docs you need.  
-**Last updated:** 2026-06-15 (M12 Hotsite Frontend milestone complete — all 12 stories ✅ Done; added §10 row for `plan/M12-HOTSITE-FRONTEND_IMPLEMENTATION_DETAILS_IA.md`; wrap-up docs `plan/M12-HOTSITE-FRONTEND_IMPLEMENTATION_DETAILS_IA.md` + `_DEVELOPER.md` created; `docs/lean/WEB_LEAN.md` extended with M12-S07–S12 sections (36-49))
+**Last updated:** 2026-06-16 (added §19 — Journey & Prototype Workflow rules; session-2 pitfalls added to `plan/journey/README.md` Part 4)
 
 ---
 
@@ -69,7 +69,7 @@ Any code that breaks these is a defect regardless of test coverage.
 3. Every domain event includes `tenantId`, `eventId` (idempotency key), `occurredAt` (ISO-8601 UTC), `correlationId`.
 4. Composite FKs use `(tenant_id, id)` to block cross-tenant references at DB level.
 5. **Customers are multi-tenant** — same Google `sub` → multiple `Customer` rows (one per tenant). No unique on `google_oauth_id` alone.
-6. **Staff are single-tenant** — `UNIQUE(tenant_id, google_oauth_id)` at DB level.
+6. **Staff are single-tenant** — global `UNIQUE(google_oauth_id)` at DB level (not composite with `tenant_id` — the same Google account cannot be staff at two different tenants).
 7. File paths prefixed by tenant (see §1 Storage).
 8. Logs, metrics, traces include `tenant_id`. OTel span attrs: `tenant.id`, `user.id`, `correlation.id`.
 9. Event consumers are idempotent (at-least-once delivery). Dedup via `eventId`.
@@ -141,7 +141,7 @@ CANCELLED      (terminal)
 | UC-007 | Customer cancels booking (48 h window from `settings`) | Active |
 | UC-008 | Admin cancels / reschedules booking | Active |
 | UC-009 | Admin marks booking complete + after-photos | Active |
-| UC-010 | Admin closes schedule | Active |
+| UC-010 | Staff manages schedule closures and openings | Active |
 | UC-011 | Guest views calendar availability | Active |
 | UC-012 | Admin creates service | Active |
 | UC-013 | Admin edits / deactivates service | Active |
@@ -527,6 +527,69 @@ Commands live in `.claude/commands/`. Claude Code auto-discovers them — type `
 | `/uc-audit [UC-XXX\|M0X]` | `.claude/commands/uc-audit.md` | **Before drafting any `plan/journey/` file or new milestone** — audits `docs/04-USE_CASES.md` for staleness vs. code (roles, endpoints, entities, frontend pages) and internal inconsistencies; proposes doc fixes; lists IA gaps. |
 
 **Adding new commands:** create `.claude/commands/<name>.md`. Use `$ARGUMENTS` for optional user-typed arguments. Document it in this table.
+
+---
+
+## 19. Journey & Prototype Workflow Rules
+
+> **Full rules, conventions, and pitfall list:** `plan/journey/README.md` — load it whenever working on any journey `.md` file or prototype folder. §10 already lists it under "Writing new journeys or prototypes."
+
+> ❗ **NON-NEGOTIABLE HARD STOP — READ BEFORE TOUCHING ANY `plan/journey/` FILE**
+>
+> **`/uc-audit` MUST run and report a clean baseline BEFORE writing any journey `.md` file or prototype HTML.**
+> The sequence is always:
+> 1. `/uc-audit <UC-XXX>` → resolve every stale/conflicting finding → confirmed baseline
+> 2. Write `<actor>/<slug>.md` — mermaid flow, pages table, open questions
+> 3. Update `<actor>/use-cases.md` journey column
+> 4. Update `plan/journey/README.md` index table
+> 5. **Only then** create any file under `<actor>/prototypes/<slug>/`
+>
+> Skipping `/uc-audit` and going straight to the journey file (or worse, straight to HTML) is a workflow violation. A journey built on stale UC text causes rework in both the prototype and the eventual implementation story.
+
+### Folder structure
+
+```
+plan/journey/<actor>/
+├── use-cases.md            ← UC inventory
+├── <slug>.md               ← journey spec (mermaid, pages table, gaps)
+└── prototypes/
+    └── <slug>/
+        ├── index.html      ← navigation hub + dry-run checklist
+        ├── 00-*.html … 01-*.html …
+        └── dev-notes.md    ← implementation handoff
+```
+
+Prototype files **always** reference `../../../shared/tokens.css` — never a local copy.
+
+### Folder structure
+
+```
+plan/journey/<actor>/
+├── use-cases.md            ← UC inventory
+├── <slug>.md               ← journey spec (mermaid, pages table, gaps)
+└── prototypes/
+    └── <slug>/
+        ├── index.html      ← navigation hub + dry-run checklist
+        ├── 00-*.html … 01-*.html …
+        └── dev-notes.md    ← implementation handoff
+```
+
+Prototype files **always** reference `../../../shared/tokens.css` — never a local copy.
+
+### `dashboard-shell.html` CSS gotchas (applies to any dashboard prototype)
+
+| Class / pattern | Behaviour in `tokens.css` | Fix when needed |
+|---|---|---|
+| `.topbar-avatar` | Hidden at `≥1024px` (sidebar takes over) | Use `.auth-avatar` instead for clickable avatars |
+| `.topbar-brand` | Hidden at `≥1024px` (sidebar replaces it) | Add `@media (min-width: 1024px) { .topbar-brand { display: flex !important; } }` for non-sidebar layouts |
+| `.bottom-nav` | Always visible by default | Keep it on **all** pages (list and form/drill-down alike). Only hide it on full-screen detail pages that need all the vertical space (e.g. booking detail with many action buttons). Always include the `<nav class="bottom-nav">` element in HTML — tokens.css styles it but does not inject it. |
+| `<nav class="bottom-nav">` | **Must be in HTML body** — tokens.css only styles it, does not inject it | Every dashboard page (list and form) must include the `<nav class="bottom-nav">` element explicitly; the manager "Mais" button + `openSheet()`/`closeSheet()` JS must also be present on every page that has it. |
+| `.week-nav` (week navigation row) | Not in tokens.css — prototype-local pattern | Add `‹ month ›` nav row above every week strip; `›` links to the next-week page; `‹` disabled on current week. FAB needs `@media (max-width:1023px) { .fab { bottom: 5rem; } }` to clear the bottom nav |
+| `.topbar-user-name` | Hidden at `≥1024px` | Add `@media (min-width: 1024px) { .topbar-user-name { display: inline !important; } }` when needed |
+| Full-width `.form-actions` on desktop | `flex: 1` buttons stretch across the full content column on wide screens | Use `detail-layout` / `detail-aside` grid: form fields left, sticky action card right. Hide `.form-actions` on desktop: `@media (min-width: 1024px) { .form-actions { display: none !important; } }`. Applies to all form, confirmation, and focused-action pages. |
+| `.bottom-sheet` on desktop | Slides up full-width from bottom — broken on wide screens | Already handled globally in `shared/tokens.css` (auto-converts to centered modal ≥1024px). Do NOT add per-file overrides. |
+| `padding-bottom` on `main-content` with bottom nav | Content scrolls behind fixed bottom nav — last form field/button hidden | Pages with bottom nav only: `padding-bottom: 5.5rem`. Pages with bottom nav **and** a fixed action bar: `padding-bottom: 9rem` (nav ~3.75rem + bar ~4.5rem). |
+| Floating toast for success states | `position: fixed; top: 1rem` overlaps the prototype banner; not the system pattern | Use the inline green banner (`background:#f0fdf4; border:1px solid #86efac`) in the page flow — same pattern used by all booking detail success states. Never use a floating toast. |
 
 ---
 

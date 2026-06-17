@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protótipo — STAFF: Horários</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+  <style>
+    body { background: #f8fafc; }
+    .hub { max-width: 48rem; margin: 2rem auto; padding: 1rem 1.5rem 4rem; }
+    .hub-title { font-size: 1.5rem; font-weight: 700; color: var(--ba-text); margin-bottom: 0.25rem; }
+    .hub-subtitle { font-size: 0.9375rem; color: rgba(17,24,39,0.55); margin-bottom: 2rem; }
+    .section-label {
+      font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.07em;
+      text-transform: uppercase; color: rgba(17,24,39,0.4);
+      margin: 1.75rem 0 0.75rem;
+    }
+    .screen-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    .screen-item {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: white; border: 1px solid var(--ba-secondary);
+      border-radius: var(--ba-radius); text-decoration: none;
+    }
+    .screen-item:hover { border-color: var(--ba-primary); }
+    .screen-num {
+      font-size: 0.6875rem; font-weight: 700; min-width: 1.75rem;
+      color: rgba(17,24,39,0.35); font-variant-numeric: tabular-nums;
+    }
+    .screen-name { font-size: 0.9375rem; font-weight: 600; color: var(--ba-text); flex: 1; }
+    .screen-uc { font-size: 0.75rem; color: rgba(17,24,39,0.45); }
+    .tag { font-size: 0.6875rem; font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 4px; }
+    .tag-green { background: #e6ffe6; color: #166534; }
+    .tag-red { background: #fee2e2; color: #991b1b; }
+    .tag-blue { background: #eff6ff; color: #1d4ed8; }
+    .checklist { margin: 0; padding: 0 0 0 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .checklist li { font-size: 0.9375rem; color: var(--ba-text); }
+    .validate-card {
+      background: white; border: 1px solid var(--ba-secondary);
+      border-radius: var(--ba-radius); padding: 1.25rem 1.5rem; margin-top: 0.75rem;
+    }
+    .validate-title { font-weight: 700; font-size: 1rem; margin-bottom: 0.875rem; color: var(--ba-text); }
+  </style>
+</head>
+<body>
+  <div class="hub">
+    <p class="hub-title">STAFF — Horários</p>
+    <p class="hub-subtitle">Protótipo do calendário de agendamentos aprovados e gestão de bloqueios/aberturas (UC-010a–d)</p>
+
+    <!-- VALIDATION CHECKLIST -->
+    <div class="validate-card">
+      <p class="validate-title">O que este protótipo valida</p>
+      <ol class="checklist">
+        <li>A visualização de semana (week strip) + grade de horários diária é suficiente para o staff ver o dia de trabalho?</li>
+        <li>A distinção visual entre agendamento aprovado (azul) e bloqueio (cinza hachurado) está clara?</li>
+        <li>O fluxo FAB → bottom sheet → confirmação para criar bloqueio é adequado ou é necessário uma tela separada?</li>
+        <li>O aviso "agendamentos existem nesse período" (UC-010a A4) deve bloquear a criação ou apenas informar?</li>
+        <li>A gestão de dia fechado (domingo) → "Abrir dia especial" está bem posicionada no calendário?</li>
+        <li>Um dia com abertura especial vs. bloqueio precisam de dois estilos visuais distintos ou um é suficiente?</li>
+      </ol>
+    </div>
+
+    <!-- HAPPY PATH -->
+    <p class="section-label">Fluxo principal — dia aberto</p>
+    <ul class="screen-list">
+      <li>
+        <a class="screen-item" href="00-schedule.html">
+          <span class="screen-num">00</span>
+          <span class="screen-name">Calendário semanal — dia aberto (Ter 16)</span>
+          <span class="screen-uc">UC-010</span>
+          <span class="tag tag-red">GAP</span>
+        </a>
+      </li>
+      <li>
+        <a class="screen-item" href="01-closure-form.html">
+          <span class="screen-num">01</span>
+          <span class="screen-name">Criar bloqueio — formulário (FAB → bottom sheet)</span>
+          <span class="screen-uc">UC-010a</span>
+          <span class="tag tag-red">GAP</span>
+        </a>
+      </li>
+      <li>
+        <a class="screen-item" href="01c-closure-warning.html">
+          <span class="screen-num">01c</span>
+          <span class="screen-name">Bloqueio criado — aviso de agendamentos no período</span>
+          <span class="screen-uc">UC-010a A4</span>
+          <span class="tag tag-red">GAP</span>
+        </a>
+      </li>
+      <li>
+        <a class="screen-item" href="02-remove-closure.html">
+          <span class="screen-num">02</span>
+          <span class="screen-name">Remover bloqueio — confirmação</span>
+          <span class="screen-uc">UC-010b</span>
+          <span class="tag tag-red">GAP</span>
+        </a>
+      </li>
+    </ul>
+
+    <!-- CLOSED DAY FLOW -->
+    <p class="section-label">Fluxo secundário — dia fechado</p>
+    <ul class="screen-list">
+      <li>
+        <a class="screen-item" href="03-closed-day.html">
+          <span class="screen-num">03</span>
+          <span class="screen-name">Calendário — dia fechado (Dom 22)</span>
+          <span class="screen-uc">UC-010c</span>
+          <span class="tag tag-red">GAP</span>
+        </a>
+      </li>
+      <li>
+        <a class="screen-item" href="04-opening-form.html">
+          <span class="screen-num">04</span>
+          <span class="screen-name">Abrir dia especial — formulário</span>
+          <span class="screen-uc">UC-010c</span>
+          <span class="tag tag-red">GAP</span>
+        </a>
+      </li>
+      <li>
+        <a class="screen-item" href="05-opening-created.html">
+          <span class="screen-num">05</span>
+          <span class="screen-name">Abertura criada — domingo com janela 09:00–14:00</span>
+          <span class="screen-uc">UC-010c</span>
+          <span class="tag tag-red">GAP</span>
+        </a>
+      </li>
+      <li>
+        <a class="screen-item" href="06-remove-opening.html">
+          <span class="screen-num">06</span>
+          <span class="screen-name">Remover abertura — confirmação</span>
+          <span class="screen-uc">UC-010d</span>
+          <span class="tag tag-red">GAP</span>
+        </a>
+      </li>
+    </ul>
+
+    <!-- UNHAPPY PATHS -->
+    <p class="section-label">Estados alternativos (unhappy paths)</p>
+    <ul class="screen-list">
+      <li>
+        <a class="screen-item" href="01b-closure-conflict.html">
+          <span class="screen-num">01b</span>
+          <span class="screen-name">Criar bloqueio — 409 Conflict (período já bloqueado)</span>
+          <span class="screen-uc">UC-010a A2/A3</span>
+          <span class="tag tag-red">⚠ GAP</span>
+        </a>
+      </li>
+    </ul>
+
+    <!-- DEV NOTES LINK -->
+    <p class="section-label">Handoff</p>
+    <ul class="screen-list">
+      <li>
+        <a class="screen-item" href="dev-notes.md" target="_blank">
+          <span class="screen-num">—</span>
+          <span class="screen-name">dev-notes.md — notas de implementação</span>
+          <span class="screen-uc"></span>
+          <span class="tag tag-blue">Next.js + shadcn/ui</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+</body>
+</html>

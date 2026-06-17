@@ -62,6 +62,21 @@ h1, h2, h3 { font-family: var(--ba-heading-font); }
   display: inline-block;
 }
 
+.btn-danger {
+  background-color: #dc2626;
+  color: #ffffff;
+  border: 2px solid #dc2626;
+  border-radius: var(--ba-radius);
+  padding: 0.75rem 2rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn-danger:hover { opacity: 0.9; }
+
 /* -- Cards -- */
 .card {
   border: 1px solid var(--ba-secondary);
@@ -315,6 +330,27 @@ h1, h2, h3 { font-family: var(--ba-heading-font); }
 .bottom-sheet-item.active { color: var(--ba-primary); }
 .bottom-sheet-item svg { width: 1.25rem; height: 1.25rem; opacity: 0.6; flex-shrink: 0; }
 
+/* Desktop: bottom sheet becomes a centered modal */
+@media (min-width: 1024px) {
+  .bottom-sheet {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    width: 100%;
+    max-width: 28rem;
+    border-radius: var(--ba-radius);
+    transform: translate(-50%, -48%) scale(0.96);
+    opacity: 0;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+  }
+  .bottom-sheet.open {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  .bottom-sheet-handle { display: none; }
+}
+
 /* Sidebar — hidden on mobile, shown on desktop */
 .sidebar {
   display: none;
@@ -382,6 +418,8 @@ h1, h2, h3 { font-family: var(--ba-heading-font); }
 .status-info     { background: #dbeafe; color: #1d4ed8; }
 .status-approved { background: #dcfce7; color: #15803d; }
 .status-cancelled{ background: #fee2e2; color: #dc2626; }
+.status-rejected { background: #fee2e2; color: #dc2626; }
+.status-completed{ background: #f1f5f9; color: #475569; }
 
 /* Filter tabs — horizontally scrollable on mobile */
 .filter-tabs {

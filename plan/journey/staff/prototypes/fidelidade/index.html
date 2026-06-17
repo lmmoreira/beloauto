@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protótipo — STAFF: Fidelidade (Consulta de Pontos do Cliente)</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; max-width: 52rem; margin: 0 auto; padding: 2rem 1.5rem; color: var(--ba-text); background: var(--ba-background); }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.125rem; font-weight: 600; margin: 1.75rem 0 0.75rem; }
+    ul { padding-left: 1.25rem; line-height: 1.8; }
+    a { color: var(--ba-primary); }
+    .tag { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.125rem 0.5rem; border-radius: 99px; margin-left: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tag-green { background: #dcfce7; color: #166534; }
+    .tag-red { background: #fee2e2; color: #991b1b; }
+    .checklist { background: var(--ba-secondary); border-radius: var(--ba-radius); padding: 1rem 1.25rem; margin-top: 1.5rem; }
+    hr { border: none; border-top: 1px solid var(--ba-secondary); margin: 1.5rem 0; }
+  </style>
+</head>
+<body>
+
+  <h1>Protótipo — STAFF: Fidelidade</h1>
+  <p style="opacity: 0.65; margin-bottom: 0.25rem;">UC coberto: <strong>UC-016</strong> (variante admin/staff — consulta de qualquer cliente)</p>
+  <p style="opacity: 0.65;">Journey: <code>staff/fidelidade.md</code></p>
+
+  <hr>
+
+  <h2>Fluxo principal</h2>
+  <ul>
+    <li>
+      <a href="00-customer-search.html">00 — Buscar cliente</a>
+      <span class="tag tag-red">GAP: /dashboard/loyalty</span>
+      — busca por nome ou e-mail; exibe saldo resumido por cliente
+    </li>
+    <li>
+      <a href="01-customer-loyalty.html">01 — Detalhe de fidelidade do cliente</a>
+      <span class="tag tag-red">GAP: /dashboard/loyalty?customerId=:id</span>
+      — saldo ativo, próxima expiração, histórico de ganhos e resgates
+    </li>
+  </ul>
+
+  <h2>Estados alternativos (unhappy paths)</h2>
+  <ul>
+    <li>
+      <a href="01b-no-entries.html">01b — Cliente sem pontos</a>
+      <span class="tag tag-red">GAP: estado vazio</span>
+      — cliente encontrado mas nunca acumulou pontos (nenhum booking concluído ainda)
+    </li>
+    <li>
+      <a href="01c-no-results.html">01c — Nenhum cliente encontrado</a>
+      <span class="tag tag-red">GAP: estado vazio de busca</span>
+      — busca sem resultados
+    </li>
+  </ul>
+
+  <hr>
+
+  <div class="checklist">
+    <strong>O que este protótipo valida:</strong>
+    <ul style="list-style: none; padding: 0; margin-top: 0.5rem;">
+      <li>☐ A busca por nome/e-mail é suficiente para o staff encontrar o cliente rapidamente?</li>
+      <li>☐ O saldo ativo e a data de expiração ficam claros no topo da tela de detalhe?</li>
+      <li>☐ A lista de ganhos com o badge ativo/expirado por entrada é legível em mobile?</li>
+      <li>☐ O histórico de resgates mostra contexto suficiente (bookingId, valor economizado)?</li>
+      <li>☐ A tela de "sem pontos" orienta bem o staff sobre quando os pontos serão acumulados?</li>
+      <li>☐ Faz sentido ter um link "Ver histórico completo" no detalhe do agendamento para chegar aqui?</li>
+    </ul>
+  </div>
+
+  <h2>Arquitetura</h2>
+  <ul>
+    <li><strong>BFF GET:</strong> <code>GET /v1/customers/:customerId/loyalty/balance</code> — <code>@Roles('MANAGER','STAFF')</code></li>
+    <li><strong>BFF GET:</strong> <code>GET /v1/customers/:customerId/loyalty/entries?page&amp;limit</code></li>
+    <li><strong>BFF GET:</strong> <code>GET /v1/customers/:customerId/loyalty/redemptions?page&amp;limit</code></li>
+    <li>Busca de clientes: <code>GET /v1/customers?search=:term</code> (endpoint existente a confirmar — ver dev-notes.md)</li>
+    <li>→ <a href="dev-notes.md">dev-notes.md</a> — componentes, endpoints, tipos</li>
+  </ul>
+
+</body>
+</html>

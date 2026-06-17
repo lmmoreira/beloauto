@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Completar Perfil — BeloAuto</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+</head>
+<body>
+
+  <!--
+    PAGE / COMPONENT (GAP): phone completion prompt — UC-021 A3
+    ROUTE: inline prompt shown after login if Customer.phone = null
+
+    Two options for implementation:
+      A) Dedicated page: apps/web/app/[tenantSlug]/complete-profile/page.tsx
+         → Redirect to this page before /minha-conta if phone missing
+      B) Inline modal/banner: shown on first post-login screen if phone missing
+
+    Option B preferred per open question in customer/login.md.
+    Prototype uses a standalone screen for review clarity.
+
+    BFF CALL: PATCH /v1/customers/me { phone }
+    → 200: phone saved → proceed to customer area
+    → 422: invalid phone format → show inline error
+    Validation: 10 or 11 digits, digits only.
+
+    This step is ONE-TIME: once phone is set, it is skipped on all future logins.
+  -->
+
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center;
+              background: var(--ba-background); padding: 1.5rem;">
+    <div class="card" style="width: 100%; max-width: 26rem; padding: 2.25rem;">
+
+      <!-- Header -->
+      <div style="text-align: center; margin-bottom: 1.75rem;">
+        <div style="
+          width: 3rem; height: 3rem;
+          background: #ecfdf5; border-radius: 50%;
+          margin: 0 auto 1rem;
+          display: flex; align-items: center; justify-content: center;
+        ">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.62 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.58a16 16 0 0 0 5.58 5.58l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+          </svg>
+        </div>
+        <h1 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.375rem; color: var(--ba-text)">
+          Complete seu perfil
+        </h1>
+        <p style="font-size: 0.875rem; opacity: 0.6; color: var(--ba-text); line-height: 1.5;">
+          Precisamos do seu telefone para confirmar agendamentos.
+          Você só precisa fazer isso uma vez.
+        </p>
+      </div>
+
+      <!-- Phone form -->
+      <form>
+        <div style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="phone">Telefone</label>
+          <input
+            id="phone"
+            type="tel"
+            class="form-input"
+            placeholder="(11) 91234-5678"
+            value=""
+            style="width: 100%;"
+          >
+          <!-- Validation error state (uncomment to preview):
+          <p style="margin-top: 0.375rem; font-size: 0.8125rem; color: #dc2626;">
+            Digite um número de telefone válido (10 ou 11 dígitos).
+          </p>
+          -->
+        </div>
+
+        <!-- In prototype: submit goes to the customer area placeholder -->
+        <a
+          href="./index.html"
+          class="btn-primary"
+          style="display: block; text-align: center; text-decoration: none; padding: 0.75rem;"
+        >
+          Salvar e continuar
+        </a>
+      </form>
+
+      <p style="margin-top: 1rem; text-align: center; font-size: 0.75rem; opacity: 0.4; color: var(--ba-text);">
+        PATCH /v1/customers/me · { phone }
+      </p>
+
+    </div>
+  </div>
+
+</body>
+</html>

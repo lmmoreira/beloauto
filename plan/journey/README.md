@@ -162,7 +162,7 @@ Every prototype folder must contain:
 
 | File | Required | Purpose |
 |---|---|---|
-| `tokens.css` | ✅ | `--ba-*` CSS custom properties at their default values |
+| `tokens.css` | ❌ **never create locally** | Do NOT create in the prototype folder — every step file must reference `../../../shared/tokens.css` instead. Individual copies create update drift. |
 | `index.html` | ✅ | Navigation hub — lists all screens + dry-run checklist |
 | `dev-notes.md` | ✅ | Implementation handoff — components, API calls, validation rules, states |
 | `00-hotsite.html` | when journey starts on hotsite | Fake hotsite with login bar at top |
@@ -229,37 +229,51 @@ Always copy the **exact default values** from `hotsite-config.aggregate.ts` (`DE
 
 Also define reusable classes: `.btn-primary`, `.btn-secondary`, `.card`, `.card.selected`, `.step-container`, `.step-indicator`, `.form-label`, `.form-input`, `.nav-buttons`, `.slot-btn`, `.day-pill`, `.upload-area`, `.auth-bar`, `.auth-avatar`. See existing `tokens.css` files for the full list.
 
-### Login bar pattern (mandatory on every screen)
+### Brand + auth bar pattern (mandatory on every public screen)
 
-Every prototype screen must show the auth bar at the top. The bar's visual identity is always identical — only the content changes based on auth state.
+Every non-dashboard prototype screen (guest booking flow, customer booking flow, standalone public pages like `submit-info`) must show a **combined brand + auth bar** at the top — not a plain right-aligned "Entrar" strip. The brand name gives the page identity; the auth element (Entrar or avatar) goes on the right.
 
 **Unauthenticated (GUEST screens):**
 ```html
-<div style="background: var(--ba-secondary); padding: 0.5rem 1.5rem;
-            display: flex; align-items: center; justify-content: flex-end;">
-  <a href="../../../shared/login.html" style="display: flex; align-items: center; gap: 0.375rem;
-     font-size: 0.875rem; font-weight: 500; color: var(--ba-primary); text-decoration: none;">
+<div style="background:white;border-bottom:1px solid var(--ba-secondary);
+            padding:0.625rem 1.5rem;display:flex;align-items:center;justify-content:space-between;">
+  <div style="display:flex;align-items:center;gap:0.625rem;">
+    <div style="width:1.875rem;height:1.875rem;border-radius:0.375rem;background:var(--ba-primary);
+                color:white;display:flex;align-items:center;justify-content:center;
+                font-weight:700;font-size:0.8125rem;">B</div>
+    <span style="font-weight:700;font-size:0.9375rem;color:var(--ba-text);">BeloAuto Demo</span>
+  </div>
+  <a href="../../../shared/login.html" style="display:flex;align-items:center;gap:0.375rem;
+     font-size:0.875rem;font-weight:500;color:var(--ba-primary);text-decoration:none;">
     <!-- person SVG icon -->
     Entrar
   </a>
 </div>
 ```
 
-**Authenticated (CUSTOMER screens) — clickable → login page:**
+**Authenticated (CUSTOMER booking screens) — brand left, avatar dropdown right:**
 ```html
-<div class="auth-bar">
-  <a href="../../../shared/login.html" style="display: flex; align-items: center; gap: 0.5rem;
-     text-decoration: none; color: var(--ba-text);">
-    <div class="auth-avatar">JS</div>
-    <span>João Silva</span>
-  </a>
+<div style="background:white;border-bottom:1px solid var(--ba-secondary);
+            padding:0.625rem 1.5rem;display:flex;align-items:center;justify-content:space-between;">
+  <div style="display:flex;align-items:center;gap:0.625rem;">
+    <div style="width:1.875rem;height:1.875rem;border-radius:0.375rem;background:var(--ba-primary);
+                color:white;display:flex;align-items:center;justify-content:center;
+                font-weight:700;font-size:0.8125rem;">B</div>
+    <span style="font-weight:700;font-size:0.9375rem;color:var(--ba-text);">BeloAuto Demo</span>
+  </div>
+  <!-- existing auth-bar avatar dropdown -->
+  <div style="position:relative;"><details>...avatar + dropdown...</details></div>
 </div>
 ```
 
+**Standalone public pages** (e.g. `submit-info`, no booking flow context) use a minimal brand-only header — same logo mark + name, no "Entrar" link needed if the page has its own clear purpose.
+
 **Rules:**
-- The bar is **always present** on every booking step (not just step 1).
-- The auth bar on customer screens **must be a link** so the reviewer can navigate back to the login screen.
+- The brand bar is **always present** on every public (non-dashboard) screen — including error and loading variants.
+- The brand logo ("B" square) + tenant name must appear on the **left** so the user always knows which business they're interacting with.
+- The auth element on customer screens **must be clickable** (dropdown or link) so the reviewer can navigate.
 - Both guest and customer screens link to **`../../../shared/login.html`** — the single shared login page.
+- **Do NOT** use the old pattern of a right-aligned "Entrar" link on a secondary-color background (`var(--ba-secondary)`) — that was replaced.
 
 ### Hotsite entry point (`00-hotsite.html`)
 
@@ -516,6 +530,144 @@ Leaving all error/loading/empty/submission states as commented-out HTML blocks i
 
 **Fix:** Apply the "Unhappy path variant screens (mandatory)" checklist above before declaring any prototype done. For each step: does it fetch? does it validate? does it submit? can data be empty? is any state stuck/incomplete? Create a variant screen for each "yes", tag it in `index.html`, and document it in `dev-notes.md`. Even when fixing the underlying behaviour is deferred, always visualise the gap state — making it tangible is what turns a known issue into a tracked decision.
 
+### ❌ Writing the prototype before the journey `.md` file
+
+Creating HTML prototype files before `<actor>/<slug>.md` exists. The journey `.md` is the specification — it defines navigation scope, maps IA gaps, and documents open questions. Without it, the prototype may answer the wrong questions or miss gaps entirely.
+
+**Fix:** Always complete Part 3 steps 1–4 first (run `/uc-audit`, write `<actor>/<slug>.md`, update `use-cases.md` journey column, update README index). Only then create any file under `<actor>/prototypes/<slug>/`.
+
+### ❌ Using `.topbar-avatar` for dashboard avatars (hidden on desktop)
+
+`tokens.css` hides `.topbar-avatar` at `≥1024px` because the sidebar footer takes over identity display on desktop. Using `.topbar-avatar` for the clickable avatar element in dashboard prototype screens causes it to disappear on desktop.
+
+**Fix:** Use `.auth-avatar` for all avatar elements in dashboard prototype screens (topbar and sidebar footer). If the user's display name should appear next to the avatar in the topbar on desktop, add an explicit override: `@media (min-width: 1024px) { .topbar-user-name { display: inline !important; } }`.
+
+### ❌ `.topbar-brand` hidden on desktop in non-sidebar layouts
+
+`tokens.css` hides `.topbar-brand` at `≥1024px` because the sidebar replaces it. Customer dashboards (no sidebar, brand remains in topbar) need an explicit override.
+
+**Fix:** Any prototype layout that shows a topbar brand on desktop without a sidebar must include: `@media (min-width: 1024px) { .topbar-brand { display: flex !important; } }`.
+
+### ❌ Bottom nav visible on drill-down detail pages
+
+The bottom nav is navigation for top-level tabs. Drill-down pages (booking detail, etc.) are reached via a card tap; the only exit is the topbar back arrow. Showing the bottom nav on these pages creates a competing, confusing navigation layer.
+
+**Fix:** Add `.bottom-nav { display: none !important; }` to the `<style>` block of every detail/drill-down page.
+
+### ❌ Full-width action buttons on desktop (form and confirmation pages)
+
+Using `display: flex` with `flex: 1` on save/cancel buttons inside a wide dashboard content area causes them to stretch across the full column on desktop — visually broken and inconsistent with every other dashboard detail page.
+
+**Fix:** Apply the `detail-layout` / `detail-aside` two-column grid pattern to ALL form pages, confirmation pages, and focused-action pages (slot-conflict, error states, etc.):
+
+```html
+<!-- In <style>: -->
+.detail-layout { display: block; }
+.detail-aside  { display: none; }
+@media (min-width: 1024px) {
+  .detail-layout { display: grid; grid-template-columns: 1fr 22rem; gap: 1.5rem; align-items: start; }
+  .detail-aside  { display: block; position: sticky; top: 1.5rem; }
+  .form-actions  { display: none !important; } /* hide mobile-only button row */
+}
+
+<!-- In <body>: -->
+<div class="dashboard-body">
+  <div class="detail-layout">
+    <div>
+      <!-- form fields / content -->
+      <div class="form-actions"> <!-- mobile only, hidden on desktop -->
+        <a class="btn-secondary">Cancelar</a>
+        <a class="btn-primary">Salvar</a>
+      </div>
+    </div>
+    <div class="detail-aside">
+      <div class="card" style="padding:1.25rem;">
+        <a class="btn-primary" style="display:block;...">Salvar</a>
+        <a class="btn-secondary" style="display:block;...">Cancelar</a>
+        <!-- optional: context note, status chip, danger link -->
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+This pattern applies to: service create/edit, confirmation pages (cancel, deactivate), focused error states (slot conflict), settings forms, invite forms, and any other page where the primary content is a form or a single focused decision.
+
+### ❌ Narrow `max-width` on `dashboard-body` instead of `detail-layout`
+
+Using `<div class="dashboard-body" style="max-width: 36rem;">` to constrain narrow content (error messages, focused choices) leaves a large empty void on the right half of the screen on desktop — not a consistent dashboard feel.
+
+**Fix:** Always use `detail-layout` instead. The left column naturally constrains the content width; the right aside provides context or a back action. Even when there is no meaningful aside, a minimal card with a "← Voltar" link is better than empty white space.
+
+### ❌ Bottom sheet triggered on desktop without the shared modal override
+
+Writing per-file CSS to convert a `.bottom-sheet` to a centered modal on desktop. This was needed once (before June 2026) but has since been added to `shared/tokens.css` globally: on `≥1024px`, all `.bottom-sheet` elements automatically reposition to a centered scale+fade modal (`top: 50%; left: 50%; transform: translate(-50%, -50%)`).
+
+**Fix:** Do NOT add per-file `@media (min-width: 1024px) { .bottom-sheet { ... } }` overrides. The shared CSS already handles this. Only override per-file if a specific sheet needs different dimensions.
+
+### ❌ Fixed action bar overlapping the bottom nav on mobile
+
+Using `position: sticky; bottom: 0` on `.form-actions` in a page that also has a bottom nav causes the save button to be hidden behind (or overlap) the fixed nav — the two compete for the same bottom space.
+
+**Fix:** On pages with BOTH a bottom nav and a primary action button (settings forms, invite forms, editor pages), use `position: fixed; bottom: 3.75rem` on `.form-actions` so it floats above the nav. Set `padding-bottom: 9rem` on `<main class="main-content">` to clear both the nav (~3.75rem) and the action bar (~4.5rem). On desktop, hide `.form-actions` via the `detail-layout` / `detail-aside` pattern.
+
+```css
+/* Mobile: action bar floats above bottom nav */
+.form-actions {
+  position: fixed; bottom: 3.75rem; left: 0; right: 0; z-index: 20;
+  background: white; border-top: 1px solid var(--ba-secondary);
+  padding: 0.75rem 1rem; box-shadow: 0 -2px 8px rgba(0,0,0,.06);
+  display: flex; gap: 0.75rem;
+}
+/* Desktop: hidden — detail-aside handles it */
+@media (min-width: 1024px) {
+  .form-actions { display: none !important; }
+}
+```
+
+And on `<main class="main-content">`:
+```html
+<main class="main-content" style="padding-bottom:9rem;">
+```
+
+Pages with a bottom nav but NO fixed action bar (list pages, read-only detail pages, success states) only need `padding-bottom: 5.5rem`.
+
+### ❌ Using floating toasts for success states
+
+Creating a floating `.toast` element with `position: fixed; top: 1rem` as a success notification. Toasts at `top: 1rem` overlap the prototype banner on prototype pages and are impossible to see. More importantly, the rest of the system uses **inline banners** — not floating elements — for success states.
+
+**Fix:** Always use the inline green banner pattern, consistent with booking detail pages throughout the system:
+
+```html
+<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:var(--ba-radius);
+            padding:1.125rem 1.25rem;margin-bottom:1.5rem;
+            display:flex;align-items:flex-start;gap:0.875rem;">
+  <div style="width:2rem;height:2rem;border-radius:9999px;background:#16a34a;
+              display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  </div>
+  <div>
+    <p style="font-weight:700;font-size:0.9375rem;color:#15803d;margin-bottom:0.125rem;">
+      Operação concluída!
+    </p>
+    <p style="font-size:0.875rem;color:#166534;opacity:0.85;line-height:1.5;">
+      Descrição do que foi salvo/publicado/concluído.
+    </p>
+  </div>
+</div>
+```
+
+This banner is in the page flow — always visible, no positioning conflicts, no timer needed. It can remain permanently on the prototype page for reviewers to see.
+
+### ❌ Validation error variant pages showing only the errored section
+
+Creating a validation error variant (e.g. `01b-validation-error.html`) that shows only the section containing the invalid field, omitting all the other form sections. This misleads the reviewer into thinking the rest of the form disappeared on error.
+
+**Fix:** The validation error page must show the **complete form** — all sections, all fields — exactly as it appears in the normal state. Only the invalid field(s) are highlighted (red border + field error message below). All other data entered by the user is preserved and visible. In production, the server returns 422 and the same form page re-renders with error annotations; the reviewer must be able to see this correctly.
+
 ---
 
 ## Relationship to other docs
@@ -533,7 +685,18 @@ Leaving all error/loading/empty/submission states as commented-out HTML blocks i
 | Journey | Folder | Prototype | Status |
 |---|---|---|---|
 | GUEST — Book a Service | `guest/book-a-service.md` | `guest/prototypes/book-a-service/` | Reviewed |
-| CUSTOMER — Book a Service | `customer/book-a-service.md` | `customer/prototypes/book-a-service/` | Draft |
+| GUEST — Responder à Solicitação de Informação | `guest/submit-info.md` | `guest/prototypes/submit-info/` | Reviewed |
+| CUSTOMER — Book a Service | `customer/book-a-service.md` | `customer/prototypes/book-a-service/` | Reviewed |
+| CUSTOMER — Login & Tenant Selection | `customer/login.md` | `customer/prototypes/login/` | Reviewed |
+| STAFF — Login & First Access | `staff/login.md` | `staff/prototypes/login/` | Reviewed |
+| STAFF — Agenda (Booking Queue & Lifecycle Management) | `staff/agenda.md` | `staff/prototypes/agenda/` | Reviewed |
+| STAFF — Horários (Schedule & Closure Management) | `staff/horarios.md` | `staff/prototypes/horarios/` | Reviewed |
+| CUSTOMER — Minha Conta (Bookings + Loyalty) | `customer/minha-conta.md` | `customer/prototypes/minha-conta/` | Reviewed |
+| STAFF — Serviços (Service Catalog) | `staff/servicos.md` | `staff/prototypes/servicos/` | Reviewed |
+| STAFF — Fidelidade (Customer Loyalty Lookup) | `staff/fidelidade.md` | `staff/prototypes/fidelidade/` | Reviewed |
+| MANAGER — Equipe (Team Management) | `manager/equipe.md` | `manager/prototypes/equipe/` | Reviewed |
+| MANAGER — Configurações (Tenant Settings) | `manager/configuracoes.md` | `manager/prototypes/configuracoes/` | Reviewed |
+| MANAGER — Hotsite (Branding & Content) | `manager/hotsite.md` | `manager/prototypes/hotsite/` | Reviewed |
 
 ---
 

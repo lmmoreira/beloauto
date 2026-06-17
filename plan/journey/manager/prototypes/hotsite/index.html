@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hotsite — Navigation Hub</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+  <style>
+    body { max-width: 640px; margin: 2rem auto; padding: 0 1.5rem; font-family: 'Inter', sans-serif; color: var(--ba-text); }
+    h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .subtitle { font-size: 0.875rem; opacity: 0.55; margin-bottom: 2rem; }
+    .section { margin-bottom: 2rem; }
+    .section-title { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; opacity: 0.4; margin-bottom: 0.75rem; }
+    .screen-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .screen-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: var(--ba-secondary); border-radius: var(--ba-radius); text-decoration: none; color: var(--ba-text); font-size: 0.9375rem; }
+    .screen-link:hover { background: #dbeafe; }
+    .screen-num { font-size: 0.75rem; font-weight: 700; opacity: 0.4; width: 1.5rem; }
+    .uc-tag { font-size: 0.6875rem; font-weight: 700; background: var(--ba-primary); color: white; border-radius: 4px; padding: 0.125rem 0.375rem; margin-left: auto; }
+    .gap-tag { font-size: 0.6875rem; font-weight: 700; background: #fecaca; color: #b91c1c; border-radius: 4px; padding: 0.125rem 0.375rem; margin-left: auto; }
+    .checklist { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    .checklist li { display: flex; gap: 0.5rem; font-size: 0.875rem; }
+    .checklist li::before { content: "☐"; font-size: 1rem; line-height: 1.2; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <h1>MANAGER — Hotsite</h1>
+  <p class="subtitle">UC-027 (branding, layout, SEO e publicação do hotsite)</p>
+
+  <div class="section">
+    <p class="section-title">Screens</p>
+    <div class="screen-list">
+      <a href="01-hotsite-editor.html" class="screen-link">
+        <span class="screen-num">01</span>
+        Editor — Branding / Layout / SEO
+        <span class="gap-tag">GAP</span>
+      </a>
+      <a href="01d-module-config-hero.html" class="screen-link">
+        <span class="screen-num">01d</span>
+        Configurar módulo — Hero (exemplo)
+        <span class="gap-tag">GAP</span>
+      </a>
+      <a href="02-preview.html" class="screen-link">
+        <span class="screen-num">02</span>
+        Preview do hotsite (rascunho)
+        <span class="gap-tag">GAP</span>
+      </a>
+      <a href="03-publish-success.html" class="screen-link">
+        <span class="screen-num">03</span>
+        Confirmação de publicação
+        <span class="uc-tag">UC-027</span>
+      </a>
+      <a href="03b-unpublish-success.html" class="screen-link">
+        <span class="screen-num">03b</span>
+        Hotsite despublicado (zona de risco)
+        <span class="uc-tag">UC-027</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-title">Estados alternativos (unhappy paths)</p>
+    <div class="screen-list">
+      <a href="01b-color-error.html" class="screen-link">
+        <span class="screen-num">01b</span>
+        Erro — cor fora do formato hexadecimal
+        <span class="uc-tag">UC-027 A1</span>
+      </a>
+      <a href="01c-image-upload-fallback.html" class="screen-link">
+        <span class="screen-num">01c</span>
+        Falha no upload — fallback para URL
+        <span class="uc-tag">UC-027 A2</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-title">Dry-run checklist</p>
+    <ul class="checklist">
+      <li>3 abas: Branding, Layout, SEO — alternam sem recarregar a página</li>
+      <li>Branding mostra os 13 campos (cores, logo, tipografia, cantos, botão, espaçamento, sombra) agrupados em subseções</li>
+      <li>Layout mostra os 7 módulos com drag handle, link "Configurar" e toggle on/off</li>
+      <li>"Configurar" no módulo Hero abre um drill-down com campos específicos</li>
+      <li>SEO mostra título (70 caracteres) e descrição (160 caracteres), ambos opcionais</li>
+      <li>Cor em formato inválido → erro inline, salvar bloqueado</li>
+      <li>Falha simulada de upload → campo de URL aparece como alternativa</li>
+      <li>"Preview" mostra o hotsite com um banner indicando alterações não publicadas</li>
+      <li>"Publicar alterações" → confirmação de sucesso</li>
+      <li>"Despublicar hotsite" está na zona de risco, visualmente separado das ações normais</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <p class="section-title">Open questions</p>
+    <ul class="checklist">
+      <li>Per-module config: cada um dos 7 módulos precisa do próprio drill-down — só Hero foi prototipado como exemplo. Confirmar antes de implementar os outros 6.</li>
+      <li>Preview: como renderizar o estado de rascunho (não publicado)? Live client-side vs. parâmetro/token de preview no BFF — ver dev-notes.md.</li>
+      <li>Despublicar: ação de emergência no editor (como prototipado) ou em outro lugar (ex: Configurações)?</li>
+      <li>Onde fica o link "Configurar" nos outros módulos (Lista de serviços, Galeria, etc.) — mesmas posições e padrão do Hero?</li>
+    </ul>
+  </div>
+</body>
+</html>

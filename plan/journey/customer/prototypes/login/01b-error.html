@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Erro de Autenticação — BeloAuto</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+</head>
+<body>
+
+  <!--
+    PAGE (GAP): apps/web/app/auth/error/page.tsx  (shared with staff flow)
+    ROUTE:      /auth/error?reason=<reason>
+
+    reason values for customer flows:
+      no-tenant     → "Nenhum estabelecimento encontrado para sua conta."
+                      (shouldn't happen in UC-021 A1/A2 since we create the customer, but defensive)
+
+    Note: the same page is used for staff errors (reason=not-a-staff-member, email-mismatch, etc.)
+    The page renders the appropriate copy based on ?reason=.
+
+    COMPONENT (GAP): AuthErrorPage
+    FILE: apps/web/app/auth/error/page.tsx (searchParams: { reason: string })
+  -->
+
+  <!-- Preview: reason=no-tenant -->
+  <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f9fafb;">
+    <div class="card" style="width: 100%; max-width: 26rem; padding: 2.25rem; text-align: center;">
+
+      <!-- Icon: X circle -->
+      <div style="
+        width: 3.5rem; height: 3.5rem;
+        background: #fee2e2; border-radius: 50%;
+        margin: 0 auto 1.25rem;
+        display: flex; align-items: center; justify-content: center;
+      ">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="m15 9-6 6M9 9l6 6"/>
+        </svg>
+      </div>
+
+      <h1 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--ba-text)">
+        Não foi possível entrar
+      </h1>
+
+      <!-- reason=no-tenant -->
+      <p style="font-size: 0.875rem; color: var(--ba-text); opacity: 0.65; line-height: 1.5; margin-bottom: 1.75rem;">
+        Nenhum estabelecimento foi encontrado para sua conta.
+        Acesse o site do lava-car e clique em "Entrar" para criar sua conta lá.
+      </p>
+
+      <!--
+        reason=tenant-deactivated (uncomment to preview):
+      <p style="font-size: 0.875rem; color: var(--ba-text); opacity: 0.65; line-height: 1.5; margin-bottom: 1.75rem;">
+        Este estabelecimento está desativado.
+        Entre em contato com o lava-car para mais informações.
+      </p>
+      -->
+
+      <a
+        href="./00-hotsite.html"
+        class="btn-primary"
+        style="display: inline-block; text-decoration: none; padding: 0.625rem 1.5rem;"
+      >
+        Voltar ao site
+      </a>
+
+      <p style="margin-top: 1.25rem; font-size: 0.75rem; opacity: 0.4; color: var(--ba-text);">
+        Código de erro: <code>no-tenant</code>
+      </p>
+
+    </div>
+  </div>
+
+</body>
+</html>

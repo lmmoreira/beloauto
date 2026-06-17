@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protótipo — CUSTOMER: Minha Conta</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+  <style>
+    body { padding: 2rem; }
+    h1  { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.375rem; }
+    .subtitle { font-size: 0.9375rem; opacity: 0.6; margin-bottom: 1.5rem; }
+    h2  { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+          opacity: 0.45; margin: 1.75rem 0 0.5rem; }
+    ul  { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+    li  { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    li a { color: var(--ba-primary); font-weight: 500; font-size: 0.9375rem; }
+    .tag {
+      font-size: 0.6875rem; font-weight: 700; padding: 0.125rem 0.5rem;
+      border-radius: 4px; white-space: nowrap; letter-spacing: 0.02em;
+    }
+    .tag-exists  { background: #dcfce7; color: #15803d; }
+    .tag-gap     { background: #fee2e2; color: #dc2626; }
+    .tag-partial { background: #fef3c7; color: #92400e; }
+    hr   { border: none; border-top: 1px solid var(--ba-secondary); margin: 1.5rem 0; }
+    .note {
+      background: var(--ba-secondary); border-radius: var(--ba-radius);
+      padding: 1rem 1.25rem; font-size: 0.875rem; line-height: 1.7;
+    }
+    .note strong { display: block; margin-bottom: 0.25rem; }
+    .checklist { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.375rem; }
+    .checklist li { font-size: 0.875rem; align-items: flex-start; }
+    .checklist li::before { content: "✅"; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+  <h1>Protótipo — CUSTOMER: Minha Conta</h1>
+  <p class="subtitle">UC-006 · UC-007 · UC-016 (resumo) &nbsp;|&nbsp;
+    Rota: <code>/{slug}/minha-conta</code> &amp; <code>/{slug}/minha-conta/agendamentos/[id]</code>
+  </p>
+
+  <h2>Entrada</h2>
+  <ul>
+    <li>
+      <a href="00-hotsite-logged-in.html">Tela 0 — Hotsite (logado)</a>
+      <span class="tag tag-exists">EXISTS: shared/hotsite-logged-in.html</span>
+    </li>
+  </ul>
+
+  <h2>Lista de Agendamentos</h2>
+  <ul>
+    <li>
+      <a href="01-minha-conta.html">Tela 1 — Minha Conta (com agendamentos)</a>
+      <span class="tag tag-gap">GAP: M12X-S01</span>
+    </li>
+    <li>
+      <a href="01-minha-conta-empty.html">Tela 1b — Minha Conta (sem agendamentos)</a>
+      <span class="tag tag-gap">GAP: estado vazio · M12X-S01</span>
+    </li>
+  </ul>
+
+  <h2>Detalhe do Agendamento</h2>
+  <ul>
+    <li>
+      <a href="02-agendamento-detail.html">Tela 2 — Detalhe (APROVADO)</a>
+      <span class="tag tag-gap">GAP: M12X-S02</span>
+    </li>
+    <li>
+      <a href="02b-agendamento-info-requested.html">Tela 2b — Detalhe (INFO_SOLICITADO + form resposta)</a>
+      <span class="tag tag-gap">GAP: UC-005 A2 · M12X-S02</span>
+    </li>
+    <li>
+      <a href="02c-agendamento-historico.html">Tela 2c — Detalhe (CONCLUÍDO · somente leitura)</a>
+      <span class="tag tag-gap">GAP: M12X-S02</span>
+    </li>
+  </ul>
+
+  <h2>Cancelamento — UC-007</h2>
+  <ul>
+    <li>
+      <a href="03-cancel-confirm.html">Tela 3 — Confirmar cancelamento</a>
+      <span class="tag tag-gap">GAP: sheet inline · M12X-S02</span>
+    </li>
+    <li>
+      <a href="03b-cancel-error.html">Tela 3b — Erro: fora da janela de cancelamento</a>
+      <span class="tag tag-gap">GAP: UC-007 A1 · M12X-S02</span>
+    </li>
+  </ul>
+
+  <h2>Fidelidade — UC-016 (dados próprios)</h2>
+  <ul>
+    <li>
+      <a href="04-fidelidade.html">Tela 4 — Minha Fidelidade (saldo + histórico + resgates)</a>
+      <span class="tag tag-gap">GAP: /minha-conta/fidelidade · M126</span>
+    </li>
+    <li>
+      <a href="04b-fidelidade-empty.html">Tela 4b — Fidelidade (nenhum ponto acumulado)</a>
+      <span class="tag tag-gap">GAP: estado vazio · M126</span>
+    </li>
+  </ul>
+
+  <h2>Trocar empresa — UC-023</h2>
+  <ul>
+    <li>
+      <a href="05-trocar-empresa.html">Tela 5 — Seleção de empresa (dropdown avatar → "Trocar empresa")</a>
+      <span class="tag tag-gap">GAP: modal ou página inline · M124</span>
+      — visível apenas quando cliente tem 2+ empresas
+    </li>
+  </ul>
+
+  <h2>Estados alternativos (unhappy paths)</h2>
+  <ul>
+    <li>
+      <a href="02b-info-sent.html">Tela 2b → sucesso envio de info (UC-005 A2)</a>
+      <span class="tag tag-gap">GAP: estado inline após submit · M126</span>
+      — booking volta a PENDING; banner de confirmação
+    </li>
+    <li>
+      <a href="02b-submit-error.html">Tela 2b → erro ao enviar resposta (UC-005 A2)</a>
+      <span class="tag tag-gap">GAP: erro de rede/5xx no PATCH submit-info · M126</span>
+      — alerta vermelho inline; textarea re-habilitado com texto preservado; botão "Tentar novamente"
+    </li>
+  </ul>
+
+  <hr>
+
+  <div class="note">
+    <strong>O que este protótipo valida</strong>
+    <ul class="checklist">
+      <li>As três seções (Próximos / Pendentes / Histórico) organizam bem os agendamentos?</li>
+      <li>O cartão de fidelidade (pontos ativos + data de expiração) é claro e bem posicionado?</li>
+      <li>Cancelar direto do card vs. entrar no detalhe e cancelar — qual fluxo é mais intuitivo?</li>
+      <li>O sheet de confirmação de cancelamento fornece contexto suficiente antes de confirmar?</li>
+      <li>O form de resposta ao admin (UC-005 A2) na tela INFO_SOLICITADO é compreensível?</li>
+      <li>O detalhe CONCLUÍDO mostra preço cotado vs. cobrado de forma legível?</li>
+    </ul>
+    <br>
+    <strong>Links</strong><br>
+    Dev notes → <a href="dev-notes.md">dev-notes.md</a><br>
+    Journey spec → <a href="../../minha-conta.md">customer/minha-conta.md</a><br>
+    Hotsite logado → <a href="../../../shared/hotsite-logged-in.html">shared/hotsite-logged-in.html</a>
+  </div>
+
+</body>
+</html>

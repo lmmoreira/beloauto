@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Horários — BeloAuto</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+  <style>
+
+    /* ── Week strip ── */
+    .week-strip {
+      display: flex; justify-content: space-evenly;
+      padding: 0.875rem 0.5rem; background: white;
+      border-bottom: 1px solid var(--ba-secondary);
+    }
+    .week-day {
+      display: flex; flex-direction: column; align-items: center;
+      flex: 1; padding: 0.5rem 0.375rem;
+      border-radius: var(--ba-radius); cursor: pointer;
+    }
+    .week-day.today {
+      background: var(--ba-primary); color: white;
+    }
+    .week-day.closed { opacity: 0.4; }
+    .week-day-label {
+      font-size: 0.625rem; font-weight: 700; letter-spacing: 0.06em;
+      text-transform: uppercase; margin-bottom: 0.25rem;
+    }
+    .week-day-number {
+      font-size: 1rem; font-weight: 700; line-height: 1;
+    }
+    .week-day-dot {
+      width: 5px; height: 5px; border-radius: 9999px;
+      background: #16a34a; margin-top: 0.3rem;
+    }
+    .week-day.today .week-day-dot { background: white; }
+    .week-day-dot.empty { background: transparent; }
+
+    /* ── Day header ── */
+    .day-header {
+      padding: 0.75rem 1rem 0.5rem;
+      background: white; border-bottom: 1px solid var(--ba-secondary);
+    }
+    .day-header-title { font-weight: 700; font-size: 0.9375rem; color: var(--ba-text); }
+    .day-header-meta { font-size: 0.8125rem; color: rgba(17,24,39,0.5); margin-top: 0.125rem; }
+
+    /* ── Time grid ── */
+    .schedule-grid {
+      display: flex; flex-direction: column;
+      background: white;
+    }
+    .schedule-row {
+      display: grid;
+      grid-template-columns: 3.25rem 1fr;
+      min-height: 3rem;
+      border-bottom: 1px solid var(--ba-secondary);
+    }
+    .schedule-time {
+      font-size: 0.6875rem; color: rgba(17,24,39,0.35);
+      padding: 0.5rem 0.5rem 0 0;
+      text-align: right; align-self: start;
+      font-variant-numeric: tabular-nums;
+    }
+    .schedule-slot {
+      border-left: 2px solid var(--ba-secondary);
+      padding: 0.375rem 0.75rem;
+    }
+    .schedule-slot.available { /* default — no extra style */ }
+    .schedule-slot.booking {
+      background: var(--ba-secondary);
+      border-left: 3px solid var(--ba-primary);
+    }
+    .schedule-slot.booking-cont {
+      background: var(--ba-secondary);
+      border-left: 3px solid var(--ba-primary);
+    }
+    .schedule-slot.closure {
+      background: repeating-linear-gradient(
+        135deg, #f3f4f6 0, #f3f4f6 8px, #e5e7eb 8px, #e5e7eb 16px
+      );
+      border-left: 3px solid #9ca3af;
+      cursor: pointer;
+    }
+    .schedule-slot.closure-cont {
+      background: repeating-linear-gradient(
+        135deg, #f3f4f6 0, #f3f4f6 8px, #e5e7eb 8px, #e5e7eb 16px
+      );
+      border-left: 3px solid #9ca3af;
+      cursor: pointer;
+    }
+
+    /* ── Week navigation ── */
+    .week-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.5rem 1rem; background: white;
+      border-bottom: 1px solid var(--ba-secondary);
+    }
+    .week-nav-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 2rem; height: 2rem; border-radius: var(--ba-radius);
+      border: 1.5px solid var(--ba-secondary); background: white;
+      cursor: pointer; color: var(--ba-text); font-size: 1.125rem;
+      text-decoration: none; line-height: 1;
+    }
+    .week-nav-btn:hover { background: var(--ba-secondary); }
+    .week-nav-btn.disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+    .week-nav-month { font-size: 0.875rem; font-weight: 600; color: var(--ba-text); }
+
+    /* ── FAB ── */
+    .fab {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      display: flex; align-items: center; gap: 0.5rem;
+      background: var(--ba-primary); color: white;
+      border: none; border-radius: 2rem;
+      padding: 0.75rem 1.25rem; font-size: 0.9375rem; font-weight: 600;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.35);
+      cursor: pointer;
+    }
+    @media (max-width: 1023px) {
+      .fab { bottom: 5rem; }
+    }
+
+    /* ── Bottom sheet ── */
+    .sheet-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 50;
+    }
+    .sheet-overlay.open { display: flex; align-items: flex-end; }
+    .sheet {
+      background: white; width: 100%;
+      border-radius: 1rem 1rem 0 0;
+      padding: 1.25rem 1rem 2rem;
+      max-height: 85vh; overflow-y: auto;
+    }
+    .sheet-handle {
+      width: 2.5rem; height: 4px; border-radius: 2px;
+      background: rgba(17,24,39,0.15); margin: 0 auto 1.25rem;
+    }
+    .sheet-title { font-size: 1.125rem; font-weight: 700; color: var(--ba-text); margin-bottom: 1.25rem; }
+
+    @media (min-width: 1024px) {
+      .sheet-overlay { justify-content: flex-end; align-items: stretch; }
+      .sheet { width: 26rem; border-radius: 0; max-height: 100vh; }
+    }
+
+    /* Form */
+    .form-row { margin-bottom: 1rem; }
+    .form-row-half { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+    .form-label { font-size: 0.8125rem; font-weight: 600; color: var(--ba-text); margin-bottom: 0.375rem; display: block; }
+    .form-select, .form-input-t {
+      width: 100%; padding: 0.625rem 0.75rem;
+      border: 1.5px solid var(--ba-secondary); border-radius: var(--ba-radius);
+      font-size: 0.9375rem; color: var(--ba-text);
+      box-sizing: border-box; background: white;
+    }
+    .form-hint { font-size: 0.75rem; color: rgba(17,24,39,0.45); margin-top: 0.25rem; }
+    .form-textarea {
+      width: 100%; padding: 0.625rem 0.75rem;
+      border: 1.5px solid var(--ba-secondary); border-radius: var(--ba-radius);
+      font-size: 0.875rem; color: var(--ba-text); resize: vertical;
+      min-height: 4rem; box-sizing: border-box;
+    }
+    .sheet-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+    .sheet-actions .btn-secondary { flex: 1; text-align: center; }
+    .sheet-actions .btn-primary { flex: 1; text-align: center; cursor: pointer; border: none; }
+  </style>
+</head>
+<body>
+
+  <!--
+    STATE: UC-010 main view — Horários (schedule calendar).
+    SchedulePage in production renders this view.
+    Shows: week strip, day view with time grid, approved bookings, partial closure.
+    FAB triggers closure creation sheet (UC-010a).
+    Clicking a closure block triggers remove-closure sheet (UC-010b).
+  -->
+
+  <!-- Prototype banner -->
+  <div style="
+    background: #fef3c7; border-bottom: 1px solid #d97706;
+    padding: 0.375rem 1rem; font-size: 0.8125rem;
+    text-align: center; color: #92400e;
+  ">
+    Protótipo — Horários (calendário de agendamentos aprovados + gestão de bloqueios).
+    <strong>FAB</strong> → criar bloqueio. <strong>Bloco cinza</strong> → remover bloqueio.
+  </div>
+
+  <!-- TOP BAR -->
+  <div class="dashboard-topbar">
+    <h1 class="topbar-page-title" style="font-weight: 700;">Horários</h1>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 0.75rem;">
+      <a href="../../../shared/staff-login.html" class="topbar-avatar" title="Sair">AP</a>
+      <span class="topbar-date">Hoje, 16 de junho de 2026</span>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">B</div>
+        <div>
+          <p class="sidebar-tenant-name">BeloAuto Demo</p>
+          <p class="sidebar-tenant-slug">@beloauto</p>
+        </div>
+      </div>
+      <nav class="sidebar-nav" style="margin-top: 0.5rem;">
+        <a class="sidebar-nav-item" href="../agenda/00-agenda.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          Agenda
+        </a>
+        <a class="sidebar-nav-item active" href="00-schedule.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Horários
+        </a>
+        <a class="sidebar-nav-item" href="00-schedule.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+          Serviços
+        </a>
+        <a class="sidebar-nav-item" href="00-schedule.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+          Fidelidade
+        </a>
+      </nav>
+      <p class="sidebar-section-label">Somente Gerente</p>
+      <nav class="sidebar-nav">
+        <a class="sidebar-nav-item" href="00-schedule.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          Equipe
+        </a>
+        <a class="sidebar-nav-item" href="00-schedule.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Configurações
+        </a>
+        <a class="sidebar-nav-item" href="00-schedule.html">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          Hotsite
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="auth-avatar" style="flex-shrink: 0; width: 2rem; height: 2rem; font-size: 0.8125rem;">AP</div>
+        <div style="min-width: 0;">
+          <p class="sidebar-user-name">Ana Pereira</p>
+          <span class="role-badge role-badge-manager">Gerente</span>
+        </div>
+        <a class="sidebar-logout" href="../../../shared/staff-login.html" title="Sair">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </a>
+      </div>
+    </aside>
+
+    <main class="main-content" style="padding: 0; overflow: hidden;">
+
+      <!-- Week navigation -->
+      <div class="week-nav">
+        <button class="week-nav-btn disabled" title="Semana anterior">‹</button>
+        <span class="week-nav-month">junho 2026</span>
+        <a class="week-nav-btn" href="00-schedule-next.html" title="Próxima semana">›</a>
+      </div>
+
+      <!-- Week strip -->
+      <div class="week-strip">
+        <div class="week-day" onclick="window.location.href='00-schedule.html'">
+          <span class="week-day-label">Seg</span>
+          <span class="week-day-number">15</span>
+          <span class="week-day-dot"></span>
+        </div>
+        <div class="week-day today" id="day-ter16">
+          <span class="week-day-label">Ter</span>
+          <span class="week-day-number">16</span>
+          <span class="week-day-dot"></span>
+        </div>
+        <div class="week-day" onclick="">
+          <span class="week-day-label">Qua</span>
+          <span class="week-day-number">17</span>
+          <span class="week-day-dot"></span>
+        </div>
+        <div class="week-day" onclick="">
+          <span class="week-day-label">Qui</span>
+          <span class="week-day-number">18</span>
+          <span class="week-day-dot empty"></span>
+        </div>
+        <div class="week-day" onclick="">
+          <span class="week-day-label">Sex</span>
+          <span class="week-day-number">19</span>
+          <span class="week-day-dot"></span>
+        </div>
+        <div class="week-day" onclick="">
+          <span class="week-day-label">Sáb</span>
+          <span class="week-day-number">20</span>
+          <span class="week-day-dot empty"></span>
+        </div>
+        <div class="week-day closed" onclick="window.location.href='03-closed-day.html'" title="Dia fechado — clique para ver">
+          <span class="week-day-label">Dom</span>
+          <span class="week-day-number">21</span>
+          <span class="week-day-dot empty"></span>
+        </div>
+      </div>
+
+      <!-- Day header -->
+      <div class="day-header">
+        <p class="day-header-title">Terça-feira, 16 de junho de 2026</p>
+        <p class="day-header-meta">2 agendamentos aprovados · 1 bloqueio parcial</p>
+      </div>
+
+      <!-- Time grid -->
+      <div class="schedule-grid" style="overflow-y: auto; max-height: calc(100vh - 14rem);">
+
+        <div class="schedule-row">
+          <span class="schedule-time">09:00</span>
+          <div class="schedule-slot available"></div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">09:30</span>
+          <div class="schedule-slot available"></div>
+        </div>
+
+        <!-- Booking: João Silva — Lavagem Simples (30 min) -->
+        <div class="schedule-row">
+          <span class="schedule-time">10:00</span>
+          <a href="../agenda/01-booking-detail.html" class="schedule-slot booking" style="text-decoration: none; display: block;">
+            <p style="font-weight: 600; font-size: 0.875rem; color: var(--ba-primary);">João Silva</p>
+            <p style="font-size: 0.75rem; color: var(--ba-text); opacity: 0.7; margin-top: 0.1rem;">Lavagem Simples · 30 min</p>
+          </a>
+        </div>
+
+        <div class="schedule-row">
+          <span class="schedule-time">10:30</span>
+          <div class="schedule-slot available"></div>
+        </div>
+
+        <!-- Closure: Manutenção 11:00–13:00 (4 slots) — click to remove -->
+        <div class="schedule-row">
+          <span class="schedule-time">11:00</span>
+          <div class="schedule-slot closure" onclick="openRemoveSheet()">
+            <p style="font-size: 0.8125rem; font-weight: 600; color: #4b5563;">🚫 Manutenção</p>
+            <p style="font-size: 0.6875rem; color: #6b7280; margin-top: 0.125rem;">11:00–13:00 · Toque para remover</p>
+          </div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">11:30</span>
+          <div class="schedule-slot closure-cont" onclick="openRemoveSheet()"></div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">12:00</span>
+          <div class="schedule-slot closure-cont" onclick="openRemoveSheet()"></div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">12:30</span>
+          <div class="schedule-slot closure-cont" onclick="openRemoveSheet()"></div>
+        </div>
+
+        <div class="schedule-row">
+          <span class="schedule-time">13:00</span>
+          <div class="schedule-slot available"></div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">13:30</span>
+          <div class="schedule-slot available"></div>
+        </div>
+
+        <!-- Booking: Maria Santos — Lavagem + Cera (60 min) -->
+        <div class="schedule-row">
+          <span class="schedule-time">14:00</span>
+          <a href="../agenda/01-booking-detail.html" class="schedule-slot booking" style="text-decoration: none; display: block;">
+            <p style="font-weight: 600; font-size: 0.875rem; color: var(--ba-primary);">Maria Santos</p>
+            <p style="font-size: 0.75rem; color: var(--ba-text); opacity: 0.7; margin-top: 0.1rem;">Lavagem + Cera · 60 min</p>
+          </a>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">14:30</span>
+          <div class="schedule-slot booking-cont"></div>
+        </div>
+
+        <div class="schedule-row">
+          <span class="schedule-time">15:00</span>
+          <div class="schedule-slot available"></div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">15:30</span>
+          <div class="schedule-slot available"></div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">16:00</span>
+          <div class="schedule-slot available"></div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">16:30</span>
+          <div class="schedule-slot available"></div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">17:00</span>
+          <div class="schedule-slot available"></div>
+        </div>
+        <div class="schedule-row">
+          <span class="schedule-time">17:30</span>
+          <div class="schedule-slot available"></div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- BOTTOM NAV — mobile only -->
+  <nav class="bottom-nav">
+    <a class="bottom-nav-item" href="../agenda/00-agenda.html">
+      <svg class="bottom-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Agenda
+    </a>
+    <a class="bottom-nav-item active" href="00-schedule.html">
+      <svg class="bottom-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Horários
+    </a>
+    <a class="bottom-nav-item" href="#">
+      <svg class="bottom-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      Serviços
+    </a>
+    <a class="bottom-nav-item" href="#">
+      <svg class="bottom-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Fidelidade
+    </a>
+  </nav>
+
+  <!-- FAB -->
+  <button class="fab" onclick="openClosureSheet()">
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Bloquear período
+  </button>
+
+  <!-- ── CLOSURE FORM SHEET ── -->
+  <div class="sheet-overlay" id="closure-overlay" onclick="handleOverlayClick(event, 'closure-overlay')">
+    <div class="sheet" onclick="event.stopPropagation()">
+      <div class="sheet-handle"></div>
+      <p class="sheet-title">Bloquear período</p>
+
+      <div class="form-row">
+        <label class="form-label">Data</label>
+        <input type="date" class="form-input-t" value="2026-06-16">
+      </div>
+
+      <div class="form-row">
+        <label class="form-label">Motivo</label>
+        <select class="form-select">
+          <option value="">Selecionar motivo…</option>
+          <option value="STAFF_DAY_OFF">Folga da equipe</option>
+          <option value="MAINTENANCE">Manutenção</option>
+          <option value="HOLIDAY">Feriado</option>
+        </select>
+      </div>
+
+      <div class="form-row-half">
+        <div>
+          <label class="form-label">Início (opcional)</label>
+          <input type="time" class="form-input-t">
+          <p class="form-hint">Vazio = dia inteiro</p>
+        </div>
+        <div>
+          <label class="form-label">Fim (opcional)</label>
+          <input type="time" class="form-input-t">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label">Observações (opcional)</label>
+        <textarea class="form-textarea" placeholder="Ex: Troca de equipamentos…" maxlength="200"></textarea>
+      </div>
+
+      <div class="sheet-actions">
+        <button class="btn-secondary" onclick="closeClosureSheet()">Cancelar</button>
+        <button class="btn-primary" onclick="window.location.href='01c-closure-warning.html'">Bloquear</button>
+      </div>
+
+      <p style="font-size: 0.75rem; text-align: center; margin-top: 0.875rem; color: rgba(17,24,39,0.4);">
+        Protótipo: "Bloquear" → aviso de agendamentos (01c) ·
+        <a href="01b-closure-conflict.html" style="color: var(--ba-primary);">ver conflito (01b)</a>
+      </p>
+    </div>
+  </div>
+
+  <!-- ── REMOVE CLOSURE SHEET ── -->
+  <div class="sheet-overlay" id="remove-overlay" onclick="handleOverlayClick(event, 'remove-overlay')">
+    <div class="sheet" onclick="event.stopPropagation()" style="max-height: 50vh;">
+      <div class="sheet-handle"></div>
+      <p class="sheet-title">Remover bloqueio?</p>
+
+      <div style="
+        background: #f9fafb; border: 1px solid var(--ba-secondary);
+        border-radius: var(--ba-radius); padding: 1rem; margin-bottom: 1.25rem;
+      ">
+        <p style="font-weight: 600; font-size: 0.9375rem; color: var(--ba-text);">Manutenção</p>
+        <p style="font-size: 0.8125rem; color: rgba(17,24,39,0.55); margin-top: 0.25rem;">Terça-feira, 16 de junho · 11:00–13:00</p>
+      </div>
+
+      <p style="font-size: 0.875rem; color: rgba(17,24,39,0.6); margin-bottom: 1.25rem; line-height: 1.5;">
+        O período bloqueado será liberado e ficará disponível para novos agendamentos.
+      </p>
+
+      <div class="sheet-actions">
+        <button class="btn-secondary" onclick="closeRemoveSheet()">Cancelar</button>
+        <a href="02-remove-closure.html" class="btn-primary" style="
+          display: block; text-align: center;
+          background: #dc2626; border-color: #dc2626;
+        ">Remover bloqueio</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openClosureSheet() {
+      document.getElementById('closure-overlay').classList.add('open');
+    }
+    function closeClosureSheet() {
+      document.getElementById('closure-overlay').classList.remove('open');
+    }
+    function openRemoveSheet() {
+      document.getElementById('remove-overlay').classList.add('open');
+    }
+    function closeRemoveSheet() {
+      document.getElementById('remove-overlay').classList.remove('open');
+    }
+    function handleOverlayClick(e, id) {
+      if (e.target.id === id) {
+        document.getElementById(id).classList.remove('open');
+      }
+    }
+  </script>
+
+</body>
+</html>
