@@ -92,6 +92,7 @@ Cancel button visibility for **Próximos** (APPROVED): hidden with note when `sc
 - [ ] **Empty state CTA (UC-006 A1):** when customer has no bookings, what does the CTA say? "Fazer um agendamento" → `/{slug}/booking`?
 - [ ] **`GET /v1/bookings` query params for customer:** the existing endpoint accepts `status` filter. Should the frontend call it once (all statuses) and split client-side, or call it three times (one per section)? Single call + client split is simpler.
 - [ ] **Pagination:** UC-006 doesn't specify pagination behaviour. The backend supports `limit`/`offset`. For MVP: load all bookings in one call (with a reasonable cap, e.g. `limit=50`) and display all; no infinite scroll.
+- [ ] **Loyalty conversion-rate display (`04-fidelidade.html` balance card):** the prototype shows a points→currency conversion rate ("10 pts = R$ 1,00 · Valor total: R$ 12,00"), gated on `points_per_currency_unit > 0`. Per CLAUDE.md §3, the Loyalty MVP is **points-balance only** — no currency-conversion display is part of the documented MVP scope. Verify against UC-016's actual MVP scope before implementation; this UI element may need to be cut or deferred to a post-MVP story.
 
 ## Prototype
 
@@ -102,11 +103,12 @@ Folder: `customer/prototypes/minha-conta/`
 | `index.html` | Navigation hub | — | — | ✅ Criado |
 | `00-hotsite-logged-in.html` | Hotsite logged-in state (entry point) | — | — | ✅ Criado |
 | `01-minha-conta.html` | Minha Conta — booking list + loyalty strip (clickable) | UC-006 | M126-S01 | ✅ Criado |
-| `01-minha-conta-empty.html` | Minha Conta — estado vazio (nenhum agendamento) | UC-006 A1 | M126-S01 | ✅ Criado |
+| `01b-minha-conta-empty.html` | Minha Conta — estado vazio (nenhum agendamento) | UC-006 A1 | M126-S01 | ✅ Criado |
 | `02-agendamento-detail.html` | Detalhe do Agendamento (APPROVED/PENDING) | UC-006 step 5 | M126-S02 | ✅ Criado |
 | `02b-agendamento-info-requested.html` | Detalhe — INFO_REQUESTED + form de resposta | UC-005 A2 | M126-S02 | ✅ Criado |
-| `02b-info-sent.html` | Detalhe — após envio de resposta (booking volta a PENDING) | UC-005 A2 | M126-S02 | ✅ Criado |
 | `02c-agendamento-historico.html` | Detalhe — COMPLETED (read-only, sem ações) | UC-006 step 5 | M126-S02 | ✅ Criado |
+| `02d-info-sent.html` | Detalhe — após envio de resposta (booking volta a PENDING) | UC-005 A2 | M126-S02 | ✅ Criado |
+| `02e-submit-error.html` | Detalhe — erro ao enviar resposta (rede/5xx no PATCH submit-info) | UC-005 A2 | M126-S02 | ✅ Criado |
 | `03-cancel-confirm.html` | Sheet de confirmação de cancelamento | UC-007 | M126-S02 | ✅ Criado |
 | `03b-cancel-error.html` | Erro — cancelamento fora da janela de prazo | UC-007 A1 | M126-S02 | ✅ Criado |
 | `04-fidelidade.html` | Minha Fidelidade — saldo + tabs ganhos/resgates | UC-016 | M126-S03 | ✅ Criado |

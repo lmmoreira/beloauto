@@ -478,6 +478,11 @@ h1, h2, h3 { font-family: var(--ba-heading-font); }
   font-size: 0.875rem;
 }
 
+/* Section card — groups form/content sections (settings, hotsite editor, etc.) */
+.section-card { background: white; border: 1px solid var(--ba-secondary); border-radius: var(--ba-radius); padding: 1.25rem; margin-bottom: 1.25rem; }
+.section-card-title { font-size: 1rem; font-weight: 700; color: var(--ba-text); margin-bottom: 0.25rem; }
+.section-card-sub { font-size: 0.8125rem; opacity: 0.55; color: var(--ba-text); margin-bottom: 1rem; }
+
 /* Desktop breakpoint >=1024px */
 @media (min-width: 1024px) {
   .dashboard-layout  { display: flex; }

@@ -3,29 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Completar Perfil — BeloAuto</title>
+  <title>Completar Perfil — Erro de validação — BeloAuto</title>
   <link rel="stylesheet" href="../../../shared/tokens.css">
 </head>
 <body>
 
   <!--
-    PAGE / COMPONENT (GAP): phone completion prompt — UC-021 A3
-    ROUTE: inline prompt shown after login if Customer.phone = null
-
-    Two options for implementation:
-      A) Dedicated page: apps/web/app/[tenantSlug]/complete-profile/page.tsx
-         → Redirect to this page before /minha-conta if phone missing
-      B) Inline modal/banner: shown on first post-login screen if phone missing
-
-    Option B preferred per open question in customer/login.md.
-    Prototype uses a standalone screen for review clarity.
-
-    BFF CALL: PATCH /v1/customers/me { phone }
-    → 200: phone saved → proceed to customer area
-    → 422: invalid phone format → show inline error
-    Validation: 10 or 11 digits, digits only.
-
-    This step is ONE-TIME: once phone is set, it is skipped on all future logins.
+    VARIANT OF: 02-phone-completion.html
+    SCENARIO:   PATCH /v1/customers/me { phone } returned 422 — invalid phone format
+                (not 10 or 11 digits). The full form re-renders with the phone field
+                highlighted and an inline error message below it.
+    COMPONENT (GAP): phone completion prompt — UC-021 A3
+    ERROR:      "Digite um número de telefone válido (10 ou 11 dígitos)."
   -->
 
   <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center;
@@ -65,7 +54,7 @@
         </p>
       </div>
 
-      <!-- Phone form -->
+      <!-- Phone form — field highlighted, full form preserved -->
       <form>
         <div style="margin-bottom: 1.25rem;">
           <label class="form-label" for="phone">Telefone</label>
@@ -74,15 +63,17 @@
             type="tel"
             class="form-input"
             placeholder="(11) 91234-5678"
-            value=""
-            style="width: 100%;"
+            value="11912"
+            style="width: 100%; border-color: #dc2626;"
+            aria-invalid="true"
           >
-          <!-- Validation error state — see real clickable variant: 02b-validation-error.html -->
+          <p style="margin-top: 0.375rem; font-size: 0.8125rem; color: #dc2626;" data-testid="phone-error">
+            Digite um número de telefone válido (10 ou 11 dígitos).
+          </p>
         </div>
 
-        <!-- In prototype: submit goes to the customer area placeholder -->
         <a
-          href="./index.html"
+          href="./02-phone-completion.html"
           class="btn-primary"
           style="display: block; text-align: center; text-decoration: none; padding: 0.75rem;"
         >
@@ -91,7 +82,7 @@
       </form>
 
       <p style="margin-top: 1rem; text-align: center; font-size: 0.75rem; opacity: 0.4; color: var(--ba-text);">
-        PATCH /v1/customers/me · { phone }
+        PATCH /v1/customers/me · { phone } → 422
       </p>
 
     </div>

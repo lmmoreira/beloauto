@@ -130,6 +130,23 @@ interface AuthenticatedBookingReviewStepProps {
 
 ---
 
+## Screen 4 — Confirmation + Submit (`ConfirmationStep`)
+
+**States:** `idle → submitting → success / error`
+
+| Status | Button text | Button state | UI |
+|---|---|---|---|
+| `'idle'` | "Confirmar agendamento" | enabled | Normal view |
+| `'submitting'` | "Enviando..." | disabled | Normal view — see `04b-submitting.html` |
+| `'success'` | — | — | Success view replaces step (data-testid: `confirmation-success`) — see `04d-success.html` |
+| `'error'` | "Confirmar agendamento" | enabled | Error message shown (data-testid: `confirmation-error`) — see `04c-submission-error.html` |
+
+**Error messages:**
+- `errorMessage = 'Não foi possível enviar sua solicitação. Tente novamente.'` (all non-409 errors)
+- 409 → navigate back to step 2, not shown in step 4
+
+---
+
 ## New fetcher — `createAuthenticatedBooking()`
 
 **File:** `apps/web/lib/api/bookings.ts` (add to existing file)

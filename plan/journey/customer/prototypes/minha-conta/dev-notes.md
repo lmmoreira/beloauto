@@ -67,7 +67,18 @@ When `canCancel === false`: hide button, show note "Prazo de cancelamento encerr
 1. Customer lands on detail page with `status === INFO_REQUESTED`
 2. Sees admin's message + textarea form
 3. Submits → `PATCH /v1/bookings/:id/submit-info` with `{ message: string }`
-4. On 200 → booking status returns to `PENDING`; update UI accordingly (status badge + remove form)
+4. On 200 → booking status returns to `PENDING`; update UI accordingly (status badge + remove form) — see `02d-info-sent.html`
+5. On non-2xx (network/5xx) → re-enable form, preserve typed text, show inline error banner — see `02e-submit-error.html`
+
+**Validation:**
+
+| Field | Rule | Error message |
+|---|---|---|
+| `response` (textarea) | must not be empty | "Informe sua resposta antes de enviar." |
+
+> The textarea in `02b-agendamento-info-requested.html` has no `required` attribute and no validation-error prototype screen today — this is an implicit rule, not yet shown as a clickable state. The error copy above follows the repo's established "Informe..." tone (see guest `03b-validation-error.html`: "Informe um e-mail válido."). Confirm exact copy with product before implementation; no variant screen exists for this specific state.
+
+**States:** `idle → submitting → success / error` (submitting state has no dedicated prototype screen — button text/disabled treatment should follow the same pattern as `customer/prototypes/book-a-service/04b-submitting.html`).
 
 ## Missing types (open question from journey spec)
 
@@ -94,3 +105,23 @@ Customer area uses `dashboard-topbar` + `dashboard-layout` + `main-content` (sam
 Detail pages (drill-down) use `dashboard-topbar` with a back link replacing the brand slot. No bottom-nav on detail pages.
 
 Reference shell: `plan/journey/shared/customer-dashboard.html`
+
+## File map — per-screen status
+
+| File | Production target | Status |
+|---|---|---|
+| `00-hotsite-logged-in.html` | `shared/hotsite-logged-in.html` (entry point) | ❌ GAP |
+| `01-minha-conta.html` | `/{slug}/minha-conta` (Agendamentos tab) | ❌ GAP — M12X-S01 |
+| `01b-minha-conta-empty.html` | `/{slug}/minha-conta` — empty state (UC-006 A1) | ❌ GAP — M12X-S01 |
+| `02-agendamento-detail.html` | `/{slug}/minha-conta/agendamentos/[id]` (APPROVED/PENDING) | ❌ GAP — M12X-S02 |
+| `02b-agendamento-info-requested.html` | same route — INFO_REQUESTED + response form | ❌ GAP — M12X-S02 |
+| `02c-agendamento-historico.html` | same route — COMPLETED (read-only) | ❌ GAP — M12X-S02 |
+| `02d-info-sent.html` | same route — inline state after successful submit-info | ❌ GAP — M12X-S02 |
+| `02e-submit-error.html` | same route — inline state after failed submit-info | ❌ GAP — M12X-S02 |
+| `03-cancel-confirm.html` | `CancelSheet` bottom sheet | ❌ GAP — M12X-S02 |
+| `03b-cancel-error.html` | `CancelErrorState` inline (UC-007 A1) | ❌ GAP — M12X-S02 |
+| `04-fidelidade.html` | `/{slug}/minha-conta/fidelidade` | ❌ GAP — M126-S03 |
+| `04b-fidelidade-empty.html` | same route — empty state (0 points) | ❌ GAP — M126-S03 |
+| `05-trocar-empresa.html` | tenant-switch modal/page (UC-023) | ❌ GAP — M124-S02 |
+
+No screen in this prototype maps to an already-`EXISTS` production component — the entire Minha Conta area is net-new (M12X/M126/M124 stories).

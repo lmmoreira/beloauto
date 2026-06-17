@@ -95,8 +95,8 @@ PATCH /v1/bookings/:id/submit-info/guest?token=<JWT>
 - `invalid-link` → show error state (rendered by server component before form mounts)
 
 **Error messages (pt-BR):**
-- Network/5xx: "Não foi possível enviar sua resposta. Verifique sua conexão e tente novamente."
-- Token expired (detected client-side after 401 from PATCH): redirect to `?error=expired` to show 01b state
+- Network/5xx: "Não foi possível enviar sua resposta. Verifique sua conexão e tente novamente." See `01e-submit-error.html`.
+- Token expired (detected client-side after 401 from PATCH): same `error` state as above, but swap copy to "Seu link expirou enquanto você preenchia o formulário..." and replace the retry button with a link to the invalid-link state (retrying with an already-expired token would just 401 again) — redirect to `?error=expired` to show the 01b-equivalent messaging. No separate prototype screen was built for this; the variant is documented inline as a comment in `01e-submit-error.html` since it reuses the same layout as the network/5xx error, just with different copy and CTA target.
 
 ## Photo upload flow
 
@@ -131,7 +131,7 @@ Shows: green check icon + "Resposta enviada!" + booking summary card + "Ir para 
 
 ## Known limitations
 
-- **No branding per tenant:** The page currently shows default `--ba-*` tokens. To show the tenant's actual branding, the token must include `tenantSlug` so the page can call `GET /[slug]/config` (public). Tracked as open question in `submit-info.md`.
+- **No branding per tenant (canonical description — `submit-info.md` cross-references this entry):** The page currently shows default `--ba-*` tokens. To show the tenant's actual branding: either the token includes `tenantId` only and the page calls `GET /v1/public/tenants/:tenantId/config` (or similar) to fetch branding, or the token includes `tenantSlug` so branding can be fetched the same way the hotsite does (via slug). Decision pending — tracked as an open question in `submit-info.md` "Open questions / gaps".
 - **No booking summary endpoint for guests:** There is no confirmed `GET /v1/bookings/:id/submit-info/guest?token=` endpoint. If missing, render the form without a summary card.
 - **Photo upload unconfirmed:** Presigned-URL endpoint for unauthenticated context may not exist. Default to text-only in MVP.
 

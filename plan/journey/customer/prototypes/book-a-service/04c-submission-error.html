@@ -3,36 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Passo 4 — Confirmar agendamento (autenticado)</title>
+  <title>Passo 4 — Erro ao enviar</title>
   <link rel="stylesheet" href="../../../shared/tokens.css">
 </head>
 <body>
   <!--
-    COMPONENT: ConfirmationStep  (EXISTS — reuse unchanged)
-    FILE:      apps/web/components/booking/ConfirmationStep.tsx
-    DIFFERENCE vs guest: submit calls createAuthenticatedBooking() instead of createBooking()
-
-    ON SUBMIT — calls createAuthenticatedBooking(payload) (new function in lib/api/bookings.ts):
-      POST /bookings/authenticated
-      Header: Authorization: Bearer <jwt>  (cookie → BFF extracts, forwards X-Actor-*)
-      Content-Type: application/json
-      Body: AuthenticatedBookingRequest
-        {
-          scheduledAt:             string,     // ISO-8601 UTC
-          serviceIds:              string[],   // uuid[]
-          pickupAddress?:          Address,    // optional, only if requiresPickupAddress
-          beforeServicePhotoUrls?: string[],   // GCS keys, optional
-        }
-
-    NOTE: NO contactName / contactEmail / contactPhone in payload — BFF reads customer from JWT sub.
-
-    RESPONSES: same handling as guest
-      201 Created → status = 'success'
-      409 Conflict → back to step 2 + step2Error
-      Other → status = 'error'
+    VARIANT OF: 04-confirmation.html
+    SCENARIO:   POST /bookings/authenticated returned a non-409 4xx/5xx (e.g. 500, network
+                error). status = 'error'. Per the dev-notes status table, the primary button
+                returns to enabled "Confirmar agendamento" so the customer can retry.
+    COMPONENT:  ConfirmationStep  apps/web/components/booking/ConfirmationStep.tsx  (EXISTS)
+    ERROR:      "Não foi possível enviar sua solicitação. Tente novamente."
+                (data-testid="confirmation-error")
   -->
-
-  <!-- AUTH HEADER BAR — logged-in customer; avatar opens Minha conta / Sair dropdown -->
   <!-- BRAND + AUTH BAR -->
   <div style="background:white;border-bottom:1px solid var(--ba-secondary);
               padding:0.625rem 1.5rem;display:flex;align-items:center;justify-content:space-between;">
@@ -79,7 +62,6 @@
     <p class="step-indicator">Passo 4 de 4</p>
     <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--ba-text)">Confirme seu agendamento</h2>
 
-    <!-- SERVICES SUMMARY -->
     <ul style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.25rem; list-style: none; padding: 0;">
       <li style="display: flex; justify-content: space-between; font-size: 0.875rem; color: var(--ba-text);">
         <span>Lavagem Simples</span>
@@ -90,10 +72,6 @@
     <p style="font-weight: 600; color: var(--ba-text); margin-bottom: 0.5rem;">Total: R$ 60,00 — 30 min</p>
     <p style="color: var(--ba-text); margin-bottom: 1rem;">Quarta-feira, 18 de junho às 10:00</p>
 
-    <!--
-      CUSTOMER IDENTITY — shown for authenticated path only (reinforces who is booking)
-      Read from JWT decoded client-side (or passed from page.tsx as prop)
-    -->
     <div style="
       display: flex; align-items: center; gap: 0.5rem;
       padding: 0.625rem 0.875rem;
@@ -107,12 +85,17 @@
       <span>Agendando como <strong>João Silva</strong> · joao@email.com</span>
     </div>
 
-    <!--
-      STATES — see real clickable variant screens instead of inline comments:
-        submitting        → 04b-submitting.html
-        error (non-409)   → 04c-submission-error.html  (data-testid="confirmation-error")
-        success (201)      → 04d-success.html            (data-testid="confirmation-success")
-    -->
+    <div role="alert" style="
+      display: flex; align-items: flex-start; gap: 0.625rem;
+      background: #fef2f2; border: 1.5px solid #fca5a5;
+      border-radius: var(--ba-radius); padding: 0.75rem 1rem;
+      margin-top: 1rem;
+    " data-testid="confirmation-error">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span style="font-size: 0.875rem; color: #dc2626; font-weight: 500;">Não foi possível enviar sua solicitação. Tente novamente.</span>
+    </div>
 
     <div class="nav-buttons">
       <a class="btn-secondary" href="03-review-confirm.html">Voltar</a>

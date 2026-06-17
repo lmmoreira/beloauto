@@ -196,7 +196,8 @@ Domain-validated fields → `src/shared/value-objects/` (never plain primitives)
 - Zod v4: `z.uuid()` / `z.email()` — never `z.string().uuid()` / `z.string().email()`.
 - `/internal` routes skip `TenantInterceptor`. `TenantModule` is not `@Global()` — import explicitly in every module whose controller injects `TenantContext`.
 - Domain events belong in the publishing context (`StaffInvited` in `staff/domain/events/`, not `platform/`).
-- Domain error messages are **English only**. Default params must come after required params (SonarCloud S1788).
+- **All code is English-only** — identifiers, comments, file names, commit messages, and domain error messages. Only literal strings rendered to the end user (UI copy, validation/error text, email templates) follow the tenant's locale — pt-BR for BR tenants. This applies everywhere, including milestone/story specs in `plan/` — a story's field labels and error copy are pt-BR because that's what ships in the UI, not an exception to the rule.
+- Default params must come after required params (SonarCloud S1788).
 - No barrel `index.ts` in `ports/` or `shared/domain/` — ESLint enforces. Every new REST endpoint → `.http` file.
 
 ### Cross-context data access (priority order — follow strictly)
@@ -476,6 +477,10 @@ If every story in the milestone is now `✅ Done`, see §15 item 9 for the two w
 
 **Never load:** anything under `docs/archive/` — superseded content.  
 **Never load:** `plan/*_DEVELOPER.md` files — written for the human developer, not for agents.
+
+**Drafting a new milestone:**
+- If a milestone's stories are easier to author split across multiple working files (e.g. one per feature area), that's fine during drafting — but consolidate them into the single canonical `plan/M0X-<NAME>.md` file and add it to the table above before any story is implemented. Don't leave the split files as the permanent record; `M124`–`M129` existed as untracked drafts for weeks before being folded back into `M13`, and nobody could tell during that window that they'd superseded the original M13 draft.
+- When sequencing a full-stack milestone's stories, pull every backend/BFF-only story (no frontend-shell dependency) into one early wave regardless of which feature area it belongs to. This prevents a later frontend story from shipping before a field/endpoint it needs exists — exactly the kind of gap that ordering stories strictly within each feature area would hide.
 
 ---
 

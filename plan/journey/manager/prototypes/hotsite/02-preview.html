@@ -31,16 +31,26 @@
     implementation discussion.
   -->
 
+  <!--
+    PROTOTYPE-ONLY SIMULATION: this reads the draft branding color from
+    localStorage (written by 01-hotsite-editor.html) or a ?primaryColor=
+    query param, purely so a reviewer clicking Editor → Preview sees the
+    edited color reflected here. The real implementation must NOT use
+    localStorage — it must bind to actual draft form/state via the BFF
+    (GET /tenants/hotsite draft config, or a preview-mode token), per the
+    open question above.
+  -->
+
   <div class="preview-banner">
     <span>👁️ Visualizando alterações não publicadas</span>
     <a href="01-hotsite-editor.html" class="btn-secondary">Voltar a editar</a>
     <a href="03-publish-success.html" class="btn-primary">Publicar agora</a>
   </div>
 
-  <div class="mock-hero">
-    <h2>Seu carro impecável, sem complicação</h2>
+  <div class="mock-hero" id="mock-hero">
+    <h2 id="mock-hero-title">Seu carro impecável, sem complicação</h2>
     <p>Agende em segundos e acompanhe tudo pelo celular</p>
-    <a href="#" class="btn-secondary" style="background:white;color:var(--ba-primary);border-color:white;">Agendar agora</a>
+    <a href="#" class="btn-secondary" id="mock-hero-cta" style="background:white;color:var(--ba-primary);border-color:white;">Agendar agora</a>
   </div>
 
   <div class="mock-section">
@@ -51,6 +61,34 @@
       <div class="card"><strong>Polimento</strong><br><span style="opacity:0.6;">R$ 250,00 · 90 min</span></div>
     </div>
   </div>
+
+  <script>
+    // PROTOTYPE-ONLY: simulate live draft preview. Real implementation
+    // must read draft state from the BFF, not localStorage/query params.
+    (function applyDraftBranding() {
+      var STORAGE_KEY = 'beloauto_hotsite_draft';
+      var params = new URLSearchParams(window.location.search);
+      var draft = {};
+      try {
+        var stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) draft = JSON.parse(stored);
+      } catch (e) { /* ignore malformed storage */ }
+
+      var primaryColor = params.get('primaryColor') || draft.primaryColor;
+      var heroText = params.get('heroText') || draft.heroText;
+
+      if (primaryColor) {
+        document.documentElement.style.setProperty('--ba-primary', primaryColor);
+        var cta = document.getElementById('mock-hero-cta');
+        if (cta) cta.style.color = primaryColor;
+      }
+      if (heroText) {
+        var title = document.getElementById('mock-hero-title');
+        if (title) title.textContent = heroText;
+      }
+      // No stored/query value → falls back to the default --ba-primary already in tokens.css.
+    })();
+  </script>
 
 </body>
 </html>

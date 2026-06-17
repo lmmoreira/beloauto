@@ -62,6 +62,31 @@
 
   <hr>
 
+  <h2 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--ba-text)">
+    Estados alternativos (unhappy paths)
+  </h2>
+  <p>
+    O passo 4 envia para <code>POST /bookings/authenticated</code> e não tinha nenhum estado
+    além do feliz. As 3 telas abaixo tornam clicáveis os estados de envio, erro e sucesso.
+  </p>
+
+  <ul>
+    <li>
+      <a href="04b-submitting.html">Passo 4b — Enviando agendamento</a>
+      <span class="tag tag-green">EXISTS: ConfirmationStep (submitting)</span>
+    </li>
+    <li>
+      <a href="04c-submission-error.html">Passo 4c — Erro ao enviar agendamento</a>
+      <span class="tag tag-green">EXISTS: ConfirmationStep (confirmation-error)</span>
+    </li>
+    <li>
+      <a href="04d-success.html">Passo 4d — Solicitação enviada (sucesso)</a>
+      <span class="tag tag-green">EXISTS: ConfirmationStep (confirmation-success)</span>
+    </li>
+  </ul>
+
+  <hr>
+
   <div class="note">
     <strong>O que este protótipo valida:</strong><br>
     ✅ Fluxo de login → seleção → calendário → revisão → confirmação faz sentido?<br>
@@ -69,13 +94,14 @@
     ✅ Resumo de serviço + data no passo 3 (read-only) dá contexto suficiente?<br>
     ✅ Diferença visual entre o passo 3 do guest (form completo) e do customer (só endereço + foto) é perceptível?<br>
     ✅ Header com usuário logado em todos os passos pós-login orienta bem?<br>
+    ✅ CTA de sucesso ("Ver meus agendamentos") deve abrir a lista de Agendamentos direto, ou a visão geral (Início)?<br>
     <br>
     <strong>Início do protótipo</strong> (seleção de ator) →
     <a href="../../../shared/entry.html">shared/entry.html</a><br>
     <strong>Área do cliente</strong> (agendamentos, histórico, pontos) →
     <a href="../minha-conta/index.html">customer/prototypes/minha-conta/</a><br>
     <strong>Ver também:</strong> caminho do guest →
-    <a href="../../guest/prototypes/book-a-service/index.html">guest/prototypes/book-a-service/</a><br>
+    <a href="../../../guest/prototypes/book-a-service/index.html">guest/prototypes/book-a-service/</a><br>
     <strong>Dev notes</strong> (componentes novos, API, branching) → <a href="dev-notes.md">dev-notes.md</a>
   </div>
 </body>

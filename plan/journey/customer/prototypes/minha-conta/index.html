@@ -53,10 +53,6 @@
       <a href="01-minha-conta.html">Tela 1 — Minha Conta (com agendamentos)</a>
       <span class="tag tag-gap">GAP: M12X-S01</span>
     </li>
-    <li>
-      <a href="01-minha-conta-empty.html">Tela 1b — Minha Conta (sem agendamentos)</a>
-      <span class="tag tag-gap">GAP: estado vazio · M12X-S01</span>
-    </li>
   </ul>
 
   <h2>Detalhe do Agendamento</h2>
@@ -111,12 +107,16 @@
   <h2>Estados alternativos (unhappy paths)</h2>
   <ul>
     <li>
-      <a href="02b-info-sent.html">Tela 2b → sucesso envio de info (UC-005 A2)</a>
+      <a href="01b-minha-conta-empty.html">Tela 1b — Minha Conta (sem agendamentos)</a>
+      <span class="tag tag-gap">GAP: estado vazio · M12X-S01</span>
+    </li>
+    <li>
+      <a href="02d-info-sent.html">Tela 2d → sucesso envio de info (UC-005 A2)</a>
       <span class="tag tag-gap">GAP: estado inline após submit · M126</span>
       — booking volta a PENDING; banner de confirmação
     </li>
     <li>
-      <a href="02b-submit-error.html">Tela 2b → erro ao enviar resposta (UC-005 A2)</a>
+      <a href="02e-submit-error.html">Tela 2e → erro ao enviar resposta (UC-005 A2)</a>
       <span class="tag tag-gap">GAP: erro de rede/5xx no PATCH submit-info · M126</span>
       — alerta vermelho inline; textarea re-habilitado com texto preservado; botão "Tentar novamente"
     </li>

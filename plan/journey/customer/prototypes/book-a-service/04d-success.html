@@ -3,36 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Passo 4 — Confirmar agendamento (autenticado)</title>
+  <title>Passo 4 — Solicitação enviada</title>
   <link rel="stylesheet" href="../../../shared/tokens.css">
 </head>
 <body>
   <!--
-    COMPONENT: ConfirmationStep  (EXISTS — reuse unchanged)
-    FILE:      apps/web/components/booking/ConfirmationStep.tsx
-    DIFFERENCE vs guest: submit calls createAuthenticatedBooking() instead of createBooking()
-
-    ON SUBMIT — calls createAuthenticatedBooking(payload) (new function in lib/api/bookings.ts):
-      POST /bookings/authenticated
-      Header: Authorization: Bearer <jwt>  (cookie → BFF extracts, forwards X-Actor-*)
-      Content-Type: application/json
-      Body: AuthenticatedBookingRequest
-        {
-          scheduledAt:             string,     // ISO-8601 UTC
-          serviceIds:              string[],   // uuid[]
-          pickupAddress?:          Address,    // optional, only if requiresPickupAddress
-          beforeServicePhotoUrls?: string[],   // GCS keys, optional
-        }
-
-    NOTE: NO contactName / contactEmail / contactPhone in payload — BFF reads customer from JWT sub.
-
-    RESPONSES: same handling as guest
-      201 Created → status = 'success'
-      409 Conflict → back to step 2 + step2Error
-      Other → status = 'error'
+    VARIANT OF: 04-confirmation.html
+    SCENARIO:   POST /bookings/authenticated returned 201 Created. status = 'success' — the
+                entire step content is replaced with this view. Terminal state — no nav-buttons.
+    COMPONENT:  ConfirmationStep  apps/web/components/booking/ConfirmationStep.tsx  (EXISTS)
+    SUCCESS:    "Solicitação enviada! Aguarde a confirmação por email."
+                (data-testid="confirmation-success")
+    PRIMARY CTA links to the Agendamentos list (not the Início overview) — "go see what I
+    just booked" intent.
   -->
-
-  <!-- AUTH HEADER BAR — logged-in customer; avatar opens Minha conta / Sair dropdown -->
   <!-- BRAND + AUTH BAR -->
   <div style="background:white;border-bottom:1px solid var(--ba-secondary);
               padding:0.625rem 1.5rem;display:flex;align-items:center;justify-content:space-between;">
@@ -76,10 +60,23 @@
   </div>
 
   <div class="step-container">
-    <p class="step-indicator">Passo 4 de 4</p>
-    <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--ba-text)">Confirme seu agendamento</h2>
 
-    <!-- SERVICES SUMMARY -->
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:var(--ba-radius);
+                padding:1.125rem 1.25rem;margin-bottom:1.5rem;
+                display:flex;align-items:flex-start;gap:0.875rem;">
+      <div style="width:2rem;height:2rem;border-radius:9999px;background:#16a34a;
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div>
+        <p style="font-weight:700;font-size:0.9375rem;color:#15803d;margin-bottom:0.125rem;" data-testid="confirmation-success">Solicitação enviada!</p>
+        <p style="font-size:0.875rem;color:#166534;opacity:0.85;line-height:1.5;">Aguarde a confirmação por email.</p>
+      </div>
+    </div>
+
     <ul style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.25rem; list-style: none; padding: 0;">
       <li style="display: flex; justify-content: space-between; font-size: 0.875rem; color: var(--ba-text);">
         <span>Lavagem Simples</span>
@@ -88,35 +85,18 @@
     </ul>
 
     <p style="font-weight: 600; color: var(--ba-text); margin-bottom: 0.5rem;">Total: R$ 60,00 — 30 min</p>
-    <p style="color: var(--ba-text); margin-bottom: 1rem;">Quarta-feira, 18 de junho às 10:00</p>
+    <p style="color: var(--ba-text); margin-bottom: 1.5rem;">Quarta-feira, 18 de junho às 10:00</p>
 
-    <!--
-      CUSTOMER IDENTITY — shown for authenticated path only (reinforces who is booking)
-      Read from JWT decoded client-side (or passed from page.tsx as prop)
-    -->
-    <div style="
-      display: flex; align-items: center; gap: 0.5rem;
-      padding: 0.625rem 0.875rem;
-      background: var(--ba-secondary);
-      border-radius: var(--ba-radius);
-      font-size: 0.875rem;
-      color: var(--ba-text);
-      margin-bottom: 1.25rem;
-    ">
-      <div class="auth-avatar" style="width: 1.5rem; height: 1.5rem; font-size: 0.625rem;">JS</div>
-      <span>Agendando como <strong>João Silva</strong> · joao@email.com</span>
-    </div>
-
-    <!--
-      STATES — see real clickable variant screens instead of inline comments:
-        submitting        → 04b-submitting.html
-        error (non-409)   → 04c-submission-error.html  (data-testid="confirmation-error")
-        success (201)      → 04d-success.html            (data-testid="confirmation-success")
-    -->
-
-    <div class="nav-buttons">
-      <a class="btn-secondary" href="03-review-confirm.html">Voltar</a>
-      <button class="btn-primary">Confirmar agendamento</button>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <a href="../minha-conta/01-minha-conta.html" class="btn-primary">
+        Ver meus agendamentos
+      </a>
+      <a href="../../../shared/hotsite-logged-in.html"
+         style="display: inline-block; padding: 0.75rem 1.5rem;
+                border: 1px solid var(--ba-secondary); border-radius: var(--ba-radius);
+                color: var(--ba-text); text-decoration: none;">
+        Voltar ao site
+      </a>
     </div>
   </div>
 </body>

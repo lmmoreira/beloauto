@@ -78,6 +78,7 @@ Folder: `staff/prototypes/servicos/`
 | `01-servicos-list.html` | Service list (active + inactive tabs) | — | ✅ Criado |
 | `02-service-create.html` | Create service form | UC-012 | ✅ Criado |
 | `02b-service-create-error.html` | Duplicate name error state | UC-012 A1 | ✅ Criado |
+| `02c-service-create-success.html` | Service created — inline success banner on the list (closes the "Lista com toast verde" gap node) | UC-012 | ✅ Criado |
 | `03-service-edit.html` | Edit service form + deactivate button | UC-013 | ✅ Criado |
 | `03b-deactivate-confirm.html` | Deactivation confirmation | UC-013 A1 | ✅ Criado |
 | `dev-notes.md` | Implementation handoff | — | ✅ Criado |

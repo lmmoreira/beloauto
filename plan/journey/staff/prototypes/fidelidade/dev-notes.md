@@ -30,9 +30,10 @@ Response: { items: CustomerSearchResult[], total: number }
 
 **States:**
 - Default (no search): show "Clientes recentes" — last 5 customers who had bookings, from cache or a `GET /v1/customers?recent=true&limit=5` call
-- While typing: debounce 300ms, show skeleton rows
 - Results: customer rows with name, email, active points badge
-- No results: empty state with message
+- No results: empty state with message (see `01c-no-results.html`)
+
+**Prototype note:** `00-customer-search.html` filters the in-memory mock list synchronously on every keystroke (`oninput`) — no debounce, no loading-skeleton state. At the customer counts a single-tenant car wash will realistically have (tens to low hundreds), a `GET /v1/customers?search=` round-trip is fast enough that a skeleton state is unlikely to be needed; revisit only if real-world usage shows otherwise. If the production implementation does add server-side debounced search, add a `b-loading` skeleton variant screen at that time per the README's "Unhappy path variant screens" checklist.
 
 ## Screen 01 — Customer Loyalty Detail (`CustomerLoyaltyPage`)
 
