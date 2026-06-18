@@ -135,7 +135,10 @@ export function HeroModule({ data, slug: _, tenantBrand }: HeroModuleProps) {
   }
 
   // left-aligned: text on the left, optional right panel
-  const hasRightPanel = rightPanel !== 'none' && (rightPanel !== 'image' || !!bgUrl) && (rightPanel !== 'brand-card' || !!tenantBrand);
+  const hasRightPanel =
+    rightPanel !== 'none' &&
+    (rightPanel !== 'image' || !!bgUrl) &&
+    (rightPanel !== 'brand-card' || !!tenantBrand);
 
   return (
     <section

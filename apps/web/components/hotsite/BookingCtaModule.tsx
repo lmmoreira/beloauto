@@ -69,7 +69,10 @@ function BookingCtaContent({
   return (
     <>
       {data.eyebrow && <SectionEyebrow text={data.eyebrow} />}
-      <h2 className="mb-4 text-3xl font-bold sm:text-4xl" style={{ ...sectionHeadingFont, color: textColor }}>
+      <h2
+        className="mb-4 text-3xl font-bold sm:text-4xl"
+        style={{ ...sectionHeadingFont, color: textColor }}
+      >
         {data.title}
       </h2>
       {data.subtitle && (
@@ -107,7 +110,9 @@ export function BookingCtaModule({ data, slug, tenantBrand }: BookingCtaModulePr
         style={{ backgroundColor: sectionBg }}
       >
         <div className="w-full max-w-7xl px-6 py-16 mx-auto">
-          <div className={`grid grid-cols-1 gap-12 items-center ${hasRightPanel ? 'sm:grid-cols-2' : ''}`}>
+          <div
+            className={`grid grid-cols-1 gap-12 items-center ${hasRightPanel ? 'sm:grid-cols-2' : ''}`}
+          >
             <div>
               <BookingCtaContent data={data} slug={slug} />
             </div>

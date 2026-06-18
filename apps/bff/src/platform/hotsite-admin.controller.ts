@@ -71,7 +71,8 @@ export const UpdateHotsiteContentBodySchema = z
   .refine(
     (data) => data.branding !== undefined || data.layout !== undefined || data.seo !== undefined,
     { message: 'at least one of branding, layout, or seo must be provided' },
-  );
+  )
+  .default({});
 
 type UpdateHotsiteContentBody = z.infer<typeof UpdateHotsiteContentBodySchema>;
 

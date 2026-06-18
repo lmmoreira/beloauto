@@ -77,9 +77,7 @@ function contrastRatio(hexA: string, hexB: string): number {
 // The effective background color of the hero section — either the primary brand color (default)
 // or the page background color when heroBgStyle === 'background'.
 function deriveHeroBg(branding: HotsiteBrandingResponse): string {
-  return branding.heroBgStyle === 'background'
-    ? branding.backgroundColor
-    : branding.primaryColor;
+  return branding.heroBgStyle === 'background' ? branding.backgroundColor : branding.primaryColor;
 }
 
 // Pick whichever of backgroundColor/textColor contrasts better against the hero background,

@@ -35,14 +35,22 @@ export function TestimonialsModule({ data, slug: _, bgVariant }: TestimonialsMod
       }}
     >
       <div className="mx-auto max-w-7xl">
-        {data.eyebrow && <div className="text-center"><SectionEyebrow text={data.eyebrow} /></div>}
+        {data.eyebrow && (
+          <div className="text-center">
+            <SectionEyebrow text={data.eyebrow} />
+          </div>
+        )}
         <h2 className="mb-10 text-center text-3xl font-bold" style={headingStyle}>
           {title}
         </h2>
         {data.layout === 'carousel' ? (
           <TestimonialsCarousel>
             {data.items.map((item, index) => (
-              <TestimonialCard key={`${item.authorName}-${index}`} testimonial={item} cardBg={cardBg} />
+              <TestimonialCard
+                key={`${item.authorName}-${index}`}
+                testimonial={item}
+                cardBg={cardBg}
+              />
             ))}
           </TestimonialsCarousel>
         ) : (

@@ -34,10 +34,7 @@ export function Footer({ slug: _, data, tenantName, business }: FooterProps) {
         {tenantName}
       </div>
       {data.tagline && (
-        <p
-          className="mt-1 text-xs opacity-60"
-          data-testid="footer-tagline"
-        >
+        <p className="mt-1 text-xs opacity-60" data-testid="footer-tagline">
           {data.tagline}
         </p>
       )}

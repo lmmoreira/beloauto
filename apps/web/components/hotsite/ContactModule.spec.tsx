@@ -230,7 +230,11 @@ describe('ContactModule', () => {
         <ContactModule
           data={makeData({ showInstagram: false })}
           business={makeBusiness({
-            socialLinks: { whatsapp: null, instagram: 'https://instagram.com/test', facebook: null },
+            socialLinks: {
+              whatsapp: null,
+              instagram: 'https://instagram.com/test',
+              facebook: null,
+            },
           })}
           slug="tenant"
         />,

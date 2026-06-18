@@ -94,9 +94,7 @@ describe('TestimonialsModule', () => {
 
   describe('eyebrow', () => {
     it('renders eyebrow when provided', () => {
-      render(
-        <TestimonialsModule data={makeData({ eyebrow: 'Quem já conhece' })} slug="tenant" />,
-      );
+      render(<TestimonialsModule data={makeData({ eyebrow: 'Quem já conhece' })} slug="tenant" />);
 
       expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('Quem já conhece');
     });

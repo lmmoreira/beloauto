@@ -63,7 +63,9 @@ interface IconRowProps {
 function IconRow({ icon, label, children, cardBg }: IconRowProps) {
   return (
     <div className="flex items-start gap-3">
-      <div style={makeIconBoxStyle(cardBg)} aria-hidden="true">{icon}</div>
+      <div style={makeIconBoxStyle(cardBg)} aria-hidden="true">
+        {icon}
+      </div>
       <div>
         <div className="mb-0.5 text-xs uppercase tracking-wide opacity-60">{label}</div>
         <div className="text-sm font-semibold">{children}</div>
@@ -165,13 +167,19 @@ function IconCardsLayout({
   return (
     <div className="flex flex-col gap-5">
       {showAddress && address && (
-        <IconRow icon="📍" label="Endereço" cardBg={cardBg}>{formatAddress(address)}</IconRow>
+        <IconRow icon="📍" label="Endereço" cardBg={cardBg}>
+          {formatAddress(address)}
+        </IconRow>
       )}
       {showPhone && business.phone && (
-        <IconRow icon="📱" label="Telefone" cardBg={cardBg}>{business.phone}</IconRow>
+        <IconRow icon="📱" label="Telefone" cardBg={cardBg}>
+          {business.phone}
+        </IconRow>
       )}
       {showEmail && business.email && (
-        <IconRow icon="✉️" label="E-mail" cardBg={cardBg}>{business.email}</IconRow>
+        <IconRow icon="✉️" label="E-mail" cardBg={cardBg}>
+          {business.email}
+        </IconRow>
       )}
       {data.showWhatsapp && whatsapp && (
         <IconRow icon="💬" label="WhatsApp" cardBg={cardBg}>
@@ -242,7 +250,11 @@ export function ContactModule({ data, business, slug: _, bgVariant }: ContactMod
       }}
     >
       <div className="mx-auto max-w-7xl">
-        {data.eyebrow && <div className="text-center"><SectionEyebrow text={data.eyebrow} /></div>}
+        {data.eyebrow && (
+          <div className="text-center">
+            <SectionEyebrow text={data.eyebrow} />
+          </div>
+        )}
         <h2 className="mb-10 text-center text-3xl font-bold" style={headingStyle}>
           {title}
         </h2>

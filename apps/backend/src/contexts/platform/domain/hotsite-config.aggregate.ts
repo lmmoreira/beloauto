@@ -22,7 +22,13 @@ export interface HeroModuleData {
   ctaLabel: string;
   ctaTarget: 'booking-form' | 'service-list' | 'gallery' | 'testimonials' | 'about' | 'contact';
   secondaryCtaLabel?: string;
-  secondaryCtaTarget?: 'booking-form' | 'service-list' | 'gallery' | 'testimonials' | 'about' | 'contact';
+  secondaryCtaTarget?:
+    | 'booking-form'
+    | 'service-list'
+    | 'gallery'
+    | 'testimonials'
+    | 'about'
+    | 'contact';
   rightPanel?: 'none' | 'image' | 'brand-card';
 }
 

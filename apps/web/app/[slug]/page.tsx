@@ -1,12 +1,5 @@
 import type { Metadata } from 'next';
-import type {
-  BookingCtaModuleData,
-  ContactModuleData,
-  FooterModuleData,
-  HeroModuleData,
-  HotsiteModuleType,
-  ServiceListModuleData,
-} from '@beloauto/types';
+import type { HotsiteModuleType } from '@beloauto/types';
 import { fetchManifest } from '@/lib/api/platform';
 import { fetchServices } from '@/lib/api/services';
 import { AboutModule } from '@/components/hotsite/AboutModule';
@@ -18,7 +11,17 @@ import { HeroModule } from '@/components/hotsite/HeroModule';
 import { ServiceListModule } from '@/components/hotsite/ServiceListModule';
 import { TestimonialsModule } from '@/components/hotsite/TestimonialsModule';
 import { Unavailable } from '@/components/hotsite/Unavailable';
-import { isValidModuleData } from '@/lib/hotsite/module-schemas';
+import {
+  AboutModuleDataSchema,
+  BookingCtaModuleDataSchema,
+  ContactModuleDataSchema,
+  FooterModuleDataSchema,
+  GalleryModuleDataSchema,
+  HeroModuleDataSchema,
+  ServiceListModuleDataSchema,
+  TestimonialsModuleDataSchema,
+  isValidModuleData,
+} from '@/lib/hotsite/module-schemas';
 import { buildHotsiteMetadata, buildLocalBusinessJsonLd, toJsonLdScript } from '@/lib/hotsite/seo';
 
 // Next.js statically analyses segment config exports — imported variables are not resolved.
@@ -27,7 +30,11 @@ export const revalidate = 300;
 
 // Module types that manage their own background (hero-bg / bgStyle) — they still count in the
 // alternation index so that the first content section after HERO is always the alt color.
-const NON_ALTERNATING_TYPES: ReadonlySet<HotsiteModuleType> = new Set(['HERO', 'BOOKING_CTA', 'FOOTER']);
+const NON_ALTERNATING_TYPES: ReadonlySet<HotsiteModuleType> = new Set([
+  'HERO',
+  'BOOKING_CTA',
+  'FOOTER',
+]);
 
 interface HotsitePageProps {
   params: Promise<{ slug: string }>;
@@ -76,7 +83,10 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
     const isAlt = alternateSectionBg && altIndex % 2 === 1;
     altIndex++;
     const participates = !NON_ALTERNATING_TYPES.has(m.type);
-    return { module: m, bgVariant: participates && isAlt ? ('alt' as const) : ('default' as const) };
+    return {
+      module: m,
+      bgVariant: participates && isAlt ? ('alt' as const) : ('default' as const),
+    };
   });
 
   const dividerEl =
@@ -101,7 +111,7 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
           moduleEl = (
             <HeroModule
               key={key}
-              data={m.data as unknown as HeroModuleData}
+              data={HeroModuleDataSchema.parse(m.data)}
               slug={slug}
               tenantBrand={tenantBrand}
             />
@@ -110,7 +120,7 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
           moduleEl = (
             <ServiceListModule
               key={key}
-              data={m.data as unknown as ServiceListModuleData}
+              data={ServiceListModuleDataSchema.parse(m.data)}
               slug={slug}
               services={services}
               bgVariant={bgVariant}
@@ -120,7 +130,7 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
           moduleEl = (
             <ContactModule
               key={key}
-              data={m.data as unknown as ContactModuleData}
+              data={ContactModuleDataSchema.parse(m.data)}
               business={business}
               slug={slug}
               bgVariant={bgVariant}
@@ -130,7 +140,7 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
           moduleEl = (
             <BookingCtaModule
               key={key}
-              data={m.data as unknown as BookingCtaModuleData}
+              data={BookingCtaModuleDataSchema.parse(m.data)}
               slug={slug}
               tenantBrand={tenantBrand}
             />
@@ -139,7 +149,7 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
           moduleEl = (
             <GalleryModule
               key={key}
-              data={m.data as unknown as Parameters<typeof GalleryModule>[0]['data']}
+              data={GalleryModuleDataSchema.parse(m.data)}
               slug={slug}
               bgVariant={bgVariant}
             />
@@ -148,7 +158,7 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
           moduleEl = (
             <TestimonialsModule
               key={key}
-              data={m.data as unknown as Parameters<typeof TestimonialsModule>[0]['data']}
+              data={TestimonialsModuleDataSchema.parse(m.data)}
               slug={slug}
               bgVariant={bgVariant}
             />
@@ -157,7 +167,7 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
           moduleEl = (
             <AboutModule
               key={key}
-              data={m.data as unknown as Parameters<typeof AboutModule>[0]['data']}
+              data={AboutModuleDataSchema.parse(m.data)}
               slug={slug}
               bgVariant={bgVariant}
             />
@@ -166,7 +176,7 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
           moduleEl = (
             <Footer
               key={key}
-              data={m.data as unknown as FooterModuleData}
+              data={FooterModuleDataSchema.parse(m.data)}
               slug={slug}
               tenantName={displayName}
               business={business}

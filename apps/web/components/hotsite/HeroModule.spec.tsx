@@ -88,9 +88,7 @@ describe('HeroModule', () => {
 
   describe('eyebrow', () => {
     it('renders eyebrow text when provided', () => {
-      render(
-        <HeroModule data={makeData({ eyebrow: 'Estética premium' })} slug="tenant" />,
-      );
+      render(<HeroModule data={makeData({ eyebrow: 'Estética premium' })} slug="tenant" />);
 
       expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('Estética premium');
     });

@@ -38,7 +38,11 @@ export function GalleryModule({ data, slug: _, bgVariant }: GalleryModuleProps) 
       }}
     >
       <div className="mx-auto max-w-7xl">
-        {data.eyebrow && <div className="text-center"><SectionEyebrow text={data.eyebrow} /></div>}
+        {data.eyebrow && (
+          <div className="text-center">
+            <SectionEyebrow text={data.eyebrow} />
+          </div>
+        )}
         <h2 className="mb-10 text-center text-3xl font-bold" style={headingStyle}>
           {title}
         </h2>

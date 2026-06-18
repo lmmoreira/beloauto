@@ -68,10 +68,7 @@ describe('BookingCtaModule', () => {
   describe('eyebrow', () => {
     it('renders eyebrow when provided', () => {
       render(
-        <BookingCtaModule
-          data={makeData({ eyebrow: 'Reserve agora' })}
-          slug="lavacar-beloauto"
-        />,
+        <BookingCtaModule data={makeData({ eyebrow: 'Reserve agora' })} slug="lavacar-beloauto" />,
       );
 
       expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('Reserve agora');
@@ -105,7 +102,9 @@ describe('BookingCtaModule', () => {
         />,
       );
 
-      expect(container.querySelector('[data-testid="booking-cta-brand-card"]')).not.toBeInTheDocument();
+      expect(
+        container.querySelector('[data-testid="booking-cta-brand-card"]'),
+      ).not.toBeInTheDocument();
     });
   });
 });
