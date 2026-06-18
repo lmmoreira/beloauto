@@ -14,7 +14,6 @@
     .tag { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.125rem 0.5rem; border-radius: 99px; margin-left: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
     .tag-green { background: #dcfce7; color: #166534; }
     .tag-red { background: #fee2e2; color: #991b1b; }
-    .tag-yellow { background: #fef9c3; color: #92400e; }
     .checklist { background: var(--ba-secondary); border-radius: var(--ba-radius); padding: 1rem 1.25rem; margin-top: 1.5rem; }
   </style>
 </head>
@@ -35,12 +34,12 @@
     </li>
     <li>
       <a href="./00-login.html">01 — Tela de login do cliente</a>
-      <span class="tag tag-yellow">GAP: /{tenantSlug}/login</span>
+      <span class="tag tag-red">GAP: /{tenantSlug}/login</span>
       — shared/login.html
     </li>
     <li>
       <a href="./02-phone-completion.html">02 — Completar perfil (sem telefone)</a>
-      <span class="tag tag-yellow">GAP: prompt pós-login</span>
+      <span class="tag tag-red">GAP: prompt pós-login</span>
       — UC-021 A3 — one-time
     </li>
     <li>
@@ -54,11 +53,11 @@
   <ul>
     <li>
       <a href="./00-login.html">00 — Login genérico</a>
-      <span class="tag tag-yellow">GAP: /auth/login</span>
+      <span class="tag tag-red">GAP: /auth/login</span>
     </li>
     <li>
       <a href="./01-select-tenant.html">01 — Selecionar estabelecimento</a>
-      <span class="tag tag-yellow">GAP: /select-tenant</span>
+      <span class="tag tag-red">GAP: /select-tenant</span>
       — UC-021 Caso B — mostra pontos por tenant
     </li>
     <li>→ Após seleção: mesmo fluxo do Caso A (phone check → agendamento passo 1)</li>
@@ -68,8 +67,23 @@
   <ul>
     <li>
       <a href="./01b-error.html">01b — Erro de autenticação</a>
-      <span class="tag tag-yellow">GAP: /auth/error</span>
+      <span class="tag tag-red">GAP: /auth/error</span>
       — no-tenant / tenant-deactivated (compartilhado com staff)
+    </li>
+    <li>
+      <a href="./01b-loading.html">01b — Carregando estabelecimentos (skeleton)</a>
+      <span class="tag tag-red">GAP: /select-tenant (loading)</span>
+      — token sendo decodificado / GET /v1/auth/tenants em andamento
+    </li>
+    <li>
+      <a href="./01c-fetch-error.html">01c — Erro ao carregar estabelecimentos</a>
+      <span class="tag tag-red">GAP: /select-tenant (fetch error)</span>
+      — token decode ou GET /v1/auth/tenants falhou
+    </li>
+    <li>
+      <a href="./02b-validation-error.html">02b — Erro de validação no telefone</a>
+      <span class="tag tag-red">GAP: prompt pós-login (validation)</span>
+      — PATCH /v1/customers/me retornou 422
     </li>
   </ul>
 

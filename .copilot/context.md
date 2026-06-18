@@ -196,7 +196,8 @@ Domain-validated fields → `src/shared/value-objects/` (never plain primitives)
 - Zod v4: `z.uuid()` / `z.email()` — never `z.string().uuid()` / `z.string().email()`.
 - `/internal` routes skip `TenantInterceptor`. `TenantModule` is not `@Global()` — import explicitly in every module whose controller injects `TenantContext`.
 - Domain events belong in the publishing context (`StaffInvited` in `staff/domain/events/`, not `platform/`).
-- Domain error messages are **English only**. Default params must come after required params (SonarCloud S1788).
+- **All code is English-only** — identifiers, comments, file names, commit messages, and domain error messages. Only literal strings rendered to the end user (UI copy, validation/error text, email templates) follow the tenant's locale — pt-BR for BR tenants. This applies everywhere, including milestone/story specs in `plan/` — a story's field labels and error copy are pt-BR because that's what ships in the UI, not an exception to the rule.
+- Default params must come after required params (SonarCloud S1788).
 - No barrel `index.ts` in `ports/` or `shared/domain/` — ESLint enforces. Every new REST endpoint → `.http` file.
 
 ### Cross-context data access (priority order — follow strictly)
@@ -371,6 +372,8 @@ Full list in `docs/ANTI_PATTERNS.md` (checked by `/pre-pr`). Silent-failure patt
 >
 > ci:fast passing does NOT mean integration tests passed. SonarCloud issues, missing .http files, VO violations, and cross-tenant leaks are only caught by `/pre-pr`. Skipping it has caused repeated CI failures and user frustration.
 
+**Before the first story of a new milestone:** ask the user whether to run `/docs-audit M0X` first, scoped to that milestone, to catch stale/inconsistent docs before implementation starts. This is an offer, not a forced block like the journey hard-stop above — proceed either way based on their answer.
+
 ### Step 1 — Create feature branch (BEFORE writing any code)
 `git checkout -b feat/M0X-SYY-<short-description>`
 
@@ -477,6 +480,10 @@ If every story in the milestone is now `✅ Done`, see §15 item 9 for the two w
 **Never load:** anything under `docs/archive/` — superseded content.  
 **Never load:** `plan/*_DEVELOPER.md` files — written for the human developer, not for agents.
 
+**Drafting a new milestone:**
+- If a milestone's stories are easier to author split across multiple working files (e.g. one per feature area), that's fine during drafting — but consolidate them into the single canonical `plan/M0X-<NAME>.md` file and add it to the table above before any story is implemented. Don't leave the split files as the permanent record; `M124`–`M129` existed as untracked drafts for weeks before being folded back into `M13`, and nobody could tell during that window that they'd superseded the original M13 draft.
+- When sequencing a full-stack milestone's stories, pull every backend/BFF-only story (no frontend-shell dependency) into one early wave regardless of which feature area it belongs to. This prevents a later frontend story from shipping before a field/endpoint it needs exists — exactly the kind of gap that ordering stories strictly within each feature area would hide.
+
 ---
 
 ## 11. Repository Layout
@@ -520,11 +527,11 @@ Commands live in `.claude/commands/`. Claude Code auto-discovers them — type `
 
 | Command | File | When to use |
 |---|---|---|
-| `/pre-pr` | `.claude/commands/pre-pr.md` | **Before every PR** — runs all 14 checks + domain-audit. Must report zero issues. |
-| `/domain-audit [context-path]` | `.claude/commands/domain-audit.md` | Structural VO/builder scan. Called automatically by `/pre-pr`. |
+| `/pre-pr` | `.claude/commands/pre-pr.md` | **Before every PR** — runs all checks + bad-smell-audit. Must report zero issues. |
+| `/bad-smell-audit [backend\|bff\|web]` | `.claude/commands/bad-smell-audit.md` | Full-stack bad-smell scan — backend VOs/builders, BFF structure, web security/props. Run on demand or scoped to one layer. |
 | `/mark-done M0X-SYY` | `.claude/commands/mark-done.md` | **After merge to main** — marks story done, commits, alerts if milestone complete. |
 | `/story-discovery M0X-SYY` | `.claude/commands/story-discovery.md` | **Before starting a story** — checks doc clarity, dep symbols, and consistency; asks targeted questions; proposes doc patches; emits READY / NOT READY verdict. |
-| `/uc-audit [UC-XXX\|M0X]` | `.claude/commands/uc-audit.md` | **Before drafting any `plan/journey/` file or new milestone** — audits `docs/04-USE_CASES.md` for staleness vs. code (roles, endpoints, entities, frontend pages) and internal inconsistencies; proposes doc fixes; lists IA gaps. |
+| `/docs-audit [UC-XXX\|M0X\|actor/slug\|doc-path]` | `.claude/commands/docs-audit.md` | **Before drafting any `plan/journey/` file, before starting a new milestone, or any time docs may have drifted** — audits `docs/`, `plan/M0X-*.md`, `plan/journey/` (journeys + prototypes), and `CLAUDE.md` itself for staleness vs. code, internal inconsistency, and confusing/missing info; proposes doc fixes; lists IA gaps. Scope by UC, milestone, journey, or single doc to keep cost proportional — blank scope audits everything and is expensive, use deliberately. |
 
 **Adding new commands:** create `.claude/commands/<name>.md`. Use `$ARGUMENTS` for optional user-typed arguments. Document it in this table.
 
@@ -536,30 +543,15 @@ Commands live in `.claude/commands/`. Claude Code auto-discovers them — type `
 
 > ❗ **NON-NEGOTIABLE HARD STOP — READ BEFORE TOUCHING ANY `plan/journey/` FILE**
 >
-> **`/uc-audit` MUST run and report a clean baseline BEFORE writing any journey `.md` file or prototype HTML.**
+> **`/docs-audit` MUST run and report a clean baseline BEFORE writing any journey `.md` file or prototype HTML.**
 > The sequence is always:
-> 1. `/uc-audit <UC-XXX>` → resolve every stale/conflicting finding → confirmed baseline
+> 1. `/docs-audit <UC-XXX>` (or `/docs-audit <actor>/<slug>` once the journey already exists) → resolve every stale/conflicting finding → confirmed baseline
 > 2. Write `<actor>/<slug>.md` — mermaid flow, pages table, open questions
 > 3. Update `<actor>/use-cases.md` journey column
 > 4. Update `plan/journey/README.md` index table
 > 5. **Only then** create any file under `<actor>/prototypes/<slug>/`
 >
-> Skipping `/uc-audit` and going straight to the journey file (or worse, straight to HTML) is a workflow violation. A journey built on stale UC text causes rework in both the prototype and the eventual implementation story.
-
-### Folder structure
-
-```
-plan/journey/<actor>/
-├── use-cases.md            ← UC inventory
-├── <slug>.md               ← journey spec (mermaid, pages table, gaps)
-└── prototypes/
-    └── <slug>/
-        ├── index.html      ← navigation hub + dry-run checklist
-        ├── 00-*.html … 01-*.html …
-        └── dev-notes.md    ← implementation handoff
-```
-
-Prototype files **always** reference `../../../shared/tokens.css` — never a local copy.
+> Skipping `/docs-audit` and going straight to the journey file (or worse, straight to HTML) is a workflow violation. A journey built on stale UC text causes rework in both the prototype and the eventual implementation story.
 
 ### Folder structure
 

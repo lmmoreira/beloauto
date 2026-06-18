@@ -100,10 +100,10 @@ flowchart TD
 
 ## Open questions / gaps
 
-- [ ] **Calendar granularity** — should the Horários view be a week grid (Mon–Sun columns, hourly rows) or a day view with time blocks? Week view is denser; day view matches mobile better.
-- [ ] **APPROVED booking display** — bookings appear as colour-coded time blocks on the calendar. What colour? Primary (`--ba-primary`) or a neutral? Does clicking a block navigate to the booking detail (`/dashboard/bookings/[id]`)?
-- [ ] **Closure visual** — how are closures rendered? Grey hatched overlay across the blocked slot? Full-day vs. partial closure needs distinct visual treatment.
-- [ ] **Normally-closed day entry** — how does staff reach the "Abrir dia especial" sheet? Click anywhere on a closed day (Sunday = always grey)? Or a dedicated "+ Abrir" button in the day column header?
-- [ ] **Warning for bookings in blocked window** — UC-010a A4 says "show warning." Is this a blocking confirmation dialog (with cancel) or a non-blocking info banner shown after the closure is created?
-- [ ] **BFF `.http` gap** — `apps/bff/http/schedule/` has `schedule-closures.http` but is missing `schedule-openings.http` and `availability.http`. Should be created before M125.
-- [ ] **Story assignment** — this journey has no story yet. Candidate: new M125-SXX (schedule management UI). Scope: `SchedulePage`, `ClosureFormSheet`, `RemoveClosureDialog`, `OpeningFormSheet`, `RemoveOpeningDialog`.
+- [x] **Calendar granularity** — should the Horários view be a week grid (Mon–Sun columns, hourly rows) or a day view with time blocks? — **Resolved (`M13-S21`).** Week strip (Mon–Sun day buttons) with a day strip selector, plus a time grid below for the selected day's slots (per `businessHours`).
+- [x] **APPROVED booking display** — bookings appear as colour-coded time blocks on the calendar. What colour? Does clicking a block navigate to the booking detail? — **Resolved (`M13-S21`).** Blue left border + `--ba-secondary` background; links to `/dashboard/bookings/[id]`.
+- [x] **Closure visual** — how are closures rendered? — **Resolved (`M13-S21`).** Grey hatched overlay (`repeating-linear-gradient 135deg`); a booking inside a closure window gets an orange tint + warning icon (UC-010a A4).
+- [x] **Normally-closed day entry** — how does staff reach the "Abrir dia especial" sheet? — **Resolved (`M13-S21`).** Closed days show an empty state with an "Abrir dia especial" CTA that opens `OpeningFormSheet` (replaces the FAB on those days).
+- [x] **Warning for bookings in blocked window** — UC-010a A4 says "show warning." Is this blocking or non-blocking? — **Resolved (`M13-S21`).** Non-blocking inline warning banner shown after the closure is created: "[X] agendamento(s) aprovado(s) existe(m) nesse período. Reagende ou cancele manualmente."
+- [x] **BFF `.http` gap** — `apps/bff/http/schedule/` has `schedule-closures.http` but is missing `schedule-openings.http` and `availability.http`. — **Resolved/assigned.** `M13-S21` explicitly creates both files as part of its own scope (no longer a "should be created" — it's now a concrete deliverable).
+- **Story assignment** — confirmed: `M13-S21` ("Horários: schedule management page + closure/opening flows") is the assigned story. Scope: `ScheduleView`/`SchedulePage`, `ClosureFormSheet`, `RemoveClosureDialog`, `OpeningFormSheet`, `RemoveOpeningDialog`.

@@ -59,7 +59,7 @@
           border-radius: var(--ba-radius); box-shadow: 0 4px 12px rgba(0,0,0,0.12);
           min-width: 11rem; overflow: hidden; z-index: 50;
         ">
-          <a href="../dashboard/00-dashboard.html"
+          <a href="../../../shared/customer-dashboard.html"
              style="display: block; padding: 0.625rem 1rem; font-size: 0.875rem;
                     color: var(--ba-text); text-decoration: none; font-weight: 500;">
             Minha conta
@@ -107,30 +107,11 @@
       <span>Agendando como <strong>João Silva</strong> · joao@email.com</span>
     </div>
 
-    <!-- ERROR STATE — data-testid="confirmation-error" -->
     <!--
-    <p style="margin-top: 1rem; color: #dc2626;" data-testid="confirmation-error">
-      Não foi possível enviar sua solicitação. Tente novamente.
-    </p>
-    -->
-
-    <!-- SUCCESS STATE -->
-    <!--
-    <div>
-      <h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--ba-text)">Solicitação enviada!</h2>
-      <p data-testid="confirmation-success">Solicitação enviada! Aguarde a confirmação por email.</p>
-      <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap;">
-        <a href="../dashboard/00-dashboard.html" class="btn-primary">
-          Ver meus agendamentos
-        </a>
-        <a href="../../../shared/hotsite-logged-in.html"
-           style="display: inline-block; padding: 0.75rem 1.5rem;
-                  border: 1px solid var(--ba-secondary); border-radius: var(--ba-radius);
-                  color: var(--ba-text); text-decoration: none;">
-          Voltar ao site
-        </a>
-      </div>
-    </div>
+      STATES — see real clickable variant screens instead of inline comments:
+        submitting        → 04b-submitting.html
+        error (non-409)   → 04c-submission-error.html  (data-testid="confirmation-error")
+        success (201)      → 04d-success.html            (data-testid="confirmation-success")
     -->
 
     <div class="nav-buttons">

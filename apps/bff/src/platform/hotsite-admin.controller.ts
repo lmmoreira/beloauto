@@ -32,6 +32,11 @@ const HotsiteBrandingBodySchema = z
     shadowStyle: z.enum(['none', 'subtle', 'strong']),
     buttonBackgroundColor: z.string().regex(HEX_COLOR_REGEX),
     buttonTextColor: z.string().regex(HEX_COLOR_REGEX),
+    heroBgStyle: z.enum(['primary', 'background']),
+    alternateSectionBg: z.boolean(),
+    dividerStyle: z.enum(['none', 'gradient', 'solid']),
+    brandName: z.string().max(100),
+    brandTagline: z.string().max(200),
   })
   .partial();
 
@@ -44,6 +49,7 @@ const HotsiteModuleBodySchema = z.object({
     'BOOKING_CTA',
     'ABOUT',
     'CONTACT',
+    'FOOTER',
   ]),
   enabled: z.boolean(),
   data: z.record(z.string(), z.unknown()),
@@ -65,7 +71,8 @@ export const UpdateHotsiteContentBodySchema = z
   .refine(
     (data) => data.branding !== undefined || data.layout !== undefined || data.seo !== undefined,
     { message: 'at least one of branding, layout, or seo must be provided' },
-  );
+  )
+  .default({});
 
 type UpdateHotsiteContentBody = z.infer<typeof UpdateHotsiteContentBodySchema>;
 

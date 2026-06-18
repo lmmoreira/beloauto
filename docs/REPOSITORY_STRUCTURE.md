@@ -17,7 +17,7 @@
 │   ├── types/            # shared TypeScript types / DTOs
 │   └── config/           # shared ESLint, tsconfig, Prettier configs
 ├── infrastructure/
-│   └── terraform/        # GCP resources (Cloud Run, Cloud SQL, Pub/Sub, Secret Manager)
+│   └── terraform/        # ← planned, not yet created — GCP resources (Cloud Run, Cloud SQL, Pub/Sub, Secret Manager)
 ├── .github/workflows/    # CI/CD pipeline YAML files
 ├── docker/               # Dockerfiles + docker-compose.yml (local dev)
 ├── .copilot/context.md   # canonical agent context (symlinked as claude.md, CLAUDE.md, gemini.md)
@@ -51,7 +51,8 @@ src/shared/
 ├── tenant/           # TenantContext (request-scoped), TenantInterceptor
 ├── observability/    # Logger, OTel tracer, structured log helpers
 ├── http/             # Pagination DTOs, RFC 9457 ProblemDetail base type
-└── guards/           # Role guards used by more than one context
+├── guards/           # Role guards used by more than one context
+└── database/         # data-source.ts, seed.ts
 ```
 
 **Context isolation rule:** A context module MUST NOT import from another context's path. Only `src/shared/` is importable across contexts.
@@ -72,9 +73,12 @@ src/shared/
 src/test/
 ├── infrastructure/   # InMemory doubles: InMemoryEventBus, InMemoryTransactionManager,
 │                     # InMemoryXxxRepository, InMemoryXxxPort, InMemoryStorageService
-└── utils/            # createBookingIntegrationApp(), createNotificationIntegrationApp(),
-                      # createLoyaltyIntegrationApp(), waitFor(), date-helpers.ts,
-                      # address-helpers.ts
+├── utils/            # createBookingIntegrationApp(), createNotificationIntegrationApp(),
+│                     # createLoyaltyIntegrationApp(), waitFor(), date-helpers.ts,
+│                     # address-helpers.ts
+├── builders/         # per-context builder classes (mandatory for entity/aggregate tests)
+├── factories/        # test data factories
+└── repositories/     # test-only repository helpers
 ```
 
 `integration-global-setup.ts` — explicit import lists for all migrations and TypeORM entities. Every new migration + entity must be registered here in the same commit.

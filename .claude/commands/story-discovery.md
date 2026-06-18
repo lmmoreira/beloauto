@@ -1,4 +1,4 @@
-Run a structured pre-implementation discovery session for a story. Checks doc clarity, completeness, consistency, and dependency artifacts before any code is written.
+Run a structured pre-implementation discovery session for a story. Checks doc clarity, completeness, consistency, dependency artifacts, and — for frontend stories — alignment with the validated UX prototype, before any code is written.
 
 > **HARD RULE — NO CODE CHANGES:** This skill only reads code and updates documentation files (`.md` plan and doc files). It NEVER writes or modifies any `.ts`, `.js`, or any source/test/config file. If a gap requires a code change (e.g. enriching an event payload, adding a method to an aggregate), flag it as a recommendation in the readiness verdict and let the user decide when and how to handle it — do NOT make the change.
 
@@ -10,9 +10,10 @@ Argument: `$ARGUMENTS` — story ID (e.g. `M09-S04`).
 
 Parse the milestone prefix (e.g. `M09` from `M09-S04`).
 
-Find the plan file: `plan/<milestone>-*.md` — exclude `*_IMPLEMENTATION_DETAILS_IA.md` and `*_IMPLEMENTATION_DETAILS_DEVELOPER.md`. Exactly one match expected.
+Find the plan file: `plan/<milestone>-*.md` — exclude `*_IMPLEMENTATION_DETAILS_IA.md` and `*_IMPLEMENTATION_DETAILS_DEVELOPER.md`. **Exactly one match expected — if zero or more than one file matches, STOP and surface it as a BLOCKER instead of guessing which one is canonical:**
+> Found <N> files matching `plan/<milestone>-*.md`: <list>. This milestone's planning docs are ambiguous/fragmented — confirm with the user which file is canonical (and check CLAUDE.md §10's table for which one it actually references) before proceeding. Do not pick one silently.
 
-Read the file and find `### <story-id> —`. If not found, stop:
+Read the file and find `### <story-id> —` (full `M<milestone>-S<NN>` form, e.g. `M13-S01` — not a bare `S01`). If not found, stop:
 > Story `<story-id>` not found in `plan/<file>`. Check the ID and try again.
 
 Extract these fields from the story block:
@@ -23,6 +24,17 @@ Extract these fields from the story block:
 - BFF endpoint spec (method, path, auth, response)
 - Acceptance criteria (all checkboxes)
 - Dependencies (story IDs)
+- **Prototype references** — every `plan/journey/...` path listed under a "Prototype references:", "Prototype reference:", or milestone-level "Journey prototype:" line
+
+**Immediately after extracting story content — spawn one Explore agent for symbol search.**
+
+From the Dependencies list and the story description, derive every artifact symbol the story expects (aggregate methods, use-case class names, event names, port names, component names, fetcher function names, page route paths — using the vocabulary rules in Step 3). Spawn an Explore agent with "very thorough" breadth and instruct it to run, for each symbol:
+
+```bash
+grep -r "<symbol>" apps/ --include="*.ts" --include="*.tsx" -l
+```
+
+The agent should return `{symbol, found: true/false, matchingFiles: [...]}` for each. Continue to Step 2 immediately without waiting — collect results before Step 4.
 
 ---
 
@@ -38,22 +50,24 @@ Also load unconditionally:
 - `docs/AGENT_PATTERNS.md`
 - The matching `plan/<milestone>_IMPLEMENTATION_DETAILS_IA.md` (if it exists — older milestones have one)
 
+For each entry in "Prototype references":
+1. Verify the file path exists.
+2. Also load that folder's `dev-notes.md` and `index.html` — even if not explicitly cited, they're the canonical implementation-handoff and screen-inventory files for the prototype.
+3. Load the parent journey `.md` spec (e.g. `plan/journey/staff/agenda.md` for a prototype under `staff/prototypes/agenda/`).
+
 Flag any path that doesn't resolve as a **BLOCKER**.
 
 ---
 
 ## Step 3 — Dependency symbol check
 
-From the Dependencies line, extract each story ID (e.g. `M07-S03`, `M03-S05`).
+Collect the results from the Explore agent spawned at the end of Step 1. If the agent has not yet returned, wait for it now.
 
-From the current story's description and use-case steps, extract every artifact it expects from those dependencies: aggregate methods, use-case class names, event names, port interface names, repository method names.
+The symbol vocabulary (used to brief the agent and to interpret its results):
+- **`backend-ts`/`bff-ts` dependencies:** aggregate methods, use-case class names, event names, port interface names, repository method names.
+- **`frontend-ts`/`web-ts` dependencies:** component names, page/route file paths, hook names, exported fetcher function names (e.g. `DashboardShell`, `fetchStaffBookings`, `apps/web/app/dashboard/bookings/page.tsx`) — these live under `apps/web/`, not `apps/backend/`/`apps/bff/`.
 
-For each extracted symbol run:
-```bash
-grep -r "<symbol>" apps/ --include="*.ts" -l
-```
-
-If a symbol yields no results → **BLOCKER — dependency artifact not found in codebase**.
+If a symbol has `found: false` → **BLOCKER — dependency artifact not found in codebase**.
 
 ---
 
@@ -107,6 +121,14 @@ Run every check silently. Tag each finding as **BLOCKER**, **RISK**, or **CONFIR
 - Story doesn't contradict CLAUDE.md §7 engineering rules or §8 anti-patterns
 - Story doesn't conflict with patterns locked in prior milestones' `_IMPLEMENTATION_DETAILS_IA.md`
 
+### 4k. Journey / prototype alignment (frontend stories — `Agent: frontend-ts`/`web-ts`, or any story citing a `plan/journey/` path)
+- Frontend-facing story with **no** prototype reference at all → **RISK** — UI wasn't UX-validated via a prototype before this story was written
+- Component/route names the story introduces match what `dev-notes.md`'s file map / per-screen sections call them — no invented names that drift from the prototype's documented components
+- Exact pt-BR copy/error strings in the acceptance criteria match the prototype's validated copy verbatim — don't let a story re-invent wording the prototype already settled
+- Every unhappy-path/variant screen present in the prototype folder (loading, fetch-error, validation-error, empty, success states) has a corresponding acceptance criterion — a screen that exists in the prototype but is silently dropped from the story's AC is a UX regression, not a scope simplification
+- Every "Known limitations" bullet in the prototype's `dev-notes.md` is either addressed by this story's AC or explicitly carried into the story's own open questions
+- `index.html`'s dry-run checklist questions are either answered by the story's AC or explicitly left open
+
 ---
 
 ## Step 5 — Print findings
@@ -121,11 +143,13 @@ Run every check silently. Tag each finding as **BLOCKER**, **RISK**, or **CONFIR
 ### Risks (could cause rework mid-story)
 1. [COVERAGE] No tenant-isolation acceptance criterion — CI gate will require one
 2. [API] BFF routing for shared PATCH endpoint not described — ambiguous which use case is called
+3. [JOURNEY] No prototype reference found for this frontend story — UX wasn't validated before the story was written
 
 ### Confirmations (assumed settled — flag if any are wrong)
 1. APPROVED → CANCELLED transition is valid per state machine ✓
 2. `cancellation_window_hours` key exists in docs/21-TENANTS_SETTINGS_SCHEMA.md ✓
 3. PATCH /v1/bookings/:id/cancel endpoint created in M09-S01 — this story reuses it ✓
+4. "Tentar novamente" retry-button copy matches `01e-submit-error.html` exactly ✓
 ```
 
 If zero blockers and zero risks, emit:

@@ -10,12 +10,12 @@
 
 | Prototype file | Production route | Page component |
 |---|---|---|
-| `01-servicos-list.html` | `/{slug}/dashboard/services` | `ServiceListPage` |
-| `02-service-create.html` | `/{slug}/dashboard/services/new` | `ServiceFormPage` (create mode) |
-| `03-service-edit.html` | `/{slug}/dashboard/services/[id]/edit` | `ServiceFormPage` (edit mode) |
-| `03b-deactivate-confirm.html` | `/{slug}/dashboard/services/[id]/deactivate` or bottom-sheet | `DeactivateConfirmPage` or `DeactivateSheet` |
+| `01-servicos-list.html` | `/dashboard/services` | `ServiceListPage` |
+| `02-service-create.html` | `/dashboard/services/new` | `ServiceFormPage` (create mode) |
+| `03-service-edit.html` | `/dashboard/services/[id]/edit` | `ServiceFormPage` (edit mode) |
+| `03b-deactivate-confirm.html` | `/dashboard/services/[id]/deactivate` or bottom-sheet | `DeactivateConfirmPage` or `DeactivateSheet` |
 
-> ⚠️ **Open question:** Deactivation UX — dedicated page (this prototype) vs. inline bottom sheet on the edit form. Decide before implementing M127-S05.
+> ⚠️ **Open question:** Deactivation UX — dedicated page (this prototype) vs. inline bottom sheet on the edit form. Decide before implementing `M13-S24`.
 
 ---
 
@@ -29,7 +29,7 @@
 | Update service | `PATCH /v1/services/:id` | STAFF \| MANAGER | `UpdateServiceDto` | `200 ServiceDetailResponse` |
 | Deactivate service | `DELETE /v1/services/:id` | STAFF \| MANAGER | — | `200` |
 
-All endpoints exist. Verify shape matches `@beloauto/types` before using. No new BFF endpoints needed for this journey.
+`POST`/`PATCH`/`DELETE` are likely already existing (built in M05). `GET /v1/services` (staff list including inactive) and `GET /v1/services/:id` are endpoints to verify-or-add, not confirmed-existing — `M13-S05` treats discovering/filling these as its explicit scope. Verify shapes match `@beloauto/types` before using.
 
 ---
 
@@ -127,10 +127,10 @@ The backend `price` field is a `Money` value object with `{ amount, currency }`.
 
 ```
 Staff clicks "Desativar serviço" (danger zone button)
-  → navigate to /{slug}/dashboard/services/[id]/deactivate
+  → navigate to /dashboard/services/[id]/deactivate
   → render DeactivateConfirmPage with service summary card
   → "Confirmar" → DELETE /v1/services/:id → 200
-    → router.push('/{slug}/dashboard/services')
+    → router.push('/dashboard/services')
     → list shows service with isActive = false badge "Inativo"
   → "Cancelar" → router.back()
 ```

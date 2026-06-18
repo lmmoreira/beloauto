@@ -109,7 +109,10 @@ A single customer visit. A booking groups **one or more `BookingLine` entities**
 **Entities within (only accessible through the Booking root):**
 - `Booking` (root)
 - `BookingLine` (≥ 1 per booking)
-- `BookingAuditLogEntry` (immutable log)
+
+> Audit/state-tracking fields (`approvedBy`, `rejectedBy`, `completedBy`, etc.) are flat columns
+> on `Booking` itself — there is no separate audit-log entity. See the "Audit & state tracking"
+> block in `Booking.Properties` below.
 
 **Value Objects:**
 - `BookingId`, `BookingLineId` (UUIDs)
@@ -187,6 +190,7 @@ BookingLine {
   serviceId:                       ServiceId      -- which service was selected
 
   -- Snapshots, frozen at booking-request time. NEVER updated.
+  serviceNameAtBooking:            String         -- snapshot of Service.name
   priceAtBooking:                  Money          -- quoted price
   durationMinsAtBooking:           int
   pointsValueAtBooking:            int            -- becomes the LoyaltyEntry.points on completion
@@ -514,15 +518,24 @@ Email template definitions **per tenant**.
 **Properties:**
 ```
 NotificationTemplate {
-  templateId: TemplateId
-  tenantId: TenantId (which company this template belongs to)
-  name: String (e.g., "BookingApprovedTemplate")
-  subject: String (can include variables like {{customerName}})
-  htmlBody: String (template with placeholders)
-  variables: String[] (e.g., ["customerName", "bookingDate"])
-  createdAt: DateTime
+  id: TemplateId
+  tenantId: TenantId | null (null = platform-wide default template, used when no tenant override exists)
+  triggerEvent: NotificationTemplateKey (e.g., "BOOKING_APPROVED" — which domain event/trigger this template renders for)
+  channel: 'EMAIL' | 'SMS' | 'WHATSAPP'
+  subject: String (can include placeholders like {{customerName}})
+  body: String (template with placeholders — plain/HTML depending on channel)
+  updatedAt: DateTime
 }
 ```
+
+**Interpolation:** there is no declared `variables` list. `render(variables)` interpolates by
+running a `{{key}}` regex directly over `subject`/`body` at send time and substituting from the
+supplied `variables` map (unmatched keys resolve to an empty string).
+
+**Methods:**
+- `static create(props)` — validates `subject`/`body` are non-empty
+- `update(subject, body)` — replaces subject/body, re-validates non-empty
+- `render(variables)` — returns `{ subject, body }` with `{{key}}` placeholders interpolated
 
 #### **Aggregate: NotificationLog** (Root Entity)
 Audit trail of every notification send attempt **per tenant**. Not used for idempotency — that is handled by `ProcessedEvent` / `notification.processed_events`.
@@ -533,8 +546,8 @@ NotificationLog {
   id: UUID v7
   tenantId: string
   eventId: string                    ← source domain event's eventId
-  notificationType: NotificationTemplateKey
-  channel: 'EMAIL' | 'SMS' | 'WHATSAPP'
+  notificationType: string           -- aggregate types this as plain string, not a literal union
+  channel: string                    -- aggregate types this as plain string, not a literal union
   recipientEmail: string
   status: 'PENDING' | 'SENT' | 'FAILED'
   retryCount: integer (default 0)
@@ -569,20 +582,26 @@ Represents an employee.
 ```
 Staff {
   staffId: StaffId
-  tenantId: TenantId (UNIQUE - staff belongs to exactly ONE tenant)
-  googleOAuthId: String (unique from Google)
+  tenantId: TenantId (staff belongs to exactly ONE tenant)
+  googleOAuthId: String | null (unique from Google; null until first login/activation)
   email: Email
-  firstName: String
-  lastName: String
+  name: String | null
   role: StaffRole
   isActive: Boolean
+  invitedBy: StaffId | null
+  deactivatedBy: StaffId | null
   createdAt: DateTime
   updatedAt: DateTime
 }
 
-Constraint: UNIQUE(googleOAuthId, tenantId)
+Constraint: global UNIQUE(googleOAuthId) — partial index, WHERE google_oauth_id IS NOT NULL
+  (NOT composite with tenantId)
   This means: Same person can NEVER be staff in multiple tenants
   (But same person CAN be customer in multiple tenants)
+
+> Per CLAUDE.md §2 invariant #6: "Staff are single-tenant — global UNIQUE(google_oauth_id) at
+> DB level (not composite with tenant_id — the same Google account cannot be staff at two
+> different tenants)."
 ```
 
 ---

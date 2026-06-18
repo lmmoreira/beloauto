@@ -33,6 +33,16 @@
     STATE: PATCH /v1/bookings/:id/submit-info/guest returned an error (network failure or 5xx).
     Form is re-enabled. Filled values are preserved. Error alert shown above the button.
     Retry button re-triggers the same PATCH call.
+
+    VARIANT — token expired mid-flow (401 instead of network/5xx):
+    If the PATCH instead returns 401 (token expired between page load and submit — e.g. guest
+    left the tab open past the 7-day TTL), the client detects this specific status and should
+    swap the alert copy below for "Seu link expirou enquanto você preenchia o formulário.
+    Solicite um novo link com a equipe ou volte para o início." and replace the "Tentar
+    novamente" button with a link to 01b-invalid-link.html instead of retrying the same PATCH
+    (retrying a request with an already-expired token would just 401 again). This prototype
+    does not introduce a separate screen for this case — same layout, swapped copy + CTA,
+    documented here rather than as a standalone HTML file (see dev-notes.md).
   -->
 
   <div style="background: #fef3c7; border-bottom: 1px solid #d97706; padding: 0.375rem 1rem;

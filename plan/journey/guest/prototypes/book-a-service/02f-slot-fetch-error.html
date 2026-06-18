@@ -15,9 +15,12 @@
     COMPONENT:  SlotPicker  apps/web/components/booking/SlotPicker.tsx  (EXISTS)
     STATE:      errorDate === date  →  shows error block instead of the slot grid.
 
-    RETRY PATTERN: clicking "Tentar novamente" resets errorDate=null and increments
-    retryCount in SlotPicker state, which re-triggers the useEffect fetch.
-    In this static prototype, onclick reloads the page to simulate the retry.
+    RETRY PATTERN (PROPOSED — NOT YET BUILT, see dev-notes.md "Known limitations"):
+    the button below previews a retry UX where clicking "Tentar novamente" resets
+    errorDate=null and increments retryCount in SlotPicker state, re-triggering the
+    useEffect fetch. As of this writing SlotPicker has no retryCount state and no
+    retry handler — same gap as AvailabilityCarousel in 02c-availability-error.html.
+    In this static prototype, onclick reloads the page to simulate the proposed retry.
 
     NOTE: the carousel remains visible and interactive above — the guest can also
     pick a different day to implicitly retry with another date.

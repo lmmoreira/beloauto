@@ -2,7 +2,7 @@
 
 ## Overview
 
-Staff and managers can look up any customer's loyalty balance, earning history, and redemption history from `/dashboard/loyalty`. All endpoints are already implemented in the backend and BFF (M10) — this is a frontend-only story. The customer search endpoint is the only potential gap (see below).
+Staff and managers can look up any customer's loyalty balance, earning history, and redemption history from `/dashboard/loyalty`. Balance/entries/redemptions endpoints are already implemented in the backend and BFF (M10). The customer-search endpoint and the loyalty conversion-rate enrichment are scoped and resolved by `M13-S12` (in `plan/M13-DASHBOARD-FRONTEND.md`) — `M13-S25` treats "Confirm M13-S12 has shipped" as a discovery step, i.e. a settled dependency, not an open question.
 
 ## File map
 
@@ -26,13 +26,14 @@ Response: { items: CustomerSearchResult[], total: number }
   CustomerSearchResult: { customerId, name, email, currentPoints }
 ```
 
-> 🔍 **Verify before starting:** Does `GET /v1/customers?search=` exist in `apps/bff/src/`? Check `apps/bff/src/customers/` or `apps/bff/src/staff/`. If missing, it must be added as part of this story. The backend already has customer records — the query is a simple name/email ILIKE filter scoped to `tenantId`.
+> 🔍 **Verify before starting:** `GET /v1/customers?search=` is scoped and resolved by `M13-S12` (`apps/bff/src/customers/customers.controller.ts`, Part A — staff-facing customer search). Confirm `M13-S12` has shipped before starting this story (per `M13-S25`'s discovery step) rather than treating the endpoint as an open question.
 
 **States:**
 - Default (no search): show "Clientes recentes" — last 5 customers who had bookings, from cache or a `GET /v1/customers?recent=true&limit=5` call
-- While typing: debounce 300ms, show skeleton rows
 - Results: customer rows with name, email, active points badge
-- No results: empty state with message
+- No results: empty state with message (see `01c-no-results.html`)
+
+**Prototype note:** `00-customer-search.html` filters the in-memory mock list synchronously on every keystroke (`oninput`) — no debounce, no loading-skeleton state. At the customer counts a single-tenant car wash will realistically have (tens to low hundreds), a `GET /v1/customers?search=` round-trip is fast enough that a skeleton state is unlikely to be needed; revisit only if real-world usage shows otherwise. If the production implementation does add server-side debounced search, add a `b-loading` skeleton variant screen at that time per the README's "Unhappy path variant screens" checklist.
 
 ## Screen 01 — Customer Loyalty Detail (`CustomerLoyaltyPage`)
 
@@ -62,7 +63,7 @@ All three require `X-Actor-Role: STAFF|MANAGER`.
 - Loaded with zero points: muted balance card (grey) + empty state message (see `01b-no-entries.html`)
 
 **Balance card:**
-- `points_per_currency_unit` needed for "Valor total: R$ X" line — read from tenant settings or BFF balance response. Decide: should the BFF include `pointsPerCurrencyUnit` in the balance response, or should the frontend read it from a tenant settings endpoint? Recommend including it in the balance response as `conversionRate` to avoid an extra call.
+- `points_per_currency_unit` needed for "Valor total: R$ X" line — **resolved by `M13-S12`**: the BFF balance response (`getBalanceAdmin()` and `getBalance()`) is enriched with a `conversionRate` field (`EnrichedLoyaltyBalanceResponse`), sourced from `TenantContext.settings.loyalty.points_per_currency_unit`. No extra settings call needed.
 
 **Tabs:**
 - "Histórico de ganhos" tab: sorted by `earnedAt DESC`; active entries bold, expired entries at 50% opacity with "expirado" badge

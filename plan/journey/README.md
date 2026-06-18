@@ -140,7 +140,7 @@ Every journey must show at minimum: **(1)** the happy-path terminal state, **(2)
 
 ### Journey workflow
 
-0. **Validate source docs**: run `/uc-audit` scoped to the relevant UCs. Resolve findings before proceeding — journeys built on stale UC text cause rework.
+0. **Validate source docs**: run `/docs-audit` scoped to the relevant UCs. Resolve findings before proceeding — journeys built on stale UC text cause rework.
 1. **Inventory**: every UC assigned to a folder's `use-cases.md` by primary actor.
 2. **Group into journeys**: cluster related UCs by goal. Update the inventory's "Journey file" column.
 3. **Draw the flow**: every screen the actor sees, in order, with decisions and gaps marked.
@@ -178,8 +178,13 @@ Currently shared:
 | File | Purpose |
 |---|---|
 | `shared/tokens.css` | Single source of truth for all `--ba-*` custom properties and reusable CSS classes |
-| `shared/hotsite.html` | Fake public hotsite — used as the entry point for both guest and customer flows |
-| `shared/login.html` | Google OAuth login screen — referenced by both guest ("Entrar" bar) and customer (auth bar link) |
+| `shared/hotsite.html` | Fake public hotsite, unauthenticated state — entry point for both guest and customer flows |
+| `shared/hotsite-logged-in.html` | Fake public hotsite, authenticated state — avatar dropdown (Minha conta / Sair) instead of "Entrar"; used by customer flows |
+| `shared/login.html` | Google OAuth login screen (customer) — referenced by both guest ("Entrar" bar) and customer (auth bar link) |
+| `shared/staff-login.html` | Google OAuth login screen (staff/manager) — referenced by all staff-side journeys; links out to the canonical error states in `staff/prototypes/login/` rather than duplicating their copy |
+| `shared/customer-dashboard.html` | "Início" tab of `/{slug}/minha-conta` — overview stats + upcoming/history preview; cross-links to the Agendamentos (`customer/prototypes/minha-conta/01-minha-conta.html`) and Fidelidade tabs |
+| `shared/dashboard-shell.html` | Generic staff/manager dashboard master template (sidebar + bottom-nav + bottom-sheet). NOT a finished page — copy the shell when building a new staff page; `staff/prototypes/agenda/00-agenda.html` is the validated reference implementation, not this file |
+| `shared/entry.html` | Prototype-only actor picker (Sou cliente / Sou funcionário) — lets a reviewer start from one URL; has no production equivalent |
 
 **Path convention from a step file to shared/:** Step files live at `<actor>/prototypes/<journey>/`, so shared/ is three levels up then back into shared/:
 ```
@@ -479,7 +484,7 @@ It must also include a "what this prototype validates" block — 4–6 specific 
 
 ## Part 3 — Workflow (end to end)
 
-1. Run `/uc-audit` on the relevant UCs.
+1. Run `/docs-audit` on the relevant UCs.
 2. Write the journey `.md` file — mermaid flow, pages table, gaps.
 3. Update `use-cases.md` — set "Journey file" column.
 4. Update `README.md` Index table.
@@ -534,7 +539,7 @@ Leaving all error/loading/empty/submission states as commented-out HTML blocks i
 
 Creating HTML prototype files before `<actor>/<slug>.md` exists. The journey `.md` is the specification — it defines navigation scope, maps IA gaps, and documents open questions. Without it, the prototype may answer the wrong questions or miss gaps entirely.
 
-**Fix:** Always complete Part 3 steps 1–4 first (run `/uc-audit`, write `<actor>/<slug>.md`, update `use-cases.md` journey column, update README index). Only then create any file under `<actor>/prototypes/<slug>/`.
+**Fix:** Always complete Part 3 steps 1–4 first (run `/docs-audit`, write `<actor>/<slug>.md`, update `use-cases.md` journey column, update README index). Only then create any file under `<actor>/prototypes/<slug>/`.
 
 ### ❌ Using `.topbar-avatar` for dashboard avatars (hidden on desktop)
 
@@ -667,6 +672,12 @@ This banner is in the page flow — always visible, no positioning conflicts, no
 Creating a validation error variant (e.g. `01b-validation-error.html`) that shows only the section containing the invalid field, omitting all the other form sections. This misleads the reviewer into thinking the rest of the form disappeared on error.
 
 **Fix:** The validation error page must show the **complete form** — all sections, all fields — exactly as it appears in the normal state. Only the invalid field(s) are highlighted (red border + field error message below). All other data entered by the user is preserved and visible. In production, the server returns 422 and the same form page re-renders with error annotations; the reviewer must be able to see this correctly.
+
+### ❌ Dashboard nav items linking to `#` or self-looping instead of the real cross-journey path
+
+Sidebar, bottom-nav, and bottom-sheet items that point to another journey (e.g. "Fidelidade" from inside `servicos/`, or "Equipe"/"Configurações"/"Hotsite" from inside any staff page) were found pointing at `href="#"` or self-looping back to the current page's own file, instead of the real destination — **218 separate occurrences** across `staff/` and `manager/` in one audit pass (2026-06-17). This happens easily because every dashboard page copies its sidebar/bottom-nav markup from an earlier page rather than generating it, so a placeholder link or a self-referencing copy from the "home" page's own nav item silently propagates into every page copied from it afterward.
+
+**Fix:** Every nav item representing a journey OTHER than the current one must link to that journey's real canonical entry-point file (e.g. Agenda → `staff/prototypes/agenda/00-agenda.html`, Equipe → `manager/prototypes/equipe/01-team-list.html`), using the standard relative-path convention (`../<journey>/<file>.html` within the same actor, `../../../<other-actor>/prototypes/<journey>/<file>.html` across actors). Before declaring a prototype done, grep the folder for `href="#"` on `sidebar-nav-item`/`bottom-nav-item`/`bottom-sheet-item` classes, and for any nav item whose href resolves to the current file under a different journey's label — both are bugs.
 
 ---
 

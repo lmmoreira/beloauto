@@ -18,7 +18,8 @@ COPY packages/ packages/
 COPY apps/backend/ apps/backend/
 
 RUN pnpm --filter @beloauto/backend build \
-    && pnpm --filter @beloauto/backend deploy --prod /standalone --legacy
+    && pnpm --filter @beloauto/backend deploy --prod /standalone --legacy \
+    && rm -rf /standalone/node_modules/.pnpm/multer@2.1.1
 
 
 # ─── Stage 2: Run ────────────────────────────────────────────────────────────

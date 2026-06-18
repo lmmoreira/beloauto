@@ -3,7 +3,7 @@
 **Actor(s):** GUEST (main path — unauthenticated, email link); CUSTOMER (alt path — authenticated, via minha-conta)
 **Goal:** Submit the additional information requested by the admin so the booking returns to PENDING and can be approved.
 **UCs covered:** UC-005 A2
-**Status:** Draft
+**Status:** Reviewed — fully specced as `M13-S38`/`M13-S39`/`M13-S40` in `plan/M13-DASHBOARD-FRONTEND.md` (implementable, not yet built)
 
 ## Flow
 
@@ -12,8 +12,8 @@ flowchart TD
     Email(["📧 Email: 'Precisamos de mais informações'"])
     Email --> TokenDecode{"Token válido\ne não expirado?"}
 
-    TokenDecode -->|"Inválido / expirado\n/ já utilizado"| InvalidLink["❓ GAP: Tela de link inválido\n/bookings/[id]/submit-info"]
-    TokenDecode -->|"Válido"| Form["❓ GAP: Formulário de resposta\n/bookings/[id]/submit-info"]
+    TokenDecode -->|"Inválido / expirado\n/ já utilizado"| InvalidLink["✅ Protótipo: Tela de link inválido\n/bookings/[id]/submit-info"]
+    TokenDecode -->|"Válido"| Form["✅ Protótipo: Formulário de resposta\n/bookings/[id]/submit-info"]
 
     Form --> FillText(("Preenche resposta\n(texto obrigatório)"))
     FillText --> PhotoOpt{"Upload de fotos\n(opcional)?"}
@@ -22,9 +22,9 @@ flowchart TD
     Upload --> Submit(("Clica 'Enviar resposta'"))
 
     Submit --> API["PATCH /v1/bookings/:id/submit-info/guest\n?token=…"]
-    API -->|"Erro de rede\nou servidor"| ErrRetry["❓ GAP: Tela de erro\n(retry disponível)"]
+    API -->|"Erro de rede\nou servidor"| ErrRetry["✅ Protótipo: Tela de erro\n(retry disponível)"]
     ErrRetry --> Submit
-    API -->|"Sucesso 200"| Success["❓ GAP: Confirmação\n/bookings/[id]/submit-info"]
+    API -->|"Sucesso 200"| Success["✅ Protótipo: Confirmação\n/bookings/[id]/submit-info"]
 
     AuthCustomer(["Cliente autenticado\nrecebe mesmo email"])
     AuthCustomer -->|"Link → /dashboard/bookings/:id"| DashDetail["EXISTENTE (stub): Detalhe do agendamento\n/dashboard/bookings/[id]"]
@@ -32,9 +32,13 @@ flowchart TD
 
     classDef gap stroke:#f00,stroke-dasharray: 5 5,fill:#fee
     classDef existing fill:#e6ffe6,stroke:#3a3
-    class InvalidLink,Form,ErrRetry,Success,CustomerForm gap
+    classDef prototyped fill:#fff7ed,stroke:#f97316
+    class CustomerForm gap
     class DashDetail existing
+    class InvalidLink,Form,ErrRetry,Success prototyped
 ```
+
+**Legend:** `existing` (green) = code already in production. `prototyped` (orange) = UX validated via static HTML prototype in `prototypes/submit-info/`, but no implementation story written yet. `gap` (red, dashed) = no design or prototype exists yet — genuinely undesigned.
 
 ## Pages referenced
 
@@ -65,6 +69,7 @@ Also update the companion `.spec.ts` to expect the new path. This is a backend c
 
 ## Open questions / gaps
 
-- [ ] Should the page show the tenant's branding (colors, logo)? If yes: token contains `tenantId` only — page must call `GET /v1/public/tenants/:tenantId/config` (or similar) to fetch branding. Or: include `tenantSlug` in the token so branding can be fetched via slug.
+- [ ] Tenant branding on this page — see canonical description in `prototypes/submit-info/dev-notes.md` § Known limitations ("No branding per tenant").
 - [ ] Photo upload: presigned URL endpoint needed for unauthenticated context — does `POST /v1/bookings/:id/presigned-url/guest?token=` exist, or does the guest just submit text and a staff member uploads photos later?
-- [ ] What should the page say if the booking has already been approved/rejected before the guest submits info (booking status is no longer `INFO_REQUESTED`)?
+- [x] What should the page say if the booking has already been approved/rejected before the guest submits info (booking status is no longer `INFO_REQUESTED`)? — **Resolved.** The API returns `409`/non-`INFO_REQUESTED`; `M13-S40`'s invalid-link view gets a `reason="processed"` variant with copy "este agendamento já foi processado."
+- [ ] Does the "Criar conta / Entrar" link on the success screen (`02-success.html`) generate real value for the guest at that moment, or is it noise that distracts from the confirmation message? (raised in `prototypes/submit-info/index.html` dry-run checklist item 5)

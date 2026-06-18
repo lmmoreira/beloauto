@@ -24,93 +24,84 @@ All endpoints are served by the **BFF** (`apps/bff/`) — the frontend never cal
 - **Authenticated Endpoints:** Must include `Authorization: Bearer <JWT>`.
 - **Validation:** The BFF will reject any request where the `X-Tenant-Slug` does not match the `tenantId/slug` context in the JWT (for authenticated requests).
 
-### 3. **Pagination Strategy (Limit-Offset)**
+### 3. **Pagination Strategy — Three Incompatible Shapes (Known Inconsistency)**
 
-All list endpoints support pagination using **limit/offset** strategy. This is cursor-like but simpler for MVP.
+> ⚠️ **Known inconsistency — tech debt, not a typo.** List endpoints were originally designed around one universal `{ data, pagination }` shape. In practice, three different shapes were implemented across BFF modules, and a fourth endpoint returns no pagination wrapper at all. This section documents what each endpoint **actually** returns today. Do not "fix" one example to match another without a coordinated cross-module change — see the callout at the end of this section before unifying them.
 
-#### **Query Parameters:**
-| Parameter | Type | Default | Max | Description |
-|-----------|------|---------|-----|-------------|
-| `limit` | integer | 50 | 100 | Number of items per page |
-| `offset` | integer | 0 | ∞ | Skip this many items |
+#### **Pattern A — Offset-based, `items` key, no `nextOffset`**
 
-#### **Request Example:**
+Used by `GET /bookings` (`BookingListResponse`, `apps/bff/src/bookings/bookings.types.ts`).
+
 ```
-GET /bookings?status=APPROVED&limit=25&offset=0
-```
-
-#### **Response Format (Standard for All List Endpoints):**
-```json
+GET /bookings?status=APPROVED&limit=10&offset=0
+Response:
 {
-  "data": [
-    { "bookingId": "...", "status": "APPROVED", ... },
-    { "bookingId": "...", "status": "APPROVED", ... }
-  ],
-  "pagination": {
-    "limit": 25,
-    "offset": 0,
-    "total": 1234,
-    "hasMore": true,
-    "nextOffset": 25
-  }
+  "items": [ /* 10 bookings */ ],
+  "pagination": { "limit": 10, "offset": 0, "total": 45, "hasMore": true }
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `data` | array | Array of items for this page |
-| `limit` | integer | Requested limit |
-| `offset` | integer | Requested offset |
-| `total` | integer | Total count of all items (expensive query; see note below) |
-| `hasMore` | boolean | true = more items beyond this page |
-| `nextOffset` | integer | Convenience: offset for next page (`offset + limit`) |
+| `items` | array | Array of items for this page |
+| `pagination.limit` | integer | Requested limit |
+| `pagination.offset` | integer | Requested offset |
+| `pagination.total` | integer | Total count of all items |
+| `pagination.hasMore` | boolean | true = more items beyond this page |
+
+#### **Pattern B — Offset-based, `items` key, with `nextOffset`**
+
+Used by `GET /staff` (`StaffListResponse`, `apps/bff/src/staff/staff.types.ts`).
+
+```
+GET /staff?limit=25&offset=0
+Response:
+{
+  "items": [ /* 25 staff members */ ],
+  "pagination": { "limit": 25, "offset": 0, "total": 8, "hasMore": false, "nextOffset": 25 }
+}
+```
+
+Same fields as Pattern A, plus `pagination.nextOffset` (convenience: `offset + limit`).
+
+#### **Pattern C — Page-based, custom item key, no `hasMore`/`nextOffset`**
+
+Used by `GET /loyalty/entries` and `GET /loyalty/redemptions` (`LoyaltyEntriesResponse` / `LoyaltyRedemptionsResponse`, `apps/bff/src/loyalty/loyalty.types.ts`). The item array key matches the resource name (`entries`, `redemptions`) rather than a generic `items`/`data`.
+
+```
+GET /customers/:id/loyalty/entries?page=1&limit=20
+Response:
+{
+  "entries": [ /* 20 entries */ ],
+  "pagination": { "page": 1, "limit": 20, "total": 83 }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entries` | array | Array of items for this page (named after the resource — `redemptions` for the redemptions endpoint) |
+| `pagination.page` | integer | 1-indexed page number (not an offset) |
+| `pagination.limit` | integer | Requested page size |
+| `pagination.total` | integer | Total count of all items |
+
+#### **Pattern D — Unpaginated (full list)**
+
+Used by `GET /services` (`HotsiteServiceListResponse`, `packages/types/src/hotsite.ts`) — see "Services List" example below. No `limit`/`offset`/`page` query params accepted; no pagination wrapper in the response.
+
+```
+GET /services
+Response:
+{ "items": [ /* all active services for the tenant */ ] }
+```
 
 #### **Important Notes:**
 
-1. **Total Count**: Computing `total` requires a COUNT query. For performance, consider:
-   - Include total only on first page (`offset=0`)
-   - Or use `hasMore` without `total` (cheaper)
-   - Or cache total for 1 minute
+1. **Total Count**: Computing `total` requires a COUNT query. For performance-sensitive endpoints, consider caching or omitting `total` on subsequent pages.
+2. **Validation** (Patterns A/B): `limit` must be 1–100 (`400` if not); `offset` must be ≥ 0 (`400` if not).
+3. **Validation** (Pattern C): `page` must be ≥ 1; `limit` must be 1–100.
+4. **New endpoints:** pick whichever existing pattern is closest to the consuming module's other endpoints — do not introduce a fifth shape.
 
-2. **Max Limit**: Set to 100 items max to prevent resource exhaustion. If client requests `limit=1000`, cap at 100.
-
-3. **Default Behavior**: If `limit` or `offset` omitted, use defaults (50, 0).
-
-4. **Validation**:
-   - `limit` must be 1–100 (return `400 invalid-limit` if not)
-   - `offset` must be ≥ 0 (return `400 invalid-offset` if not)
-
-#### **Examples Across Different Endpoints:**
-
-**Bookings List (Paginated):**
-```
-GET /bookings?status=APPROVED&limit=10&offset=0
-Response:
-{
-  "data": [ /* 10 bookings */ ],
-  "pagination": { "limit": 10, "offset": 0, "total": 45, "hasMore": true, "nextOffset": 10 }
-}
-```
-
-**Services List (Paginated):**
-```
-GET /services?limit=50&offset=0
-Response:
-{
-  "data": [ /* 50 services */ ],
-  "pagination": { "limit": 50, "offset": 0, "total": 127, "hasMore": true, "nextOffset": 50 }
-}
-```
-
-**Loyalty Entries (Paginated):**
-```
-GET /customers/:id/loyalty/entries?limit=20&offset=0
-Response:
-{
-  "data": [ /* 20 entries */ ],
-  "pagination": { "limit": 20, "offset": 0, "total": 83, "hasMore": true, "nextOffset": 20 }
-}
-```
+> ⚠️ **Known inconsistency — worth unifying later.** Having three paginated shapes (plus one unpaginated endpoint) is tech debt: frontend fetchers cannot share a single generic pagination hook/type today. This is intentionally **not** silently merged into one "corrected" shape in this doc, because doing so would misrepresent what the code returns. If/when this is unified, update this section, the affected BFF response types, and every frontend consumer in the same change.
 
 #### **Future: Cursor-Based Pagination**
 
@@ -302,7 +293,7 @@ The frontend then includes the returned `{ url, photoType }` (plus `bookingId` a
 - `403` — caller is `STAFF`, not `MANAGER`
 
 ### **Service Management (Admin - UC-012, UC-013)**
-- `GET /services` -> List all services (Public/Admin). Each item includes:
+- `GET /services` -> List all services (Public/Admin). **Unpaginated** — no `limit`/`offset` query params accepted; returns the tenant's full active service catalog wrapped in `{ items: [...] }` (`HotsiteServiceListResponse`, see Pagination Strategy Pattern D above). Each item includes:
   ```json
   {
     "serviceId": "uuid", "name": "Coleta e Entrega", "description": "...",
@@ -312,7 +303,7 @@ The frontend then includes the returned `{ url, photoType }` (plus `bookingId` a
     "isActive": true
   }
   ```
-  The frontend uses `requiresPickupAddress` to show/hide the address field as services are added to the basket.
+  Response shape: `{ "items": [ { ...above... }, ... ] }`. The frontend uses `requiresPickupAddress` to show/hide the address field as services are added to the basket.
 - `POST /services` -> Create service (Admin). Body includes `requiresPickupAddress: boolean` (default `false`).
 - `PATCH /services/:id` -> Update service details/price/duration/`requiresPickupAddress` (Admin).
 - `DELETE /services/:id` -> Deactivate service (Admin).
@@ -534,10 +525,14 @@ Requires JWT with `role: CUSTOMER`. Tenant resolved from JWT `tenantId` — no `
 - `PATCH /bookings/:id/reject` → (UC-004) Reject a PENDING or INFO_REQUESTED booking. Body: `{ reason: string }` (required, min 10 chars). Returns `200 { bookingId, status: 'REJECTED' }`.
 - `PATCH /bookings/:id/request-info` → (UC-005a) Transition PENDING → INFO_REQUESTED. Body: `{ message: string }` (required, min 20 chars). Returns `200 { bookingId, status: 'INFO_REQUESTED' }`.
 
-**Customer info submission** (JWT + `CUSTOMER` role required; tokenised-link flow for guests TBD in M08-S04):
+**Customer info submission** (JWT + `CUSTOMER` role required):
 - `PATCH /bookings/:id/submit-info` → (UC-005b) Transition INFO_REQUESTED → PENDING. Body: `{ response: string, photoUrls?: string[] }`. Returns `200 { bookingId, status: 'PENDING' }`. Any provided `photoUrls` are appended to `booking.beforeServicePhotoUrls`. Each path is verified via `IStorageService.exists()` before persisting — an unresolvable path returns `400 photo-not-uploaded`.
+- `PATCH /bookings/:id/submit-info/guest?token=<guestToken>` → (UC-005b, guest flow) Same transition for a guest booking. No JWT — identity comes from the signed `guestToken` query param (issued when the booking was put into `INFO_REQUESTED`); the token's `bookingId` must match the route `:id`. Body: same shape as the authenticated variant. Returns `200 { bookingId, status, infoSubmittedAt }`.
 
-- `PATCH /bookings/:id` → (UC-008) General update (e.g., **Reschedule** date/time). Lines cannot be edited after `APPROVED` (returns `409 booking-lines-frozen`).
+> **No generic `PATCH /bookings/:id` or `PATCH /bookings/:id/status` endpoint exists.** Every booking state transition and field update is its own action-specific route: `/cancel`, `/approve`, `/reject`, `/request-info`, `/submit-info`, `/submit-info/guest`, `/reschedule`, `/complete`. Lines cannot be edited after `APPROVED` (returns `409 booking-lines-frozen`).
+
+**Cancel** (JWT + `CUSTOMER|MANAGER|STAFF` role required):
+- `PATCH /bookings/:id/cancel` → (UC-007, UC-008) Cancel a booking. The BFF dispatches to a different backend route depending on the caller's role: `CUSTOMER` → `cancel-customer` (no body), `MANAGER`/`STAFF` → `cancel-admin` (body: `{ reason?: string }`). Returns `200 { bookingId, status: 'CANCELLED' }`.
 
 ### **Reschedule (UC-008)**
 - `PATCH /bookings/:id/reschedule`
@@ -553,46 +548,34 @@ See `PATCH /bookings/:id/submit-info` in the Booking Management section above.
 - **Body:**
   ```json
   {
-    "notes": "Extra shine applied",
-    "photoUrls": ["https://..."],
-    "lineActualPrices": [
+    "lines": [
       { "lineId": "uuid-line-1", "actualPriceCharged": 80.00 },
       { "lineId": "uuid-line-2", "actualPriceCharged": 0.00 }
-    ]
+    ],
+    "afterServicePhotoUrls": ["tenants/<tenantId>/bookings/<bookingId>/after.jpg"],
+    "adminNotes": "Extra shine applied"
   }
   ```
-  - `lineActualPrices` is optional. Omit it entirely if all lines were charged at full price.
-  - Individual entries can be omitted — lines not listed default to `priceAtBooking`.
+  - `lines` is **required**, minimum 1 entry — every line on the booking must be listed with its actual charged price (`CompleteBookingBodySchema`, `apps/bff/src/bookings/bookings.controller.ts`). There is no "omit lines charged at full price" shortcut.
   - `actualPriceCharged` must be `>= 0`. Zero is valid (waived service).
+  - `afterServicePhotoUrls` optional, defaults to `[]`. Paths must match `tenants/<tenantId>/bookings/<bookingId>/...`.
+  - `adminNotes` optional, 1–500 chars.
 
 - **Response (`200 OK`):**
   ```json
   {
     "bookingId": "uuid",
     "status": "COMPLETED",
-    "totalPrice":       { "amount": 120.00, "currency": "BRL" },
-    "totalActualPrice": { "amount":  80.00, "currency": "BRL" },
-    "lines": [
-      {
-        "lineId": "uuid-line-1",
-        "serviceId": "uuid-basic-wash",
-        "priceAtBooking":     { "amount": 100.00, "currency": "BRL" },
-        "actualPriceCharged": { "amount":  80.00, "currency": "BRL" }
-      },
-      {
-        "lineId": "uuid-line-2",
-        "serviceId": "uuid-pickup",
-        "priceAtBooking":     { "amount": 20.00, "currency": "BRL" },
-        "actualPriceCharged": { "amount":  0.00, "currency": "BRL" }
-      }
-    ]
+    "completedAt": "2026-05-29T14:00:00.000Z",
+    "totalActualPrice": { "amount": 80.00, "currency": "BRL" }
   }
   ```
+  The response is flat — no per-line breakdown (`CompleteBookingResponse`, `apps/bff/src/bookings/bookings.types.ts`). Per-line `actualPriceCharged` is persisted but only surfaced later via `GET /bookings/:id` (`BookingLineDetail`).
 
 - **Errors:**
-  - `400 invalid-line-id` — a `lineId` in `lineActualPrices` does not belong to this booking.
+  - `400 invalid-line-id` — a `lineId` in `lines` does not belong to this booking.
   - `400 invalid-actual-price` — `actualPriceCharged` is negative.
-  - `400 photo-not-uploaded` — one or more `photoUrls` paths were never confirmed as uploaded to GCS (verified via `IStorageService.exists()` before persisting).
+  - `400 photo-not-uploaded` — one or more `afterServicePhotoUrls` paths were never confirmed as uploaded to GCS (verified via `IStorageService.exists()` before persisting).
 
 ---
 

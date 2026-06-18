@@ -66,7 +66,9 @@ POST /v1/auth/token { selectionToken, tenantId }
 - "X pontos ativos" (subdued)
 - Chevron right
 
-**Loading state:** skeleton cards while token is decoded.
+**Loading state:** skeleton cards while token is decoded — see `01b-loading.html`.
+
+**Fetch-error state:** token decode or `GET /v1/auth/tenants?token=...` failed — show inline error + "Tentar novamente" (reloads/retries) — see `01c-fetch-error.html`.
 
 ## Phone completion — UC-021 A3
 
@@ -85,7 +87,7 @@ Headers: Authorization: Bearer <jwt>
 
 **Validation (client-side):** strip non-digits, must be 10 or 11 digits.
 
-**Prototype:** `02-phone-completion.html` shows this as a standalone screen for review clarity. Production intent: inline prompt, not a page navigation.
+**Prototype:** `02-phone-completion.html` shows this as a standalone screen for review clarity. Production intent: inline prompt, not a page navigation. Validation-error state (422 / client-side reject) — see `02b-validation-error.html`.
 
 ## UC-023 — Customer Switches Tenant
 

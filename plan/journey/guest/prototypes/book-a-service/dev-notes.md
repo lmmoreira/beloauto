@@ -41,6 +41,7 @@ None of these are new routes — each is the same component in a different state
 | `02c-availability-error.html` | 2 | `fetchAvailabilitySummary()` rejected | — | No retry button — see Known limitations |
 | `02d-fully-booked.html` | 2 | All days `available: false` | — | No explanatory copy — see Known limitations |
 | `02e-slot-conflict.html` | 2 | 409 on submit → back to step 2 | `step2-error` | |
+| `02f-slot-fetch-error.html` | 2 | `SlotPicker` day fetch rejected | — | Retry button shown is a **proposed fix, not yet built** — see Known limitations |
 | `03b-validation-error.html` | 3 | Invalid e-mail, "Próximo" clicked | `personal-info-error` | |
 | `03c-photo-states.html` | 3 | Photo items: done / uploading / error | — | Error item has no "Remover" — see Known limitations |
 | `04b-submitting.html` | 4 | `status = 'submitting'` | — | |
@@ -192,6 +193,7 @@ These are real component-behavior gaps found while building this prototype. They
 
 - **`AvailabilityCarousel` has no "fully booked" empty state.** When every day in the 14-day window has `available: false`, the carousel renders 14 disabled pills with no explanatory copy — a guest can't tell "fully booked" from "broken page". Possible fix: a message such as "Nenhum horário disponível nos próximos dias. Entre em contato connosco." when `days.every(d => !d.available)`. See `02d-fully-booked.html`.
 - **`AvailabilityCarousel` fetch-error has no retry action.** The error message ends with "Tente novamente" but there is no button — the `useEffect` fetch runs once on mount (deps `[slug, serviceIds]`); only a full page reload re-triggers it. See `02c-availability-error.html`.
+- **`02f-slot-fetch-error.html`'s retry button is a proposed fix, not a reflection of current `SlotPicker` code.** The HTML shows a fully-styled "Tentar novamente" button (matching `02c`'s visual pattern), but as of this writing `SlotPicker.tsx` has the same gap as `AvailabilityCarousel`: its day-fetch effect has no `retryCount` state and no retry handler wired up — only a full page reload re-triggers the fetch. The two screens look inconsistent (`02c` undecorated error, `02f` styled retry button) because `02f` is intentionally showing what the fix *should* look like once built, using the same button markup proposed for `02c`. Recommendation: implement the `retryCount`-driven re-fetch in both `AvailabilityCarousel` and `SlotPicker` together, so the two error states stay visually and behaviorally consistent — do not ship `02f`'s button without also fixing `02c`.
 - **`PhotoUpload` errored items are a dead end.** An item with `status === 'error'` shows "Erro ao enviar" but only `status === 'done'` items render the "Remover" button — there's no way to retry or remove a failed upload. Low risk for MVP since photos are optional (`beforeServicePhotoUrls?`), but worth fixing before any flow makes photos required. See `03c-photo-states.html`.
 
 ## No new files needed

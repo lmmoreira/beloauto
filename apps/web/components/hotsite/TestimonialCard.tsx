@@ -4,13 +4,8 @@ import type { Testimonial } from '@beloauto/types';
 
 interface TestimonialCardProps {
   readonly testimonial: Testimonial;
+  readonly cardBg?: string;
 }
-
-const cardStyle: React.CSSProperties = {
-  backgroundColor: 'var(--ba-secondary)',
-  borderRadius: 'var(--ba-radius)',
-  boxShadow: 'var(--ba-shadow)',
-};
 
 interface StarRatingProps {
   readonly rating: 1 | 2 | 3 | 4 | 5;
@@ -36,7 +31,12 @@ function StarRating({ rating }: StarRatingProps) {
   );
 }
 
-export function TestimonialCard({ testimonial }: TestimonialCardProps) {
+export function TestimonialCard({ testimonial, cardBg }: TestimonialCardProps) {
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: cardBg ?? 'var(--ba-secondary)',
+    borderRadius: 'var(--ba-radius)',
+    boxShadow: 'var(--ba-shadow)',
+  };
   return (
     <div className="flex h-full flex-col gap-3 p-6" style={cardStyle}>
       {testimonial.avatarUrl && (

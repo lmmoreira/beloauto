@@ -2,23 +2,63 @@ import Image from 'next/image';
 import type React from 'react';
 import type { HeroModuleData } from '@beloauto/types';
 import { sectionHeadingFont } from '@/lib/hotsite/module-styles';
+import { SectionEyebrow } from './SectionEyebrow';
 
 interface HeroModuleProps {
   readonly data: HeroModuleData;
   readonly slug: string;
+  readonly tenantBrand?: { name: string; tagline?: string };
 }
 
-const btnStyle: React.CSSProperties = {
+const headingStyle: React.CSSProperties = {
+  ...sectionHeadingFont,
+  color: 'var(--ba-hero-text)',
+};
+
+const primaryBtnStyle: React.CSSProperties = {
   backgroundColor: 'var(--ba-btn-bg)',
   color: 'var(--ba-btn-text)',
   borderColor: 'var(--ba-btn-border)',
   borderRadius: 'var(--ba-radius)',
 };
 
-const headingStyle: React.CSSProperties = {
-  ...sectionHeadingFont,
+const secondaryBtnStyle: React.CSSProperties = {
+  backgroundColor: 'transparent',
   color: 'var(--ba-hero-text)',
+  borderColor: 'var(--ba-hero-text)',
+  borderRadius: 'var(--ba-radius)',
+  opacity: 0.85,
 };
+
+function BrandCard({ name, tagline }: { readonly name: string; readonly tagline?: string }) {
+  return (
+    <div
+      className="flex flex-shrink-0 flex-col items-center justify-center p-8 text-center sm:p-10"
+      style={{
+        backgroundColor: 'var(--ba-secondary)',
+        border: '2px solid var(--ba-primary)',
+        borderRadius: 'var(--ba-radius)',
+      }}
+      data-testid="brand-card"
+    >
+      <div
+        className="text-2xl font-black uppercase tracking-widest sm:text-3xl"
+        style={{ color: 'var(--ba-primary)' }}
+      >
+        {name}
+      </div>
+      {tagline && (
+        <div
+          className="mt-2 text-xs uppercase tracking-widest"
+          style={{ color: 'var(--ba-text)', opacity: 0.6 }}
+          data-testid="brand-card-tagline"
+        >
+          {tagline}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function HeroTextContent({
   data,
@@ -27,63 +67,96 @@ function HeroTextContent({
   readonly data: HeroModuleData;
   readonly ctaHref: string;
 }) {
+  const secondaryHref = data.secondaryCtaTarget ? `#${data.secondaryCtaTarget}` : undefined;
+
   return (
     <>
-      <h1 className="text-4xl sm:text-5xl font-bold mb-4" style={headingStyle}>
+      {data.eyebrow && <SectionEyebrow text={data.eyebrow} />}
+      <h1 className="mb-4 text-4xl font-bold sm:text-5xl" style={headingStyle}>
         {data.title}
       </h1>
       {data.subtitle && (
         <p
-          className="text-lg sm:text-xl mb-8 opacity-90"
+          className="mb-8 text-lg opacity-90 sm:text-xl"
           style={{ color: 'var(--ba-hero-text)' }}
           data-testid="hero-subtitle"
         >
           {data.subtitle}
         </p>
       )}
-      <a
-        href={ctaHref}
-        style={btnStyle}
-        className="inline-block border-2 px-8 py-3 font-semibold transition-all hover:opacity-90 hover:bg-[var(--ba-btn-hover-bg)]"
-      >
-        {data.ctaLabel}
-      </a>
+      <div className="flex flex-wrap gap-4">
+        <a
+          href={ctaHref}
+          style={primaryBtnStyle}
+          className="inline-block border-2 px-8 py-3 font-semibold transition-all hover:opacity-90 hover:bg-[var(--ba-btn-hover-bg)]"
+        >
+          {data.ctaLabel}
+        </a>
+        {data.secondaryCtaLabel && secondaryHref && (
+          <a
+            href={secondaryHref}
+            style={secondaryBtnStyle}
+            className="inline-block border-2 px-8 py-3 font-semibold transition-all hover:opacity-100"
+            data-testid="hero-secondary-cta"
+          >
+            {data.secondaryCtaLabel}
+          </a>
+        )}
+      </div>
     </>
   );
 }
 
-export function HeroModule({ data, slug: _ }: HeroModuleProps) {
+export function HeroModule({ data, slug: _, tenantBrand }: HeroModuleProps) {
   const ctaHref = `#${data.ctaTarget}`;
   const bgUrl = data.backgroundImageUrl;
+
+  // Determine what to render in the right column (left-aligned variant only).
+  // If rightPanel is not set, fall back based on whether an image URL is present.
+  const rightPanel = data.rightPanel ?? (bgUrl ? 'image' : 'none');
+
+  const sectionStyle: React.CSSProperties = {
+    backgroundColor: bgUrl && data.variant === 'centered' ? undefined : 'var(--ba-hero-bg)',
+  };
 
   if (data.variant === 'centered') {
     return (
       <section
         data-variant="centered"
-        className="relative min-h-screen sm:min-h-[60vh] flex items-center justify-center px-6"
-        style={{ backgroundColor: bgUrl ? undefined : 'var(--ba-primary)' }}
+        className="relative flex min-h-screen items-center justify-center px-6 sm:min-h-[60vh]"
+        style={sectionStyle}
       >
         {bgUrl && <Image src={bgUrl} alt="" fill priority sizes="100vw" className="object-cover" />}
-        <div className="relative z-10 text-center py-16 max-w-3xl mx-auto">
+        <div className="relative z-10 mx-auto max-w-3xl py-16 text-center">
           <HeroTextContent data={data} ctaHref={ctaHref} />
         </div>
       </section>
     );
   }
 
-  // left-aligned: image appears in the right column on desktop, stacks below on mobile
+  // left-aligned: text on the left, optional right panel
+  const hasRightPanel =
+    rightPanel !== 'none' &&
+    (rightPanel !== 'image' || !!bgUrl) &&
+    (rightPanel !== 'brand-card' || !!tenantBrand);
+
   return (
     <section
       data-variant="left-aligned"
-      className="relative min-h-screen sm:min-h-[60vh] flex items-center"
-      style={{ backgroundColor: 'var(--ba-primary)' }}
+      className="relative flex min-h-screen items-center sm:min-h-[60vh]"
+      style={{ backgroundColor: 'var(--ba-hero-bg)' }}
     >
-      <div className="w-full px-6 py-16 max-w-7xl mx-auto">
-        <div className={`grid grid-cols-1 ${bgUrl ? 'sm:grid-cols-2' : ''} gap-12 items-center`}>
+      <div className="w-full max-w-7xl px-6 py-16 mx-auto">
+        <div
+          className={`grid grid-cols-1 gap-12 items-center ${hasRightPanel ? 'sm:grid-cols-2' : ''}`}
+        >
           <div>
             <HeroTextContent data={data} ctaHref={ctaHref} />
           </div>
-          {bgUrl && (
+          {rightPanel === 'brand-card' && tenantBrand && (
+            <BrandCard name={tenantBrand.name} tagline={tenantBrand.tagline} />
+          )}
+          {rightPanel === 'image' && bgUrl && (
             <div className="relative h-64 sm:h-full sm:min-h-[40vh]">
               <Image
                 src={bgUrl}

@@ -55,6 +55,24 @@ describe('HeroModuleDataSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts optional eyebrow, secondaryCtaLabel, secondaryCtaTarget, rightPanel', () => {
+    const result = HeroModuleDataSchema.safeParse({
+      ...validHeroData,
+      eyebrow: 'Estética premium',
+      secondaryCtaLabel: 'Ver serviços',
+      secondaryCtaTarget: 'service-list',
+      rightPanel: 'brand-card',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an invalid rightPanel value', () => {
+    const result = HeroModuleDataSchema.safeParse({ ...validHeroData, rightPanel: 'video' });
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects an invalid variant', () => {
     const result = HeroModuleDataSchema.safeParse({ ...validHeroData, variant: 'invalid' });
 
@@ -304,6 +322,24 @@ describe('ContactModuleDataSchema', () => {
 
   it('rejects a non-boolean value for a show flag', () => {
     const result = ContactModuleDataSchema.safeParse({ ...validContactData, showMap: 'yes' });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts optional displayStyle, showInstagram, showFacebook, whatsappCtaLabel', () => {
+    const result = ContactModuleDataSchema.safeParse({
+      ...validContactData,
+      displayStyle: 'icon-cards',
+      showInstagram: false,
+      showFacebook: true,
+      whatsappCtaLabel: 'Chamar no WhatsApp',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an invalid displayStyle', () => {
+    const result = ContactModuleDataSchema.safeParse({ ...validContactData, displayStyle: 'grid' });
 
     expect(result.success).toBe(false);
   });

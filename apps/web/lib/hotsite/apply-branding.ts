@@ -74,14 +74,31 @@ function contrastRatio(hexA: string, hexB: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-// The hero section's solid background is --ba-primary (see HeroModule.tsx) when there is no
-// background image. Pick whichever of backgroundColor/textColor contrasts better against it,
-// rather than always assuming backgroundColor is readable on top of primaryColor.
+// The effective background color of the hero section — either the primary brand color (default)
+// or the page background color when heroBgStyle === 'background'.
+function deriveHeroBg(branding: HotsiteBrandingResponse): string {
+  return branding.heroBgStyle === 'background' ? branding.backgroundColor : branding.primaryColor;
+}
+
+// Pick whichever of backgroundColor/textColor contrasts better against the hero background,
+// so text is always legible regardless of heroBgStyle.
 function deriveHeroTextColor(branding: HotsiteBrandingResponse): string {
-  const { primaryColor, backgroundColor, textColor } = branding;
-  return contrastRatio(primaryColor, backgroundColor) >= contrastRatio(primaryColor, textColor)
+  const heroBg = deriveHeroBg(branding);
+  const { backgroundColor, textColor } = branding;
+  return contrastRatio(heroBg, backgroundColor) >= contrastRatio(heroBg, textColor)
     ? backgroundColor
     : textColor;
+}
+
+// CSS value for the divider rendered between sections.
+function deriveDivider(branding: HotsiteBrandingResponse): string {
+  if (branding.dividerStyle === 'gradient') {
+    return `linear-gradient(90deg, transparent, ${branding.primaryColor}, transparent)`;
+  }
+  if (branding.dividerStyle === 'solid') {
+    return branding.secondaryColor;
+  }
+  return 'none';
 }
 
 export function applyBranding(
@@ -103,6 +120,8 @@ export function applyBranding(
     '--ba-btn-text': btn.text,
     '--ba-btn-border': btn.border,
     '--ba-btn-hover-bg': btn.hoverBg,
+    '--ba-hero-bg': deriveHeroBg(branding),
     '--ba-hero-text': deriveHeroTextColor(branding),
+    '--ba-divider': deriveDivider(branding),
   };
 }

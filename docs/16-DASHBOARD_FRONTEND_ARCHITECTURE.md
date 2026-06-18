@@ -8,21 +8,24 @@ The Dashboard is the authenticated area of BeloAuto where **Customers** manage t
 
 ## 1. Role-Based Rendering (RBR)
 
-The application uses a "Shell" pattern. Once a user authenticates via Google OAuth, the `AppShell` determines which "Mode" to load:
+> **Two separate shells, not one `AppShell` with a mode switch.** M13 (`plan/M13-DASHBOARD-FRONTEND.md`, stories `S15`/`S16`) builds a **staff/manager dashboard shell** at `/dashboard/**` and a **separate customer "Minha Conta" shell** at `/{slug}/minha-conta/**`. They live under different route trees, are protected by different middleware checks, and share no top-level shell component. There is no unified `AppShell`/"mode" concept and no `CommandCenter`/`BookingTimeline`/`LoyaltyCard`/`ServiceEditor`/`TenantSwitcher` components — those names predate the M13 plan and were never built.
 
-### **Customer Mode (UC-006, UC-007, UC-016, UC-023)**
-- **Focus:** Personal history and loyalty.
-- **Key Modules:**
-  - `BookingTimeline`: Unified view of upcoming and past washes.
-  - `LoyaltyCard`: Per-service point progress.
-  - `TenantSwitcher`: Interface to jump between different car wash companies.
+### **Staff/Manager Shell — `/dashboard/**` (M13-S15; UC-003, UC-004, UC-005, UC-008, UC-009, UC-010, UC-012, UC-013)**
+- **Focus:** Efficiency and task management for STAFF and MANAGER roles.
+- **Route protection:** `apps/web/middleware.ts` reads the JWT from the `httpOnly` cookie; redirects to `/dashboard/login` if missing or if role is not `STAFF`/`MANAGER`.
+- **Layout:** `apps/web/app/dashboard/layout.tsx` (server component) reads the JWT via `cookies()`, extracts `{ tenantSlug, tenantName, userName, role }`, and renders `<DashboardShell>`.
+- **Key components (`apps/web/components/dashboard/`):**
+  - `DashboardShell.tsx` — `'use client'` shell wrapper: sidebar (desktop, `≥1024px`) + topbar + bottom nav (mobile, `<1024px`); conditionally renders manager-only nav based on `role`.
+  - `Sidebar.tsx` — logo block, nav items (Agenda, Horários, Serviços, Fidelidade), and a "Somente Gerente" section (Equipe, Configurações, Hotsite) shown only when `role === 'MANAGER'`.
+  - `Topbar.tsx` — back arrow + title on drill-down pages, page title on list pages, avatar + date on desktop.
+  - `BottomNav.tsx` — mobile-only tab bar mirroring the sidebar's nav items, role-aware.
 
-### **Staff Mode (UC-003, UC-004, UC-005, UC-008, UC-009, UC-010, UC-012, UC-013)**
-- **Focus:** Efficiency and task management.
-- **Key Modules:**
-  - `CommandCenter`: Real-time queue of pending bookings.
-  - `ServiceEditor`: CRUD interface for tenant services.
-  - `ScheduleCalendar`: Drag-and-drop availability management.
+### **Customer Shell — `/{slug}/minha-conta/**` (M13-S16; UC-006, UC-007, UC-016, UC-023)**
+- **Focus:** Personal booking history and loyalty for the `CUSTOMER` role.
+- **Route protection:** `apps/web/middleware.ts` extends the same file with a check for `/{slug}/minha-conta/**` — redirects to `/{slug}/login` if the JWT is missing/expired, if the role is not `CUSTOMER` (staff must not reach the customer area), or if the JWT's `tenantSlug` does not match the `[slug]` path segment.
+- **Layout:** `apps/web/app/[slug]/minha-conta/layout.tsx` (server component) reads the JWT via `cookies()`, extracts `{ tenantName, userName, role }`, and renders `<CustomerShell>`.
+- **Key component (`apps/web/components/customer/`):**
+  - `CustomerShell.tsx` — `'use client'`: topbar (tenant brand + "+ Novo agendamento" desktop shortcut + avatar dropdown with "Sair"/"Site BeloAuto"), a desktop-only horizontal tab nav (Início | Agendamentos | Fidelidade, `≥1024px`), a `main-content` slot, and a mobile-only bottom nav with the same three tabs (`<1024px`).
 
 ---
 
@@ -65,7 +68,9 @@ Since we are following **Trunk-Based Development**, the frontend must have a "Bu
 
 ## 5. Folder Structure (`apps/web/`)
 
-Next.js 14 App Router. The same Next.js app serves both the public hotsite (`/[slug]`) and the authenticated dashboard (`/dashboard`). Middleware separates them at the routing layer.
+> **Target structure — not yet built.** `M13` (`plan/M13-DASHBOARD-FRONTEND.md`) is in progress: as of this writing, `apps/web/components/dashboard/` is empty and none of the `apps/web/app/dashboard/**` subroutes listed below exist yet (only a `page.tsx` stub at `apps/web/app/dashboard/`). The tree below is what M13's stories build toward, not the current state of the repo — check the M13 plan's story status before assuming any of this exists.
+
+Next.js 16 App Router. The same Next.js app serves both the public hotsite (`/[slug]`) and the authenticated dashboard (`/dashboard`). Middleware separates them at the routing layer.
 
 ```
 apps/web/
@@ -73,12 +78,19 @@ apps/web/
 │   ├── [slug]/                     ← public hotsite — one route per tenant slug
 │   │   ├── layout.tsx              ← fetches manifest, applies CSS branding variables
 │   │   ├── page.tsx                ← renders modules array from manifest (HERO, SERVICE_LIST, etc.)
-│   │   └── booking/
-│   │       └── page.tsx            ← booking form (UC-001, UC-002)
-│   ├── dashboard/                  ← authenticated area (requires valid JWT)
-│   │   ├── layout.tsx              ← AppShell: reads JWT role, renders Customer or Staff sidebar
+│   │   ├── booking/
+│   │   │   └── page.tsx            ← booking form (UC-001, UC-002)
+│   │   └── minha-conta/            ← customer area (requires valid JWT, role CUSTOMER — M13-S16)
+│   │       ├── layout.tsx          ← reads JWT via cookies(), renders <CustomerShell>
+│   │       ├── page.tsx            ← "Início" — booking history overview
+│   │       ├── agendamentos/
+│   │       │   └── page.tsx        ← own bookings list + detail (UC-006, UC-007)
+│   │       └── fidelidade/
+│   │           └── page.tsx        ← loyalty metrics (UC-016)
+│   ├── dashboard/                  ← staff/manager area (requires valid JWT, role STAFF|MANAGER — M13-S15)
+│   │   ├── layout.tsx              ← reads JWT via cookies(), renders <DashboardShell>
 │   │   ├── bookings/
-│   │   │   ├── page.tsx            ← booking list (Staff: all bookings / Customer: own bookings)
+│   │   │   ├── page.tsx            ← booking queue (Staff/Manager — all tenant bookings)
 │   │   │   └── [id]/page.tsx       ← booking detail
 │   │   ├── services/
 │   │   │   └── page.tsx            ← service management (Staff/Manager only — UC-012, UC-013)
@@ -86,12 +98,12 @@ apps/web/
 │   │   │   └── page.tsx            ← schedule closures calendar (UC-010)
 │   │   ├── loyalty/
 │   │   │   └── page.tsx            ← loyalty metrics (UC-016)
-│   │   ├── customers/
-│   │   │   └── page.tsx            ← customer list (Staff/Manager only)
-│   │   ├── staff/
+│   │   ├── team/
 │   │   │   └── page.tsx            ← staff management (Manager only — UC-028, UC-029)
-│   │   └── settings/
-│   │       └── page.tsx            ← tenant settings (Manager only — UC-026, UC-027)
+│   │   ├── settings/
+│   │   │   └── page.tsx            ← tenant settings (Manager only — UC-026)
+│   │   └── hotsite/
+│   │       └── page.tsx            ← hotsite content management (Manager only — UC-027)
 │   ├── auth/
 │   │   ├── login/page.tsx          ← "Login with Google" button → /auth/google on BFF
 │   │   └── callback/page.tsx       ← handles post-OAuth redirect, stores JWT
@@ -107,12 +119,13 @@ apps/web/
 │   │   ├── GalleryModule.tsx
 │   │   ├── TestimonialsModule.tsx
 │   │   └── BookingCtaModule.tsx
-│   ├── dashboard/                  ← authenticated dashboard modules
-│   │   ├── CommandCenter.tsx       ← pending bookings queue (Staff)
-│   │   ├── BookingTimeline.tsx     ← upcoming/past bookings (Customer)
-│   │   ├── LoyaltyCard.tsx         ← per-service points breakdown
-│   │   ├── ServiceEditor.tsx       ← service CRUD form
-│   │   └── TenantSwitcher.tsx      ← UC-023 tenant switch UI
+│   ├── dashboard/                  ← staff/manager shell components (M13-S15)
+│   │   ├── DashboardShell.tsx      ← sidebar (desktop) + topbar + bottom nav (mobile) wrapper
+│   │   ├── Sidebar.tsx             ← nav items + "Somente Gerente" section
+│   │   ├── Topbar.tsx              ← page title / back arrow + avatar + date
+│   │   └── BottomNav.tsx           ← mobile tab bar, role-aware
+│   ├── customer/                   ← customer shell components (M13-S16)
+│   │   └── CustomerShell.tsx       ← topbar + desktop tab nav + mobile bottom nav wrapper
 │   └── shared/                     ← shadcn/ui base components + shared business components
 │       ├── ui/                     ← Button, Input, Dialog, Toast, Card, etc. (shadcn/ui copied in)
 │       ├── BookingForm.tsx         ← booking form used in both hotsite and dashboard
@@ -133,7 +146,7 @@ apps/web/
 │       ├── useLoyaltyBalance.ts
 │       └── useServices.ts
 │
-├── middleware.ts                    ← Next.js edge middleware: redirects /dashboard → /auth/login if no JWT
+├── middleware.ts                    ← Next.js edge middleware: redirects /dashboard/** → /dashboard/login if no STAFF|MANAGER JWT; redirects /{slug}/minha-conta/** → /{slug}/login if no CUSTOMER JWT
 ├── next.config.js                   ← rewrites, env vars, image domains
 └── public/
     └── fonts/                       ← self-hosted fonts (no external font requests)

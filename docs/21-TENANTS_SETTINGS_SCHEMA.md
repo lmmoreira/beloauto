@@ -40,7 +40,8 @@ Controls how the loyalty system behaves for this tenant.
 | `expiry_days` | integer | 180 | 1 | 3650 | Days until loyalty points expire after earning |
 | `enable_notifications` | boolean | true | — | — | Send email when points expiring soon |
 | `expiry_warning_days` | integer | 7 | 1 | 90 | Look-ahead window for expiring-soon check (weekly cron) |
-| `points_per_currency_unit` | integer | 0 | 0 | 10000 | How many points equal 1 currency unit (e.g. `10` = 10 pts → R$1 / $1). `0` = loyalty redemption feature disabled — the discount strip will not appear during booking completion (UC-009 A6). |
+| `notification_min_points` | integer | 50 | 0 | 10000 | Minimum active point balance a customer must have for the `PointsExpiringSoon` notification's threshold check (used by `notify-expiring-points.use-case.ts` and `loyalty-platform.port.ts`) |
+| `points_per_currency_unit` **(planned — not yet implemented in code; see M13-S11)** | integer | 0 | 0 | 10000 | How many points equal 1 currency unit (e.g. `10` = 10 pts → R$1 / $1). `0` = loyalty redemption feature disabled — the discount strip will not appear during booking completion (UC-009 A6). |
 
 **Example:**
 ```json
@@ -49,16 +50,19 @@ Controls how the loyalty system behaves for this tenant.
     "expiry_days": 180,
     "enable_notifications": true,
     "expiry_warning_days": 7,
+    "notification_min_points": 50,
     "points_per_currency_unit": 10
   }
 }
 ```
+> `points_per_currency_unit` above is **planned — not yet implemented in code; see M13-S11**.
 
 **Validation Rules:**
 - `expiry_days` must be between 1 and 3650 (1 year to 10 years)
 - `expiry_warning_days` must be > 0 and < `expiry_days`
 - `enable_notifications` must be boolean
-- `points_per_currency_unit` must be 0–10000 (`0` disables redemption)
+- `notification_min_points` must be 0–10000
+- `points_per_currency_unit` must be 0–10000 (`0` disables redemption) **(planned — not yet implemented in code; see M13-S11)**
 
 ---
 
@@ -244,6 +248,7 @@ Public-facing contact details for the tenant's hotsite (M12-S06 `CONTACT` module
 | `phone` | string \| null | null | Business phone, digits only (10–11 digits, no country code) — same format as `Customer.phone` |
 | `email` | string \| null | null | Business contact email |
 | `address` | object \| null | null | Business address — see sub-fields below |
+| `social_links` | object \| null | null | Social/contact links — see sub-fields below |
 
 **`address` sub-fields** (all required when `address` is non-null, except `complement`):
 
@@ -256,6 +261,14 @@ Public-facing contact details for the tenant's hotsite (M12-S06 `CONTACT` module
 | `city` | string | City |
 | `state` | string | UF — 2-letter Brazilian state code |
 | `zip_code` | string | CEP, 8 digits, no hyphen |
+
+**`social_links` sub-fields** (all optional/nullable independently):
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `whatsapp` | string \| null | WhatsApp contact number; validated as a phone number (`PhoneNumber.isValid`) when present |
+| `instagram` | string \| null | Instagram profile URL |
+| `facebook` | string \| null | Facebook page URL |
 
 **Example:**
 ```json
@@ -271,6 +284,11 @@ Public-facing contact details for the tenant's hotsite (M12-S06 `CONTACT` module
       "city": "Belo Horizonte",
       "state": "MG",
       "zip_code": "30130000"
+    },
+    "social_links": {
+      "whatsapp": "31999999999",
+      "instagram": "https://instagram.com/lavacar",
+      "facebook": "https://facebook.com/lavacar"
     }
   }
 }
@@ -282,6 +300,7 @@ Public-facing contact details for the tenant's hotsite (M12-S06 `CONTACT` module
 - `address`, when present, requires `street`, `number`, `neighborhood`, `city`, `state`, `zip_code`; `complement` is optional
 - `zip_code` must be exactly 8 digits (no hyphen)
 - `state` must be a 2-letter uppercase Brazilian UF code
+- `social_links.whatsapp`, when present, must be a valid phone number (`PhoneNumber.isValid`); `instagram`/`facebook` are unvalidated URL strings
 - Any top-level field may be `null`/absent — partial business info is valid (e.g. `phone` set, `address` not yet filled)
 
 **Usage:** Resolved into the public hotsite manifest's `business` field (camelCase) by `GetHotsiteManifestUseCase` — see `docs/15-HOTSITE_DYNAMIC_ARCHITECTURE.md` §4 CONTACT.
@@ -296,6 +315,7 @@ Public-facing contact details for the tenant's hotsite (M12-S06 `CONTACT` module
     "expiry_days": 180,
     "enable_notifications": true,
     "expiry_warning_days": 7,
+    "notification_min_points": 50,
     "points_per_currency_unit": 0
   },
   "booking": {
@@ -336,10 +356,16 @@ Public-facing contact details for the tenant's hotsite (M12-S06 `CONTACT` module
       "city": "Belo Horizonte",
       "state": "MG",
       "zip_code": "30130000"
+    },
+    "social_links": {
+      "whatsapp": "31999999999",
+      "instagram": "https://instagram.com/lavacar",
+      "facebook": "https://facebook.com/lavacar"
     }
   }
 }
 ```
+> `loyalty.points_per_currency_unit` above is **planned — not yet implemented in code; see M13-S11**.
 
 ---
 
@@ -353,6 +379,7 @@ When a developer provisions a new tenant (UC-024), if settings are not provided,
     "expiry_days": 180,
     "enable_notifications": true,
     "expiry_warning_days": 7,
+    "notification_min_points": 50,
     "points_per_currency_unit": 0
   },
   "booking": {
@@ -385,10 +412,12 @@ When a developer provisions a new tenant (UC-024), if settings are not provided,
   "business_info": {
     "phone": null,
     "email": null,
-    "address": null
+    "address": null,
+    "social_links": null
   }
 }
 ```
+> `loyalty.points_per_currency_unit` above is **planned — not yet implemented in code; see M13-S11**.
 
 ---
 

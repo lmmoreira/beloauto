@@ -45,10 +45,10 @@ flowchart TD
 |---|---|---|---|
 | `/{tenantSlug}` | hotsite pages | M12 | ✅ Existente |
 | `/{tenantSlug}/booking` | `BookingForm` | M12-S07 | ✅ Existente |
-| `/{tenantSlug}/login` | `CustomerLoginPage` | M124-S02 | ❌ GAP |
-| `/select-tenant` | `SelectTenantPage` | M124-S02 | ❌ GAP |
-| profile completion prompt | inline on first-visit page | M124-S02 | ❌ GAP |
-| `/auth/error` | `AuthErrorPage` | M124-S01 | ❌ GAP (shared with staff) |
+| `/{tenantSlug}/login` | `CustomerLoginPage` | M13-S14 | ❌ GAP |
+| `/select-tenant` | `SelectTenantPage` | M13-S14 | ❌ GAP |
+| profile completion prompt | inline on first-visit page | M13-S14 | ❌ GAP |
+| `/auth/error` | `AuthErrorPage` | M13-S02 | ❌ GAP (shared with staff) |
 | customer area / dashboard | TBD | future | ❌ GAP |
 
 ## BFF calls in this flow
@@ -65,10 +65,10 @@ flowchart TD
 
 ## Open questions / gaps
 
-- [ ] **Customer area after login:** where does the customer land after successful login? Hotsite with session context (logged-in hotsite)? A dedicated `/minha-conta` page? This determines whether the customer dashboard is part of M124 or a separate milestone.
-- [ ] **Phone completion placement (UC-021 A3):** is this a separate page or an inline modal/banner on the first screen after login? Prototype shows it as an inline prompt; decide before M124-S02.
+- [x] **Customer area after login:** where does the customer land after successful login? — **Resolved.** Customer lands on `/{slug}` (hotsite, logged-in state); no separate customer dashboard follow-up story is needed, per `M13-DASHBOARD-FRONTEND.md`'s open-questions section.
+- [x] **Phone completion placement (UC-021 A3):** is this a separate page or an inline modal/banner on the first screen after login? — **Resolved.** Implemented as an inline bottom-sheet component (`M13-S14`).
 - [ ] **`/auth/error` shared route:** staff and customer auth failures both redirect to `/auth/error?reason=...`. Should this be one shared page (`apps/web/app/auth/error/page.tsx`) or separate per actor? Shared is simpler — one page, content driven by `?reason`.
-- [ ] **UC-023 trigger:** the "Switch Tenant" action lives somewhere in the customer area after login. Which component holds it — topbar avatar dropdown? `/minha-conta` page? Decide when the customer area journey is designed.
+- [x] **UC-023 trigger:** the "Switch Tenant" action lives somewhere in the customer area after login. Which component holds it? — **Resolved.** Avatar dropdown in the customer shell (`M13-S30`).
 - [ ] **Generic login entry (no tenantSlug):** `/auth/login` (no slug) is the multi-tenant fallback. Is there a branded entry point for this, or is it only reachable via the BFF when `handleMultiTenantLogin` redirects to `/select-tenant?token=...`? The prototype only covers the hotsite-entry (tenant-scoped) path.
 
 ## Prototype
@@ -79,8 +79,8 @@ Folder: `customer/prototypes/login/`
 |---|---|---|---|---|
 | `index.html` | Navigation hub | — | — | ✅ Criado |
 | `00-hotsite.html` | Hotsite entry (redirect → shared/hotsite.html) | — | — | ✅ Criado |
-| `00-login.html` | Customer login screen (redirect → shared/login.html) | UC-021 | M124-S02 | ✅ Criado |
-| `01-select-tenant.html` | Selecionar estabelecimento (Case B — +1 tenants) | UC-021 Caso B | M124-S02 | ✅ Criado |
-| `02-phone-completion.html` | Completar perfil — solicita telefone | UC-021 A3 | M124-S02 | ✅ Criado |
-| `01b-error.html` | Auth error (no-tenant, email-mismatch, tenant-deactivated) | UC-021 A1 err | M124-S01 | ✅ Criado |
-| `dev-notes.md` | Implementation handoff | — | M124 | ✅ Criado |
+| `00-login.html` | Customer login screen (redirect → shared/login.html) | UC-021 | M13-S14 | ✅ Criado |
+| `01-select-tenant.html` | Selecionar estabelecimento (Case B — +1 tenants) | UC-021 Caso B | M13-S14 | ✅ Criado |
+| `02-phone-completion.html` | Completar perfil — solicita telefone | UC-021 A3 | M13-S14 | ✅ Criado |
+| `01b-error.html` | Auth error (no-tenant, email-mismatch, tenant-deactivated) | UC-021 A1 err | M13-S02 | ✅ Criado |
+| `dev-notes.md` | Implementation handoff | — | M13-S02/M13-S14 | ✅ Criado |

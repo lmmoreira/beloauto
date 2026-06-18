@@ -10,19 +10,31 @@ export type HotsiteModuleType =
   | 'TESTIMONIALS'
   | 'BOOKING_CTA'
   | 'ABOUT'
-  | 'CONTACT';
+  | 'CONTACT'
+  | 'FOOTER';
 
 export interface HeroModuleData {
   variant: 'centered' | 'left-aligned';
   title: string;
   subtitle?: string;
+  eyebrow?: string;
   backgroundImageUrl?: string;
   ctaLabel: string;
   ctaTarget: 'booking-form' | 'service-list' | 'gallery' | 'testimonials' | 'about' | 'contact';
+  secondaryCtaLabel?: string;
+  secondaryCtaTarget?:
+    | 'booking-form'
+    | 'service-list'
+    | 'gallery'
+    | 'testimonials'
+    | 'about'
+    | 'contact';
+  rightPanel?: 'none' | 'image' | 'brand-card';
 }
 
 export interface ServiceListModuleData {
   title?: string;
+  eyebrow?: string;
   showPrices: boolean;
   showPoints: boolean;
   layout: 'grid' | 'list';
@@ -39,6 +51,7 @@ export interface GalleryImage {
 
 export interface GalleryModuleData {
   title?: string;
+  eyebrow?: string;
   images: GalleryImage[];
   layout: 'grid' | 'masonry';
   maxVisible: number;
@@ -53,6 +66,7 @@ export interface Testimonial {
 
 export interface TestimonialsModuleData {
   title?: string;
+  eyebrow?: string;
   items: Testimonial[];
   layout: 'grid' | 'carousel';
 }
@@ -61,25 +75,40 @@ export interface BookingCtaModuleData {
   variant?: 'centered' | 'left-aligned';
   title: string;
   subtitle?: string;
+  eyebrow?: string;
   ctaLabel: string;
   backgroundImageUrl?: string;
   carouselDays?: number;
+  bgStyle?: 'primary' | 'background';
+  rightPanel?: 'none' | 'brand-card';
 }
 
 export interface AboutModuleData {
   title: string;
   body: string;
+  eyebrow?: string;
   imageUrl?: string;
   imagePosition: 'left' | 'right';
 }
 
+export interface FooterModuleData {
+  tagline?: string;
+  copyrightNote?: string;
+  showWhatsapp?: boolean;
+}
+
 export interface ContactModuleData {
   title?: string;
+  eyebrow?: string;
   showAddress: boolean;
   showPhone: boolean;
   showWhatsapp: boolean;
   showEmail: boolean;
   showMap: boolean;
+  showInstagram?: boolean;
+  showFacebook?: boolean;
+  displayStyle?: 'list' | 'icon-cards';
+  whatsappCtaLabel?: string;
 }
 
 export type HotsiteModuleData =
@@ -89,7 +118,8 @@ export type HotsiteModuleData =
   | TestimonialsModuleData
   | BookingCtaModuleData
   | AboutModuleData
-  | ContactModuleData;
+  | ContactModuleData
+  | FooterModuleData;
 
 export interface HotsiteModule {
   type: HotsiteModuleType;
@@ -113,6 +143,13 @@ export interface HotsiteBranding {
   buttonBackgroundColor?: string;
   /** Optional override of the button text (and outline border) color. */
   buttonTextColor?: string;
+  // Visual rhythm
+  heroBgStyle?: 'primary' | 'background';
+  alternateSectionBg?: boolean;
+  dividerStyle?: 'none' | 'gradient' | 'solid';
+  // Brand identity (used by brand-card rightPanel in hero/booking-cta)
+  brandName?: string;
+  brandTagline?: string;
 }
 
 export interface HotsiteSeo {
@@ -141,6 +178,8 @@ const BORDER_RADIUS_VALUES = ['sharp', 'rounded', 'pill'] as const;
 const BUTTON_STYLE_VALUES = ['filled', 'outline', 'ghost'] as const;
 const SPACING_VALUES = ['compact', 'comfortable', 'spacious'] as const;
 const SHADOW_STYLE_VALUES = ['none', 'subtle', 'strong'] as const;
+const HERO_BG_STYLE_VALUES = ['primary', 'background'] as const;
+const DIVIDER_STYLE_VALUES = ['none', 'gradient', 'solid'] as const;
 
 const MODULE_TYPES: ReadonlySet<HotsiteModuleType> = new Set([
   'HERO',
@@ -150,6 +189,7 @@ const MODULE_TYPES: ReadonlySet<HotsiteModuleType> = new Set([
   'BOOKING_CTA',
   'ABOUT',
   'CONTACT',
+  'FOOTER',
 ]);
 
 export const DEFAULT_HOTSITE_BRANDING: HotsiteBranding = {
@@ -269,6 +309,12 @@ export class HotsiteConfig extends AggregateRoot {
     this.validateEnum('buttonStyle', branding.buttonStyle, BUTTON_STYLE_VALUES);
     this.validateEnum('spacing', branding.spacing, SPACING_VALUES);
     this.validateEnum('shadowStyle', branding.shadowStyle, SHADOW_STYLE_VALUES);
+    if (branding.heroBgStyle !== undefined) {
+      this.validateEnum('heroBgStyle', branding.heroBgStyle, HERO_BG_STYLE_VALUES);
+    }
+    if (branding.dividerStyle !== undefined) {
+      this.validateEnum('dividerStyle', branding.dividerStyle, DIVIDER_STYLE_VALUES);
+    }
   }
 
   private validateEnum<T extends string>(field: string, value: T, allowed: readonly T[]): void {

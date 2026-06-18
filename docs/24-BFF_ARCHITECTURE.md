@@ -17,38 +17,41 @@ The BFF (Backend-for-Frontend) is a **separate NestJS service** (`apps/bff/`) th
 
 ## NestJS Module Structure
 
+> **Note:** the tree below reflects the real `apps/bff/src/` layout. Controllers call `BackendHttpService` directly — there is **no** separate `.service.ts` delegation layer per module (the early `booking.service.ts` / `customer.service.ts` design was dropped; only `auth/` has standalone services, for JWT issuance and selection-token handling, which have no `BackendHttpService` equivalent to delegate to).
+
 ```
 apps/bff/src/
 ├── auth/
 │   ├── auth.module.ts
 │   ├── auth.controller.ts        ← /auth/google, /auth/google/callback, /auth/token, /auth/tenants, /auth/switch-tenant
-│   ├── auth.service.ts           ← JWT issuance, tenant lookup, Google profile → Customer/Staff lookup
-│   ├── strategies/
-│   │   ├── google.strategy.ts    ← passport-google-oauth20
-│   │   └── jwt.strategy.ts       ← passport-jwt (validates Bearer token on protected routes)
-│   └── dto/
-│       ├── select-tenant.dto.ts
-│       └── switch-tenant.dto.ts
+│   ├── auth.types.ts
+│   ├── cookie-options.ts
+│   ├── jwt-issuer.service.ts     ← JWT signing/issuance
+│   ├── selection-token.service.ts ← short-lived tenant-selection token (UC-021 case B)
+│   └── oauth-state.ts            ← stateless signed OAuth state nonce
 │
-├── booking/
-│   ├── booking.module.ts
-│   ├── booking.controller.ts     ← /bookings, /bookings/:id, /bookings/:id/status, /bookings/:id/complete, /bookings/:id/reschedule
-│   └── booking.service.ts        ← delegates to BackendHttpService
+├── bookings/
+│   ├── bookings.module.ts
+│   ├── bookings.controller.ts    ← /bookings, /bookings/:id, /bookings/:id/cancel, /approve, /reject,
+│   │                                /request-info, /submit-info, /submit-info/guest, /reschedule, /complete,
+│   │                                /bookings/attachments/signed-url — calls BackendHttpService directly, no .service.ts
+│   ├── bookings.types.ts
+│   └── guest-token.util.ts       ← signs/verifies the guest info-request token
 │
-├── customer/
-│   ├── customer.module.ts
-│   ├── customer.controller.ts    ← /customers, /customers/:id, /me
-│   └── customer.service.ts
+├── customers/
+│   ├── customers.module.ts
+│   ├── customers.controller.ts   ← /customers, /customers/:id, /customers/me
+│   └── customers.types.ts
 │
 ├── loyalty/
 │   ├── loyalty.module.ts
-│   ├── loyalty.controller.ts     ← /loyalty/balance, /loyalty/entries
-│   └── loyalty.service.ts
+│   ├── loyalty.controller.ts     ← /loyalty/balance, /loyalty/entries, /loyalty/redemptions, /loyalty/redeem
+│   └── loyalty.types.ts
 │
 ├── platform/
 │   ├── platform.module.ts
-│   ├── platform.public.controller.ts  ← /platform/manifest/:slug (hotsite manifest — public, no auth required)
-│   └── hotsite-admin.controller.ts    ← /tenants/hotsite (hotsite admin management — MANAGER only)
+│   ├── platform.public.controller.ts  ← /platform/manifest/:slug, /platform/published-hotsites (public, no auth required)
+│   └── hotsite-admin.controller.ts    ← /tenants/hotsite, /tenants/hotsite/publish|unpublish|images|gallery (MANAGER only)
 │
 ├── services/
 │   ├── services.module.ts
@@ -57,31 +60,48 @@ apps/bff/src/
 │
 ├── schedule/
 │   ├── schedule.module.ts
-│   ├── schedule.controller.ts    ← /schedule/availability, /schedule/closures
-│   └── schedule.service.ts
+│   ├── schedule.controller.ts                    ← /schedule/closures
+│   ├── schedule-opening.controller.ts             ← /schedule/openings
+│   ├── schedule-availability.controller.ts        ← /schedule/availability (day detail)
+│   ├── schedule-availability-summary.controller.ts ← /schedule/availability/summary (range overview)
+│   └── schedule.types.ts
 │
 ├── staff/
 │   ├── staff.module.ts
 │   ├── staff.controller.ts       ← /staff, /staff/:id (MANAGER role only)
-│   └── staff.service.ts
+│   └── staff.types.ts
+│
+├── uploads/
+│   ├── uploads.module.ts
+│   └── uploads.controller.ts     ← /uploads/signed-url
+│
+├── health/
+│   └── health.controller.ts      ← /health
+│
+├── config/
+│   └── env.validation.ts         ← startup env-var validation (Zod)
 │
 ├── shared/
 │   ├── guards/
 │   │   ├── jwt-auth.guard.ts     ← validates Bearer JWT; attached to all protected routes
 │   │   ├── tenant.guard.ts       ← validates X-Tenant-Slug matches JWT tenantSlug
-│   │   └── roles.guard.ts        ← validates JWT role against @Roles() decorator
+│   │   ├── roles.guard.ts        ← validates JWT role against @Roles() decorator
+│   │   └── active-staff.guard.ts ← rejects deactivated staff
 │   ├── interceptors/
 │   │   ├── correlation.interceptor.ts  ← generates X-Correlation-ID if absent; propagates to backend
 │   │   └── error.interceptor.ts        ← catches backend HTTP errors, re-emits as RFC 9457
 │   ├── decorators/
 │   │   ├── current-user.decorator.ts   ← @CurrentUser() extracts JWT payload from request
-│   │   ├── tenant-id.decorator.ts      ← @TenantId() extracts tenantId from JWT
+│   │   ├── public.decorator.ts         ← @Public() skips JwtAuthGuard
 │   │   └── roles.decorator.ts          ← @Roles('MANAGER', 'STAFF') route-level role requirement
 │   ├── http/
-│   │   └── backend-http.service.ts     ← typed wrapper around Axios; injects tenant + correlation headers
-│   └── config/
-│       └── throttler.config.ts         ← rate limit profiles (public vs authenticated)
+│   │   ├── backend-http.service.ts     ← typed wrapper around Axios; injects tenant + correlation headers
+│   │   ├── backend-headers.ts
+│   │   └── zod-validation.pipe.ts
+│   └── types/
+│       └── backend-responses.ts
 │
+├── test/                          ← shared test helpers (mocks, component-test harness)
 └── app.module.ts
 ```
 
@@ -294,11 +314,16 @@ export class BackendHttpService {
 | `POST /bookings` | No (guest) or JWT | X-Tenant-Slug | — |
 | `GET /bookings` | JWT | X-Tenant-Slug | STAFF \| MANAGER |
 | `GET /bookings/:id` | JWT | X-Tenant-Slug | STAFF \| MANAGER \| CUSTOMER (own only) |
-| `PATCH /bookings/:id/status` | JWT | X-Tenant-Slug | STAFF \| MANAGER |
-| `PATCH /bookings/:id/complete` | JWT | X-Tenant-Slug | STAFF \| MANAGER |
+| `PATCH /bookings/:id/cancel` | JWT | X-Tenant-Slug | CUSTOMER \| STAFF \| MANAGER |
+| `PATCH /bookings/:id/approve` | JWT | X-Tenant-Slug | STAFF \| MANAGER |
+| `PATCH /bookings/:id/reject` | JWT | X-Tenant-Slug | STAFF \| MANAGER |
+| `PATCH /bookings/:id/request-info` | JWT | X-Tenant-Slug | STAFF \| MANAGER |
+| `PATCH /bookings/:id/submit-info` | JWT | X-Tenant-Slug | CUSTOMER |
+| `PATCH /bookings/:id/submit-info/guest` | No (guest token in query) | No | — |
 | `PATCH /bookings/:id/reschedule` | JWT | X-Tenant-Slug | STAFF \| MANAGER |
-| `GET /me` | JWT | X-Tenant-Slug | CUSTOMER |
-| `PATCH /me` | JWT | X-Tenant-Slug | CUSTOMER |
+| `PATCH /bookings/:id/complete` | JWT | X-Tenant-Slug | STAFF \| MANAGER |
+| `GET /customers/me` | JWT | X-Tenant-Slug | CUSTOMER |
+| `PATCH /customers/me` | JWT | X-Tenant-Slug | CUSTOMER |
 | `GET /loyalty/balance` | JWT | X-Tenant-Slug | CUSTOMER |
 | `GET /customers` | JWT | X-Tenant-Slug | STAFF \| MANAGER |
 | `GET /staff` | JWT | X-Tenant-Slug | MANAGER |

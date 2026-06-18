@@ -54,9 +54,19 @@
       — UC-022 Caso B: staff encontrado mas is_active=false
     </li>
     <li>
-      <a href="./01b-error.html">01b — Conta não encontrada / e-mail não bate</a>
+      <a href="./01b-error.html">01b — Conta não encontrada (reason=not-a-staff-member)</a>
       <span class="tag tag-yellow">GAP: /auth/error</span>
-      — UC-022 Caso C + UC-025 A1
+      — UC-022 Caso C
+    </li>
+    <li>
+      <a href="./01c-error-email-mismatch.html">01c — E-mail não corresponde ao convite (reason=email-mismatch)</a>
+      <span class="tag tag-yellow">GAP: /auth/error</span>
+      — UC-025 A1
+    </li>
+    <li>
+      <a href="./01d-error-tenant-deactivated.html">01d — Estabelecimento desativado (reason=tenant-deactivated)</a>
+      <span class="tag tag-yellow">GAP: /auth/error</span>
+      — tenant desativado pela plataforma
     </li>
   </ul>
 
@@ -70,6 +80,8 @@
       <li>☐ A tela de erro indica a ação correta (falar com o gerente) sem revelar detalhes técnicos desnecessários?</li>
       <li>☐ A nota "Primeiro acesso? Use o link do e-mail de convite" na tela de login (shared/staff-login.html) é visível o suficiente?</li>
       <li>☐ Após login bem-sucedido (UC-025), um banner de boas-vindas "Bem-vindo(a)!" é necessário na primeira tela do dashboard?</li>
+      <li>☐ A mensagem de e-mail não correspondente (01c) deixa claro que o convite foi enviado para outro endereço, sem expor qual é?</li>
+      <li>☐ O CTA "Voltar ao site" na tela de estabelecimento desativado (01d) é a ação certa, ou um funcionário nesse estado deveria ver outra orientação (ex.: contato de suporte)?</li>
     </ul>
   </div>
 

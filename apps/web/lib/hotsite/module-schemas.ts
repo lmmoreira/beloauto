@@ -3,6 +3,7 @@ import type {
   AboutModuleData,
   BookingCtaModuleData,
   ContactModuleData,
+  FooterModuleData,
   GalleryImage,
   GalleryModuleData,
   HeroModuleData,
@@ -12,26 +13,33 @@ import type {
   TestimonialsModuleData,
 } from '@beloauto/types';
 
+const CTA_TARGET = z.enum([
+  'booking-form',
+  'service-list',
+  'gallery',
+  'testimonials',
+  'about',
+  'contact',
+]);
+
 // Mirrors HeroModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const HeroModuleDataSchema = z.object({
   variant: z.enum(['centered', 'left-aligned']),
   title: z.string(),
   subtitle: z.string().optional(),
+  eyebrow: z.string().optional(),
   backgroundImageUrl: z.string().optional(),
   ctaLabel: z.string(),
-  ctaTarget: z.enum([
-    'booking-form',
-    'service-list',
-    'gallery',
-    'testimonials',
-    'about',
-    'contact',
-  ]),
+  ctaTarget: CTA_TARGET,
+  secondaryCtaLabel: z.string().optional(),
+  secondaryCtaTarget: CTA_TARGET.optional(),
+  rightPanel: z.enum(['none', 'image', 'brand-card']).optional(),
 }) satisfies z.ZodType<HeroModuleData>;
 
 // Mirrors ServiceListModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const ServiceListModuleDataSchema = z.object({
   title: z.string().optional(),
+  eyebrow: z.string().optional(),
   showPrices: z.boolean(),
   showPoints: z.boolean(),
   layout: z.enum(['grid', 'list']),
@@ -49,6 +57,7 @@ const GalleryImageSchema = z.object({
 // Mirrors GalleryModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const GalleryModuleDataSchema = z.object({
   title: z.string().optional(),
+  eyebrow: z.string().optional(),
   images: z.array(GalleryImageSchema),
   layout: z.enum(['grid', 'masonry']),
   maxVisible: z.number().int().min(1),
@@ -67,6 +76,7 @@ const TestimonialSchema = z.object({
 // Mirrors TestimonialsModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const TestimonialsModuleDataSchema = z.object({
   title: z.string().optional(),
+  eyebrow: z.string().optional(),
   items: z.array(TestimonialSchema),
   layout: z.enum(['grid', 'carousel']),
 }) satisfies z.ZodType<TestimonialsModuleData>;
@@ -76,15 +86,19 @@ export const BookingCtaModuleDataSchema = z.object({
   variant: z.enum(['centered', 'left-aligned']).optional(),
   title: z.string(),
   subtitle: z.string().optional(),
+  eyebrow: z.string().optional(),
   ctaLabel: z.string(),
   backgroundImageUrl: z.string().optional(),
   carouselDays: z.number().int().min(1).max(90).optional(),
+  bgStyle: z.enum(['primary', 'background']).optional(),
+  rightPanel: z.enum(['none', 'brand-card']).optional(),
 }) satisfies z.ZodType<BookingCtaModuleData>;
 
 // Mirrors AboutModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const AboutModuleDataSchema = z.object({
   title: z.string(),
   body: z.string(),
+  eyebrow: z.string().optional(),
   imageUrl: z.string().optional(),
   imagePosition: z.enum(['left', 'right']),
 }) satisfies z.ZodType<AboutModuleData>;
@@ -92,12 +106,24 @@ export const AboutModuleDataSchema = z.object({
 // Mirrors ContactModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
 export const ContactModuleDataSchema = z.object({
   title: z.string().optional(),
+  eyebrow: z.string().optional(),
   showAddress: z.boolean(),
   showPhone: z.boolean(),
   showWhatsapp: z.boolean(),
   showEmail: z.boolean(),
   showMap: z.boolean(),
+  showInstagram: z.boolean().optional(),
+  showFacebook: z.boolean().optional(),
+  displayStyle: z.enum(['list', 'icon-cards']).optional(),
+  whatsappCtaLabel: z.string().optional(),
 }) satisfies z.ZodType<ContactModuleData>;
+
+// Mirrors FooterModuleData (packages/types/src/hotsite.ts) — keep in sync when that type changes.
+export const FooterModuleDataSchema = z.object({
+  tagline: z.string().optional(),
+  copyrightNote: z.string().optional(),
+  showWhatsapp: z.boolean().optional(),
+}) satisfies z.ZodType<FooterModuleData>;
 
 const MODULE_DATA_SCHEMAS: Partial<Record<HotsiteModuleType, z.ZodType>> = {
   HERO: HeroModuleDataSchema,
@@ -107,6 +133,7 @@ const MODULE_DATA_SCHEMAS: Partial<Record<HotsiteModuleType, z.ZodType>> = {
   BOOKING_CTA: BookingCtaModuleDataSchema,
   ABOUT: AboutModuleDataSchema,
   CONTACT: ContactModuleDataSchema,
+  FOOTER: FooterModuleDataSchema,
 };
 
 // Module types without a registered schema render unvalidated until their story (M12-S05+) adds one.

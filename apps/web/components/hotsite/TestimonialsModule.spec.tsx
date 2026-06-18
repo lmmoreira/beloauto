@@ -91,4 +91,18 @@ describe('TestimonialsModule', () => {
     expect(screen.getByLabelText('Próximo depoimento')).toBeInTheDocument();
     expect(screen.getByText('1 / 2')).toBeInTheDocument();
   });
+
+  describe('eyebrow', () => {
+    it('renders eyebrow when provided', () => {
+      render(<TestimonialsModule data={makeData({ eyebrow: 'Quem já conhece' })} slug="tenant" />);
+
+      expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('Quem já conhece');
+    });
+
+    it('does not render eyebrow when absent', () => {
+      const { container } = render(<TestimonialsModule data={makeData()} slug="tenant" />);
+
+      expect(container.querySelector('[data-testid="section-eyebrow"]')).not.toBeInTheDocument();
+    });
+  });
 });

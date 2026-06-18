@@ -71,4 +71,18 @@ describe('AboutModule', () => {
 
     expect(container.querySelector('script')).not.toBeInTheDocument();
   });
+
+  describe('eyebrow', () => {
+    it('renders eyebrow when provided', () => {
+      render(<AboutModule data={makeData({ eyebrow: 'Nossa história' })} slug="tenant" />);
+
+      expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('Nossa história');
+    });
+
+    it('does not render eyebrow when absent', () => {
+      const { container } = render(<AboutModule data={makeData()} slug="tenant" />);
+
+      expect(container.querySelector('[data-testid="section-eyebrow"]')).not.toBeInTheDocument();
+    });
+  });
 });

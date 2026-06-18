@@ -42,7 +42,12 @@ flowchart TD
     PublishBtn --> PublishSuccess["❓ GAP: confirmação<br/>'Hotsite atualizado e no ar'"]
     PublishSuccess --> Editor
 
-    class Editor,ColorError,UrlFallback,PreviewPane,PublishSuccess gap
+    Editor --> UnpublishBtn(("Click 'Despublicar hotsite'<br/>(zona de risco)"))
+    UnpublishBtn --> UnpublishSuccess["❓ GAP: confirmação<br/>'Hotsite offline'"]
+    UnpublishSuccess --> PublishBtn
+    UnpublishSuccess --> Editor
+
+    class Editor,ColorError,UrlFallback,PreviewPane,PublishSuccess,UnpublishSuccess gap
 ```
 
 ## Pages referenced
@@ -57,7 +62,7 @@ flowchart TD
 - [ ] **Branding field set expanded** — per `/uc-audit UC-026,UC-027,UC-028,UC-029` (2026-06-16) and your decision to cover the full set, `docs/04-USE_CASES.md` UC-027 Section A now lists 13 branding fields (colors, fonts, logo, border radius, button style, spacing, shadow style, button colors), not just the original 4. The prototype needs a layout that doesn't overwhelm the admin — propose grouping into sub-sections (e.g. "Cores" / "Tipografia" / "Forma e estilo").
 - [ ] **Per-module configuration** — the toggle/reorder list shown in the flow above is the simple case. Each module type has its own config shape (HERO: title/subtitle/background image; GALLERY: limit; CONTACT: 4 independent toggles for address/phone/email/map; TESTIMONIALS: grid vs. carousel layout). Does each module need its own drill-down config panel, or are all module configs edited inline in the list? This needs its own decision before the prototype can show real module-editing screens, not just toggle/reorder.
 - [ ] **Preview semantics** — `is_published` gates what the public hotsite shows, so "Preview" must render the *draft* (unsaved/unpublished) state. Is this a client-side live preview (iframe re-rendering with draft props), or does it need a preview-mode BFF parameter/token that temporarily serves draft config to the public hotsite route? This is an engineering design question, not just a UI one.
-- [ ] **Unpublish action** — the backend exposes `POST /tenants/hotsite/unpublish` (confirmed in the audit), but UC-027's text only describes publishing, never taking the hotsite down. Should the editor expose an "Unpublish" / "Tirar do ar" action, and if so, where (editor toolbar vs. a separate danger-zone section)?
+- [x] **Unpublish action** — resolved: the editor exposes "Despublicar hotsite" in a danger-zone section (per `01-hotsite-editor.html`), with its own confirmation screen (`03b-unpublish-success.html`). See the `Unpublish`/`UnpublishSuccess` nodes in the flow above.
 
 ## Prototype
 
@@ -72,4 +77,5 @@ Folder: `manager/prototypes/hotsite/`
 | `01d-module-config-hero.html` | Per-module config drill-down (HERO, representative example) | — | ✅ Criado |
 | `02-preview.html` | Draft preview mock | — | ✅ Criado |
 | `03-publish-success.html` | Publish confirmation | UC-027 | ✅ Criado |
+| `03b-unpublish-success.html` | Unpublish confirmation (zona de risco) | UC-027 | ✅ Criado |
 | `dev-notes.md` | Implementation handoff (preview semantics + per-module config flagged as open) | — | ✅ Criado |

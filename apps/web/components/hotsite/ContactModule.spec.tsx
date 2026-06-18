@@ -187,4 +187,88 @@ describe('ContactModule', () => {
     expect(screen.queryByRole('link', { name: 'Facebook' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'WhatsApp' })).not.toBeInTheDocument();
   });
+
+  describe('eyebrow', () => {
+    it('renders eyebrow when provided', () => {
+      render(
+        <ContactModule
+          data={makeData({ eyebrow: 'Vem nos visitar' })}
+          business={makeBusiness()}
+          slug="tenant"
+        />,
+      );
+
+      expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('Vem nos visitar');
+    });
+
+    it('does not render eyebrow when absent', () => {
+      const { container } = render(
+        <ContactModule data={makeData()} business={makeBusiness()} slug="tenant" />,
+      );
+
+      expect(container.querySelector('[data-testid="section-eyebrow"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('displayStyle: icon-cards', () => {
+    it('renders icon rows instead of plain text when displayStyle is "icon-cards"', () => {
+      const { container } = render(
+        <ContactModule
+          data={makeData({ displayStyle: 'icon-cards' })}
+          business={makeBusiness()}
+          slug="tenant"
+        />,
+      );
+
+      expect(container.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
+    });
+  });
+
+  describe('showInstagram / showFacebook toggles', () => {
+    it('hides Instagram when showInstagram is false even if URL exists', () => {
+      render(
+        <ContactModule
+          data={makeData({ showInstagram: false })}
+          business={makeBusiness({
+            socialLinks: {
+              whatsapp: null,
+              instagram: 'https://instagram.com/test',
+              facebook: null,
+            },
+          })}
+          slug="tenant"
+        />,
+      );
+
+      expect(screen.queryByRole('link', { name: 'Instagram' })).not.toBeInTheDocument();
+    });
+
+    it('hides Facebook when showFacebook is false even if URL exists', () => {
+      render(
+        <ContactModule
+          data={makeData({ showFacebook: false })}
+          business={makeBusiness({
+            socialLinks: { whatsapp: null, instagram: null, facebook: 'https://facebook.com/test' },
+          })}
+          slug="tenant"
+        />,
+      );
+
+      expect(screen.queryByRole('link', { name: 'Facebook' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('whatsappCtaLabel', () => {
+    it('uses custom label for the WhatsApp link when whatsappCtaLabel is provided', () => {
+      render(
+        <ContactModule
+          data={makeData({ whatsappCtaLabel: 'Chamar no WhatsApp' })}
+          business={makeBusiness()}
+          slug="tenant"
+        />,
+      );
+
+      expect(screen.getByRole('link', { name: 'Chamar no WhatsApp' })).toBeInTheDocument();
+    });
+  });
 });

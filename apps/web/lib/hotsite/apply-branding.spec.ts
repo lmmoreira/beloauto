@@ -120,8 +120,43 @@ describe('applyBranding', () => {
     expect(result['--ba-btn-border']).toBe('transparent');
   });
 
-  describe('--ba-hero-text contrast', () => {
-    it('derives --ba-hero-text from backgroundColor when it contrasts with primaryColor', () => {
+  describe('--ba-hero-bg and --ba-hero-text', () => {
+    it('defaults --ba-hero-bg to primaryColor when heroBgStyle is absent', () => {
+      const result = applyBranding(makeBranding({ primaryColor: '#0055A4' })) as CSSTokens;
+
+      expect(result['--ba-hero-bg']).toBe('#0055A4');
+    });
+
+    it('sets --ba-hero-bg to primaryColor when heroBgStyle is "primary"', () => {
+      const result = applyBranding(
+        makeBranding({ primaryColor: '#0055A4', heroBgStyle: 'primary' }),
+      ) as CSSTokens;
+
+      expect(result['--ba-hero-bg']).toBe('#0055A4');
+    });
+
+    it('sets --ba-hero-bg to backgroundColor when heroBgStyle is "background"', () => {
+      const result = applyBranding(
+        makeBranding({ backgroundColor: '#0A0A0A', heroBgStyle: 'background' }),
+      ) as CSSTokens;
+
+      expect(result['--ba-hero-bg']).toBe('#0A0A0A');
+    });
+
+    it('derives --ba-hero-text as high-contrast color against --ba-hero-bg', () => {
+      // dark hero bg → text should be the light color
+      const result = applyBranding(
+        makeBranding({
+          backgroundColor: '#0A0A0A',
+          textColor: '#FFFFFF',
+          heroBgStyle: 'background',
+        }),
+      ) as CSSTokens;
+
+      expect(result['--ba-hero-text']).toBe('#FFFFFF');
+    });
+
+    it('derives --ba-hero-text against primaryColor when heroBgStyle is "primary"', () => {
       const result = applyBranding(
         makeBranding({ primaryColor: '#0055A4', backgroundColor: '#FFFFFF', textColor: '#111111' }),
       ) as CSSTokens;
@@ -129,12 +164,43 @@ describe('applyBranding', () => {
       expect(result['--ba-hero-text']).toBe('#FFFFFF');
     });
 
-    it('falls back to textColor when backgroundColor would not contrast with primaryColor', () => {
+    it('falls back to textColor when backgroundColor would not contrast with hero bg', () => {
       const result = applyBranding(
         makeBranding({ primaryColor: '#F5F5F5', backgroundColor: '#FFFFFF', textColor: '#111111' }),
       ) as CSSTokens;
 
       expect(result['--ba-hero-text']).toBe('#111111');
+    });
+  });
+
+  describe('--ba-divider', () => {
+    it('is "none" when dividerStyle is absent', () => {
+      const result = applyBranding(makeBranding()) as CSSTokens;
+
+      expect(result['--ba-divider']).toBe('none');
+    });
+
+    it('is "none" when dividerStyle is "none"', () => {
+      const result = applyBranding(makeBranding({ dividerStyle: 'none' })) as CSSTokens;
+
+      expect(result['--ba-divider']).toBe('none');
+    });
+
+    it('is a gradient string containing the primaryColor when dividerStyle is "gradient"', () => {
+      const result = applyBranding(
+        makeBranding({ primaryColor: '#F5A800', dividerStyle: 'gradient' }),
+      ) as CSSTokens;
+
+      expect(result['--ba-divider']).toContain('#F5A800');
+      expect(result['--ba-divider']).toContain('linear-gradient');
+    });
+
+    it('equals secondaryColor when dividerStyle is "solid"', () => {
+      const result = applyBranding(
+        makeBranding({ secondaryColor: '#1A1A1A', dividerStyle: 'solid' }),
+      ) as CSSTokens;
+
+      expect(result['--ba-divider']).toBe('#1A1A1A');
     });
   });
 

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Passo 4 — Solicitação enviada</title>
+  <link rel="stylesheet" href="../../../shared/tokens.css">
+</head>
+<body>
+  <!--
+    VARIANT OF: 04-confirmation.html
+    SCENARIO:   POST /bookings/authenticated returned 201 Created. status = 'success' — the
+                entire step content is replaced with this view. Terminal state — no nav-buttons.
+    COMPONENT:  ConfirmationStep  apps/web/components/booking/ConfirmationStep.tsx  (EXISTS)
+    SUCCESS:    "Solicitação enviada! Aguarde a confirmação por email."
+                (data-testid="confirmation-success")
+    PRIMARY CTA links to the Agendamentos list (not the Início overview) — "go see what I
+    just booked" intent.
+  -->
+  <!-- BRAND + AUTH BAR -->
+  <div style="background:white;border-bottom:1px solid var(--ba-secondary);
+              padding:0.625rem 1.5rem;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:0.625rem;">
+      <div style="width:1.875rem;height:1.875rem;border-radius:0.375rem;background:var(--ba-primary);
+                  color:white;display:flex;align-items:center;justify-content:center;
+                  font-weight:700;font-size:0.8125rem;">B</div>
+      <span style="font-weight:700;font-size:0.9375rem;color:var(--ba-text);">BeloAuto Demo</span>
+    </div>
+    <div style="position: relative;">
+      <details>
+        <summary style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; list-style: none;
+                        color: var(--ba-text); font-size: 0.875rem; font-weight: 500; padding: 0;">
+          <div class="auth-avatar">JS</div>
+          <span>João Silva</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </summary>
+        <div style="
+          position: absolute; right: 0; top: calc(100% + 0.5rem);
+          background: white; border: 1px solid var(--ba-secondary);
+          border-radius: var(--ba-radius); box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+          min-width: 11rem; overflow: hidden; z-index: 50;
+        ">
+          <a href="../../../shared/customer-dashboard.html"
+             style="display: block; padding: 0.625rem 1rem; font-size: 0.875rem;
+                    color: var(--ba-text); text-decoration: none; font-weight: 500;">
+            Minha conta
+          </a>
+          <hr style="border: none; border-top: 1px solid var(--ba-secondary); margin: 0;">
+          <a href="../../../shared/hotsite.html"
+             style="display: block; padding: 0.625rem 1rem; font-size: 0.875rem;
+                    color: var(--ba-text); text-decoration: none; opacity: 0.6;">
+            Sair
+          </a>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="step-container">
+
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:var(--ba-radius);
+                padding:1.125rem 1.25rem;margin-bottom:1.5rem;
+                display:flex;align-items:flex-start;gap:0.875rem;">
+      <div style="width:2rem;height:2rem;border-radius:9999px;background:#16a34a;
+                  display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="white"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <div>
+        <p style="font-weight:700;font-size:0.9375rem;color:#15803d;margin-bottom:0.125rem;" data-testid="confirmation-success">Solicitação enviada!</p>
+        <p style="font-size:0.875rem;color:#166534;opacity:0.85;line-height:1.5;">Aguarde a confirmação por email.</p>
+      </div>
+    </div>
+
+    <ul style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.25rem; list-style: none; padding: 0;">
+      <li style="display: flex; justify-content: space-between; font-size: 0.875rem; color: var(--ba-text);">
+        <span>Lavagem Simples</span>
+        <span>R$ 60,00</span>
+      </li>
+    </ul>
+
+    <p style="font-weight: 600; color: var(--ba-text); margin-bottom: 0.5rem;">Total: R$ 60,00 — 30 min</p>
+    <p style="color: var(--ba-text); margin-bottom: 1.5rem;">Quarta-feira, 18 de junho às 10:00</p>
+
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <a href="../minha-conta/01-minha-conta.html" class="btn-primary">
+        Ver meus agendamentos
+      </a>
+      <a href="../../../shared/hotsite-logged-in.html"
+         style="display: inline-block; padding: 0.75rem 1.5rem;
+                border: 1px solid var(--ba-secondary); border-radius: var(--ba-radius);
+                color: var(--ba-text); text-decoration: none;">
+        Voltar ao site
+      </a>
+    </div>
+  </div>
+</body>
+</html>
