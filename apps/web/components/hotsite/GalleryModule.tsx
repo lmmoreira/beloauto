@@ -3,10 +3,12 @@ import type { GalleryModuleData } from '@beloauto/types';
 import { sectionHeadingFont } from '@/lib/hotsite/module-styles';
 import { GalleryGrid } from './GalleryGrid';
 import { GalleryItem } from './GalleryItem';
+import { SectionEyebrow } from './SectionEyebrow';
 
 interface GalleryModuleProps {
   readonly data: GalleryModuleData;
   readonly slug: string;
+  readonly bgVariant?: 'default' | 'alt';
 }
 
 const headingStyle: React.CSSProperties = {
@@ -14,12 +16,13 @@ const headingStyle: React.CSSProperties = {
   color: 'var(--ba-text)',
 };
 
-export function GalleryModule({ data, slug: _ }: GalleryModuleProps) {
+export function GalleryModule({ data, slug: _, bgVariant }: GalleryModuleProps) {
   if (data.images.length === 0) {
     return null;
   }
 
   const title = data.title ?? 'Nossos Resultados';
+  const bg = bgVariant === 'alt' ? 'var(--ba-secondary)' : 'var(--ba-background)';
   const gridClass =
     data.layout === 'masonry'
       ? 'columns-2 sm:columns-3 gap-4 [&>*]:mb-4'
@@ -29,12 +32,13 @@ export function GalleryModule({ data, slug: _ }: GalleryModuleProps) {
     <section
       id="gallery"
       style={{
-        backgroundColor: 'var(--ba-background)',
+        backgroundColor: bg,
         color: 'var(--ba-text)',
         padding: 'var(--ba-section-py) 1.5rem',
       }}
     >
       <div className="mx-auto max-w-7xl">
+        {data.eyebrow && <div className="text-center"><SectionEyebrow text={data.eyebrow} /></div>}
         <h2 className="mb-10 text-center text-3xl font-bold" style={headingStyle}>
           {title}
         </h2>

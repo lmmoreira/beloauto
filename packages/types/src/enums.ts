@@ -19,4 +19,5 @@ export type HotsiteModuleType =
   | 'TESTIMONIALS'
   | 'BOOKING_CTA'
   | 'ABOUT'
-  | 'CONTACT';
+  | 'CONTACT'
+  | 'FOOTER';

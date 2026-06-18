@@ -1,5 +1,12 @@
 import type { Metadata } from 'next';
-import type { ContactModuleData, HotsiteModuleType, ServiceListModuleData } from '@beloauto/types';
+import type {
+  BookingCtaModuleData,
+  ContactModuleData,
+  FooterModuleData,
+  HeroModuleData,
+  HotsiteModuleType,
+  ServiceListModuleData,
+} from '@beloauto/types';
 import { fetchManifest } from '@/lib/api/platform';
 import { fetchServices } from '@/lib/api/services';
 import { AboutModule } from '@/components/hotsite/AboutModule';
@@ -18,19 +25,9 @@ import { buildHotsiteMetadata, buildLocalBusinessJsonLd, toJsonLdScript } from '
 // Must be a literal. Keep in sync with HOTSITE_REVALIDATE_SECONDS in lib/hotsite/revalidate.ts.
 export const revalidate = 300;
 
-type ModuleComponent = React.ComponentType<{ data: Record<string, unknown>; slug: string }>;
-
-// Each module story (M12-S04 to S06) registers its component here. SERVICE_LIST and CONTACT are
-// handled separately below — they need extra data fetched/resolved at page level, not just manifest data.
-const MODULE_MAP: Partial<Record<HotsiteModuleType, ModuleComponent>> = {
-  // HeroModule is typed as { data: HeroModuleData; slug: string } — double cast isolates the
-  // type erasure to this single registry boundary; the component's own props stay fully typed.
-  HERO: HeroModule as unknown as ModuleComponent,
-  GALLERY: GalleryModule as unknown as ModuleComponent,
-  TESTIMONIALS: TestimonialsModule as unknown as ModuleComponent,
-  BOOKING_CTA: BookingCtaModule as unknown as ModuleComponent,
-  ABOUT: AboutModule as unknown as ModuleComponent,
-};
+// Module types that manage their own background (hero-bg / bgStyle) — they still count in the
+// alternation index so that the first content section after HERO is always the alt color.
+const NON_ALTERNATING_TYPES: ReadonlySet<HotsiteModuleType> = new Set(['HERO', 'BOOKING_CTA', 'FOOTER']);
 
 interface HotsitePageProps {
   params: Promise<{ slug: string }>;
@@ -59,50 +56,131 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
   const services = hasServiceList ? await fetchServices(slug) : [];
   const localBusinessJsonLd = buildLocalBusinessJsonLd({ manifest, slug });
 
+  const { branding, business, tenant } = manifest;
+  const alternateSectionBg = branding.alternateSectionBg ?? false;
+  const dividerStyle = branding.dividerStyle ?? 'none';
+  const tenantBrand = branding.brandName
+    ? { name: branding.brandName, tagline: branding.brandTagline }
+    : undefined;
+  // Display name for footer and brand card: prefer branding.brandName, fall back to tenant name.
+  const displayName = branding.brandName ?? tenant.name;
+
+  const enabledModules = manifest.layout.filter(
+    (m) => m.enabled && isValidModuleData(m.type, m.data),
+  );
+
+  // Every module — including HERO, BOOKING_CTA, FOOTER — advances the alternation counter so
+  // that the first content section after HERO gets the alt (secondary) background.
+  let altIndex = 0;
+  const modulesWithVariant = enabledModules.map((m) => {
+    const isAlt = alternateSectionBg && altIndex % 2 === 1;
+    altIndex++;
+    const participates = !NON_ALTERNATING_TYPES.has(m.type);
+    return { module: m, bgVariant: participates && isAlt ? ('alt' as const) : ('default' as const) };
+  });
+
+  const dividerEl =
+    dividerStyle !== 'none' ? (
+      <hr
+        aria-hidden="true"
+        style={{ border: 'none', height: '1px', background: 'var(--ba-divider)', margin: 0 }}
+      />
+    ) : null;
+
   return (
     <main>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: toJsonLdScript(localBusinessJsonLd) }}
       />
-      {manifest.layout
-        .filter((m) => m.enabled)
-        .map((m, index) => {
-          // Skip modules with data that fails its schema — a single malformed module must not
-          // take down the whole hotsite page.
-          if (!isValidModuleData(m.type, m.data)) {
-            return null;
-          }
+      {modulesWithVariant.map(({ module: m, bgVariant }, index) => {
+        const key = `${m.type}-${index}`;
+        let moduleEl: React.ReactNode = null;
 
-          if (m.type === 'SERVICE_LIST') {
-            return (
-              <ServiceListModule
-                key={`${m.type}-${index}`}
-                data={m.data as unknown as ServiceListModuleData}
-                slug={slug}
-                services={services}
-              />
-            );
-          }
+        if (m.type === 'HERO') {
+          moduleEl = (
+            <HeroModule
+              key={key}
+              data={m.data as unknown as HeroModuleData}
+              slug={slug}
+              tenantBrand={tenantBrand}
+            />
+          );
+        } else if (m.type === 'SERVICE_LIST') {
+          moduleEl = (
+            <ServiceListModule
+              key={key}
+              data={m.data as unknown as ServiceListModuleData}
+              slug={slug}
+              services={services}
+              bgVariant={bgVariant}
+            />
+          );
+        } else if (m.type === 'CONTACT') {
+          moduleEl = (
+            <ContactModule
+              key={key}
+              data={m.data as unknown as ContactModuleData}
+              business={business}
+              slug={slug}
+              bgVariant={bgVariant}
+            />
+          );
+        } else if (m.type === 'BOOKING_CTA') {
+          moduleEl = (
+            <BookingCtaModule
+              key={key}
+              data={m.data as unknown as BookingCtaModuleData}
+              slug={slug}
+              tenantBrand={tenantBrand}
+            />
+          );
+        } else if (m.type === 'GALLERY') {
+          moduleEl = (
+            <GalleryModule
+              key={key}
+              data={m.data as unknown as Parameters<typeof GalleryModule>[0]['data']}
+              slug={slug}
+              bgVariant={bgVariant}
+            />
+          );
+        } else if (m.type === 'TESTIMONIALS') {
+          moduleEl = (
+            <TestimonialsModule
+              key={key}
+              data={m.data as unknown as Parameters<typeof TestimonialsModule>[0]['data']}
+              slug={slug}
+              bgVariant={bgVariant}
+            />
+          );
+        } else if (m.type === 'ABOUT') {
+          moduleEl = (
+            <AboutModule
+              key={key}
+              data={m.data as unknown as Parameters<typeof AboutModule>[0]['data']}
+              slug={slug}
+              bgVariant={bgVariant}
+            />
+          );
+        } else if (m.type === 'FOOTER') {
+          moduleEl = (
+            <Footer
+              key={key}
+              data={m.data as unknown as FooterModuleData}
+              slug={slug}
+              tenantName={displayName}
+              business={business}
+            />
+          );
+        }
 
-          if (m.type === 'CONTACT') {
-            return (
-              <ContactModule
-                key={`${m.type}-${index}`}
-                data={m.data as unknown as ContactModuleData}
-                business={manifest.business}
-                slug={slug}
-              />
-            );
-          }
-
-          const Component = MODULE_MAP[m.type];
-          if (!Component) {
-            return null;
-          }
-          return <Component key={`${m.type}-${index}`} data={m.data} slug={slug} />;
-        })}
-      <Footer slug={slug} />
+        return moduleEl ? (
+          <div key={key}>
+            {index > 0 && m.type !== 'FOOTER' && dividerEl}
+            {moduleEl}
+          </div>
+        ) : null;
+      })}
     </main>
   );
 }

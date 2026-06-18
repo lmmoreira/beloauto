@@ -4,10 +4,12 @@ import Markdown, { type Components } from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
 import type { AboutModuleData } from '@beloauto/types';
 import { sectionHeadingFont } from '@/lib/hotsite/module-styles';
+import { SectionEyebrow } from './SectionEyebrow';
 
 interface AboutModuleProps {
   readonly data: AboutModuleData;
   readonly slug: string;
+  readonly bgVariant?: 'default' | 'alt';
 }
 
 const headingStyle: React.CSSProperties = {
@@ -39,11 +41,13 @@ const markdownComponents: Components = {
   ),
 };
 
-export function AboutModule({ data, slug: _ }: AboutModuleProps) {
+export function AboutModule({ data, slug: _, bgVariant }: AboutModuleProps) {
   const imagePosition = data.imagePosition ?? 'right';
+  const bg = bgVariant === 'alt' ? 'var(--ba-secondary)' : 'var(--ba-background)';
 
   const textBlock = (
     <div>
+      {data.eyebrow && <SectionEyebrow text={data.eyebrow} />}
       <h2 className="mb-6 text-3xl font-bold" style={headingStyle}>
         {data.title}
       </h2>
@@ -73,7 +77,7 @@ export function AboutModule({ data, slug: _ }: AboutModuleProps) {
     <section
       id="about"
       style={{
-        backgroundColor: 'var(--ba-background)',
+        backgroundColor: bg,
         color: 'var(--ba-text)',
         padding: 'var(--ba-section-py) 1.5rem',
       }}

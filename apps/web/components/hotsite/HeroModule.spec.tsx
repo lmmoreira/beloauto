@@ -86,6 +86,83 @@ describe('HeroModule', () => {
     });
   });
 
+  describe('eyebrow', () => {
+    it('renders eyebrow text when provided', () => {
+      render(
+        <HeroModule data={makeData({ eyebrow: 'Estética premium' })} slug="tenant" />,
+      );
+
+      expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('Estética premium');
+    });
+
+    it('does not render eyebrow when absent', () => {
+      const { container } = render(<HeroModule data={makeData()} slug="tenant" />);
+
+      expect(container.querySelector('[data-testid="section-eyebrow"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('secondary CTA', () => {
+    it('renders secondary CTA when secondaryCtaLabel and secondaryCtaTarget are provided', () => {
+      render(
+        <HeroModule
+          data={makeData({ secondaryCtaLabel: 'Ver serviços', secondaryCtaTarget: 'service-list' })}
+          slug="tenant"
+        />,
+      );
+
+      const secondaryCta = screen.getByTestId('hero-secondary-cta');
+      expect(secondaryCta).toHaveTextContent('Ver serviços');
+      expect(secondaryCta).toHaveAttribute('href', '#service-list');
+    });
+
+    it('does not render secondary CTA when secondaryCtaLabel is absent', () => {
+      const { container } = render(<HeroModule data={makeData()} slug="tenant" />);
+
+      expect(container.querySelector('[data-testid="hero-secondary-cta"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('rightPanel', () => {
+    it('renders brand card when rightPanel is "brand-card" and tenantBrand is provided', () => {
+      render(
+        <HeroModule
+          data={makeData({ variant: 'left-aligned', rightPanel: 'brand-card' })}
+          slug="tenant"
+          tenantBrand={{ name: 'BELOAUTO', tagline: 'Estética Automotiva' }}
+        />,
+      );
+
+      expect(screen.getByTestId('brand-card')).toBeInTheDocument();
+      expect(screen.getByTestId('brand-card')).toHaveTextContent('BELOAUTO');
+      expect(screen.getByTestId('brand-card-tagline')).toHaveTextContent('Estética Automotiva');
+    });
+
+    it('does not render brand card when rightPanel is "brand-card" but tenantBrand is absent', () => {
+      const { container } = render(
+        <HeroModule
+          data={makeData({ variant: 'left-aligned', rightPanel: 'brand-card' })}
+          slug="tenant"
+        />,
+      );
+
+      expect(container.querySelector('[data-testid="brand-card"]')).not.toBeInTheDocument();
+    });
+
+    it('renders brand card without tagline when tagline is absent', () => {
+      render(
+        <HeroModule
+          data={makeData({ variant: 'left-aligned', rightPanel: 'brand-card' })}
+          slug="tenant"
+          tenantBrand={{ name: 'MY BUSINESS' }}
+        />,
+      );
+
+      expect(screen.getByTestId('brand-card')).toHaveTextContent('MY BUSINESS');
+      expect(screen.queryByTestId('brand-card-tagline')).not.toBeInTheDocument();
+    });
+  });
+
   describe('CTA hover-fill styling', () => {
     it('CTA includes a hover background-fill class referencing --ba-btn-hover-bg', () => {
       render(<HeroModule data={makeData()} slug="tenant" />);
@@ -97,18 +174,35 @@ describe('HeroModule', () => {
   });
 
   describe('background image', () => {
-    it('renders img with correct src when backgroundImageUrl is provided', () => {
+    it('renders img with correct src when backgroundImageUrl is provided and rightPanel is "image"', () => {
       const { container } = render(
         <HeroModule
-          data={makeData({ backgroundImageUrl: 'https://storage.example.com/hero.jpg' })}
+          data={makeData({
+            variant: 'left-aligned',
+            backgroundImageUrl: 'https://storage.example.com/hero.jpg',
+            rightPanel: 'image',
+          })}
           slug="tenant"
         />,
       );
 
-      // alt="" marks the image as decorative (ARIA role="presentation") — query by tag
       const img = container.querySelector('img');
       expect(img).toBeInTheDocument();
       expect(img).toHaveAttribute('src', 'https://storage.example.com/hero.jpg');
+    });
+
+    it('defaults to showing image in right panel when backgroundImageUrl is provided and rightPanel is absent', () => {
+      const { container } = render(
+        <HeroModule
+          data={makeData({
+            variant: 'left-aligned',
+            backgroundImageUrl: 'https://storage.example.com/hero.jpg',
+          })}
+          slug="tenant"
+        />,
+      );
+
+      expect(container.querySelector('img')).toBeInTheDocument();
     });
 
     it('does not render img when backgroundImageUrl is absent', () => {

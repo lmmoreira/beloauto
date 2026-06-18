@@ -56,7 +56,7 @@
 | Root 404 | `app/not-found.tsx` |
 | `app/sitemap.ts` / `app/robots.ts` | `app/sitemap.ts`, `app/robots.ts` |
 | On-demand ISR revalidation route | `app/api/revalidate/route.ts` |
-| `HeroModule`, `ServiceListModule`, `GalleryModule`+`GalleryGrid`+`GalleryItem`, `TestimonialsModule`+`TestimonialsCarousel`+`TestimonialCard`, `AboutModule`, `ContactModule`, `BookingCtaModule`, `Unavailable`, `Footer` | `components/hotsite/*.tsx` (each with `*.spec.tsx`) |
+| `HeroModule`, `ServiceListModule`, `GalleryModule`+`GalleryGrid`+`GalleryItem`, `TestimonialsModule`+`TestimonialsCarousel`+`TestimonialCard`, `AboutModule`, `ContactModule`, `BookingCtaModule`, `Footer`, `SectionEyebrow`, `Unavailable` | `components/hotsite/*.tsx` (each with `*.spec.tsx` where applicable) |
 | `BookingForm`, `ServiceSelectionStep`, `AvailabilityCarousel`, `SlotPicker`, `PersonalInfoStep`, `AddressFields`, `PhotoUpload`, `ConfirmationStep` | `components/booking/*.tsx` (each with `*.spec.tsx`) |
 | `applyBranding()`, `BTN_STYLES`/`deriveButtonTokens`, `deriveHeroTextColor` | `lib/hotsite/apply-branding.ts` |
 | `FONT_MAP` / `FONT_VARIABLES` (8-font allow-list) | `lib/hotsite/font-config.ts` |
@@ -91,12 +91,13 @@
 
 ## Module System: `MODULE_MAP` + Validation Gate
 
-`HotsiteModuleType = 'HERO' | 'SERVICE_LIST' | 'GALLERY' | 'TESTIMONIALS' | 'BOOKING_CTA' | 'ABOUT' | 'CONTACT'`
+`HotsiteModuleType = 'HERO' | 'SERVICE_LIST' | 'GALLERY' | 'TESTIMONIALS' | 'BOOKING_CTA' | 'ABOUT' | 'CONTACT' | 'FOOTER'`
 
 - `MODULE_DATA_SCHEMAS: Partial<Record<HotsiteModuleType, z.ZodType>>` in `lib/hotsite/module-schemas.ts` — one Zod schema per module type, each declared `satisfies z.ZodType<XxxModuleData>`.
 - `isValidModuleData(type, data)` — `[slug]/page.tsx` calls this per layout entry; invalid/missing schema → module silently skipped (rest of page renders).
-- **New module type checklist:** add `XxxModuleData` to `packages/types/src/hotsite.ts` → add `XxxModuleDataSchema` to `MODULE_DATA_SCHEMAS` → add component to `MODULE_MAP` → write `*.spec.tsx`.
-- Component cast pattern: `MODULE_MAP: Record<HotsiteModuleType, ModuleComponent>` where `ModuleComponent = (props: { data: unknown; business: HotsiteBusinessInfoResponse }) => JSX.Element` — each module component casts `data` to its own type internally after the Zod gate has already validated it.
+- **New module type checklist:** (1) add `'FOOTER'` (or new name) to `HotsiteModuleType` in `packages/types/src/enums.ts` **and** the backend domain union in `hotsite-config.aggregate.ts` **and** both Zod enums (backend DTO + BFF controller); (2) add `XxxModuleData` to `packages/types/src/hotsite.ts` and mirror in `hotsite-config.aggregate.ts`; (3) add `XxxModuleDataSchema` to `MODULE_DATA_SCHEMAS`; (4) handle the module in `[slug]/page.tsx`; (5) write `*.spec.tsx`.
+- **Modules that need extra injected data** (beyond `data` and `slug`) are handled as explicit `if` branches in `[slug]/page.tsx` — not via `MODULE_MAP` — because they require props unavailable in the generic renderer. Current special-cases: `SERVICE_LIST` (needs `services[]`), `CONTACT` (needs `business`), `HERO` + `BOOKING_CTA` (need `tenantBrand`), `FOOTER` (needs `business` + `tenantName`).
+- `HotsiteModuleType` is defined in **two places** that must stay in sync: `packages/types/src/enums.ts` (shared) and `apps/backend/…/hotsite-config.aggregate.ts` (backend domain local copy).
 
 ---
 
@@ -113,7 +114,19 @@
 | `--ba-shadow` | `SHADOW[branding.shadowStyle]` — `none / subtle / strong` |
 | `--ba-btn-variant` | `branding.buttonStyle` (`filled\|outline\|ghost`) |
 | `--ba-btn-bg` / `--ba-btn-text` / `--ba-btn-border` / `--ba-btn-hover-bg` | `deriveButtonTokens()` — see below |
-| `--ba-hero-text` | `deriveHeroTextColor()` — WCAG contrast pick between `backgroundColor`/`textColor` against `primaryColor` |
+| `--ba-hero-bg` | `deriveHeroBg()` — `branding.heroBgStyle === 'background'` → `backgroundColor`; else `primaryColor` (default) |
+| `--ba-hero-text` | `deriveHeroTextColor()` — WCAG contrast pick between `backgroundColor`/`textColor` against **`--ba-hero-bg`** (not always `primaryColor`) |
+| `--ba-divider` | `deriveDivider()` — `'gradient'` → `linear-gradient(90deg, transparent, primaryColor, transparent)`; `'solid'` → `secondaryColor`; `'none'`/absent → `'none'` |
+
+**Visual rhythm branding fields (all optional, fully backward-compatible):**
+
+| Field | Effect |
+|---|---|
+| `heroBgStyle?: 'primary' \| 'background'` | Hero/CTA section background. `'primary'` = use `primaryColor` (old default). `'background'` = use `backgroundColor` (dark-theme best practice — prevents vivid primary colors clashing with logo images placed in the right panel). |
+| `alternateSectionBg?: boolean` | When `true`, every module in the layout advances an `altIndex` counter in `page.tsx`; odd-indexed modules get `bgVariant: 'alt'` (section bg = `--ba-secondary`). Even-indexed get `bgVariant: 'default'` (bg = `--ba-background`). |
+| `dividerStyle?: 'none' \| 'gradient' \| 'solid'` | `<hr>` element rendered between modules (before each module except the first and FOOTER). Background = `--ba-divider`. |
+| `brandName?: string` | Display name for the brand card and footer; takes priority over `tenant.name`. |
+| `brandTagline?: string` | Tagline displayed inside the brand card (hero/CTA right panel) and footer. |
 
 **`deriveButtonTokens()` (M12-S11 additions — `buttonBackgroundColor?`, `buttonTextColor?`, both optional hex, unset = byte-identical to pre-S11 output):**
 
@@ -232,6 +245,59 @@ export const viaCepAddressLookup: AddressLookup = { /* GET viacep.com.br, null o
 
 ---
 
+## Visual Rhythm System (bgVariant + Section Alternation)
+
+### altIndex counter — how it works
+
+`[slug]/page.tsx` iterates `enabledModules` and increments `altIndex` for **every** module — including `HERO`, `BOOKING_CTA`, and `FOOTER`, which do not use `bgVariant` for their own background. This is intentional: the position in the layout determines the rhythm, so the first content section after HERO always gets `altIndex % 2 === 1` (alt color).
+
+```
+HERO         altIndex=0 → isAlt=false → non-participating (uses --ba-hero-bg)
+SERVICE_LIST altIndex=1 → isAlt=true  → bgVariant='alt'   (--ba-secondary)
+BOOKING_CTA  altIndex=2 → isAlt=false → non-participating (uses bgStyle)
+GALLERY      altIndex=3 → isAlt=true  → bgVariant='alt'   (--ba-secondary)
+TESTIMONIALS altIndex=4 → isAlt=false → bgVariant='default'(--ba-background)
+ABOUT        altIndex=5 → isAlt=true  → bgVariant='alt'   (--ba-secondary)
+CONTACT      altIndex=6 → isAlt=false → bgVariant='default'(--ba-background)
+FOOTER       altIndex=7 → non-participating (always --ba-secondary, no bgVariant)
+```
+
+**If you only increment for participating types, SERVICE_LIST gets altIndex=0 (default) and is the same color as the hero — the most common mistake when modifying this loop.**
+
+### cardBg inversion rule (INVARIANT — never break)
+
+Modules that render card-shaped elements (`ServiceCard`, `TestimonialCard`, icon boxes in ContactModule `icon-cards` mode) must always use the **opposite** surface color from their section background:
+
+```
+section bgVariant='default' (--ba-background) → cardBg = --ba-secondary
+section bgVariant='alt'     (--ba-secondary)  → cardBg = --ba-background
+```
+
+This is computed at module level and passed down to sub-components (`cardBg` prop). Breaking this makes cards invisible against the section. When adding a new module with card elements, follow the same pattern.
+
+### FOOTER special rendering rules
+
+- **No divider before FOOTER** — `page.tsx` skips `dividerEl` when `m.type === 'FOOTER'`. A divider before the footer looks like an extra separator inside the page rather than a frame-closing element.
+- **FOOTER is always rendered last** — if the admin places FOOTER mid-layout, it renders in position like any other module, but the visual intent is always "last." Enforce ordering in the admin UI.
+- **FOOTER gets `tenantName` = `branding.brandName ?? tenant.name`** — `branding.brandName` takes priority over the database `tenant.name`. Same display name is used in the hero/CTA brand card.
+
+### HeroModule — rightPanel behavior
+
+`rightPanel` in `HeroModuleData` controls the right column of `left-aligned` variant:
+
+| `rightPanel` | Effect |
+|---|---|
+| `'brand-card'` | Renders dark card (`--ba-secondary` bg, `--ba-primary` border, brand name + tagline from `tenantBrand` prop). No image needed. |
+| `'image'` | Renders `backgroundImageUrl` in the right column with `--ba-radius` border. |
+| `'none'` | Single full-width text column; right column absent. |
+| absent | Auto-detected: `'image'` if `backgroundImageUrl` exists, else `'none'`. |
+
+`tenantBrand` is resolved in `page.tsx` as `{ name: branding.brandName, tagline: branding.brandTagline }` when `branding.brandName` is set. If absent, `tenantBrand` is `undefined` and `brand-card` renders nothing (safe no-op).
+
+`heroBgStyle: 'background'` is mandatory for dark-themed brands that use a logo image or brand card — the primary color as hero background creates jarring contrast with dark-background images.
+
+---
+
 ## Gotchas
 
 1. **`app/not-found.tsx` must be root-level**, not `app/[slug]/not-found.tsx` — a segment's own `layout.tsx` calling `notFound()` cannot be caught by that same segment's `not-found.tsx`; only an ancestor's.
@@ -246,3 +312,7 @@ export const viaCepAddressLookup: AddressLookup = { /* GET viacep.com.br, null o
 10. **`booking.dto.ts`/`schedule.dto.ts` were fully replaced in M12-S07** — `CompleteBookingRequest`/`RescheduleBookingRequest`/`RequestMoreInfoRequest`/`SubmitInfoRequest` were dropped as unused; they'll be re-added (mirroring the BFF's actual shapes) when the dashboard booking-management story is built (M13+).
 11. **`eslint-plugin-react-hooks`/`eslint-plugin-jsx-a11y` are scoped to `apps/web/eslint.config.js`** only (M12-S12) — `packages/config/eslint-base.js` is shared with backend/BFF, which have no JSX/hooks.
 12. **Client-side booking fetchers never use `next: { revalidate }`** — `schedule.ts`/`bookings.ts` must return live data; only server-rendered manifest/service fetches are ISR-cached.
+13. **`HotsiteModuleType` must be added in four places when introducing a new module type** — `packages/types/src/enums.ts`, `apps/backend/…/hotsite-config.aggregate.ts` (domain), `apps/backend/…/update-hotsite-content.dto.ts` (Zod enum), `apps/bff/…/hotsite-admin.controller.ts` (BFF Zod enum). Missing any one silently rejects the new type at the respective validation layer.
+14. **altIndex must increment for all modules, not just content sections** — see "Visual Rhythm System" section above. Incrementing only for participating types puts SERVICE_LIST on altIndex=0, same color as the hero.
+15. **Cards in alternating sections must flip their background color** — `cardBg = bgVariant === 'alt' ? 'var(--ba-background)' : 'var(--ba-secondary)'`. Passing `cardBg` down to sub-components (`ServiceCard`, `TestimonialCard`, `IconRow`) is mandatory. Omitting it makes cards invisible when the section is in alt mode.
+16. **Both branding schemas must be kept in sync** — backend `HotsiteBrandingSchema` (`update-hotsite-content.dto.ts`) and BFF `HotsiteBrandingBodySchema` (`hotsite-admin.controller.ts`) are independently maintained `.partial()` Zod objects. Adding a field to one without the other causes it to be silently stripped by whichever layer doesn't know about it (BFF strips first, so omitting from BFF is the higher-risk case).

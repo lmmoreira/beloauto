@@ -60,7 +60,7 @@ flowchart TD
 
 ## Open questions / gaps
 
-- [ ] **Route location** — are service pages under `/dashboard/services/` or `/[slug]/dashboard/services/`? Follow the pattern established for M125 booking pages.
+- [x] **Route location** — are service pages under `/dashboard/services/` or `/[slug]/dashboard/services/`? — **Resolved.** `/dashboard/services` (no slug) — `M13-S22`/`M13-S23`/`M13-S24` all use this, consistent with every other M13 dashboard route.
 - [ ] **Create as inactive** — UC-012 field list includes `isActive` (default: true). Does the create form expose a toggle to create a service as inactive from the start? Useful for drafting services before publishing.
 - [ ] **Deactivate UX** — prototype uses a dedicated confirmation page. Production could use a bottom sheet on the edit form instead. Confirm preference.
 - [ ] **Reactivate** — UC-013 covers deactivation but not reactivation. Can staff toggle `isActive = true` on an inactive service via the edit form? The PATCH endpoint supports it (same `update()` method). Clarify if reactivation is in scope.

@@ -168,7 +168,7 @@ UC-XXX: [Use Case Name]
   3. Admin enters message (e.g., "Please provide car photos")
   4. Admin clicks "Submit"
   5. System transitions booking: PENDING → INFO_REQUESTED
-  6. System records `infoRequestedAt`, `infoRequestedBy`, `infoRequestMessage` (required, max 200 chars)
+  6. System records `infoRequestedAt`, `infoRequestedBy`, `infoRequestMessage` (required, minimum 20 characters, no maximum)
   7. System publishes `BookingInfoRequested` event
   8. Admin sees confirmation
 
@@ -334,9 +334,9 @@ UC-XXX: [Use Case Name]
 
 ### **UC-010: Staff Manages Schedule Closures and Openings**
 
-#### **UC-010a: Staff/Manager Creates a Schedule Closure (Full Day or Partial)**
+#### **UC-010a: STAFF | MANAGER Creates a Schedule Closure (Full Day or Partial)**
 
-- **Actor:** Staff/Manager
+- **Actor:** STAFF | MANAGER
 - **Endpoint:** `POST /v1/schedule/closures`
 - **Preconditions:** Admin is authenticated. Date is not in the past.
 - **Trigger:** Admin clicks "Close Schedule" in the dashboard.
@@ -371,9 +371,9 @@ UC-XXX: [Use Case Name]
 
 ---
 
-#### **UC-010b: Staff/Manager Removes a Schedule Closure**
+#### **UC-010b: STAFF | MANAGER Removes a Schedule Closure**
 
-- **Actor:** Staff/Manager
+- **Actor:** STAFF | MANAGER
 - **Endpoint:** `DELETE /v1/schedule/closures/:id`
 - **Preconditions:** Closure exists and belongs to the tenant.
 - **Trigger:** Admin clicks "Remove" on a closure entry.
@@ -388,11 +388,11 @@ UC-XXX: [Use Case Name]
 
 ---
 
-#### **UC-010c: Staff/Manager Opens a Normally-Closed Day (Schedule Opening)**
+#### **UC-010c: STAFF | MANAGER Opens a Normally-Closed Day (Schedule Opening)**
 
 Used when `business_hours[dayOfWeek] = null` (e.g., Sunday is always closed) but the business wants to open on a specific date (e.g., a special event on a Sunday).
 
-- **Actor:** Staff/Manager
+- **Actor:** STAFF | MANAGER
 - **Endpoint:** `POST /v1/schedule/openings`
 - **Preconditions:** Admin is authenticated. The day-of-week for the selected date is closed in `business_hours`.
 - **Trigger:** Admin clicks "Open Schedule" on a normally-closed day in the calendar.
@@ -416,9 +416,9 @@ Used when `business_hours[dayOfWeek] = null` (e.g., Sunday is always closed) but
 
 ---
 
-#### **UC-010d: Staff/Manager Removes a Schedule Opening**
+#### **UC-010d: STAFF | MANAGER Removes a Schedule Opening**
 
-- **Actor:** Staff/Manager
+- **Actor:** STAFF | MANAGER
 - **Endpoint:** `DELETE /v1/schedule/openings/:id`
 - **Preconditions:** Opening exists and belongs to the tenant.
 - **Trigger:** Admin clicks "Remove" on an opening entry.
@@ -570,7 +570,7 @@ Returns:
 
 ### **UC-012: Admin Creates New Service**
 
-- **Actor:** Staff/Admin
+- **Actor:** STAFF | MANAGER
 - **Preconditions:** Admin is authenticated
 - **Trigger:** Admin clicks "Manage Services" → "Add Service"
 - **Main Flow:**
@@ -581,9 +581,9 @@ Returns:
      - Duration (minutes)
      - Loyalty points value
      - **Requires pickup address** (toggle, default off) — enable for services that require the customer to provide a pickup location (e.g. "Coleta e Entrega", "Busca em domicílio")
-     - `isActive` flag (default: `true`; set `false` to create as inactive)
+     - `isActive` flag (default: `true`; set `false` to create as inactive) **(requires a backend change to `Service.create()`/`CreateServiceSchema` to accept this parameter — not yet implemented as of this audit; flag for `M13-S05`)**
   2. Admin clicks "Create"
-  3. System validates: name unique within tenant, price ≥ 0, duration > 0
+  3. System validates: name unique within tenant, price must be greater than zero (> 0), duration > 0
   4. System creates Service aggregate with `requiresPickupAddress` flag
   5. Admin sees confirmation: "Serviço criado"
 
@@ -598,7 +598,7 @@ Returns:
 
 ### **UC-013: Admin Edits Service Details**
 
-- **Actor:** Staff/Admin
+- **Actor:** STAFF | MANAGER
 - **Preconditions:** Service exists
 - **Trigger:** Admin clicks "Manage Services" → selects service → "Edit"
 - **Main Flow:**
@@ -672,7 +672,7 @@ Returns:
 
 - **Postconditions:** One warning email sent per customer with expiring points. No DB rows written by the cron itself (state-free read + publish).
 - **Events Triggered:** `PointsExpiringSoon` (one per affected customer per tenant).
-- **Config key:** `settings.loyalty.expiry_warning_days` (integer, default 7, range 1–89, must be less than `expiry_days`).
+- **Config key:** `settings.loyalty.expiry_warning_days` (integer, default 7, range 1–90, must be less than `expiry_days`).
 - **Out of scope (MVP):** No per-service breakdown in the email. No opt-out mechanism.
 
 ---
@@ -1092,10 +1092,10 @@ Returns:
 | UC-007 | Customer cancels booking | Customer | APPROVED (with time window) \| PENDING \| INFO_REQUESTED → CANCELLED |
 | UC-008 | Admin cancels / reschedules booking | Admin | APPROVED/PENDING/INFO_REQUESTED → CANCELLED (`BookingCancelled`) or scheduledAt updated (`BookingRescheduled`) |
 | UC-009 | Mark booking complete | Staff | APPROVED → COMPLETED + photos + N LoyaltyEntry rows (one per line) |
-| UC-010 | Manage schedule closures and openings | Staff / Manager | ScheduleClosure or ScheduleOpening created/removed |
+| UC-010 | Manage schedule closures and openings | STAFF \| MANAGER | ScheduleClosure or ScheduleOpening created/removed |
 | UC-011 | View calendar | Any | Read available slots filtered by basket's total duration |
-| UC-012 | Create service | Staff / Manager | Service created with points value |
-| UC-013 | Edit service | Staff / Manager | Service updated |
+| UC-012 | Create service | STAFF \| MANAGER | Service created with points value |
+| UC-013 | Edit service | STAFF \| MANAGER | Service updated |
 | UC-016 | View loyalty metrics | Customer/Admin | Read-only: `current_points` (O(1) balance), next expiry date/points, paginated earning entries + redemptions |
 | UC-016b | Weekly loyalty expiry warning | System (cron) | Monday 06:00 UTC — emit `PointsExpiringSoon` per customer with expiring points; Notification context sends email |
 | UC-017 | View analytics | Admin | Future feature |

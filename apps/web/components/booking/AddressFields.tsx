@@ -32,6 +32,8 @@ function fieldBorderStyle(hasError: boolean): React.CSSProperties {
   return {
     borderRadius: 'var(--ba-radius)',
     borderColor: hasError ? '#dc2626' : 'var(--ba-secondary)',
+    backgroundColor: 'var(--ba-secondary)',
+    color: 'var(--ba-text)',
   };
 }
 

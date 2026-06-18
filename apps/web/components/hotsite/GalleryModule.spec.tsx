@@ -160,4 +160,18 @@ describe('GalleryModule', () => {
       expect(screen.queryByText('Depois')).not.toBeInTheDocument();
     });
   });
+
+  describe('eyebrow', () => {
+    it('renders eyebrow when provided', () => {
+      render(<GalleryModule data={makeData({ eyebrow: 'Resultados reais' })} slug="tenant" />);
+
+      expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('Resultados reais');
+    });
+
+    it('does not render eyebrow when absent', () => {
+      const { container } = render(<GalleryModule data={makeData()} slug="tenant" />);
+
+      expect(container.querySelector('[data-testid="section-eyebrow"]')).not.toBeInTheDocument();
+    });
+  });
 });

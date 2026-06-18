@@ -370,6 +370,8 @@ Before-service photo URLs: call `IStorageService.getSignedReadUrl(path)` per pho
 Verify and fill the BFF surface for staff service management. `POST /v1/services`, `PATCH /v1/services/:id`, and `DELETE /v1/services/:id` were implemented in M05 — this story confirms they exist and adds any missing pieces: a staff-authenticated list endpoint that returns **inactive** services (the public hotsite endpoint only returns `isActive: true`), and a single-service fetch for edit pre-fill.
 
 > 🔍 **Discover before starting:** Open `apps/bff/src/` and locate the services module (likely `platform/` or `catalog/`). Check: (a) does `GET /v1/services` already exist with a STAFF|MANAGER guard? Does it return `isActive`? (b) does `GET /v1/services/:id` exist for authenticated staff? (c) do `POST`, `PATCH`, `DELETE` endpoints exist with correct `@Roles('STAFF','MANAGER')` guard and `.http` blocks? List every gap — this story fills all of them.
+>
+> ⚠️ **Backend gap, not just BFF:** `CreateServiceRequest.isActive` below has no backing capability today — `Service.create()` in `apps/backend/src/contexts/booking/domain/service.aggregate.ts` hardcodes `isActive: true` with no override parameter, and `CreateServiceSchema` has no `isActive` field. Passing `isActive: false` through the BFF will not work until the backend's `Service.create()` and DTO/schema are extended to accept it — this is a backend-side change, out of scope for this BFF-only story unless explicitly pulled in.
 
 **Endpoints to verify or add:**
 

@@ -10,13 +10,18 @@ export interface HeroModuleData {
   variant: 'centered' | 'left-aligned';
   title: string;
   subtitle?: string;
+  eyebrow?: string;
   backgroundImageUrl?: string;
   ctaLabel: string;
   ctaTarget: 'booking-form' | 'service-list' | 'gallery' | 'testimonials' | 'about' | 'contact';
+  secondaryCtaLabel?: string;
+  secondaryCtaTarget?: 'booking-form' | 'service-list' | 'gallery' | 'testimonials' | 'about' | 'contact';
+  rightPanel?: 'none' | 'image' | 'brand-card';
 }
 
 export interface ServiceListModuleData {
   title?: string;
+  eyebrow?: string;
   showPrices: boolean;
   showPoints: boolean;
   layout: 'grid' | 'list';
@@ -32,6 +37,7 @@ export interface GalleryImage {
 
 export interface GalleryModuleData {
   title?: string;
+  eyebrow?: string;
   images: GalleryImage[];
   layout: 'grid' | 'masonry';
   maxVisible: number;
@@ -46,6 +52,7 @@ export interface Testimonial {
 
 export interface TestimonialsModuleData {
   title?: string;
+  eyebrow?: string;
   items: Testimonial[];
   layout: 'grid' | 'carousel';
 }
@@ -54,25 +61,40 @@ export interface BookingCtaModuleData {
   variant?: 'centered' | 'left-aligned';
   title: string;
   subtitle?: string;
+  eyebrow?: string;
   ctaLabel: string;
   backgroundImageUrl?: string;
   carouselDays?: number;
+  bgStyle?: 'primary' | 'background';
+  rightPanel?: 'none' | 'brand-card';
 }
 
 export interface AboutModuleData {
   title: string;
   body: string;
+  eyebrow?: string;
   imageUrl?: string;
   imagePosition: 'left' | 'right';
 }
 
+export interface FooterModuleData {
+  tagline?: string;
+  copyrightNote?: string;
+  showWhatsapp?: boolean;
+}
+
 export interface ContactModuleData {
   title?: string;
+  eyebrow?: string;
   showAddress: boolean;
   showPhone: boolean;
   showWhatsapp: boolean;
   showEmail: boolean;
   showMap: boolean;
+  showInstagram?: boolean;
+  showFacebook?: boolean;
+  displayStyle?: 'list' | 'icon-cards';
+  whatsappCtaLabel?: string;
 }
 
 // ─── BFF response types ───────────────────────────────────────────────────────
@@ -97,6 +119,13 @@ export interface HotsiteBrandingResponse {
   shadowStyle: 'none' | 'subtle' | 'strong';
   buttonBackgroundColor?: string;
   buttonTextColor?: string;
+  // Visual rhythm
+  heroBgStyle?: 'primary' | 'background';
+  alternateSectionBg?: boolean;
+  dividerStyle?: 'none' | 'gradient' | 'solid';
+  // Brand identity (used by brand-card rightPanel in hero/booking-cta)
+  brandName?: string;
+  brandTagline?: string;
 }
 
 export interface HotsiteSeoResponse {

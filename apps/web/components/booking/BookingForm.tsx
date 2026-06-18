@@ -112,6 +112,10 @@ export function BookingForm({ slug, services, carouselDays }: BookingFormProps) 
   }
 
   return (
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: 'var(--ba-background)', color: 'var(--ba-text)' }}
+    >
     <div className="mx-auto max-w-2xl px-6 py-12">
       <p className="mb-6 text-sm opacity-75" style={{ color: 'var(--ba-text)' }}>
         Passo {step} de {TOTAL_STEPS}
@@ -222,6 +226,7 @@ export function BookingForm({ slug, services, carouselDays }: BookingFormProps) 
           onBack={() => setStep(3)}
         />
       )}
+    </div>
     </div>
   );
 }

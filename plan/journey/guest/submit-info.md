@@ -3,7 +3,7 @@
 **Actor(s):** GUEST (main path — unauthenticated, email link); CUSTOMER (alt path — authenticated, via minha-conta)
 **Goal:** Submit the additional information requested by the admin so the booking returns to PENDING and can be approved.
 **UCs covered:** UC-005 A2
-**Status:** Draft
+**Status:** Reviewed — fully specced as `M13-S38`/`M13-S39`/`M13-S40` in `plan/M13-DASHBOARD-FRONTEND.md` (implementable, not yet built)
 
 ## Flow
 
@@ -71,5 +71,5 @@ Also update the companion `.spec.ts` to expect the new path. This is a backend c
 
 - [ ] Tenant branding on this page — see canonical description in `prototypes/submit-info/dev-notes.md` § Known limitations ("No branding per tenant").
 - [ ] Photo upload: presigned URL endpoint needed for unauthenticated context — does `POST /v1/bookings/:id/presigned-url/guest?token=` exist, or does the guest just submit text and a staff member uploads photos later?
-- [ ] What should the page say if the booking has already been approved/rejected before the guest submits info (booking status is no longer `INFO_REQUESTED`)?
+- [x] What should the page say if the booking has already been approved/rejected before the guest submits info (booking status is no longer `INFO_REQUESTED`)? — **Resolved.** The API returns `409`/non-`INFO_REQUESTED`; `M13-S40`'s invalid-link view gets a `reason="processed"` variant with copy "este agendamento já foi processado."
 - [ ] Does the "Criar conta / Entrar" link on the success screen (`02-success.html`) generate real value for the guest at that moment, or is it noise that distracts from the confirmation message? (raised in `prototypes/submit-info/index.html` dry-run checklist item 5)

@@ -151,4 +151,26 @@ describe('ServiceListModule', () => {
 
     expect(container.querySelector('section#service-list')).toBeInTheDocument();
   });
+
+  describe('eyebrow', () => {
+    it('renders eyebrow when provided', () => {
+      render(
+        <ServiceListModule
+          data={makeData({ eyebrow: 'O que fazemos' })}
+          slug="tenant"
+          services={[makeService()]}
+        />,
+      );
+
+      expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('O que fazemos');
+    });
+
+    it('does not render eyebrow when absent', () => {
+      const { container } = render(
+        <ServiceListModule data={makeData()} slug="tenant" services={[makeService()]} />,
+      );
+
+      expect(container.querySelector('[data-testid="section-eyebrow"]')).not.toBeInTheDocument();
+    });
+  });
 });

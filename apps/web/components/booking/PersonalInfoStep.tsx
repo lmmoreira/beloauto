@@ -50,6 +50,8 @@ function errorBorderStyle(isInvalid: boolean): React.CSSProperties {
   return {
     borderRadius: 'var(--ba-radius)',
     borderColor: isInvalid ? '#dc2626' : 'var(--ba-secondary)',
+    backgroundColor: 'var(--ba-secondary)',
+    color: 'var(--ba-text)',
   };
 }
 
@@ -144,10 +146,11 @@ export function PersonalInfoStep({
           </label>
           <div className="flex">
             <span
-              className="flex items-center border border-r-0 bg-gray-50 px-3 text-sm font-medium"
+              className="flex items-center border border-r-0 px-3 text-sm font-medium"
               style={{
                 borderRadius: 'var(--ba-radius) 0 0 var(--ba-radius)',
                 borderColor: fieldError?.field === 'phone' ? '#dc2626' : 'var(--ba-secondary)',
+                backgroundColor: 'var(--ba-secondary)',
                 color: 'var(--ba-text)',
               }}
             >
@@ -169,6 +172,8 @@ export function PersonalInfoStep({
               style={{
                 borderRadius: '0 var(--ba-radius) var(--ba-radius) 0',
                 borderColor: fieldError?.field === 'phone' ? '#dc2626' : 'var(--ba-secondary)',
+                backgroundColor: 'var(--ba-secondary)',
+                color: 'var(--ba-text)',
               }}
               aria-invalid={fieldError?.field === 'phone' ? true : undefined}
             />

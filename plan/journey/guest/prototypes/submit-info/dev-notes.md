@@ -54,10 +54,10 @@ try {
 
 **BFF call to pre-fill booking summary:**
 ```
-GET /v1/bookings/:id/submit-info/guest?token=<JWT>
-  (verify this endpoint exists — if not, omit booking summary or use a minimal guest booking fetch)
+GET /v1/bookings/:id/guest?token=<JWT>
+  (specified in M13-S39 — optional; M13-S40 can ship without it)
 ```
-*Fallback if endpoint doesn't exist:* render the form without booking summary (just "Booking ID: …"). The submission itself still works.
+*Fallback if `M13-S39` hasn't shipped:* render the form without booking summary (just "Booking ID: …"). The submission itself still works.
 
 **Form component props:**
 ```ts
@@ -132,7 +132,7 @@ Shows: green check icon + "Resposta enviada!" + booking summary card + "Ir para 
 ## Known limitations
 
 - **No branding per tenant (canonical description — `submit-info.md` cross-references this entry):** The page currently shows default `--ba-*` tokens. To show the tenant's actual branding: either the token includes `tenantId` only and the page calls `GET /v1/public/tenants/:tenantId/config` (or similar) to fetch branding, or the token includes `tenantSlug` so branding can be fetched the same way the hotsite does (via slug). Decision pending — tracked as an open question in `submit-info.md` "Open questions / gaps".
-- **No booking summary endpoint for guests:** There is no confirmed `GET /v1/bookings/:id/submit-info/guest?token=` endpoint. If missing, render the form without a summary card.
+- **Booking summary endpoint for guests:** `GET /v1/bookings/:id/guest?token=` is specified in `M13-S39` (optional — M13-S40 can ship without it). If `M13-S39` hasn't shipped yet, render the form without a summary card.
 - **Photo upload unconfirmed:** Presigned-URL endpoint for unauthenticated context may not exist. Default to text-only in MVP.
 
 ## Mobile notes

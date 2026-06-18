@@ -14,7 +14,7 @@ Fields with domain validation → `src/shared/value-objects/` (never plain primi
 | Email address | `Email` | `email.vo.ts` |
 | Phone number | `PhoneNumber` | `phone-number.vo.ts` |
 | Physical address | `Address` | `address.ts` |
-| Money amount | `Money` | `money.vo.ts` (future) |
+| Money amount | `Money` | `money.ts` |
 | Hex colour | `HexColor` | `hex-color.vo.ts` |
 | IANA timezone | `Timezone` | `timezone.vo.ts` |
 | HH:MM time | `TimeOfDay` | `time-of-day.vo.ts` |

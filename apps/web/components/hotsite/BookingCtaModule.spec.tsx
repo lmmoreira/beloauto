@@ -64,4 +64,48 @@ describe('BookingCtaModule', () => {
 
     expect(container.querySelector('img')).not.toBeInTheDocument();
   });
+
+  describe('eyebrow', () => {
+    it('renders eyebrow when provided', () => {
+      render(
+        <BookingCtaModule
+          data={makeData({ eyebrow: 'Reserve agora' })}
+          slug="lavacar-beloauto"
+        />,
+      );
+
+      expect(screen.getByTestId('section-eyebrow')).toHaveTextContent('Reserve agora');
+    });
+
+    it('does not render eyebrow when absent', () => {
+      const { container } = render(<BookingCtaModule data={makeData()} slug="lavacar-beloauto" />);
+
+      expect(container.querySelector('[data-testid="section-eyebrow"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('rightPanel brand-card', () => {
+    it('renders brand card when rightPanel is "brand-card" and tenantBrand is provided', () => {
+      render(
+        <BookingCtaModule
+          data={makeData({ variant: 'left-aligned', rightPanel: 'brand-card' })}
+          slug="lavacar-beloauto"
+          tenantBrand={{ name: 'BELOAUTO', tagline: 'Estética Automotiva' }}
+        />,
+      );
+
+      expect(screen.getByTestId('booking-cta-brand-card')).toBeInTheDocument();
+    });
+
+    it('does not render brand card when tenantBrand is absent', () => {
+      const { container } = render(
+        <BookingCtaModule
+          data={makeData({ variant: 'left-aligned', rightPanel: 'brand-card' })}
+          slug="lavacar-beloauto"
+        />,
+      );
+
+      expect(container.querySelector('[data-testid="booking-cta-brand-card"]')).not.toBeInTheDocument();
+    });
+  });
 });

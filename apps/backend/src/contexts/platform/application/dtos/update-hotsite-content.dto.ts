@@ -22,6 +22,11 @@ const HotsiteBrandingSchema = z
     shadowStyle: z.enum(['none', 'subtle', 'strong']),
     buttonBackgroundColor: z.string().refine(HexColor.isValid, HEX_COLOR_MESSAGE),
     buttonTextColor: z.string().refine(HexColor.isValid, HEX_COLOR_MESSAGE),
+    heroBgStyle: z.enum(['primary', 'background']),
+    alternateSectionBg: z.boolean(),
+    dividerStyle: z.enum(['none', 'gradient', 'solid']),
+    brandName: z.string().max(100),
+    brandTagline: z.string().max(200),
   })
   .partial();
 
@@ -34,6 +39,7 @@ const HotsiteModuleSchema = z.object({
     'BOOKING_CTA',
     'ABOUT',
     'CONTACT',
+    'FOOTER',
   ]),
   enabled: z.boolean(),
   data: z.record(z.string(), z.unknown()),

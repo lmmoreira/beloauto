@@ -7,7 +7,7 @@ Optional argument: `$ARGUMENTS`
 - A milestone prefix, e.g. `M13` — read `plan/M13-*.md` (excluding `_IMPLEMENTATION_DETAILS_*` files) and scope to every doc/UC/journey/milestone path it actually cites (see Step 1).
 - A journey path, e.g. `staff/agenda` — scope to that actor's `<slug>.md` + `prototypes/<slug>/` folder (including `dev-notes.md`, `index.html`).
 - A single doc path, e.g. `docs/14-API_CONTRACTS.md` — scope to that file.
-- Blank — audit **everything**: every UC, every Category-A doc (see Step 1), every active milestone, every journey, and `CLAUDE.md` itself. This is the expensive, full-sweep mode — use deliberately, not as a default habit.
+- Blank — audit **everything**: every UC, every doc under `docs/` (all of them — see Step 1's depth split), every milestone (active drafts *and* completed ones), every journey, and `CLAUDE.md` itself. Nothing is excluded from scope; what varies is audit *depth* (see Step 1). This is the expensive, full-sweep mode — use deliberately, not as a default habit.
 
 Fix nothing without permission — audit first, propose fixes, then write only what the user approves (CLAUDE.md §0).
 
@@ -31,13 +31,13 @@ Grep the **entire file** (not just "Docs to load" lines — story blocks cite pa
 
 **Bare-filename rule:** within one citation list/line, a filename with no directory prefix (e.g. `dev-notes.md`, `05-reschedule.html`) inherits the most recent fully-qualified `plan/journey/.../` directory mentioned earlier in the same field.
 
-Drop any Category-B doc found (see below) — low audit value, skip silently. Keep Category-A docs.
+**Every doc found stays in scope — nothing is dropped.** What varies is audit *depth*, decided by whether a concrete artifact exists to diff the doc against:
 
-**Category-A docs (code-checkable, worth auditing against code):** `docs/02-DOMAIN_MODEL.md`, `03-DOMAIN_EVENTS.md`, `04-USE_CASES.md`, `05-BOUNDED_CONTEXTS.md`, `06-TENANT_ISOLATION_STRATEGY.md`, `11-ARCHITECTURE.md`, `13-DATABASE_SCHEMA.md`, `14-API_CONTRACTS.md`, `15-HOTSITE_DYNAMIC_ARCHITECTURE.md`, `16-DASHBOARD_FRONTEND_ARCHITECTURE.md`, `21-TENANTS_SETTINGS_SCHEMA.md`, `24-BFF_ARCHITECTURE.md`, `25-ERROR_CATALOG.md`, `ANTI_PATTERNS.md`, `CI_TRAPS.md`, `CODE_STANDARDS.md`, `ENGINEERING_RULES.md`, `REPOSITORY_STRUCTURE.md`, `VALUE_OBJECTS_REFERENCE.md`.
+**Deep-check docs (verified against a real code/config artifact via Explore agents, Step 2b):** `docs/02-DOMAIN_MODEL.md`, `03-DOMAIN_EVENTS.md`, `04-USE_CASES.md`, `05-BOUNDED_CONTEXTS.md`, `06-TENANT_ISOLATION_STRATEGY.md`, `11-ARCHITECTURE.md`, `13-DATABASE_SCHEMA.md`, `14-API_CONTRACTS.md`, `15-HOTSITE_DYNAMIC_ARCHITECTURE.md`, `16-DASHBOARD_FRONTEND_ARCHITECTURE.md`, `17-GITHUB_WORKFLOWS_GUIDELINES.md`, `18-RELEASE_LIFECYCLE_OPERATIONS.md`, `21-TENANTS_SETTINGS_SCHEMA.md`, `24-BFF_ARCHITECTURE.md`, `25-ERROR_CATALOG.md`, `ANTI_PATTERNS.md`, `CI_TRAPS.md`, `CODE_STANDARDS.md`, `ENGINEERING_RULES.md`, `REPOSITORY_STRUCTURE.md`, `VALUE_OBJECTS_REFERENCE.md`. (`17`/`18` verify against `.github/workflows/*.yml`, `docker-compose.yml`, and health-check routes — not domain code, but still a real artifact, so they get the same agent treatment as the rest of this list, not the lighter pass below.)
 
-**Category-B docs (stable process/decision prose — never scoped in):** everything else under `docs/` (e.g. `01-BUSINESS_CONTEXT.md`, `07-ENGINEERING_PRINCIPLES.md`, `08-TESTING_STRATEGY.md`, `09-CI_CD_PIPELINE.md`, `10-OBSERVABILITY_STRATEGY.md`, `12-DEPLOYMENT_STRATEGY.md`, `17-GITHUB_WORKFLOWS_GUIDELINES.md`, `18-RELEASE_LIFECYCLE_OPERATIONS.md`, `19-INFRASTRUCTURE_TOOLING_MAP.md`, `20-COST_OPTIMIZATION_STRATEGY.md`, `22-TECH_STACK_DECISIONS.md`, `23-INFRASTRUCTURE_SETUP.md`, `AGENT_PATTERNS.md`, `AI_AGENT_DOCUMENTATION.md`, `QUICK_REFERENCE.md`, `README.md`, `docs/lean/*`).
+**Light-check docs (direct-read pass only, Step 3f — no agent spawn, no code artifact to diff against, but still read and checked for staleness/contradictions):** every other file under `docs/` not listed above (e.g. `01-BUSINESS_CONTEXT.md`, `07-ENGINEERING_PRINCIPLES.md`, `08-TESTING_STRATEGY.md`, `09-CI_CD_PIPELINE.md`, `10-OBSERVABILITY_STRATEGY.md`, `12-DEPLOYMENT_STRATEGY.md`, `19-INFRASTRUCTURE_TOOLING_MAP.md`, `20-COST_OPTIMIZATION_STRATEGY.md`, `22-TECH_STACK_DECISIONS.md`, `23-INFRASTRUCTURE_SETUP.md`, `AGENT_PATTERNS.md`, `AI_AGENT_DOCUMENTATION.md`, `QUICK_REFERENCE.md`, `README.md`, `docs/lean/*`).
 
-Also note any prose-only mentions outside story blocks (e.g. an "Architecture & conventions" section, a supersession note naming old milestone files) — include cited Category-A docs/journeys from there too, but exclude filenames that are clearly historical/dead references (e.g. inside a "(formerly ...)" or "supersedes ..." note) — those are deliberate history, not live citations.
+Also note any prose-only mentions outside story blocks (e.g. an "Architecture & conventions" section, a supersession note naming old milestone files) — include cited docs/journeys from there too (deep- or light-check, per the lists above), but exclude filenames that are clearly historical/dead references (e.g. inside a "(formerly ...)" or "supersedes ..." note) — those are deliberate history, not live citations.
 
 ### If `$ARGUMENTS` is a journey path (e.g. `staff/agenda`)
 Scope = `plan/journey/<actor>/<slug>.md`, `plan/journey/<actor>/prototypes/<slug>/` (all files), `plan/journey/<actor>/use-cases.md`, `plan/journey/README.md`'s index row for this journey.
@@ -46,7 +46,7 @@ Scope = `plan/journey/<actor>/<slug>.md`, `plan/journey/<actor>/prototypes/<slug
 Scope = that file.
 
 ### If `$ARGUMENTS` is blank
-Scope = every UC, every Category-A doc, every active milestone (`plan/M*.md` with no matching `_IMPLEMENTATION_DETAILS_IA.md`), every journey under `plan/journey/`, and `CLAUDE.md`/`.copilot/context.md`.
+Scope = every UC, every doc under `docs/` (deep-check list + light-check list, both), every milestone — active drafts (`plan/M*.md` with no matching `_IMPLEMENTATION_DETAILS_IA.md`) get the full deep self-consistency pass (Step 3c), completed milestones (the 13 with an `_IMPLEMENTATION_DETAILS_IA.md`) get the light pass (Step 3f) — every journey under `plan/journey/`, and `CLAUDE.md`/`.copilot/context.md`.
 
 ### Print the resolved scope before proceeding
 
@@ -54,9 +54,11 @@ Scope = every UC, every Category-A doc, every active milestone (`plan/M*.md` wit
 ## Docs Audit — scope resolved for <argument>
 
 UCs: <list or "none">
-Category-A docs: <list or "none">
+Deep-check docs: <list or "none">
+Light-check docs: <list or "none">
 Journeys: <list or "none">
-Milestone files: <list or "none">
+Milestone files (deep): <list or "none">
+Milestone files (light): <list or "none">
 CLAUDE.md/context.md: always included
 
 → This will spawn <N> agent(s): <list categories>.
@@ -80,13 +82,15 @@ Spawn 3 Explore agents, in parallel:
 
 - **Agent C — Entities, enums, settings keys & frontend pages:** for every domain term an in-scope UC asserts as a concrete shape (module types, status enums, `tenants.settings` keys, table/column names), grep the relevant `*.aggregate.ts`, enum, or `docs/21-TENANTS_SETTINGS_SCHEMA.md` and report whether the doc's list matches the code's. Separately, for every in-scope UC that implies a dedicated frontend page/route (a distinct "guest views X" / "customer submits Y" screen, not just an API call), check `apps/web/app/` for a matching page and report MISSING if none exists — this is the IA-gap signal that feeds `plan/journey/`.
 
-### (b) Category-A docs vs code — only for non-empty buckets, max 3 agents total
+### (b) Deep-check docs vs their artifact — only for non-empty buckets, max 4 agents total
 
 - **Schema/data bucket** (`02-DOMAIN_MODEL.md`, `03-DOMAIN_EVENTS.md`, `13-DATABASE_SCHEMA.md`, `21-TENANTS_SETTINGS_SCHEMA.md`, whichever are in scope): grep aggregates, event classes, migrations, and the settings VO for whether the doc's claimed shapes (entity fields, event names/payloads, table/column names, settings keys + defaults) match.
 
 - **Architecture/contracts bucket** (`05-BOUNDED_CONTEXTS.md`, `06-TENANT_ISOLATION_STRATEGY.md`, `11-ARCHITECTURE.md`, `14-API_CONTRACTS.md`, `15-HOTSITE_DYNAMIC_ARCHITECTURE.md`, `16-DASHBOARD_FRONTEND_ARCHITECTURE.md`, `24-BFF_ARCHITECTURE.md`, `25-ERROR_CATALOG.md`, whichever are in scope): grep module/controller structure, error mapper classes, and the tenant-isolation interceptor for whether the doc's described boundaries/contracts/error catalog match.
 
 - **Standards/structure bucket** (`ANTI_PATTERNS.md`, `CI_TRAPS.md`, `CODE_STANDARDS.md`, `ENGINEERING_RULES.md`, `REPOSITORY_STRUCTURE.md`, `VALUE_OBJECTS_REFERENCE.md`, whichever are in scope): grep for whether named patterns/forbidden-patterns/VO class names/file locations still match the actual codebase.
+
+- **Process/CI bucket** (`17-GITHUB_WORKFLOWS_GUIDELINES.md`, `18-RELEASE_LIFECYCLE_OPERATIONS.md`, whichever are in scope): grep `.github/workflows/*.yml` for whether the documented CI gate list (lint, type-check, tests, Snyk/Gitleaks, SonarCloud) and branch-naming convention actually match; grep `docker-compose.yml` for whether the documented local-dev services (Postgres, Pub/Sub emulator, Prometheus/Grafana) match; check whether a `/health/ready`-style endpoint exists if the doc claims a smoke test against one.
 
 Each bucket's agent runs ONLY if at least one of its docs is in the resolved scope.
 
@@ -100,10 +104,10 @@ Each bucket's agent runs ONLY if at least one of its docs is in the resolved sco
 - `.copilot/context.md` §6 UC index matches the summary table in `docs/04-USE_CASES.md`
 - Any booking-status transition named in a UC is valid per CLAUDE.md §5; no UC references `NO_SHOW`, UC-014, or UC-015 as active
 
-### 3b. Cross-doc consistency — for any in-scope Category-A doc pair that cross-references
-- e.g. does `CLAUDE.md` §3's Bounded Contexts table match `docs/05-BOUNDED_CONTEXTS.md`? Does §1's project-facts table match `docs/22-TECH_STACK_DECISIONS.md`/`13-DATABASE_SCHEMA.md` where they overlap?
+### 3b. Cross-doc consistency — for any in-scope doc pair that cross-references (deep- or light-check)
+- e.g. does `CLAUDE.md` §3's Bounded Contexts table match `docs/05-BOUNDED_CONTEXTS.md`? Does §1's project-facts table match `docs/22-TECH_STACK_DECISIONS.md`/`13-DATABASE_SCHEMA.md` where they overlap? Does `20-COST_OPTIMIZATION_STRATEGY.md`'s infra choices (e.g. "Cloud Run/Fargate" as parallel options) still match the project's actual committed decision in CLAUDE.md §1 (GCP-only)?
 
-### 3c. Milestone self-consistency — only if a milestone file is in scope
+### 3c. Active-milestone self-consistency (deep) — only if an active draft milestone file is in scope
 - Every story header is the full `### M0X-Sxx — <title>` form, never a bare `### Sxx`
 - Every `Dependencies:` line references a story ID that exists, either earlier in the same file or in an already-completed prior milestone — flag any forward reference (a story depending on a later-numbered sibling in the same file)
 - Exactly one canonical `plan/M0X-*.md` file exists for this prefix (already checked in Step 1; re-confirm here if this step runs standalone via a doc-path argument)
@@ -123,6 +127,14 @@ Direct-read pass per in-scope journey. Only promote to a real subagent — bound
 - §3's Bounded Contexts table matches `docs/05-BOUNDED_CONTEXTS.md`
 - §10's dynamic-loading table references files that actually exist on disk
 - §17's command table lists every file actually present in `.claude/commands/`, and vice versa
+
+### 3f. Light-check pass — for every in-scope light-check doc and every in-scope completed milestone
+No code/config artifact to diff against, so this is a direct read, not a grep-driven check. For each in-scope light-check doc (see Step 1's list) and each in-scope completed milestone's `_IMPLEMENTATION_DETAILS_IA.md`:
+- Internally consistent — no self-contradictory statements, no stale numbers/dates left over from an earlier draft
+- Still aligned with decisions recorded elsewhere (CLAUDE.md, a deep-check doc, a later milestone) — e.g. naming a vendor/tool/strategy that a later, more authoritative doc has since superseded
+- Cross-references (file paths, doc names, other milestones) still resolve to something that exists
+- Confusing or ambiguous wording that would slow down a reader — flag with a suggested rewording, don't just say "unclear"
+- For a completed milestone's IA doc specifically: still an accurate record of what shipped (no contradiction with the current codebase structure) — this is a much lighter check than 3c's, since the milestone is done and not being actively edited
 
 ---
 
