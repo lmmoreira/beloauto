@@ -90,12 +90,12 @@ export default async function HotsitePage({ params }: HotsitePageProps) {
   });
 
   const dividerEl =
-    dividerStyle !== 'none' ? (
+    dividerStyle === 'none' ? null : (
       <hr
         aria-hidden="true"
         style={{ border: 'none', height: '1px', background: 'var(--ba-divider)', margin: 0 }}
       />
-    ) : null;
+    );
 
   return (
     <main>
